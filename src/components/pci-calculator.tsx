@@ -7,7 +7,7 @@ import * as z from "zod";
 import { format, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
 import { CalendarIcon, Circle, Leaf, Droplets, Fuel, Mountain, Recycle, ShoppingBag, Trash2, TreePine, Layers, Building, Beaker } from 'lucide-react';
-import { collection, addDoc } from "firebase/firestore"; 
+import { collection, addDoc, Timestamp } from "firebase/firestore"; 
 
 
 import { cn } from "@/lib/utils";
@@ -136,7 +136,7 @@ export function PciCalculator() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSaving(true);
     try {
-      const pci_brut = calculerPCI(values.pcs, values.h2o, values.type_combustible, Number(values.chlore));
+      const pci_brut = calculerPCI(values.pcs, values.h2o, values.type_combustible, Number(values.chlore) || 0);
 
       if (pci_brut === null) {
           toast({
@@ -150,6 +150,7 @@ export function PciCalculator() {
       
       const dataToSave = {
         ...values,
+        date_arrivage: Timestamp.fromDate(values.date_arrivage),
         pci_brut,
         chlore: Number(values.chlore) || 0,
         cendres: Number(values.cendres) || 0,
@@ -167,12 +168,16 @@ export function PciCalculator() {
 
       resetForm();
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("Erreur lors de l'enregistrement dans Firestore: ", error);
+        let description = "Impossible d'enregistrer les données. Vérifiez la console pour plus de détails.";
+        if (error.code === 'permission-denied') {
+            description = "Permission refusée. Veuillez vérifier les règles de sécurité de votre base de données Firestore."
+        }
         toast({
             variant: "destructive",
             title: "Erreur d'enregistrement",
-            description: "Impossible d'enregistrer les données. Vérifiez la console pour plus de détails.",
+            description,
         });
     } finally {
         setIsSaving(false);
