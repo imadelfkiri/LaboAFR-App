@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { CalendarIcon, Circle, Leaf, Droplets, Fuel, Mountain, Recycle, ShoppingBag, Trash2, TreePine, Layers } from 'lucide-react';
+import { CalendarIcon, Circle, Leaf, Droplets, Fuel, Mountain, Recycle, ShoppingBag, Trash2, TreePine, Layers, Building, Beaker } from 'lucide-react';
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -39,16 +39,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { calculerPCI, FUEL_TYPES } from '@/lib/pci';
+import { calculerPCI } from '@/lib/pci';
 import { Separator } from '@/components/ui/separator';
+import { FUEL_TYPES, FOURNISSEURS } from '@/lib/data';
+
 
 const formSchema = z.object({
-  date: z.date({
-    required_error: "Une date d'entrée est requise.",
+  date_arrivage: z.date({
+    required_error: "Une date d'arrivée est requise.",
   }),
-  pcs_sec: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).positive({ message: "Le PCS sec doit être un nombre positif." }),
-  humidite: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "L'humidité ne peut être négative." }).max(100, { message: "L'humidité ne peut dépasser 100%." }),
   type_combustible: z.string().nonempty({ message: "Veuillez sélectionner un type de combustible." }),
+  fournisseur: z.string().nonempty({ message: "Veuillez sélectionner un fournisseur." }),
+  h2o: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "L'humidité ne peut être négative." }).max(100, { message: "L'humidité ne peut dépasser 100%." }),
+  pcs: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).positive({ message: "Le PCS doit être un nombre positif." }),
+  chlore: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le chlore ne peut être négatif." }),
 });
 
 const fuelIcons: Record<string, React.ElementType> = {
@@ -72,35 +76,53 @@ export function PciCalculator() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      pcs_sec: undefined,
-      humidite: undefined,
       type_combustible: "",
+      fournisseur: "",
+      h2o: undefined,
+      pcs: undefined,
+      chlore: undefined,
     },
   });
 
+  const { watch, setValue } = form;
+  const pcs = watch("pcs");
+  const h2o = watch("h2o");
+  const chlore = watch("chlore");
+  const type_combustible = watch("type_combustible");
+
+  useEffect(() => {
+    if (pcs !== undefined && h2o !== undefined && chlore !== undefined && type_combustible) {
+      const result = calculerPCI(pcs, h2o, type_combustible, chlore);
+      setPciResult(result);
+    } else {
+        setPciResult(null);
+    }
+  }, [pcs, h2o, chlore, type_combustible]);
+
+
   function onSubmit(values: z.infer<typeof formSchema>) {
-    const result = calculerPCI(values.pcs_sec, values.humidite, values.type_combustible);
-    setPciResult(result);
+    // Le calcul se fait en temps réel, donc onSubmit peut être utilisé pour la soumission des données
+    console.log(values);
   }
 
   return (
-    <Card className="w-full max-w-2xl shadow-none border-0">
+    <Card className="w-full max-w-4xl shadow-none border-0">
       <CardHeader className="text-center">
         <CardTitle className="text-2xl">Calculateur de PCI Brut</CardTitle>
         <CardDescription>
-          Entrez les données pour calculer la valeur PCI brute de votre combustible.
+          Saisissez les résultats d'analyse pour calculer la valeur PCI brute du combustible.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 <FormField
                   control={form.control}
-                  name="date"
+                  name="date_arrivage"
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
-                      <FormLabel>Date d'entrée</FormLabel>
+                      <FormLabel>Date d'arrivage</FormLabel>
                       <Popover>
                         <PopoverTrigger asChild>
                           <FormControl>
@@ -167,25 +189,39 @@ export function PciCalculator() {
                         </FormItem>
                     )}
                 />
+                 <FormField
+                    control={form.control}
+                    name="fournisseur"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Fournisseur</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Sélectionnez un fournisseur..." />
+                            </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                            {FOURNISSEURS.map((fournisseur) => (
+                                    <SelectItem key={fournisseur} value={fournisseur}>
+                                        <div className="flex items-center gap-2">
+                                            <Building className="h-4 w-4 text-muted-foreground" />
+                                            <span>{fournisseur}</span>
+                                        </div>
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
               <FormField
                 control={form.control}
-                name="pcs_sec"
+                name="h2o"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>PCS sec (kcal/kg)</FormLabel>
-                    <FormControl>
-                      <Input type="number" step="any" placeholder="ex: 8000" {...field} value={field.value ?? ''} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="humidite"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Humidité (%)</FormLabel>
+                    <FormLabel>% H2O</FormLabel>
                     <FormControl>
                       <Input type="number" step="any" placeholder="ex: 15" {...field} value={field.value ?? ''} />
                     </FormControl>
@@ -193,11 +229,39 @@ export function PciCalculator() {
                   </FormItem>
                 )}
               />
+              <FormField
+                control={form.control}
+                name="pcs"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>PCS (kcal/kg)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="any" placeholder="ex: 8000" {...field} value={field.value ?? ''} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+                <FormField
+                    control={form.control}
+                    name="chlore"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>% Cl-</FormLabel>
+                        <FormControl>
+                        <Input type="number" step="any" placeholder="ex: 0.5" {...field} value={field.value ?? ''} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
             </div>
            
-            <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground font-bold text-base py-6 transition-transform duration-150 ease-in-out active:scale-[0.98]">
-              Calculer le PCI
-            </Button>
+            <div className="flex justify-end pt-4">
+                <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-base py-6 px-8 transition-transform duration-150 ease-in-out active:scale-[0.98]">
+                    Enregistrer
+                </Button>
+            </div>
           </form>
         </Form>
 
