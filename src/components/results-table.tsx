@@ -78,11 +78,11 @@ export function ResultsTable() {
                         <TableHead>Type Combustible</TableHead>
                         <TableHead>Fournisseur</TableHead>
                         <TableHead className="text-right">PCS</TableHead>
+                        <TableHead className="text-right">PCI sur Brut</TableHead>
                         <TableHead className="text-right">% H2O</TableHead>
                         <TableHead className="text-right">% Cendres</TableHead>
                         <TableHead className="text-right">% Cl-</TableHead>
                         <TableHead className="text-right">Densité</TableHead>
-                        <TableHead className="text-right">PCI sur Brut</TableHead>
                         <TableHead>Remarques</TableHead>
                     </TableRow>
                 </TableHeader>
@@ -94,11 +94,11 @@ export function ResultsTable() {
                                 <TableCell>{result.type_combustible}</TableCell>
                                 <TableCell>{result.fournisseur}</TableCell>
                                 <TableCell className="text-right">{formatNumber(result.pcs)}</TableCell>
+                                <TableCell className="font-semibold text-right">{Math.round(result.pci_brut).toLocaleString('fr-FR')}</TableCell>
                                 <TableCell className="text-right">{formatNumber(result.h2o)}</TableCell>
                                 <TableCell className="text-right">{formatNumber(result.cendres)}</TableCell>
                                 <TableCell className="text-right">{formatNumber(result.chlore)}</TableCell>
                                 <TableCell className="text-right">{formatNumber(result.densite)}</TableCell>
-                                <TableCell className="font-semibold text-right">{Math.round(result.pci_brut).toLocaleString('fr-FR')}</TableCell>
                                 <TableCell className="max-w-[200px] truncate">{result.remarques}</TableCell>
                             </TableRow>
                         ))
