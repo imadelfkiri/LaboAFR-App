@@ -56,8 +56,8 @@ const formSchema = z.object({
   }),
   type_combustible: z.string().nonempty({ message: "Veuillez sélectionner un type de combustible." }),
   fournisseur: z.string().nonempty({ message: "Veuillez sélectionner un fournisseur." }),
-  h2o: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "L'humidité ne peut être négative." }).max(100, { message: "L'humidité ne peut dépasser 100%." }),
   pcs: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).positive({ message: "Le PCS doit être un nombre positif." }),
+  h2o: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "L'humidité ne peut être négative." }).max(100, { message: "L'humidité ne peut dépasser 100%." }),
   chlore: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le chlore ne peut être négatif." }).optional().or(z.literal('')),
   cendres: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le % de cendres ne peut être négatif." }).optional().or(z.literal('')),
   densite: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).positive({ message: "La densité doit être un nombre positif." }).optional().or(z.literal('')),
@@ -135,39 +135,38 @@ export function PciCalculator() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSaving(true);
-    
-    const pci_brut = calculerPCI(values.pcs, values.h2o, values.type_combustible, Number(values.chlore) || 0);
-
-    if (pci_brut === null) {
-        toast({
-            variant: "destructive",
-            title: "Erreur de calcul",
-            description: "Le PCI n'a pas pu être calculé. Vérifiez les valeurs.",
-        });
-        setIsSaving(false);
-        return;
-    }
-    
-    const dataToSave: any = {
-      ...values,
-      pci_brut,
-      createdAt: serverTimestamp(),
-    };
-
-    // Assurer que les champs facultatifs non remplis ne sont pas envoyés avec une valeur vide
-    if (values.chlore === '' || values.chlore === undefined) dataToSave.chlore = 0;
-    if (values.cendres === '' || values.cendres === undefined) dataToSave.cendres = 0;
-    if (values.densite === '' || values.densite === undefined) dataToSave.densite = 0;
-    if (values.remarques === '') delete dataToSave.remarques;
-
-
     try {
-        await addDoc(collection(db, "resultats"), dataToSave);
-        toast({
-            title: "Succès",
-            description: "Les résultats ont été enregistrés avec succès.",
-        });
-        resetForm();
+      const pci_brut = calculerPCI(values.pcs, values.h2o, values.type_combustible, Number(values.chlore) || 0);
+
+      if (pci_brut === null) {
+          toast({
+              variant: "destructive",
+              title: "Erreur de calcul",
+              description: "Le PCI n'a pas pu être calculé. Vérifiez les valeurs.",
+          });
+          setIsSaving(false);
+          return;
+      }
+      
+      const dataToSave = {
+        ...values,
+        pci_brut,
+        chlore: Number(values.chlore) || 0,
+        cendres: Number(values.cendres) || 0,
+        densite: Number(values.densite) || 0,
+        remarques: values.remarques || "",
+        createdAt: serverTimestamp(),
+      };
+
+      await addDoc(collection(db, "resultats"), dataToSave);
+      
+      toast({
+          title: "Succès",
+          description: "Les résultats ont été enregistrés avec succès.",
+      });
+
+      resetForm();
+
     } catch (error) {
         console.error("Erreur lors de l'enregistrement dans Firestore: ", error);
         toast({
