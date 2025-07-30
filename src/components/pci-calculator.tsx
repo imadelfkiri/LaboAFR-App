@@ -286,6 +286,19 @@ export function PciCalculator() {
                   </FormItem>
                 )}
               />
+              <FormField
+                  control={form.control}
+                  name="chlore"
+                  render={({ field }) => (
+                  <FormItem>
+                      <FormLabel>% Cl-</FormLabel>
+                      <FormControl>
+                      <Input type="number" step="any" placeholder="ex: 0.5" {...field} value={field.value ?? ''} />
+                      </FormControl>
+                      <FormMessage />
+                  </FormItem>
+                  )}
+              />
                <FormField
                 control={form.control}
                 name="cendres"
@@ -299,19 +312,6 @@ export function PciCalculator() {
                   </FormItem>
                 )}
               />
-                <FormField
-                    control={form.control}
-                    name="chlore"
-                    render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>% Cl-</FormLabel>
-                        <FormControl>
-                        <Input type="number" step="any" placeholder="ex: 0.5" {...field} value={field.value ?? ''} />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                    )}
-                />
                  <FormField
                     control={form.control}
                     name="densite"
