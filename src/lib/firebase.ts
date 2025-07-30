@@ -1,19 +1,16 @@
-// Import the functions you need from the SDKs you need
+// src/lib/firebase.ts
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
-// Your web app's Firebase configuration
 const firebaseConfig = {
-  "projectId": "fueltrack-afr",
-  "appId": "1:908411260486:web:fd57de11a69873142dc447",
-  "storageBucket": "fueltrack-afr.firebasestorage.app",
-  "apiKey": "AIzaSyDjyU_KQ2_BJpcbDJ4lwk6hGbSwxFccPIs",
-  "authDomain": "fueltrack-afr.firebaseapp.com",
-  "measurementId": "",
-  "messagingSenderId": "908411260486"
+  apiKey: "TA_CLE_API",
+  authDomain: "TON_PROJET.firebaseapp.com",
+  projectId: "TON_ID_PROJET",
+  storageBucket: "TON_PROJET.appspot.com",
+  messagingSenderId: "TON_SENDER_ID",
+  appId: "TON_APP_ID"
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
