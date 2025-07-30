@@ -72,9 +72,9 @@ export function PciCalculator() {
   }
 
   return (
-    <Card className="w-full max-w-2xl shadow-2xl border-2 border-primary/10">
-      <CardHeader>
-        <CardTitle>Calculateur de PCI Brut</CardTitle>
+    <Card className="w-full max-w-2xl shadow-none border-0">
+      <CardHeader className="text-center">
+        <CardTitle className="text-2xl">Calculateur de PCI Brut</CardTitle>
         <CardDescription>
           Entrez les données pour calculer la valeur PCI brute de votre combustible.
         </CardDescription>
