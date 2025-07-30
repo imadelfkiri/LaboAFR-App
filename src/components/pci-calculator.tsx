@@ -58,9 +58,9 @@ const formSchema = z.object({
   fournisseur: z.string().nonempty({ message: "Veuillez sélectionner un fournisseur." }),
   h2o: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "L'humidité ne peut être négative." }).max(100, { message: "L'humidité ne peut dépasser 100%." }),
   pcs: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).positive({ message: "Le PCS doit être un nombre positif." }),
-  chlore: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le chlore ne peut être négatif." }),
-  cendres: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le % de cendres ne peut être négatif." }),
-  densite: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).positive({ message: "La densité doit être un nombre positif." }),
+  chlore: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le chlore ne peut être négatif." }).optional().or(z.literal('')),
+  cendres: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le % de cendres ne peut être négatif." }).optional().or(z.literal('')),
+  densite: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).positive({ message: "La densité doit être un nombre positif." }).optional().or(z.literal('')),
   remarques: z.string().optional(),
 });
 
@@ -106,8 +106,8 @@ export function PciCalculator() {
   const type_combustible = watch("type_combustible");
 
   useEffect(() => {
-    if (pcs !== undefined && h2o !== undefined && chlore !== undefined && type_combustible) {
-      const result = calculerPCI(pcs, h2o, type_combustible, chlore);
+    if (pcs !== undefined && h2o !== undefined && type_combustible) {
+      const result = calculerPCI(pcs, h2o, type_combustible, Number(chlore) || 0);
       setPciResult(result);
     } else {
         setPciResult(null);
@@ -129,6 +129,9 @@ export function PciCalculator() {
     try {
         await addDoc(collection(db, "resultats"), {
             ...values,
+            chlore: values.chlore || 0,
+            cendres: values.cendres || 0,
+            densite: values.densite || 0,
             pci_brut: pciResult,
             createdAt: serverTimestamp(),
         });
@@ -303,7 +306,7 @@ export function PciCalculator() {
                   name="chlore"
                   render={({ field }) => (
                   <FormItem>
-                      <FormLabel>% Cl-</FormLabel>
+                      <FormLabel>% Cl- (Facultatif)</FormLabel>
                       <FormControl>
                       <Input type="number" step="any" placeholder="ex: 0.5" {...field} value={field.value ?? ''} />
                       </FormControl>
@@ -316,7 +319,7 @@ export function PciCalculator() {
                 name="cendres"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>% Cendres</FormLabel>
+                    <FormLabel>% Cendres (Facultatif)</FormLabel>
                     <FormControl>
                       <Input type="number" step="any" placeholder="ex: 10" {...field} value={field.value ?? ''} />
                     </FormControl>
@@ -329,7 +332,7 @@ export function PciCalculator() {
                     name="densite"
                     render={({ field }) => (
                     <FormItem>
-                        <FormLabel>Densité (t/m³)</FormLabel>
+                        <FormLabel>Densité (t/m³) (Facultatif)</FormLabel>
                         <FormControl>
                         <Input type="number" step="any" placeholder="ex: 0.8" {...field} value={field.value ?? ''} />
                         </FormControl>
@@ -342,7 +345,7 @@ export function PciCalculator() {
                     name="remarques"
                     render={({ field }) => (
                     <FormItem className="sm:col-span-2 lg:col-span-4">
-                        <FormLabel>Remarques</FormLabel>
+                        <FormLabel>Remarques (Facultatif)</FormLabel>
                         <FormControl>
                             <Textarea
                                 placeholder="Ajoutez une remarque..."
@@ -380,5 +383,3 @@ export function PciCalculator() {
     </Card>
   );
 }
-
-    
