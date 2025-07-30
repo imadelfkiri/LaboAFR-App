@@ -90,8 +90,8 @@ export function PciCalculator() {
       date_arrivage: subDays(new Date(), 1),
       type_combustible: "",
       fournisseur: "",
-      h2o: undefined,
       pcs: undefined,
+      h2o: undefined,
       chlore: undefined,
       cendres: undefined,
       densite: undefined,
@@ -99,20 +99,23 @@ export function PciCalculator() {
     },
   });
 
-  const { watch, reset } = form;
-  const pcs = watch("pcs");
-  const h2o = watch("h2o");
-  const chlore = watch("chlore");
-  const type_combustible = watch("type_combustible");
+  const { watch, reset, getValues } = form;
+  const pcsValue = watch("pcs");
+  const h2oValue = watch("h2o");
+  const chloreValue = watch("chlore");
+  const typeCombustibleValue = watch("type_combustible");
 
   useEffect(() => {
+    const values = getValues();
+    const { pcs, h2o, type_combustible, chlore } = values;
+    
     if (pcs !== undefined && h2o !== undefined && type_combustible) {
       const result = calculerPCI(pcs, h2o, type_combustible, Number(chlore) || 0);
       setPciResult(result);
     } else {
         setPciResult(null);
     }
-  }, [pcs, h2o, chlore, type_combustible]);
+  }, [pcsValue, h2oValue, chloreValue, typeCombustibleValue, getValues]);
 
 
   const resetForm = () => {
@@ -120,8 +123,8 @@ export function PciCalculator() {
         date_arrivage: subDays(new Date(), 1),
         type_combustible: "",
         fournisseur: "",
-        h2o: '' as any,
         pcs: '' as any,
+        h2o: '' as any,
         chlore: '' as any,
         cendres: '' as any,
         densite: '' as any,
@@ -133,10 +136,9 @@ export function PciCalculator() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSaving(true);
     
-    // Recalculate PCI to ensure it's up to date before saving
-    const currentPci = calculerPCI(values.pcs, values.h2o, values.type_combustible, Number(values.chlore) || 0);
+    const pci_brut = calculerPCI(values.pcs, values.h2o, values.type_combustible, Number(values.chlore) || 0);
 
-    if (currentPci === null) {
+    if (pci_brut === null) {
         toast({
             variant: "destructive",
             title: "Erreur de calcul",
@@ -145,27 +147,33 @@ export function PciCalculator() {
         setIsSaving(false);
         return;
     }
+    
+    const dataToSave: any = {
+      ...values,
+      pci_brut,
+      createdAt: serverTimestamp(),
+    };
+
+    // Assurer que les champs facultatifs non remplis ne sont pas envoyés avec une valeur vide
+    if (values.chlore === '' || values.chlore === undefined) dataToSave.chlore = 0;
+    if (values.cendres === '' || values.cendres === undefined) dataToSave.cendres = 0;
+    if (values.densite === '' || values.densite === undefined) dataToSave.densite = 0;
+    if (values.remarques === '') delete dataToSave.remarques;
+
 
     try {
-        await addDoc(collection(db, "resultats"), {
-            ...values,
-            chlore: values.chlore || 0,
-            cendres: values.cendres || 0,
-            densite: values.densite || 0,
-            pci_brut: currentPci,
-            createdAt: serverTimestamp(),
-        });
+        await addDoc(collection(db, "resultats"), dataToSave);
         toast({
             title: "Succès",
             description: "Les résultats ont été enregistrés avec succès.",
         });
         resetForm();
     } catch (error) {
-        console.error("Error adding document: ", error);
+        console.error("Erreur lors de l'enregistrement dans Firestore: ", error);
         toast({
             variant: "destructive",
-            title: "Erreur",
-            description: "Une erreur est survenue lors de l'enregistrement.",
+            title: "Erreur d'enregistrement",
+            description: "Impossible d'enregistrer les données. Vérifiez la console pour plus de détails.",
         });
     } finally {
         setIsSaving(false);
@@ -391,5 +399,3 @@ export function PciCalculator() {
     </Card>
   );
 }
-
-    

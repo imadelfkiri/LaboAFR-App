@@ -3,12 +3,13 @@ import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "TA_CLE_API",
-  authDomain: "TON_PROJET.firebaseapp.com",
-  projectId: "TON_ID_PROJET",
-  storageBucket: "TON_PROJET.appspot.com",
-  messagingSenderId: "TON_SENDER_ID",
-  appId: "TON_APP_ID"
+  "projectId": "fueltrack-afr",
+  "appId": "1:908411260486:web:fd57de11a69873142dc447",
+  "storageBucket": "fueltrack-afr.firebasestorage.app",
+  "apiKey": "AIzaSyDjyU_KQ2_BJpcbDJ4lwk6hGbSwxFccPIs",
+  "authDomain": "fueltrack-afr.firebaseapp.com",
+  "measurementId": "",
+  "messagingSenderId": "908411260486"
 };
 
 const app = initializeApp(firebaseConfig);
