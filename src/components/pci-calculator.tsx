@@ -99,7 +99,7 @@ export function PciCalculator() {
     },
   });
 
-  const { watch, setValue, reset } = form;
+  const { watch, reset } = form;
   const pcs = watch("pcs");
   const h2o = watch("h2o");
   const chlore = watch("chlore");
@@ -116,29 +116,27 @@ export function PciCalculator() {
 
 
   const resetForm = () => {
-    form.reset({
+    reset({
         date_arrivage: subDays(new Date(), 1),
         type_combustible: "",
         fournisseur: "",
-        h2o: undefined,
-        pcs: undefined,
-        chlore: undefined,
-        cendres: undefined,
-        densite: undefined,
+        h2o: '' as any,
+        pcs: '' as any,
+        chlore: '' as any,
+        cendres: '' as any,
+        densite: '' as any,
         remarques: "",
     });
-    // Manually reset number fields that might hold NaN if not cleared properly
-    setValue("h2o", '' as any);
-    setValue("pcs", '' as any);
-    setValue("chlore", '' as any);
-    setValue("cendres", '' as any);
-    setValue("densite", '' as any);
     setPciResult(null);
   };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSaving(true);
-    if (pciResult === null) {
+    
+    // Recalculate PCI to ensure it's up to date before saving
+    const currentPci = calculerPCI(values.pcs, values.h2o, values.type_combustible, Number(values.chlore) || 0);
+
+    if (currentPci === null) {
         toast({
             variant: "destructive",
             title: "Erreur de calcul",
@@ -154,7 +152,7 @@ export function PciCalculator() {
             chlore: values.chlore || 0,
             cendres: values.cendres || 0,
             densite: values.densite || 0,
-            pci_brut: pciResult,
+            pci_brut: currentPci,
             createdAt: serverTimestamp(),
         });
         toast({
