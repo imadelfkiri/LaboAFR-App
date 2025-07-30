@@ -115,17 +115,39 @@ export function PciCalculator() {
   }, [pcs, h2o, chlore, type_combustible]);
 
 
+  const resetForm = () => {
+    form.reset({
+        date_arrivage: subDays(new Date(), 1),
+        type_combustible: "",
+        fournisseur: "",
+        h2o: undefined,
+        pcs: undefined,
+        chlore: undefined,
+        cendres: undefined,
+        densite: undefined,
+        remarques: "",
+    });
+    // Manually reset number fields that might hold NaN if not cleared properly
+    setValue("h2o", '' as any);
+    setValue("pcs", '' as any);
+    setValue("chlore", '' as any);
+    setValue("cendres", '' as any);
+    setValue("densite", '' as any);
+    setPciResult(null);
+  };
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsSaving(true);
     if (pciResult === null) {
         toast({
             variant: "destructive",
             title: "Erreur de calcul",
             description: "Le PCI n'a pas pu être calculé. Vérifiez les valeurs.",
         });
+        setIsSaving(false);
         return;
     }
 
-    setIsSaving(true);
     try {
         await addDoc(collection(db, "resultats"), {
             ...values,
@@ -139,18 +161,7 @@ export function PciCalculator() {
             title: "Succès",
             description: "Les résultats ont été enregistrés avec succès.",
         });
-        form.reset({
-            date_arrivage: subDays(new Date(), 1),
-            type_combustible: "",
-            fournisseur: "",
-            h2o: undefined,
-            pcs: undefined,
-            chlore: undefined,
-            cendres: undefined,
-            densite: undefined,
-            remarques: "",
-        });
-        setPciResult(null);
+        resetForm();
     } catch (error) {
         console.error("Error adding document: ", error);
         toast({
@@ -382,3 +393,5 @@ export function PciCalculator() {
     </Card>
   );
 }
+
+    
