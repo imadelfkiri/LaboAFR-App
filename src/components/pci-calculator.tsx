@@ -7,6 +7,8 @@ import * as z from "zod";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { CalendarIcon, Circle, Leaf, Droplets, Fuel, Mountain, Recycle, ShoppingBag, Trash2, TreePine, Layers, Building, Beaker } from 'lucide-react';
+import { collection, addDoc, serverTimestamp } from "firebase/firestore"; 
+
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -14,12 +16,14 @@ import { Calendar } from "@/components/ui/calendar";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Popover,
   PopoverContent,
@@ -42,6 +46,8 @@ import {
 import { calculerPCI } from '@/lib/pci';
 import { Separator } from '@/components/ui/separator';
 import { FUEL_TYPES, FOURNISSEURS } from '@/lib/data';
+import { db } from '@/lib/firebase';
+import { useToast } from "@/hooks/use-toast";
 
 
 const formSchema = z.object({
@@ -53,6 +59,9 @@ const formSchema = z.object({
   h2o: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "L'humidité ne peut être négative." }).max(100, { message: "L'humidité ne peut dépasser 100%." }),
   pcs: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).positive({ message: "Le PCS doit être un nombre positif." }),
   chlore: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le chlore ne peut être négatif." }),
+  cendres: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le % de cendres ne peut être négatif." }),
+  densite: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).positive({ message: "La densité doit être un nombre positif." }),
+  remarques: z.string().optional(),
 });
 
 const fuelIcons: Record<string, React.ElementType> = {
@@ -72,6 +81,8 @@ const fuelIcons: Record<string, React.ElementType> = {
 
 export function PciCalculator() {
   const [pciResult, setPciResult] = useState<number | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -81,10 +92,13 @@ export function PciCalculator() {
       h2o: undefined,
       pcs: undefined,
       chlore: undefined,
+      cendres: undefined,
+      densite: undefined,
+      remarques: "",
     },
   });
 
-  const { watch, setValue } = form;
+  const { watch, setValue, reset } = form;
   const pcs = watch("pcs");
   const h2o = watch("h2o");
   const chlore = watch("chlore");
@@ -100,23 +114,53 @@ export function PciCalculator() {
   }, [pcs, h2o, chlore, type_combustible]);
 
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    // Le calcul se fait en temps réel, donc onSubmit peut être utilisé pour la soumission des données
-    console.log(values);
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (pciResult === null) {
+        toast({
+            variant: "destructive",
+            title: "Erreur de calcul",
+            description: "Le PCI n'a pas pu être calculé. Vérifiez les valeurs.",
+        });
+        return;
+    }
+
+    setIsSaving(true);
+    try {
+        await addDoc(collection(db, "resultats"), {
+            ...values,
+            pci_brut: pciResult,
+            createdAt: serverTimestamp(),
+        });
+        toast({
+            title: "Succès",
+            description: "Les résultats ont été enregistrés avec succès.",
+        });
+        reset();
+        setPciResult(null);
+    } catch (error) {
+        console.error("Error adding document: ", error);
+        toast({
+            variant: "destructive",
+            title: "Erreur",
+            description: "Une erreur est survenue lors de l'enregistrement.",
+        });
+    } finally {
+        setIsSaving(false);
+    }
   }
 
   return (
-    <Card className="w-full max-w-4xl shadow-none border-0">
+    <Card className="w-full max-w-5xl shadow-none border-0">
       <CardHeader className="text-center">
         <CardTitle className="text-2xl">Calculateur de PCI Brut</CardTitle>
         <CardDescription>
-          Saisissez les résultats d'analyse pour calculer la valeur PCI brute du combustible.
+          Saisissez les résultats d'analyse pour calculer la valeur PCI brute du combustible et enregistrer les données.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
                 <FormField
                   control={form.control}
                   name="date_arrivage"
@@ -165,7 +209,7 @@ export function PciCalculator() {
                     render={({ field }) => (
                         <FormItem>
                         <FormLabel>Type de combustible</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                             <FormControl>
                             <SelectTrigger>
                                 <SelectValue placeholder="Sélectionnez un type..." />
@@ -195,7 +239,7 @@ export function PciCalculator() {
                     render={({ field }) => (
                         <FormItem>
                         <FormLabel>Fournisseur</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                             <FormControl>
                             <SelectTrigger>
                                 <SelectValue placeholder="Sélectionnez un fournisseur..." />
@@ -218,6 +262,19 @@ export function PciCalculator() {
                 />
               <FormField
                 control={form.control}
+                name="pcs"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>PCS (kcal/kg)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="any" placeholder="ex: 8000" {...field} value={field.value ?? ''} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
                 name="h2o"
                 render={({ field }) => (
                   <FormItem>
@@ -229,14 +286,14 @@ export function PciCalculator() {
                   </FormItem>
                 )}
               />
-              <FormField
+               <FormField
                 control={form.control}
-                name="pcs"
+                name="cendres"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>PCS (kcal/kg)</FormLabel>
+                    <FormLabel>% Cendres</FormLabel>
                     <FormControl>
-                      <Input type="number" step="any" placeholder="ex: 8000" {...field} value={field.value ?? ''} />
+                      <Input type="number" step="any" placeholder="ex: 10" {...field} value={field.value ?? ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -255,29 +312,58 @@ export function PciCalculator() {
                     </FormItem>
                     )}
                 />
+                 <FormField
+                    control={form.control}
+                    name="densite"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Densité (t/m³)</FormLabel>
+                        <FormControl>
+                        <Input type="number" step="any" placeholder="ex: 0.8" {...field} value={field.value ?? ''} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+                 <FormField
+                    control={form.control}
+                    name="remarques"
+                    render={({ field }) => (
+                    <FormItem className="sm:col-span-2 lg:col-span-4">
+                        <FormLabel>Remarques</FormLabel>
+                        <FormControl>
+                            <Textarea
+                                placeholder="Ajoutez une remarque..."
+                                className="resize-none"
+                                {...field}
+                                value={field.value ?? ''}
+                            />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
             </div>
            
-            <div className="flex justify-end pt-4">
-                <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-base py-6 px-8 transition-transform duration-150 ease-in-out active:scale-[0.98]">
-                    Enregistrer
+            <div className="flex items-center justify-between pt-4">
+                <div>
+                {pciResult !== null && (
+                    <div className="text-center animate-in fade-in-50 duration-500">
+                        <p className="text-base font-medium text-muted-foreground">PCI sur Brut</p>
+                        <p className="text-4xl font-bold text-primary tracking-tight">
+                            {pciResult.toLocaleString('fr-FR')}
+                             <span className="text-lg font-semibold text-muted-foreground ml-2">kcal/kg</span>
+                        </p>
+                    </div>
+                )}
+                </div>
+
+                <Button type="submit" disabled={isSaving} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-base py-6 px-8 transition-transform duration-150 ease-in-out active:scale-[0.98]">
+                    {isSaving ? "Enregistrement..." : "Enregistrer"}
                 </Button>
             </div>
           </form>
         </Form>
-
-        {pciResult !== null && (
-          <>
-            <Separator className="my-8" />
-            <div className="text-center animate-in fade-in-50 duration-500">
-                <p className="text-base font-medium text-muted-foreground">Résultat du PCI Brut</p>
-                <p className="text-6xl font-bold text-primary tracking-tight">
-                    {pciResult.toLocaleString('fr-FR')}
-                </p>
-                <p className="font-semibold text-muted-foreground">kcal/kg</p>
-            </div>
-          </>
-        )}
-
       </CardContent>
     </Card>
   );

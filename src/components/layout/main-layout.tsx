@@ -10,6 +10,17 @@ import {
 import { Button } from '@/components/ui/button';
 import { Fuel } from 'lucide-react';
 import { SidebarNav } from './sidebar-nav';
+import { usePathname } from 'next/navigation';
+
+function HeaderTitle() {
+    const pathname = usePathname();
+    let title = "Calculateur PCI";
+    if (pathname === '/resultats') {
+        title = "Historique des Résultats";
+    }
+    return <h1 className="text-lg font-semibold md:text-xl">{title}</h1>
+}
+
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -36,7 +47,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         <header className="flex h-14 items-center gap-4 border-b bg-background/50 backdrop-blur-sm px-4 lg:h-[60px] lg:px-6 sticky top-0 z-10">
             <SidebarTrigger className="md:hidden" />
             <div className='flex-1'>
-                <h1 className="text-lg font-semibold md:text-xl">Calculateur PCI</h1>
+                <HeaderTitle />
             </div>
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
