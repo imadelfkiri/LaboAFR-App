@@ -1,6 +1,6 @@
 import { H_MAP } from './data';
 
-export function calculerPCI(pcs: number, humidite: number, type_combustible: string, chlore: number): number | null {
+export function calculerPCI(pcs: number, humidite: number, type_combustible: string, chlore?: number): number | null {
   const H = H_MAP[type_combustible];
 
   // Chlore is now optional, default to 0 if not provided

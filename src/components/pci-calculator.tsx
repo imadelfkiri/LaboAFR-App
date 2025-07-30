@@ -7,7 +7,7 @@ import * as z from "zod";
 import { format, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
 import { CalendarIcon, Circle, Leaf, Droplets, Fuel, Mountain, Recycle, ShoppingBag, Trash2, TreePine, Layers, Building, Beaker } from 'lucide-react';
-import { collection, addDoc, serverTimestamp } from "firebase/firestore"; 
+import { collection, addDoc } from "firebase/firestore"; 
 
 
 import { cn } from "@/lib/utils";
@@ -136,7 +136,7 @@ export function PciCalculator() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSaving(true);
     try {
-      const pci_brut = calculerPCI(values.pcs, values.h2o, values.type_combustible, Number(values.chlore) || 0);
+      const pci_brut = calculerPCI(values.pcs, values.h2o, values.type_combustible, Number(values.chlore));
 
       if (pci_brut === null) {
           toast({
@@ -155,7 +155,7 @@ export function PciCalculator() {
         cendres: Number(values.cendres) || 0,
         densite: Number(values.densite) || 0,
         remarques: values.remarques || "",
-        createdAt: serverTimestamp(),
+        createdAt: new Date(),
       };
 
       await addDoc(collection(db, "resultats"), dataToSave);
