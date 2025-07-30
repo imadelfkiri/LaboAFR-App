@@ -139,7 +139,6 @@ export function PciCalculator() {
             title: "Succès",
             description: "Les résultats ont été enregistrés avec succès.",
         });
-        reset();
         form.reset({
             date_arrivage: subDays(new Date(), 1),
             type_combustible: "",
