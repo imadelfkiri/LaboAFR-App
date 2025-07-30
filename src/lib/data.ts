@@ -15,8 +15,13 @@ export const H_MAP: Record<string, number> = {
 export const FUEL_TYPES = Object.keys(H_MAP);
 
 export const FOURNISSEURS = [
-    "Fournisseur A",
-    "Fournisseur B",
-    "Fournisseur C",
-    "Autre"
+    "Ain Seddeine",
+    "Aliapur",
+    "Bichara",
+    "Geocycle",
+    "MTR",
+    "Polluclean",
+    "Ssardi",
+    "ValRecete",
+    "Valtradec"
 ];
