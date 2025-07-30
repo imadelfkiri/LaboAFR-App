@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { format } from "date-fns";
+import { format, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
 import { CalendarIcon, Circle, Leaf, Droplets, Fuel, Mountain, Recycle, ShoppingBag, Trash2, TreePine, Layers, Building, Beaker } from 'lucide-react';
 import { collection, addDoc, serverTimestamp } from "firebase/firestore"; 
@@ -87,6 +87,7 @@ export function PciCalculator() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      date_arrivage: subDays(new Date(), 1),
       type_combustible: "",
       fournisseur: "",
       h2o: undefined,
@@ -136,6 +137,17 @@ export function PciCalculator() {
             description: "Les résultats ont été enregistrés avec succès.",
         });
         reset();
+        form.reset({
+            date_arrivage: subDays(new Date(), 1),
+            type_combustible: "",
+            fournisseur: "",
+            h2o: undefined,
+            pcs: undefined,
+            chlore: undefined,
+            cendres: undefined,
+            densite: undefined,
+            remarques: "",
+        });
         setPciResult(null);
     } catch (error) {
         console.error("Error adding document: ", error);
@@ -368,3 +380,5 @@ export function PciCalculator() {
     </Card>
   );
 }
+
+    
