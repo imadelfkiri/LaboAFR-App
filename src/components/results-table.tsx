@@ -154,11 +154,14 @@ export function ResultsTable() {
     
     const formatNumber = (num: number | null | undefined, fractionDigits: number = 2) => {
         if (num === null || num === undefined || isNaN(num)) return 'N/A';
+        // Arrondir d'abord pour éviter les problèmes de précision flottante avant toLocaleString
+        const factor = Math.pow(10, fractionDigits);
+        const roundedNum = Math.round(num * factor) / factor;
+    
         if (fractionDigits === 0) {
-            return Math.round(num).toLocaleString('fr-FR');
+            return roundedNum.toLocaleString('fr-FR');
         }
-        const numStr = num.toLocaleString('fr-FR', { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits });
-        return numStr;
+        return roundedNum.toLocaleString('fr-FR', { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits });
     }
 
     const convertIndividualToCSV = (data: Result[]) => {
@@ -229,10 +232,9 @@ export function ResultsTable() {
         let filename: string;
 
         if (period === 'daily') {
-            const yesterday = subDays(now, 1);
-            startDate = startOfDay(yesterday);
-            endDate = endOfDay(yesterday);
-            filename = `Rapport_Journalier_${format(yesterday, 'yyyy-MM-dd')}`;
+            startDate = startOfDay(now);
+            endDate = endOfDay(now);
+            filename = `Rapport_Journalier_${format(now, 'yyyy-MM-dd')}`;
         } else if (period === 'weekly') {
             startDate = startOfDay(subDays(now, 7));
             filename = `Rapport_Hebdomadaire_${format(now, 'yyyy-MM-dd')}`;
