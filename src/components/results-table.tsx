@@ -66,6 +66,18 @@ interface Result {
     remarques: string;
 }
 
+interface AggregatedResult {
+    type_combustible: string;
+    pcs: number;
+    pci_brut: number;
+    h2o: number;
+    cendres: number;
+    chlore: number;
+    densite: number;
+    count: number;
+}
+
+
 export function ResultsTable() {
     const [results, setResults] = useState<Result[]>([]);
     const [loading, setLoading] = useState(true);
@@ -146,11 +158,10 @@ export function ResultsTable() {
             return Math.round(num).toLocaleString('fr-FR');
         }
         const numStr = num.toLocaleString('fr-FR', { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits });
-        // En français, le séparateur décimal est la virgule, donc pas besoin de replace.
         return numStr;
     }
 
-    const convertToCSV = (data: Result[]) => {
+    const convertIndividualToCSV = (data: Result[]) => {
         const headers = [
             "Date Arrivage", "Type Combustible", "Fournisseur", 
             "PCS", "PCI sur Brut", "% H2O", "% Cendres", "% Cl-", 
@@ -171,8 +182,26 @@ export function ResultsTable() {
         return [headers.join(';'), ...rows].join('\n');
     };
 
-    const downloadCSV = (data: Result[], filename: string) => {
-        if (data.length === 0) {
+    const convertAggregatedToCSV = (data: AggregatedResult[]) => {
+        const headers = [
+            "Type Combustible", "Analyses", "PCS Moyen", "PCI Moyen", 
+            "% H2O Moyen", "% Cendres Moyen", "% Cl- Moyen", "Densité Moyenne"
+        ];
+        const rows = data.map(result => [
+            result.type_combustible,
+            result.count,
+            formatNumber(result.pcs, 0),
+            formatNumber(result.pci_brut, 0),
+            formatNumber(result.h2o, 1),
+            formatNumber(result.cendres, 1),
+            formatNumber(result.chlore, 2),
+            formatNumber(result.densite, 2),
+        ].join(';'));
+        return [headers.join(';'), ...rows].join('\n');
+    };
+
+    const downloadCSV = (csvString: string, filename: string) => {
+         if (!csvString || csvString.split('\n').length < 2) {
             toast({
                 variant: "destructive",
                 title: "Aucune donnée",
@@ -180,7 +209,6 @@ export function ResultsTable() {
             });
             return;
         }
-        const csvString = convertToCSV(data);
         const blob = new Blob([`\uFEFF${csvString}`], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         if (link.download !== undefined) {
@@ -215,7 +243,45 @@ export function ResultsTable() {
             return dateArrivage >= startDate && dateArrivage <= endOfDay(now);
         });
 
-        downloadCSV(reportData, filename);
+        if (period === 'daily') {
+            const csvString = convertIndividualToCSV(reportData);
+            downloadCSV(csvString, filename);
+        } else {
+            const aggregatedData = aggregateResults(reportData);
+            const csvString = convertAggregatedToCSV(aggregatedData);
+            downloadCSV(csvString, filename);
+        }
+    };
+
+    const aggregateResults = (data: Result[]): AggregatedResult[] => {
+        const aggregation: Record<string, AggregatedResult> = {};
+
+        data.forEach(result => {
+            if (!aggregation[result.type_combustible]) {
+                aggregation[result.type_combustible] = {
+                    type_combustible: result.type_combustible,
+                    pcs: 0, pci_brut: 0, h2o: 0, cendres: 0, chlore: 0, densite: 0, count: 0
+                };
+            }
+            const current = aggregation[result.type_combustible];
+            current.pcs += result.pcs;
+            current.pci_brut += result.pci_brut;
+            current.h2o += result.h2o;
+            current.cendres += result.cendres;
+            current.chlore += result.chlore;
+            current.densite += result.densite;
+            current.count += 1;
+        });
+
+        return Object.values(aggregation).map(agg => ({
+            ...agg,
+            pcs: agg.pcs / agg.count,
+            pci_brut: agg.pci_brut / agg.count,
+            h2o: agg.h2o / agg.count,
+            cendres: agg.cendres / agg.count,
+            chlore: agg.chlore / agg.count,
+            densite: agg.densite / agg.count,
+        }));
     };
 
 
