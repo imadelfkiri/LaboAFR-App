@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, XCircle, Trash2, Download } from "lucide-react";
+import { CalendarIcon, XCircle, Trash2, Download, ChevronDown } from "lucide-react";
 import { FUEL_TYPES, FOURNISSEURS } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
@@ -43,6 +43,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 
@@ -140,7 +146,8 @@ export function ResultsTable() {
             return Math.round(num).toLocaleString('fr-FR');
         }
         const numStr = num.toLocaleString('fr-FR', { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits });
-        return numStr.replace('.',',');
+        // En français, le séparateur décimal est la virgule, donc pas besoin de replace.
+        return numStr;
     }
 
     const convertToCSV = (data: Result[]) => {
@@ -230,88 +237,95 @@ export function ResultsTable() {
     return (
         <AlertDialog onOpenChange={(open) => !open && setResultToDelete(null)}>
             <div className="flex flex-col gap-4">
-                <div>
-                    <h3 className="text-sm font-medium text-muted-foreground mb-2">Filtres</h3>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <Select value={typeFilter} onValueChange={setTypeFilter}>
-                            <SelectTrigger className="w-full sm:w-auto flex-1 min-w-[180px]">
-                                <SelectValue placeholder="Filtrer par type..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {FUEL_TYPES.map(fuel => <SelectItem key={fuel} value={fuel}>{fuel}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                        <Select value={fournisseurFilter} onValueChange={setFournisseurFilter}>
-                            <SelectTrigger className="w-full sm:w-auto flex-1 min-w-[180px]">
-                                <SelectValue placeholder="Filtrer par fournisseur..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {FOURNISSEURS.map(supplier => <SelectItem key={supplier} value={supplier}>{supplier}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    id="date"
-                                    variant={"outline"}
-                                    className={cn(
-                                        "w-full sm:w-auto flex-1 min-w-[240px] justify-start text-left font-normal",
-                                        !dateFilter && "text-muted-foreground"
-                                    )}
-                                    >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {dateFilter?.from ? (
-                                        dateFilter.to ? (
-                                        <>
-                                            {format(dateFilter.from, "d MMM y", { locale: fr })} -{" "}
-                                            {format(dateFilter.to, "d MMM y", { locale: fr })}
-                                        </>
+                <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                    <div>
+                        <h3 className="text-sm font-medium text-muted-foreground mb-2">Filtres</h3>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Select value={typeFilter} onValueChange={setTypeFilter}>
+                                <SelectTrigger className="w-full sm:w-auto flex-1 min-w-[180px]">
+                                    <SelectValue placeholder="Filtrer par type..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {FUEL_TYPES.map(fuel => <SelectItem key={fuel} value={fuel}>{fuel}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                            <Select value={fournisseurFilter} onValueChange={setFournisseurFilter}>
+                                <SelectTrigger className="w-full sm:w-auto flex-1 min-w-[180px]">
+                                    <SelectValue placeholder="Filtrer par fournisseur..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {FOURNISSEURS.map(supplier => <SelectItem key={supplier} value={supplier}>{supplier}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        id="date"
+                                        variant={"outline"}
+                                        className={cn(
+                                            "w-full sm:w-auto flex-1 min-w-[240px] justify-start text-left font-normal",
+                                            !dateFilter && "text-muted-foreground"
+                                        )}
+                                        >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {dateFilter?.from ? (
+                                            dateFilter.to ? (
+                                            <>
+                                                {format(dateFilter.from, "d MMM y", { locale: fr })} -{" "}
+                                                {format(dateFilter.to, "d MMM y", { locale: fr })}
+                                            </>
+                                            ) : (
+                                                format(dateFilter.from, "d MMM y", { locale: fr })
+                                            )
                                         ) : (
-                                            format(dateFilter.from, "d MMM y", { locale: fr })
-                                        )
-                                    ) : (
-                                        <span>Filtrer par date</span>
-                                    )}
+                                            <span>Filtrer par date</span>
+                                        )}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                        initialFocus
+                                        mode="range"
+                                        defaultMonth={dateFilter?.from}
+                                        selected={dateFilter}
+                                        onSelect={setDateFilter}
+                                        numberOfMonths={2}
+                                        locale={fr}
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                            <Button onClick={resetFilters} variant="ghost" className="text-muted-foreground hover:text-foreground h-10 px-3">
+                                <XCircle className="mr-2 h-4 w-4"/>
+                                Réinitialiser
+                            </Button>
+                        </div>
+                    </div>
+                     <div>
+                        <h3 className="text-sm font-medium text-muted-foreground mb-2">Téléchargement</h3>
+                         <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline">
+                                    <Download className="mr-2 h-4 w-4"/>
+                                    Télécharger un Rapport
+                                    <ChevronDown className="ml-2 h-4 w-4" />
                                 </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                                <Calendar
-                                    initialFocus
-                                    mode="range"
-                                    defaultMonth={dateFilter?.from}
-                                    selected={dateFilter}
-                                    onSelect={setDateFilter}
-                                    numberOfMonths={2}
-                                    locale={fr}
-                                />
-                            </PopoverContent>
-                        </Popover>
-                        <Button onClick={resetFilters} variant="ghost" className="text-muted-foreground hover:text-foreground h-10 px-3">
-                            <XCircle className="mr-2 h-4 w-4"/>
-                            Réinitialiser
-                        </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleReportDownload('daily')}>
+                                    Rapport Journalier
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleReportDownload('weekly')}>
+                                    Rapport Hebdomadaire
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleReportDownload('monthly')}>
+                                    Rapport Mensuel
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
                 </div>
 
                 <Separator/>
-
-                <div>
-                    <h3 className="text-sm font-medium text-muted-foreground mb-2">Téléchargement de Rapports</h3>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <Button variant="outline" onClick={() => handleReportDownload('daily')}>
-                            <Download className="mr-2"/>
-                            Rapport Journalier
-                        </Button>
-                         <Button variant="outline" onClick={() => handleReportDownload('weekly')}>
-                            <Download className="mr-2"/>
-                            Rapport Hebdomadaire
-                        </Button>
-                         <Button variant="outline" onClick={() => handleReportDownload('monthly')}>
-                            <Download className="mr-2"/>
-                            Rapport Mensuel
-                        </Button>
-                    </div>
-                </div>
 
                 <div className="rounded-md border">
                     <Table>
