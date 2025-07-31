@@ -52,9 +52,9 @@ export function ResultsTable() {
         return format(new Date(timestamp.seconds * 1000), "dd/MM/yyyy", { locale: fr });
     }
     
-    const formatNumber = (num: number | null | undefined) => {
+    const formatNumber = (num: number | null | undefined, fractionDigits: number = 2) => {
         if (num === null || num === undefined) return 'N/A';
-        return num.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return num.toLocaleString('fr-FR', { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits });
     }
 
     if (loading) {
@@ -93,12 +93,12 @@ export function ResultsTable() {
                                 <TableCell>{formatDate(result.date_arrivage)}</TableCell>
                                 <TableCell>{result.type_combustible}</TableCell>
                                 <TableCell>{result.fournisseur}</TableCell>
-                                <TableCell className="text-right">{formatNumber(result.pcs)}</TableCell>
-                                <TableCell className="font-semibold text-right">{Math.round(result.pci_brut).toLocaleString('fr-FR')}</TableCell>
-                                <TableCell className="text-right">{formatNumber(result.h2o)}</TableCell>
-                                <TableCell className="text-right">{formatNumber(result.cendres)}</TableCell>
-                                <TableCell className="text-right">{formatNumber(result.chlore)}</TableCell>
-                                <TableCell className="text-right">{formatNumber(result.densite)}</TableCell>
+                                <TableCell className="text-right">{formatNumber(result.pcs, 0)}</TableCell>
+                                <TableCell className="font-semibold text-right">{formatNumber(result.pci_brut, 0)}</TableCell>
+                                <TableCell className="text-right">{formatNumber(result.h2o, 1)}</TableCell>
+                                <TableCell className="text-right">{formatNumber(result.cendres, 1)}</TableCell>
+                                <TableCell className="text-right">{formatNumber(result.chlore, 2)}</TableCell>
+                                <TableCell className="text-right">{formatNumber(result.densite, 2)}</TableCell>
                                 <TableCell className="max-w-[200px] truncate">{result.remarques}</TableCell>
                             </TableRow>
                         ))
