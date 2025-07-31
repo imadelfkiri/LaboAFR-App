@@ -232,7 +232,7 @@ export function ResultsTable() {
         let filename: string;
 
         if (period === 'daily') {
-            startDate = startOfDay(now);
+            startDate = startOfDay(subDays(now, 1));
             endDate = endOfDay(now);
             filename = `Rapport_Journalier_${format(now, 'yyyy-MM-dd')}`;
         } else if (period === 'weekly') {
