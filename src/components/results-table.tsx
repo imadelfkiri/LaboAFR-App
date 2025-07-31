@@ -153,7 +153,7 @@ export function ResultsTable() {
     }
     
     const formatNumber = (num: number | null | undefined, fractionDigits: number = 2) => {
-        if (num === null || num === undefined) return 'N/A';
+        if (num === null || num === undefined || isNaN(num)) return 'N/A';
         if (fractionDigits === 0) {
             return Math.round(num).toLocaleString('fr-FR');
         }
@@ -225,11 +225,14 @@ export function ResultsTable() {
     const handleReportDownload = (period: 'daily' | 'weekly' | 'monthly') => {
         const now = new Date();
         let startDate: Date;
+        let endDate: Date = endOfDay(now);
         let filename: string;
 
         if (period === 'daily') {
-            startDate = startOfDay(now);
-            filename = `Rapport_Journalier_${format(now, 'yyyy-MM-dd')}`;
+            const yesterday = subDays(now, 1);
+            startDate = startOfDay(yesterday);
+            endDate = endOfDay(yesterday);
+            filename = `Rapport_Journalier_${format(yesterday, 'yyyy-MM-dd')}`;
         } else if (period === 'weekly') {
             startDate = startOfDay(subDays(now, 7));
             filename = `Rapport_Hebdomadaire_${format(now, 'yyyy-MM-dd')}`;
@@ -240,7 +243,7 @@ export function ResultsTable() {
 
         const reportData = results.filter(result => {
             const dateArrivage = new Date(result.date_arrivage.seconds * 1000);
-            return dateArrivage >= startDate && dateArrivage <= endOfDay(now);
+            return dateArrivage >= startDate && dateArrivage <= endDate;
         });
 
         if (period === 'daily') {
