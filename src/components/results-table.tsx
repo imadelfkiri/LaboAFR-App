@@ -48,6 +48,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
@@ -397,12 +398,13 @@ export function ResultsTable() {
                                     <DropdownMenuItem onClick={() => handleReportDownload('monthly')}>
                                         Rapport Mensuel
                                     </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={handleFilteredExport}>
+                                        <FileOutput className="mr-2 h-4 w-4"/>
+                                        Exporter la vue filtrée
+                                    </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
-                             <Button variant="outline" onClick={handleFilteredExport}>
-                                <FileOutput className="mr-2 h-4 w-4"/>
-                                Exporter la vue filtrée
-                            </Button>
                         </div>
                     </div>
                 </div>
@@ -476,3 +478,5 @@ export function ResultsTable() {
         </AlertDialog>
     );
 }
+
+    
