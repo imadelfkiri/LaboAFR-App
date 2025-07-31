@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, query, onSnapshot, orderBy, where, Timestamp } from 'firebase/firestore';
+import { collection, query, onSnapshot, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
   Table,
@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format } from "date-fns";
+import { format, startOfDay, endOfDay } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
   Select,
@@ -26,12 +26,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, XCircle } from "lucide-react";
 import { FUEL_TYPES, FOURNISSEURS } from "@/lib/data";
 import { cn } from "@/lib/utils";
+import { DateRange } from "react-day-picker";
 
 interface Result {
     id: string;
@@ -52,7 +52,7 @@ export function ResultsTable() {
     const [loading, setLoading] = useState(true);
     const [typeFilter, setTypeFilter] = useState<string>("");
     const [fournisseurFilter, setFournisseurFilter] = useState<string>("");
-    const [dateFilter, setDateFilter] = useState<Date | undefined>();
+    const [dateFilter, setDateFilter] = useState<DateRange | undefined>();
 
     useEffect(() => {
         let q = query(collection(db, "resultats"), orderBy("date_arrivage", "desc"));
@@ -76,9 +76,8 @@ export function ResultsTable() {
             const typeMatch = !typeFilter || result.type_combustible === typeFilter;
             const fournisseurMatch = !fournisseurFilter || result.fournisseur === fournisseurFilter;
             const dateMatch = !dateFilter || (
-                dateArrivage.getDate() === dateFilter.getDate() &&
-                dateArrivage.getMonth() === dateFilter.getMonth() &&
-                dateArrivage.getFullYear() === dateFilter.getFullYear()
+                (!dateFilter.from || dateArrivage >= startOfDay(dateFilter.from)) &&
+                (!dateFilter.to || dateArrivage <= endOfDay(dateFilter.to))
             );
 
             return typeMatch && fournisseurMatch && dateMatch;
@@ -137,23 +136,37 @@ export function ResultsTable() {
                 </Select>
                 <Popover>
                     <PopoverTrigger asChild>
-                        <Button
+                         <Button
+                            id="date"
                             variant={"outline"}
                             className={cn(
-                            "w-full sm:w-[240px] justify-start text-left font-normal",
-                            !dateFilter && "text-muted-foreground"
+                                "w-full sm:w-[300px] justify-start text-left font-normal",
+                                !dateFilter && "text-muted-foreground"
                             )}
-                        >
+                            >
                             <CalendarIcon className="mr-2 h-4 w-4" />
-                            {dateFilter ? format(dateFilter, "PPP", { locale: fr }) : <span>Filtrer par date...</span>}
+                            {dateFilter?.from ? (
+                                dateFilter.to ? (
+                                <>
+                                    {format(dateFilter.from, "LLL dd, y", { locale: fr })} -{" "}
+                                    {format(dateFilter.to, "LLL dd, y", { locale: fr })}
+                                </>
+                                ) : (
+                                    format(dateFilter.from, "LLL dd, y", { locale: fr })
+                                )
+                            ) : (
+                                <span>Choisissez une plage de dates</span>
+                            )}
                         </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
                         <Calendar
-                            mode="single"
+                            initialFocus
+                            mode="range"
+                            defaultMonth={dateFilter?.from}
                             selected={dateFilter}
                             onSelect={setDateFilter}
-                            initialFocus
+                            numberOfMonths={2}
                             locale={fr}
                         />
                     </PopoverContent>
