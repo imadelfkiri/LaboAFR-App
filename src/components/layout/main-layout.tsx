@@ -20,7 +20,7 @@ function HeaderTitle() {
     if (pathname === '/resultats') {
         title = "Historique des Résultats";
     }
-    return <h1 className="text-xl font-semibold">{title}</h1>
+    return <h1 className="text-xl font-bold text-foreground">{title}</h1>
 }
 
 
@@ -28,16 +28,16 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
       <Sidebar>
-        <SidebarHeader>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="h-10 w-10 bg-primary/10 hover:bg-primary/20">
-                <Fuel className="h-6 w-6 text-primary" />
-            </Button>
+        <SidebarHeader className="p-4">
+          <div className="flex items-center gap-3">
+            <div className='flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar-primary'>
+                <Fuel className="h-6 w-6 text-sidebar-primary-foreground" />
+            </div>
             <div className="flex flex-col">
-                <h2 className="text-lg font-semibold tracking-tight text-primary font-headline">
+                <h2 className="text-lg font-bold tracking-tight text-sidebar-primary-foreground">
                     FuelTrack
                 </h2>
-                <p className="text-xs text-muted-foreground">AFR</p>
+                <p className="text-xs text-sidebar-foreground/80">AFR Monitoring</p>
             </div>
           </div>
         </SidebarHeader>
@@ -46,13 +46,13 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         </SidebarContent>
       </Sidebar>
       <SidebarInset>
-        <header className="flex h-14 items-center gap-4 border-b bg-background/50 backdrop-blur-sm px-4 lg:h-[60px] lg:px-6 sticky top-0 z-30">
+        <header className="flex h-16 items-center gap-4 border-b bg-background/95 backdrop-blur-sm px-4 lg:px-6 sticky top-0 z-30">
             <SidebarTrigger className="md:hidden" />
             <div className='flex-1'>
                 <HeaderTitle />
             </div>
         </header>
-        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-muted/40">
+        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-background">
           {children}
         </main>
       </SidebarInset>

@@ -314,9 +314,9 @@ export function ResultsTable() {
     return (
         <AlertDialog onOpenChange={(open) => !open && setResultToDelete(null)}>
             <div className="flex flex-col gap-4">
-                <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                    <div>
-                        <h3 className="text-sm font-medium text-muted-foreground mb-2">Filtres</h3>
+                <div className='grid grid-cols-1 md:grid-cols-3 gap-4 items-start'>
+                    <div className="md:col-span-2">
+                        <label className="text-sm font-medium text-muted-foreground mb-2 block">Filtres</label>
                         <div className="flex flex-wrap items-center gap-2">
                             <Select value={typeFilter} onValueChange={setTypeFilter}>
                                 <SelectTrigger className="w-full sm:w-auto flex-1 min-w-[180px]">
@@ -378,11 +378,11 @@ export function ResultsTable() {
                         </div>
                     </div>
                      <div>
-                        <h3 className="text-sm font-medium text-muted-foreground mb-2">Téléchargement</h3>
+                        <label className="text-sm font-medium text-muted-foreground mb-2 block">Téléchargement</label>
                         <div className='flex flex-wrap gap-2'>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="outline">
+                                    <Button variant="outline" className="w-full sm:w-auto">
                                         <Download className="mr-2 h-4 w-4"/>
                                         Télécharger un Rapport
                                         <ChevronDown className="ml-2 h-4 w-4" />
@@ -409,12 +409,10 @@ export function ResultsTable() {
                     </div>
                 </div>
 
-                <Separator/>
-
-                <div className="rounded-md border">
+                <div className="rounded-lg border overflow-hidden">
                     <Table>
                         <TableHeader>
-                            <TableRow>
+                            <TableRow className="bg-muted/50 hover:bg-muted/50">
                                 <TableHead className="w-[120px]">Date Arrivage</TableHead>
                                 <TableHead>Type Combustible</TableHead>
                                 <TableHead>Fournisseur</TableHead>
@@ -478,5 +476,3 @@ export function ResultsTable() {
         </AlertDialog>
     );
 }
-
-    

@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { format, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
-import { CalendarIcon, Circle, Leaf, Droplets, Fuel, Mountain, Recycle, ShoppingBag, Trash2, TreePine, Layers, Building, Beaker } from 'lucide-react';
+import { CalendarIcon, Circle, Leaf, Droplets, Fuel, Mountain, Recycle, ShoppingBag, Trash2, TreePine, Layers, Building } from 'lucide-react';
 import { collection, addDoc, Timestamp } from "firebase/firestore"; 
 
 
@@ -186,119 +186,119 @@ export function PciCalculator() {
   }
 
   return (
-    <Card className="w-full max-w-5xl">
+    <Card className="w-full max-w-5xl shadow-lg">
       <CardHeader>
-        <CardTitle className="text-xl">Calculateur de PCI Brut</CardTitle>
+        <CardTitle className="text-2xl font-bold tracking-tight">Calculateur de PCI Brut</CardTitle>
         <CardDescription>
           Saisissez les résultats d'analyse pour calculer la valeur PCI brute du combustible.
         </CardDescription>
       </CardHeader>
        <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
-          <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+          <CardContent className="space-y-8">
+            <div className="grid grid-cols-1 gap-x-8 gap-y-6 md:grid-cols-2 lg:grid-cols-3">
                 <FormField
                   control={form.control}
-                  name="date_arrivage"
+                  name="type_combustible"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Date d'arrivage</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
+                      <FormItem>
+                      <FormLabel>Type de combustible</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                           <FormControl>
-                            <Button
-                              variant={"outline"}
-                              className={cn(
-                                "pl-3 text-left font-normal",
-                                !field.value && "text-muted-foreground"
-                              )}
-                            >
-                              {field.value ? (
-                                format(field.value, "PPP", { locale: fr })
-                              ) : (
-                                <span>Choisissez une date</span>
-                              )}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
+                          <SelectTrigger>
+                              <SelectValue placeholder="Sélectionnez un type..." />
+                          </SelectTrigger>
                           </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={field.onChange}
-                            disabled={(date) =>
-                              date > new Date() || date < new Date("1900-01-01")
-                            }
-                            initialFocus
-                            locale={fr}
-                          />
-                        </PopoverContent>
-                      </Popover>
+                          <SelectContent>
+                          {FUEL_TYPES.map((fuelType) => {
+                              const Icon = fuelIcons[fuelType] || Fuel;
+                              return (
+                                  <SelectItem key={fuelType} value={fuelType}>
+                                      <div className="flex items-center gap-2">
+                                          <Icon className="h-4 w-4 text-muted-foreground" />
+                                          <span>{fuelType}</span>
+                                      </div>
+                                  </SelectItem>
+                              );
+                          })}
+                          </SelectContent>
+                      </Select>
                       <FormMessage />
-                    </FormItem>
+                      </FormItem>
                   )}
-                />
-                 <FormField
-                    control={form.control}
-                    name="type_combustible"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Type de combustible</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                            <FormControl>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Sélectionnez un type..." />
-                            </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                            {FUEL_TYPES.map((fuelType) => {
-                                const Icon = fuelIcons[fuelType] || Fuel;
-                                return (
-                                    <SelectItem key={fuelType} value={fuelType}>
-                                        <div className="flex items-center gap-2">
-                                            <Icon className="h-4 w-4 text-muted-foreground" />
-                                            <span>{fuelType}</span>
-                                        </div>
-                                    </SelectItem>
-                                );
-                            })}
-                            </SelectContent>
-                        </Select>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                 <FormField
-                    control={form.control}
-                    name="fournisseur"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Fournisseur</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                            <FormControl>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Sélectionnez un fournisseur..." />
-                            </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                            {FOURNISSEURS.map((fournisseur) => (
-                                    <SelectItem key={fournisseur} value={fournisseur}>
-                                        <div className="flex items-center gap-2">
-                                            <Building className="h-4 w-4 text-muted-foreground" />
-                                            <span>{fournisseur}</span>
-                                        </div>
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                />
+              />
+               <FormField
+                  control={form.control}
+                  name="fournisseur"
+                  render={({ field }) => (
+                      <FormItem>
+                      <FormLabel>Fournisseur</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                          <FormControl>
+                          <SelectTrigger>
+                              <SelectValue placeholder="Sélectionnez un fournisseur..." />
+                          </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                          {FOURNISSEURS.map((fournisseur) => (
+                                  <SelectItem key={fournisseur} value={fournisseur}>
+                                      <div className="flex items-center gap-2">
+                                          <Building className="h-4 w-4 text-muted-foreground" />
+                                          <span>{fournisseur}</span>
+                                      </div>
+                                  </SelectItem>
+                              ))}
+                          </SelectContent>
+                      </Select>
+                      <FormMessage />
+                      </FormItem>
+                  )}
+              />
+              <FormField
+                control={form.control}
+                name="date_arrivage"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Date d'arrivage</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant={"outline"}
+                            className={cn(
+                              "w-full pl-3 text-left font-normal",
+                              !field.value && "text-muted-foreground"
+                            )}
+                          >
+                            {field.value ? (
+                              format(field.value, "PPP", { locale: fr })
+                            ) : (
+                              <span>Choisissez une date</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={field.onChange}
+                          disabled={(date) =>
+                            date > new Date() || date < new Date("1900-01-01")
+                          }
+                          initialFocus
+                          locale={fr}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
              <Separator />
-            <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-5">
+             <div className="grid grid-cols-2 gap-x-8 gap-y-6 md:grid-cols-3 lg:grid-cols-5">
               <FormField
                 control={form.control}
                 name="pcs"
@@ -325,25 +325,12 @@ export function PciCalculator() {
                   </FormItem>
                 )}
               />
-              <FormField
-                  control={form.control}
-                  name="chlore"
-                  render={({ field }) => (
-                  <FormItem>
-                      <FormLabel>% Cl- (Facult.)</FormLabel>
-                      <FormControl>
-                      <Input type="number" step="any" placeholder="ex: 0.5" {...field} value={field.value ?? ''} />
-                      </FormControl>
-                      <FormMessage />
-                  </FormItem>
-                  )}
-              />
                <FormField
                 control={form.control}
                 name="cendres"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>% Cendres (Facult.)</FormLabel>
+                    <FormLabel>% Cendres</FormLabel>
                     <FormControl>
                       <Input type="number" step="any" placeholder="ex: 10" {...field} value={field.value ?? ''} />
                     </FormControl>
@@ -351,15 +338,30 @@ export function PciCalculator() {
                   </FormItem>
                 )}
               />
+              <FormField
+                  control={form.control}
+                  name="chlore"
+                  render={({ field }) => (
+                  <FormItem>
+                      <FormLabel>% Cl-</FormLabel>
+                      <FormControl>
+                      <Input type="number" step="any" placeholder="ex: 0.5" {...field} value={field.value ?? ''} />
+                      </FormControl>
+                      <FormDescription className="text-xs">Facultatif</FormDescription>
+                      <FormMessage />
+                  </FormItem>
+                  )}
+              />
                  <FormField
                     control={form.control}
                     name="densite"
                     render={({ field }) => (
                     <FormItem>
-                        <FormLabel>Densité (t/m³) (Facult.)</FormLabel>
+                        <FormLabel>Densité (t/m³)</FormLabel>
                         <FormControl>
                         <Input type="number" step="any" placeholder="ex: 0.8" {...field} value={field.value ?? ''} />
                         </FormControl>
+                        <FormDescription className="text-xs">Facultatif</FormDescription>
                         <FormMessage />
                     </FormItem>
                     )}
@@ -370,10 +372,10 @@ export function PciCalculator() {
                 name="remarques"
                 render={({ field }) => (
                 <FormItem>
-                    <FormLabel>Remarques (Facultatif)</FormLabel>
+                    <FormLabel>Remarques</FormLabel>
                     <FormControl>
                         <Textarea
-                            placeholder="Ajoutez une remarque sur l'analyse..."
+                            placeholder="Ajoutez une remarque sur l'analyse (facultatif)..."
                             className="resize-none"
                             {...field}
                             value={field.value ?? ''}
@@ -386,15 +388,15 @@ export function PciCalculator() {
           </CardContent>
            <CardFooter className="flex-col items-stretch gap-6">
                 {pciResult !== null && (
-                    <div className="text-center animate-in fade-in-50 duration-500 bg-primary/10 rounded-lg p-4">
-                        <p className="text-sm font-medium text-primary/80">PCI sur Brut Calculé</p>
-                        <p className="text-4xl font-bold text-primary tracking-tight">
+                    <div className="text-center animate-in fade-in-50 duration-500 bg-primary/10 rounded-lg p-6">
+                        <p className="text-base font-semibold text-primary">PCI sur Brut Calculé</p>
+                        <p className="text-5xl font-bold text-primary tracking-tight">
                             {pciResult.toLocaleString('fr-FR')}
-                             <span className="text-lg font-semibold text-primary/80 ml-2">kcal/kg</span>
+                             <span className="text-xl font-semibold text-primary/80 ml-2">kcal/kg</span>
                         </p>
                     </div>
                 )}
-                 <Button type="submit" size="lg" disabled={isSaving || pciResult === null} className="font-bold text-base py-6 transition-transform duration-150 ease-in-out active:scale-[0.98]">
+                 <Button type="submit" size="lg" disabled={isSaving || pciResult === null} className="font-bold text-base py-7 transition-transform duration-150 ease-in-out active:scale-[0.98]">
                     {isSaving ? "Enregistrement..." : "Enregistrer les résultats"}
                 </Button>
             </CardFooter>
