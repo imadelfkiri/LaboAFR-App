@@ -20,7 +20,7 @@ function HeaderTitle() {
     if (pathname === '/resultats') {
         title = "Historique des Résultats";
     }
-    return <h1 className="text-lg font-semibold md:text-xl">{title}</h1>
+    return <h1 className="text-xl font-semibold">{title}</h1>
 }
 
 
@@ -46,13 +46,13 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         </SidebarContent>
       </Sidebar>
       <SidebarInset>
-        <header className="flex h-14 items-center gap-4 border-b bg-background/50 backdrop-blur-sm px-4 lg:h-[60px] lg:px-6 sticky top-0 z-10">
+        <header className="flex h-14 items-center gap-4 border-b bg-background/50 backdrop-blur-sm px-4 lg:h-[60px] lg:px-6 sticky top-0 z-30">
             <SidebarTrigger className="md:hidden" />
             <div className='flex-1'>
                 <HeaderTitle />
             </div>
         </header>
-        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
+        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-muted/40">
           {children}
         </main>
       </SidebarInset>

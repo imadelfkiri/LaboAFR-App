@@ -143,12 +143,12 @@ export function ResultsTable() {
 
     if (loading) {
         return (
-             <div className="space-y-2">
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
+             <div className="space-y-2 pt-4">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
             </div>
         )
     }
@@ -156,9 +156,9 @@ export function ResultsTable() {
     return (
         <AlertDialog onOpenChange={(open) => !open && setResultToDelete(null)}>
             <div>
-                <div className="flex flex-col sm:flex-row gap-4 mb-6 p-4 border rounded-lg bg-card">
+                <div className="flex flex-wrap items-center gap-2 mb-4">
                     <Select value={typeFilter} onValueChange={setTypeFilter}>
-                        <SelectTrigger className="w-full sm:w-[200px]">
+                        <SelectTrigger className="w-full sm:w-auto flex-1 min-w-[180px]">
                             <SelectValue placeholder="Filtrer par type..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -166,7 +166,7 @@ export function ResultsTable() {
                         </SelectContent>
                     </Select>
                     <Select value={fournisseurFilter} onValueChange={setFournisseurFilter}>
-                        <SelectTrigger className="w-full sm:w-[200px]">
+                        <SelectTrigger className="w-full sm:w-auto flex-1 min-w-[180px]">
                             <SelectValue placeholder="Filtrer par fournisseur..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -179,7 +179,7 @@ export function ResultsTable() {
                                 id="date"
                                 variant={"outline"}
                                 className={cn(
-                                    "w-full sm:w-[300px] justify-start text-left font-normal",
+                                    "w-full sm:w-auto flex-1 min-w-[240px] justify-start text-left font-normal",
                                     !dateFilter && "text-muted-foreground"
                                 )}
                                 >
@@ -187,14 +187,14 @@ export function ResultsTable() {
                                 {dateFilter?.from ? (
                                     dateFilter.to ? (
                                     <>
-                                        {format(dateFilter.from, "LLL dd, y", { locale: fr })} -{" "}
-                                        {format(dateFilter.to, "LLL dd, y", { locale: fr })}
+                                        {format(dateFilter.from, "d MMM y", { locale: fr })} -{" "}
+                                        {format(dateFilter.to, "d MMM y", { locale: fr })}
                                     </>
                                     ) : (
-                                        format(dateFilter.from, "LLL dd, y", { locale: fr })
+                                        format(dateFilter.from, "d MMM y", { locale: fr })
                                     )
                                 ) : (
-                                    <span>Choisissez une plage de dates</span>
+                                    <span>Filtrer par date</span>
                                 )}
                             </Button>
                         </PopoverTrigger>
@@ -210,7 +210,7 @@ export function ResultsTable() {
                             />
                         </PopoverContent>
                     </Popover>
-                    <Button onClick={resetFilters} variant="ghost" className="text-muted-foreground hover:text-foreground">
+                    <Button onClick={resetFilters} variant="ghost" className="text-muted-foreground hover:text-foreground h-10 px-3">
                         <XCircle className="mr-2 h-4 w-4"/>
                         Réinitialiser
                     </Button>
@@ -219,37 +219,37 @@ export function ResultsTable() {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Date Arrivage</TableHead>
+                                <TableHead className="w-[120px]">Date Arrivage</TableHead>
                                 <TableHead>Type Combustible</TableHead>
                                 <TableHead>Fournisseur</TableHead>
                                 <TableHead className="text-right">PCS</TableHead>
-                                <TableHead className="text-right">PCI sur Brut</TableHead>
+                                <TableHead className="text-right text-primary font-bold">PCI sur Brut</TableHead>
                                 <TableHead className="text-right">% H2O</TableHead>
                                 <TableHead className="text-right">% Cendres</TableHead>
                                 <TableHead className="text-right">% Cl-</TableHead>
                                 <TableHead className="text-right">Densité</TableHead>
                                 <TableHead>Remarques</TableHead>
-                                <TableHead className="w-[50px]">Action</TableHead>
+                                <TableHead className="w-[50px] text-right">Action</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filteredResults.length > 0 ? (
                                 filteredResults.map((result) => (
                                     <TableRow key={result.id}>
-                                        <TableCell>{formatDate(result.date_arrivage)}</TableCell>
+                                        <TableCell className="font-medium">{formatDate(result.date_arrivage)}</TableCell>
                                         <TableCell>{result.type_combustible}</TableCell>
                                         <TableCell>{result.fournisseur}</TableCell>
                                         <TableCell className="text-right">{formatNumber(result.pcs, 0)}</TableCell>
-                                        <TableCell className="font-semibold text-right">{formatNumber(result.pci_brut, 0)}</TableCell>
+                                        <TableCell className="font-bold text-right text-primary">{formatNumber(result.pci_brut, 0)}</TableCell>
                                         <TableCell className="text-right">{formatNumber(result.h2o, 1)}</TableCell>
                                         <TableCell className="text-right">{formatNumber(result.cendres, 1)}</TableCell>
                                         <TableCell className="text-right">{formatNumber(result.chlore, 2)}</TableCell>
                                         <TableCell className="text-right">{formatNumber(result.densite, 2)}</TableCell>
-                                        <TableCell className="max-w-[200px] truncate">{result.remarques}</TableCell>
-                                        <TableCell>
+                                        <TableCell className="max-w-[150px] truncate text-muted-foreground">{result.remarques}</TableCell>
+                                        <TableCell className="text-right">
                                             <AlertDialogTrigger asChild>
                                                 <Button variant="ghost" size="icon" onClick={() => setResultToDelete(result.id)}>
-                                                    <Trash2 className="h-4 w-4 text-destructive"/>
+                                                    <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive"/>
                                                 </Button>
                                             </AlertDialogTrigger>
                                         </TableCell>
@@ -257,8 +257,8 @@ export function ResultsTable() {
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={11} className="h-24 text-center">
-                                        Aucun résultat trouvé pour les filtres sélectionnés.
+                                    <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
+                                        Aucun résultat trouvé.
                                     </TableCell>
                                 </TableRow>
                             )}

@@ -9,12 +9,12 @@ import {
 
 export default function ResultsPage() {
   return (
-    <div className="flex flex-1 items-start justify-center rounded-lg border border-dashed shadow-sm p-4 md:p-6">
-       <Card className="w-full shadow-none border-0">
-         <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Historique des Résultats</CardTitle>
+    <div className="flex flex-1 flex-col">
+       <Card>
+         <CardHeader>
+            <CardTitle>Historique des Résultats</CardTitle>
             <CardDescription>
-              Consultez toutes les analyses de combustibles enregistrées.
+              Consultez, filtrez et gérez toutes les analyses de combustibles enregistrées.
             </CardDescription>
         </CardHeader>
         <CardContent>

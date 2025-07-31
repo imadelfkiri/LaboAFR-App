@@ -35,6 +35,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card";
 import {
   Select,
@@ -185,22 +186,22 @@ export function PciCalculator() {
   }
 
   return (
-    <Card className="w-full max-w-5xl shadow-none border-0">
-      <CardHeader className="text-center">
-        <CardTitle className="text-2xl">Calculateur de PCI Brut</CardTitle>
+    <Card className="w-full max-w-5xl">
+      <CardHeader>
+        <CardTitle className="text-xl">Calculateur de PCI Brut</CardTitle>
         <CardDescription>
-          Saisissez les résultats d'analyse pour calculer la valeur PCI brute du combustible et enregistrer les données.
+          Saisissez les résultats d'analyse pour calculer la valeur PCI brute du combustible.
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+       <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)}>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
                 <FormField
                   control={form.control}
                   name="date_arrivage"
                   render={({ field }) => (
-                    <FormItem className="flex flex-col">
+                    <FormItem>
                       <FormLabel>Date d'arrivage</FormLabel>
                       <Popover>
                         <PopoverTrigger asChild>
@@ -295,6 +296,9 @@ export function PciCalculator() {
                         </FormItem>
                     )}
                 />
+            </div>
+             <Separator />
+            <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-5">
               <FormField
                 control={form.control}
                 name="pcs"
@@ -326,7 +330,7 @@ export function PciCalculator() {
                   name="chlore"
                   render={({ field }) => (
                   <FormItem>
-                      <FormLabel>% Cl- (Facultatif)</FormLabel>
+                      <FormLabel>% Cl- (Facult.)</FormLabel>
                       <FormControl>
                       <Input type="number" step="any" placeholder="ex: 0.5" {...field} value={field.value ?? ''} />
                       </FormControl>
@@ -339,7 +343,7 @@ export function PciCalculator() {
                 name="cendres"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>% Cendres (Facultatif)</FormLabel>
+                    <FormLabel>% Cendres (Facult.)</FormLabel>
                     <FormControl>
                       <Input type="number" step="any" placeholder="ex: 10" {...field} value={field.value ?? ''} />
                     </FormControl>
@@ -352,7 +356,7 @@ export function PciCalculator() {
                     name="densite"
                     render={({ field }) => (
                     <FormItem>
-                        <FormLabel>Densité (t/m³) (Facultatif)</FormLabel>
+                        <FormLabel>Densité (t/m³) (Facult.)</FormLabel>
                         <FormControl>
                         <Input type="number" step="any" placeholder="ex: 0.8" {...field} value={field.value ?? ''} />
                         </FormControl>
@@ -360,46 +364,42 @@ export function PciCalculator() {
                     </FormItem>
                     )}
                 />
-                 <FormField
-                    control={form.control}
-                    name="remarques"
-                    render={({ field }) => (
-                    <FormItem className="sm:col-span-2 lg:col-span-4">
-                        <FormLabel>Remarques (Facultatif)</FormLabel>
-                        <FormControl>
-                            <Textarea
-                                placeholder="Ajoutez une remarque..."
-                                className="resize-none"
-                                {...field}
-                                value={field.value ?? ''}
-                            />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                    )}
-                />
             </div>
-           
-            <div className="flex items-center justify-between pt-4">
-                <div>
+             <FormField
+                control={form.control}
+                name="remarques"
+                render={({ field }) => (
+                <FormItem>
+                    <FormLabel>Remarques (Facultatif)</FormLabel>
+                    <FormControl>
+                        <Textarea
+                            placeholder="Ajoutez une remarque sur l'analyse..."
+                            className="resize-none"
+                            {...field}
+                            value={field.value ?? ''}
+                        />
+                    </FormControl>
+                    <FormMessage />
+                </FormItem>
+                )}
+            />
+          </CardContent>
+           <CardFooter className="flex-col items-stretch gap-6">
                 {pciResult !== null && (
-                    <div className="text-center animate-in fade-in-50 duration-500">
-                        <p className="text-base font-medium text-muted-foreground">PCI sur Brut</p>
+                    <div className="text-center animate-in fade-in-50 duration-500 bg-primary/10 rounded-lg p-4">
+                        <p className="text-sm font-medium text-primary/80">PCI sur Brut Calculé</p>
                         <p className="text-4xl font-bold text-primary tracking-tight">
                             {pciResult.toLocaleString('fr-FR')}
-                             <span className="text-lg font-semibold text-muted-foreground ml-2">kcal/kg</span>
+                             <span className="text-lg font-semibold text-primary/80 ml-2">kcal/kg</span>
                         </p>
                     </div>
                 )}
-                </div>
-
-                <Button type="submit" disabled={isSaving} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-base py-6 px-8 transition-transform duration-150 ease-in-out active:scale-[0.98]">
-                    {isSaving ? "Enregistrement..." : "Enregistrer"}
+                 <Button type="submit" size="lg" disabled={isSaving || pciResult === null} className="font-bold text-base py-6 transition-transform duration-150 ease-in-out active:scale-[0.98]">
+                    {isSaving ? "Enregistrement..." : "Enregistrer les résultats"}
                 </Button>
-            </div>
+            </CardFooter>
           </form>
         </Form>
-      </CardContent>
     </Card>
   );
 }
