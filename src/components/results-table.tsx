@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, XCircle, Trash2, Download, ChevronDown } from "lucide-react";
+import { CalendarIcon, XCircle, Trash2, Download, ChevronDown, FileOutput } from "lucide-react";
 import { FUEL_TYPES, FOURNISSEURS } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
@@ -154,7 +154,6 @@ export function ResultsTable() {
     
     const formatNumber = (num: number | null | undefined, fractionDigits: number = 2) => {
         if (num === null || num === undefined || isNaN(num)) return 'N/A';
-        // Arrondir d'abord pour éviter les problèmes de précision flottante avant toLocaleString
         const factor = Math.pow(10, fractionDigits);
         const roundedNum = Math.round(num * factor) / factor;
     
@@ -208,7 +207,7 @@ export function ResultsTable() {
             toast({
                 variant: "destructive",
                 title: "Aucune donnée",
-                description: `Il n'y a aucune donnée à exporter pour la période sélectionnée.`,
+                description: `Il n'y a aucune donnée à exporter pour la sélection.`,
             });
             return;
         }
@@ -223,6 +222,12 @@ export function ResultsTable() {
             link.click();
             document.body.removeChild(link);
         }
+    };
+    
+    const handleFilteredExport = () => {
+        const csvString = convertIndividualToCSV(filteredResults);
+        const filename = `Export_Filtre_${format(new Date(), 'yyyy-MM-dd')}`;
+        downloadCSV(csvString, filename);
     };
 
     const handleReportDownload = (period: 'daily' | 'weekly' | 'monthly') => {
@@ -373,26 +378,32 @@ export function ResultsTable() {
                     </div>
                      <div>
                         <h3 className="text-sm font-medium text-muted-foreground mb-2">Téléchargement</h3>
-                         <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline">
-                                    <Download className="mr-2 h-4 w-4"/>
-                                    Télécharger un Rapport
-                                    <ChevronDown className="ml-2 h-4 w-4" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleReportDownload('daily')}>
-                                    Rapport Journalier
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleReportDownload('weekly')}>
-                                    Rapport Hebdomadaire
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleReportDownload('monthly')}>
-                                    Rapport Mensuel
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                        <div className='flex flex-wrap gap-2'>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline">
+                                        <Download className="mr-2 h-4 w-4"/>
+                                        Télécharger un Rapport
+                                        <ChevronDown className="ml-2 h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => handleReportDownload('daily')}>
+                                        Rapport Journalier
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleReportDownload('weekly')}>
+                                        Rapport Hebdomadaire
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleReportDownload('monthly')}>
+                                        Rapport Mensuel
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                             <Button variant="outline" onClick={handleFilteredExport}>
+                                <FileOutput className="mr-2 h-4 w-4"/>
+                                Exporter la vue filtrée
+                            </Button>
+                        </div>
                     </div>
                 </div>
 
