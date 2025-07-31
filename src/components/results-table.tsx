@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, query, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, onSnapshot, orderBy, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
   Table,
@@ -28,10 +28,22 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, XCircle } from "lucide-react";
+import { CalendarIcon, XCircle, Trash2 } from "lucide-react";
 import { FUEL_TYPES, FOURNISSEURS } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useToast } from '@/hooks/use-toast';
 
 interface Result {
     id: string;
@@ -53,6 +65,8 @@ export function ResultsTable() {
     const [typeFilter, setTypeFilter] = useState<string>("");
     const [fournisseurFilter, setFournisseurFilter] = useState<string>("");
     const [dateFilter, setDateFilter] = useState<DateRange | undefined>();
+    const [resultToDelete, setResultToDelete] = useState<string | null>(null);
+    const { toast } = useToast();
 
     useEffect(() => {
         let q = query(collection(db, "resultats"), orderBy("date_arrivage", "desc"));
@@ -63,6 +77,9 @@ export function ResultsTable() {
                 resultsData.push({ id: doc.id, ...doc.data() } as Result);
             });
             setResults(resultsData);
+            setLoading(false);
+        }, (error) => {
+            console.error("Erreur de lecture Firestore:", error);
             setLoading(false);
         });
 
@@ -88,6 +105,27 @@ export function ResultsTable() {
         setTypeFilter("");
         setFournisseurFilter("");
         setDateFilter(undefined);
+    };
+
+    const handleDelete = async () => {
+        if (!resultToDelete) return;
+
+        try {
+            await deleteDoc(doc(db, "resultats", resultToDelete));
+            toast({
+                title: "Succès",
+                description: "L'enregistrement a été supprimé.",
+            });
+        } catch (error) {
+            console.error("Erreur lors de la suppression:", error);
+            toast({
+                variant: "destructive",
+                title: "Erreur",
+                description: "La suppression a échoué. Veuillez réessayer.",
+            });
+        } finally {
+            setResultToDelete(null);
+        }
     };
 
     const formatDate = (timestamp: { seconds: number, nanoseconds: number }) => {
@@ -116,108 +154,131 @@ export function ResultsTable() {
     }
 
     return (
-        <div>
-            <div className="flex flex-col sm:flex-row gap-4 mb-6 p-4 border rounded-lg bg-card">
-                <Select value={typeFilter} onValueChange={setTypeFilter}>
-                    <SelectTrigger className="w-full sm:w-[200px]">
-                        <SelectValue placeholder="Filtrer par type..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {FUEL_TYPES.map(fuel => <SelectItem key={fuel} value={fuel}>{fuel}</SelectItem>)}
-                    </SelectContent>
-                </Select>
-                <Select value={fournisseurFilter} onValueChange={setFournisseurFilter}>
-                    <SelectTrigger className="w-full sm:w-[200px]">
-                        <SelectValue placeholder="Filtrer par fournisseur..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {FOURNISSEURS.map(supplier => <SelectItem key={supplier} value={supplier}>{supplier}</SelectItem>)}
-                    </SelectContent>
-                </Select>
-                <Popover>
-                    <PopoverTrigger asChild>
-                         <Button
-                            id="date"
-                            variant={"outline"}
-                            className={cn(
-                                "w-full sm:w-[300px] justify-start text-left font-normal",
-                                !dateFilter && "text-muted-foreground"
-                            )}
-                            >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {dateFilter?.from ? (
-                                dateFilter.to ? (
-                                <>
-                                    {format(dateFilter.from, "LLL dd, y", { locale: fr })} -{" "}
-                                    {format(dateFilter.to, "LLL dd, y", { locale: fr })}
-                                </>
+        <AlertDialog onOpenChange={(open) => !open && setResultToDelete(null)}>
+            <div>
+                <div className="flex flex-col sm:flex-row gap-4 mb-6 p-4 border rounded-lg bg-card">
+                    <Select value={typeFilter} onValueChange={setTypeFilter}>
+                        <SelectTrigger className="w-full sm:w-[200px]">
+                            <SelectValue placeholder="Filtrer par type..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {FUEL_TYPES.map(fuel => <SelectItem key={fuel} value={fuel}>{fuel}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                    <Select value={fournisseurFilter} onValueChange={setFournisseurFilter}>
+                        <SelectTrigger className="w-full sm:w-[200px]">
+                            <SelectValue placeholder="Filtrer par fournisseur..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {FOURNISSEURS.map(supplier => <SelectItem key={supplier} value={supplier}>{supplier}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button
+                                id="date"
+                                variant={"outline"}
+                                className={cn(
+                                    "w-full sm:w-[300px] justify-start text-left font-normal",
+                                    !dateFilter && "text-muted-foreground"
+                                )}
+                                >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {dateFilter?.from ? (
+                                    dateFilter.to ? (
+                                    <>
+                                        {format(dateFilter.from, "LLL dd, y", { locale: fr })} -{" "}
+                                        {format(dateFilter.to, "LLL dd, y", { locale: fr })}
+                                    </>
+                                    ) : (
+                                        format(dateFilter.from, "LLL dd, y", { locale: fr })
+                                    )
                                 ) : (
-                                    format(dateFilter.from, "LLL dd, y", { locale: fr })
-                                )
-                            ) : (
-                                <span>Choisissez une plage de dates</span>
-                            )}
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                            initialFocus
-                            mode="range"
-                            defaultMonth={dateFilter?.from}
-                            selected={dateFilter}
-                            onSelect={setDateFilter}
-                            numberOfMonths={2}
-                            locale={fr}
-                        />
-                    </PopoverContent>
-                </Popover>
-                 <Button onClick={resetFilters} variant="ghost" className="text-muted-foreground hover:text-foreground">
-                    <XCircle className="mr-2 h-4 w-4"/>
-                    Réinitialiser
-                </Button>
-            </div>
-            <div className="rounded-md border">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Date Arrivage</TableHead>
-                            <TableHead>Type Combustible</TableHead>
-                            <TableHead>Fournisseur</TableHead>
-                            <TableHead className="text-right">PCS</TableHead>
-                            <TableHead className="text-right">PCI sur Brut</TableHead>
-                            <TableHead className="text-right">% H2O</TableHead>
-                            <TableHead className="text-right">% Cendres</TableHead>
-                            <TableHead className="text-right">% Cl-</TableHead>
-                            <TableHead className="text-right">Densité</TableHead>
-                            <TableHead>Remarques</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {filteredResults.length > 0 ? (
-                            filteredResults.map((result) => (
-                                <TableRow key={result.id}>
-                                    <TableCell>{formatDate(result.date_arrivage)}</TableCell>
-                                    <TableCell>{result.type_combustible}</TableCell>
-                                    <TableCell>{result.fournisseur}</TableCell>
-                                    <TableCell className="text-right">{formatNumber(result.pcs, 0)}</TableCell>
-                                    <TableCell className="font-semibold text-right">{formatNumber(result.pci_brut, 0)}</TableCell>
-                                    <TableCell className="text-right">{formatNumber(result.h2o, 1)}</TableCell>
-                                    <TableCell className="text-right">{formatNumber(result.cendres, 1)}</TableCell>
-                                    <TableCell className="text-right">{formatNumber(result.chlore, 2)}</TableCell>
-                                    <TableCell className="text-right">{formatNumber(result.densite, 2)}</TableCell>
-                                    <TableCell className="max-w-[200px] truncate">{result.remarques}</TableCell>
-                                </TableRow>
-                            ))
-                        ) : (
+                                    <span>Choisissez une plage de dates</span>
+                                )}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                                initialFocus
+                                mode="range"
+                                defaultMonth={dateFilter?.from}
+                                selected={dateFilter}
+                                onSelect={setDateFilter}
+                                numberOfMonths={2}
+                                locale={fr}
+                            />
+                        </PopoverContent>
+                    </Popover>
+                    <Button onClick={resetFilters} variant="ghost" className="text-muted-foreground hover:text-foreground">
+                        <XCircle className="mr-2 h-4 w-4"/>
+                        Réinitialiser
+                    </Button>
+                </div>
+                <div className="rounded-md border">
+                    <Table>
+                        <TableHeader>
                             <TableRow>
-                                <TableCell colSpan={10} className="h-24 text-center">
-                                    Aucun résultat trouvé pour les filtres sélectionnés.
-                                </TableCell>
+                                <TableHead>Date Arrivage</TableHead>
+                                <TableHead>Type Combustible</TableHead>
+                                <TableHead>Fournisseur</TableHead>
+                                <TableHead className="text-right">PCS</TableHead>
+                                <TableHead className="text-right">PCI sur Brut</TableHead>
+                                <TableHead className="text-right">% H2O</TableHead>
+                                <TableHead className="text-right">% Cendres</TableHead>
+                                <TableHead className="text-right">% Cl-</TableHead>
+                                <TableHead className="text-right">Densité</TableHead>
+                                <TableHead>Remarques</TableHead>
+                                <TableHead className="w-[50px]">Action</TableHead>
                             </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
+                        </TableHeader>
+                        <TableBody>
+                            {filteredResults.length > 0 ? (
+                                filteredResults.map((result) => (
+                                    <TableRow key={result.id}>
+                                        <TableCell>{formatDate(result.date_arrivage)}</TableCell>
+                                        <TableCell>{result.type_combustible}</TableCell>
+                                        <TableCell>{result.fournisseur}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(result.pcs, 0)}</TableCell>
+                                        <TableCell className="font-semibold text-right">{formatNumber(result.pci_brut, 0)}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(result.h2o, 1)}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(result.cendres, 1)}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(result.chlore, 2)}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(result.densite, 2)}</TableCell>
+                                        <TableCell className="max-w-[200px] truncate">{result.remarques}</TableCell>
+                                        <TableCell>
+                                            <AlertDialogTrigger asChild>
+                                                <Button variant="ghost" size="icon" onClick={() => setResultToDelete(result.id)}>
+                                                    <Trash2 className="h-4 w-4 text-destructive"/>
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={11} className="h-24 text-center">
+                                        Aucun résultat trouvé pour les filtres sélectionnés.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
+                 <AlertDialogContent>
+                    <AlertDialogHeader>
+                    <AlertDialogTitle>Êtes-vous absolument sûr ?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Cette action est irréversible. Le résultat sera définitivement supprimé
+                        de la base de données.
+                    </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                    <AlertDialogCancel>Annuler</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Supprimer</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
             </div>
-        </div>
+        </AlertDialog>
     );
 }
