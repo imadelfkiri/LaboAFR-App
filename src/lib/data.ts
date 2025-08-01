@@ -20,8 +20,11 @@ export const FOURNISSEURS = [
     "Bichara",
     "Geocycle",
     "MTR",
+    "NAJD",
     "Polluclean",
+    "SMBRM",
+    "Sotraforest",
     "Ssardi",
     "ValRecete",
     "Valtradec"
-];
+].sort();
