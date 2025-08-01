@@ -325,20 +325,6 @@ export function PciCalculator() {
                 )}
               />
                <FormField
-                control={form.control}
-                name="cendres"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>% Cendres</FormLabel>
-                    <FormControl>
-                      <Input type="number" step="any" placeholder="ex: 10" {...field} value={field.value ?? ''} />
-                    </FormControl>
-                     <FormDescription className="text-xs">Facultatif</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
                   control={form.control}
                   name="chlore"
                   render={({ field }) => (
@@ -351,6 +337,20 @@ export function PciCalculator() {
                       <FormMessage />
                   </FormItem>
                   )}
+              />
+               <FormField
+                control={form.control}
+                name="cendres"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>% Cendres</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="any" placeholder="ex: 10" {...field} value={field.value ?? ''} />
+                    </FormControl>
+                     <FormDescription className="text-xs">Facultatif</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
                  <FormField
                     control={form.control}

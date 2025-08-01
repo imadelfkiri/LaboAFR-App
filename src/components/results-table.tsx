@@ -167,7 +167,7 @@ export function ResultsTable() {
     const convertIndividualToCSV = (data: Result[]) => {
         const headers = [
             "Date Arrivage", "Type Combustible", "Fournisseur", 
-            "PCS", "PCI sur Brut", "% H2O", "% Cendres", "% Cl-", 
+            "PCS", "PCI sur Brut", "% H2O", "% Cl-", "% Cendres", 
             "Densité", "Remarques"
         ];
         const rows = data.map(result => [
@@ -177,8 +177,8 @@ export function ResultsTable() {
             formatNumber(result.pcs, 0),
             formatNumber(result.pci_brut, 0),
             formatNumber(result.h2o, 1),
-            formatNumber(result.cendres, 1),
             formatNumber(result.chlore, 2),
+            formatNumber(result.cendres, 1),
             formatNumber(result.densite, 2),
             `"${result.remarques || ''}"`
         ].join(';'));
@@ -188,7 +188,7 @@ export function ResultsTable() {
     const convertAggregatedToCSV = (data: AggregatedResult[]) => {
         const headers = [
             "Type Combustible", "Analyses", "PCS Moyen", "PCI Moyen", 
-            "% H2O Moyen", "% Cendres Moyen", "% Cl- Moyen", "Densité Moyenne"
+            "% H2O Moyen", "% Cl- Moyen", "% Cendres Moyen", "Densité Moyenne"
         ];
         const rows = data.map(result => [
             result.type_combustible,
@@ -196,8 +196,8 @@ export function ResultsTable() {
             formatNumber(result.pcs, 0),
             formatNumber(result.pci_brut, 0),
             formatNumber(result.h2o, 1),
-            formatNumber(result.cendres, 1),
             formatNumber(result.chlore, 2),
+            formatNumber(result.cendres, 1),
             formatNumber(result.densite, 2),
         ].join(';'));
         return [headers.join(';'), ...rows].join('\n');
@@ -419,8 +419,8 @@ export function ResultsTable() {
                                 <TableHead className="text-right">PCS</TableHead>
                                 <TableHead className="text-right text-primary font-bold">PCI sur Brut</TableHead>
                                 <TableHead className="text-right">% H2O</TableHead>
-                                <TableHead className="text-right">% Cendres</TableHead>
                                 <TableHead className="text-right">% Cl-</TableHead>
+                                <TableHead className="text-right">% Cendres</TableHead>
                                 <TableHead className="text-right">Densité</TableHead>
                                 <TableHead>Remarques</TableHead>
                                 <TableHead className="w-[50px] text-right">Action</TableHead>
@@ -436,8 +436,8 @@ export function ResultsTable() {
                                         <TableCell className="text-right">{formatNumber(result.pcs, 0)}</TableCell>
                                         <TableCell className="font-bold text-right text-primary">{formatNumber(result.pci_brut, 0)}</TableCell>
                                         <TableCell className="text-right">{formatNumber(result.h2o, 1)}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(result.cendres, 1)}</TableCell>
                                         <TableCell className="text-right">{formatNumber(result.chlore, 2)}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(result.cendres, 1)}</TableCell>
                                         <TableCell className="text-right">{formatNumber(result.densite, 2)}</TableCell>
                                         <TableCell className="max-w-[150px] truncate text-muted-foreground">{result.remarques}</TableCell>
                                         <TableCell className="text-right">
