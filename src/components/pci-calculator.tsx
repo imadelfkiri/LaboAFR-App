@@ -16,7 +16,6 @@ import { Calendar } from "@/components/ui/calendar";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -185,7 +184,7 @@ export function PciCalculator() {
   }
 
   return (
-    <Card className="w-full max-w-3xl shadow-lg">
+    <Card className="w-full max-w-4xl shadow-lg">
       <CardHeader>
         <CardTitle className="text-2xl font-bold tracking-tight">Calculateur de PCI Brut</CardTitle>
         <CardDescription>
@@ -195,7 +194,7 @@ export function PciCalculator() {
        <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 gap-x-6 gap-y-6 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-x-6 gap-y-6 md:grid-cols-3">
                 <FormField
                   control={form.control}
                   name="type_combustible"
@@ -257,7 +256,7 @@ export function PciCalculator() {
                 control={form.control}
                 name="date_arrivage"
                 render={({ field }) => (
-                  <FormItem className="md:col-span-2">
+                  <FormItem>
                     <FormLabel>Date d'arrivage</FormLabel>
                     <Popover>
                       <PopoverTrigger asChild>
@@ -336,7 +335,6 @@ export function PciCalculator() {
                         <FormControl>
                         <Input type="number" step="any" placeholder="ex: 0.5" {...field} value={field.value ?? ''} />
                         </FormControl>
-                        <FormDescription className="text-xs">Facultatif</FormDescription>
                         <FormMessage />
                     </FormItem>
                     )}
@@ -350,7 +348,6 @@ export function PciCalculator() {
                         <FormControl>
                         <Input type="number" step="any" placeholder="ex: 10" {...field} value={field.value ?? ''} />
                         </FormControl>
-                        <FormDescription className="text-xs">Facultatif</FormDescription>
                         <FormMessage />
                     </FormItem>
                     )}
@@ -364,7 +361,6 @@ export function PciCalculator() {
                             <FormControl>
                             <Input type="number" step="any" placeholder="ex: 0.8" {...field} value={field.value ?? ''} />
                             </FormControl>
-                            <FormDescription className="text-xs">Facultatif</FormDescription>
                             <FormMessage />
                         </FormItem>
                         )}
@@ -410,5 +406,3 @@ export function PciCalculator() {
     </Card>
   );
 }
-
-    
