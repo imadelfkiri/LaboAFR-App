@@ -4,70 +4,66 @@
 
 @layer base {
   :root {
-    --background: 240 10% 97%; /* #F5F5F7 */
-    --foreground: 240 6% 10%;
+    --background: 0 0% 100%;
+    --foreground: 224 71% 4%;
     --card: 0 0% 100%;
-    --card-foreground: 240 6% 10%;
+    --card-foreground: 224 71% 4%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 6% 10%;
-    --primary: 222 47% 11%; /* #111827 - Deep Blue */
-    --primary-foreground: 210 40% 98%;
-    --secondary: 240 5% 96%;
-    --secondary-foreground: 240 6% 10%;
-    --muted: 240 5% 96%;
-    --muted-foreground: 240 4% 46%;
-    --accent: 38 92% 50%; /* #FF9800 - Vibrant Orange */
-    --accent-foreground: 240 6% 10%;
+    --popover-foreground: 224 71% 4%;
+    --primary: 221 83% 53%; /* Bleu foncé pour le bouton */
+    --primary-foreground: 0 0% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 158 79% 44%; /* Vert pour les accents */
+    --accent-foreground: 0 0% 98%;
     --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 240 6% 90%;
-    --input: 240 6% 90%;
-    --ring: 222 47% 11%;
-    --chart-1: 222 47% 11%;
-    --chart-2: 142 76% 36%;
-    --chart-3: 38 92% 50%;
-    --chart-4: 27 87% 67%;
-    --chart-5: 218 81% 58%;
-    --radius: 0.5rem;
+    --destructive-foreground: 0 0% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221 83% 53%;
+    --radius: 0.75rem;
 
-    --sidebar-background: 222 47% 11%; /* Dark Slate Blue */
+    --sidebar-background: 224 71% 4%; /* Bleu très foncé pour la sidebar */
     --sidebar-foreground: 210 20% 80%;
-    --sidebar-primary: 210 40% 98%;
-    --sidebar-primary-foreground: 222 47% 11%;
-    --sidebar-accent: 222 47% 16%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 222 47% 16%;
-    --sidebar-ring: 38 92% 50%;
+    --sidebar-primary: 0 0% 98%;
+    --sidebar-primary-foreground: 224 71% 4%;
+    --sidebar-accent: 221 83% 53%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 214.3 31.8% 91.4%;
+    --sidebar-ring: 158 79% 44%;
   }
-  .dark {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
-    --card: 222 47% 14%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 47% 8%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222 47% 11%;
-    --secondary: 222 47% 16%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 222 47% 16%;
-    --muted-foreground: 210 20% 70%;
-    --accent: 38 92% 50%;
-    --accent-foreground: 222 47% 11%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 222 47% 16%;
-    --input: 222 47% 16%;
-    --ring: 38 92% 50%;
 
-    --sidebar-background: 222 47% 8%;
+  .dark {
+    --background: 224 71% 4%;
+    --foreground: 0 0% 98%;
+    --card: 224 71% 4%;
+    --card-foreground: 0 0% 98%;
+    --popover: 224 71% 4%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 224 71% 4%;
+    --secondary: 215.4 16.3% 46.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 215.4 16.3% 46.9%;
+    --muted-foreground: 210 20% 70%;
+    --accent: 158 79% 44%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 215.4 16.3% 46.9%;
+    --input: 215.4 16.3% 46.9%;
+    --ring: 158 79% 44%;
+    
+    --sidebar-background: 224 71% 2%;
     --sidebar-foreground: 210 20% 80%;
-    --sidebar-primary: 210 40% 98%;
-    --sidebar-primary-foreground: 222 47% 11%;
-    --sidebar-accent: 222 47% 14%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 222 47% 14%;
-    --sidebar-ring: 38 92% 50%;
+    --sidebar-primary: 0 0% 98%;
+    --sidebar-primary-foreground: 224 71% 4%;
+    --sidebar-accent: 221 83% 53%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 215.4 16.3% 46.9%;
+    --sidebar-ring: 158 79% 44%;
   }
 }
 
@@ -80,3 +76,4 @@
     font-family: 'Inter', sans-serif;
   }
 }
+    
