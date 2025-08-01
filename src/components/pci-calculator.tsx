@@ -296,44 +296,41 @@ export function PciCalculator() {
               />
             </div>
              <Separator />
-             <div className="space-y-4">
-                <div className="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-2">
-                    <FormField
-                        control={form.control}
-                        name="pcs"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>PCS (kcal/kg)</FormLabel>
-                            <FormControl>
-                            <Input type="number" step="any" placeholder="ex: 8000" {...field} value={field.value ?? ''} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="h2o"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>% H2O</FormLabel>
-                            <FormControl>
-                            <Input type="number" step="any" placeholder="ex: 15" {...field} value={field.value ?? ''} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                </div>
-                <div className="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-3">
-                    <FormField
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-6">
+                <FormField
+                    control={form.control}
+                    name="pcs"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>PCS (kcal/kg)</FormLabel>
+                        <FormControl>
+                        <Input type="number" step="any" {...field} value={field.value ?? ''} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="h2o"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>% H2O</FormLabel>
+                        <FormControl>
+                        <Input type="number" step="any" {...field} value={field.value ?? ''} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+                 <FormField
                     control={form.control}
                     name="chlore"
                     render={({ field }) => (
                     <FormItem>
                         <FormLabel>% Cl-</FormLabel>
                         <FormControl>
-                        <Input type="number" step="any" placeholder="ex: 0.5" {...field} value={field.value ?? ''} />
+                        <Input type="number" step="any" {...field} value={field.value ?? ''} />
                         </FormControl>
                         <FormMessage />
                     </FormItem>
@@ -346,26 +343,25 @@ export function PciCalculator() {
                     <FormItem>
                         <FormLabel>% Cendres</FormLabel>
                         <FormControl>
-                        <Input type="number" step="any" placeholder="ex: 10" {...field} value={field.value ?? ''} />
+                        <Input type="number" step="any" {...field} value={field.value ?? ''} />
                         </FormControl>
                         <FormMessage />
                     </FormItem>
                     )}
                 />
-                    <FormField
-                        control={form.control}
-                        name="densite"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Densité (t/m³)</FormLabel>
-                            <FormControl>
-                            <Input type="number" step="any" placeholder="ex: 0.8" {...field} value={field.value ?? ''} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                </div>
+                 <FormField
+                    control={form.control}
+                    name="densite"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Densité (t/m³)</FormLabel>
+                        <FormControl>
+                        <Input type="number" step="any" {...field} value={field.value ?? ''} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
              </div>
              
              <FormField
@@ -376,7 +372,7 @@ export function PciCalculator() {
                     <FormLabel>Remarques</FormLabel>
                     <FormControl>
                         <Textarea
-                            placeholder="Ajoutez une remarque sur l'analyse (facultatif)..."
+                            placeholder="Ajoutez une remarque (facultatif)..."
                             className="resize-none"
                             {...field}
                             value={field.value ?? ''}
