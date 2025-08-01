@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -18,7 +19,6 @@ import {
   FormControl,
   FormField,
   FormItem,
-  FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -183,14 +183,14 @@ export function PciCalculator() {
   }
 
   return (
-    <Card className="w-full max-w-4xl shadow-lg">
+    <Card className="w-full max-w-2xl shadow-lg">
       <CardHeader>
-        <CardTitle className="text-2xl font-bold tracking-tight">Calculateur de PCI Brut</CardTitle>
+        <CardTitle className="text-2xl font-bold tracking-tight text-center">Calculateur de PCI Brut</CardTitle>
       </CardHeader>
        <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
-          <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-3">
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <FormField
                   control={form.control}
                   name="type_combustible"
@@ -199,7 +199,7 @@ export function PciCalculator() {
                       <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                           <FormControl>
                           <SelectTrigger>
-                              <SelectValue placeholder="Type de combustible" />
+                              <SelectValue placeholder="Combustible" />
                           </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -289,7 +289,7 @@ export function PciCalculator() {
               />
             </div>
              <Separator />
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                     control={form.control}
                     name="pcs"
@@ -342,7 +342,7 @@ export function PciCalculator() {
                     control={form.control}
                     name="densite"
                     render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="md:col-span-2">
                         <FormControl>
                         <Input type="number" step="any" placeholder="Densité (t/m³)" {...field} value={field.value ?? ''} />
                         </FormControl>
@@ -370,17 +370,17 @@ export function PciCalculator() {
                 )}
             />
           </CardContent>
-           <CardFooter className="flex-col items-stretch gap-6">
+           <CardFooter className="flex-col items-stretch gap-4">
                 {pciResult !== null && (
-                    <div className="text-center animate-in fade-in-50 duration-500 bg-primary/10 rounded-lg p-6">
-                        <p className="text-base font-semibold text-primary">PCI sur Brut Calculé</p>
-                        <p className="text-5xl font-bold text-primary tracking-tight">
+                    <div className="text-center animate-in fade-in-50 duration-500 bg-primary/10 rounded-lg p-4">
+                        <p className="text-sm font-semibold text-primary">PCI sur Brut Calculé</p>
+                        <p className="text-4xl font-bold text-primary tracking-tight">
                             {pciResult.toLocaleString('fr-FR')}
-                             <span className="text-xl font-semibold text-primary/80 ml-2">kcal/kg</span>
+                             <span className="text-lg font-semibold text-primary/80 ml-2">kcal/kg</span>
                         </p>
                     </div>
                 )}
-                 <Button type="submit" size="lg" disabled={isSaving || pciResult === null} className="font-bold text-base py-7 transition-transform duration-150 ease-in-out active:scale-[0.98]">
+                 <Button type="submit" size="lg" disabled={isSaving || pciResult === null} className="font-bold text-base py-6 transition-transform duration-150 ease-in-out active:scale-[0.98]">
                     {isSaving ? "Enregistrement..." : "Enregistrer les résultats"}
                 </Button>
             </CardFooter>
@@ -389,3 +389,5 @@ export function PciCalculator() {
     </Card>
   );
 }
+
+    
