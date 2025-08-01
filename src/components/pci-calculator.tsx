@@ -190,17 +190,16 @@ export function PciCalculator() {
        <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <CardContent className="space-y-6">
-            <div className="grid grid-cols-1 gap-x-6 gap-y-6 md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-3">
                 <FormField
                   control={form.control}
                   name="type_combustible"
                   render={({ field }) => (
                       <FormItem>
-                      <FormLabel>Type de combustible</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                           <FormControl>
                           <SelectTrigger>
-                              <SelectValue placeholder="Sélectionnez un type..." />
+                              <SelectValue placeholder="Type de combustible" />
                           </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -226,11 +225,10 @@ export function PciCalculator() {
                   name="fournisseur"
                   render={({ field }) => (
                       <FormItem>
-                      <FormLabel>Fournisseur</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                           <FormControl>
                           <SelectTrigger>
-                              <SelectValue placeholder="Sélectionnez un fournisseur..." />
+                              <SelectValue placeholder="Fournisseur" />
                           </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -253,7 +251,6 @@ export function PciCalculator() {
                 name="date_arrivage"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Date d'arrivage</FormLabel>
                     <Popover>
                       <PopoverTrigger asChild>
                         <FormControl>
@@ -267,7 +264,7 @@ export function PciCalculator() {
                             {field.value ? (
                               format(field.value, "PPP", { locale: fr })
                             ) : (
-                              <span>Choisissez une date</span>
+                              <span>Date d'arrivage</span>
                             )}
                             <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                           </Button>
@@ -292,15 +289,14 @@ export function PciCalculator() {
               />
             </div>
              <Separator />
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-6">
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                 <FormField
                     control={form.control}
                     name="pcs"
                     render={({ field }) => (
                     <FormItem>
-                        <FormLabel>PCS (kcal/kg)</FormLabel>
                         <FormControl>
-                        <Input type="number" step="any" {...field} value={field.value ?? ''} />
+                        <Input type="number" step="any" placeholder="PCS (kcal/kg)" {...field} value={field.value ?? ''} />
                         </FormControl>
                         <FormMessage />
                     </FormItem>
@@ -311,9 +307,8 @@ export function PciCalculator() {
                     name="h2o"
                     render={({ field }) => (
                     <FormItem>
-                        <FormLabel>% H2O</FormLabel>
                         <FormControl>
-                        <Input type="number" step="any" {...field} value={field.value ?? ''} />
+                        <Input type="number" step="any" placeholder="% H2O" {...field} value={field.value ?? ''} />
                         </FormControl>
                         <FormMessage />
                     </FormItem>
@@ -324,9 +319,8 @@ export function PciCalculator() {
                     name="chlore"
                     render={({ field }) => (
                     <FormItem>
-                        <FormLabel>% Cl-</FormLabel>
                         <FormControl>
-                        <Input type="number" step="any" {...field} value={field.value ?? ''} />
+                        <Input type="number" step="any" placeholder="% Cl-" {...field} value={field.value ?? ''} />
                         </FormControl>
                         <FormMessage />
                     </FormItem>
@@ -337,9 +331,8 @@ export function PciCalculator() {
                     name="cendres"
                     render={({ field }) => (
                     <FormItem>
-                        <FormLabel>% Cendres</FormLabel>
                         <FormControl>
-                        <Input type="number" step="any" {...field} value={field.value ?? ''} />
+                        <Input type="number" step="any" placeholder="% Cendres" {...field} value={field.value ?? ''} />
                         </FormControl>
                         <FormMessage />
                     </FormItem>
@@ -350,9 +343,8 @@ export function PciCalculator() {
                     name="densite"
                     render={({ field }) => (
                     <FormItem>
-                        <FormLabel>Densité (t/m³)</FormLabel>
                         <FormControl>
-                        <Input type="number" step="any" {...field} value={field.value ?? ''} />
+                        <Input type="number" step="any" placeholder="Densité (t/m³)" {...field} value={field.value ?? ''} />
                         </FormControl>
                         <FormMessage />
                     </FormItem>
@@ -365,7 +357,6 @@ export function PciCalculator() {
                 name="remarques"
                 render={({ field }) => (
                 <FormItem>
-                    <FormLabel>Remarques</FormLabel>
                     <FormControl>
                         <Textarea
                             placeholder="Ajoutez une remarque (facultatif)..."
