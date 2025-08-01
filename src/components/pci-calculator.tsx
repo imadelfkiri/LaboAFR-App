@@ -103,20 +103,19 @@ export function PciCalculator() {
   const { watch, reset, getValues } = form;
   const pcsValue = watch("pcs");
   const h2oValue = watch("h2o");
-  const chloreValue = watch("chlore");
   const typeCombustibleValue = watch("type_combustible");
 
   useEffect(() => {
     const values = getValues();
-    const { pcs, h2o, type_combustible, chlore } = values;
+    const { pcs, h2o, type_combustible } = values;
     
     if (pcs !== undefined && h2o !== undefined && type_combustible) {
-      const result = calculerPCI(pcs, h2o, type_combustible, Number(chlore) || 0);
+      const result = calculerPCI(pcs, h2o, type_combustible);
       setPciResult(result);
     } else {
         setPciResult(null);
     }
-  }, [pcsValue, h2oValue, chloreValue, typeCombustibleValue, getValues]);
+  }, [pcsValue, h2oValue, typeCombustibleValue, getValues]);
 
 
   const resetForm = () => {
@@ -137,7 +136,7 @@ export function PciCalculator() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSaving(true);
     try {
-      const pci_brut = calculerPCI(values.pcs, values.h2o, values.type_combustible, Number(values.chlore) || 0);
+      const pci_brut = calculerPCI(values.pcs, values.h2o, values.type_combustible);
 
       if (pci_brut === null) {
           toast({
@@ -298,7 +297,7 @@ export function PciCalculator() {
               />
             </div>
              <Separator />
-             <div className="grid grid-cols-2 gap-x-8 gap-y-6 md:grid-cols-3 lg:grid-cols-5">
+             <div className="grid grid-cols-2 gap-x-8 gap-y-6 md:grid-cols-3 lg:grid-cols-4">
               <FormField
                 control={form.control}
                 name="pcs"
@@ -334,6 +333,7 @@ export function PciCalculator() {
                     <FormControl>
                       <Input type="number" step="any" placeholder="ex: 10" {...field} value={field.value ?? ''} />
                     </FormControl>
+                     <FormDescription className="text-xs">Facultatif</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
