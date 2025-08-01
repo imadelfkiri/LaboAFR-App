@@ -327,7 +327,7 @@ export function PciCalculator() {
                     control={form.control}
                     name="densite"
                     render={({ field }) => (
-                    <FormItem className="md:col-span-2">
+                    <FormItem>
                         <FormControl>
                         <Input type="number" step="any" placeholder="Densité (t/m³)" {...field} value={field.value ?? ''} />
                         </FormControl>
@@ -335,6 +335,21 @@ export function PciCalculator() {
                     </FormItem>
                     )}
                 />
+                <div className="rounded-lg bg-muted/50 p-4 flex items-center justify-center animate-in fade-in-50 duration-500">
+                    {pciResult !== null ? (
+                        <div className="text-center">
+                            <p className="text-sm font-medium text-muted-foreground">PCI sur Brut (kcal/kg)</p>
+                            <p className="text-3xl font-bold text-accent tracking-tight">
+                                {pciResult.toLocaleString('fr-FR')}
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="text-center">
+                            <p className="text-sm font-medium text-muted-foreground">PCI sur Brut (kcal/kg)</p>
+                            <p className="text-3xl font-bold text-muted-foreground/50">-</p>
+                         </div>
+                    )}
+                </div>
              </div>
              
              <FormField
@@ -355,18 +370,7 @@ export function PciCalculator() {
                 )}
             />
           </CardContent>
-           <CardFooter className="flex items-center justify-between gap-4">
-            {pciResult !== null ? (
-                <div className="text-center animate-in fade-in-50 duration-500">
-                    <p className="text-xs font-medium text-muted-foreground">PCI sur Brut</p>
-                    <p className="text-2xl font-bold text-primary tracking-tight">
-                        {pciResult.toLocaleString('fr-FR')}
-                         <span className="text-sm font-semibold text-primary/80 ml-1">kcal/kg</span>
-                    </p>
-                </div>
-            ) : (
-                <div/> 
-            )}
+           <CardFooter className="flex justify-end gap-4">
              <Button type="submit" size="lg" disabled={isSaving || pciResult === null} className="font-bold text-base transition-transform duration-150 ease-in-out active:scale-[0.98]">
                 {isSaving ? "Enregistrement..." : "Enregistrer"}
             </Button>
