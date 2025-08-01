@@ -2,7 +2,6 @@ import { ResultsTable } from "@/components/results-table";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -13,9 +12,6 @@ export default function ResultsPage() {
        <Card>
          <CardHeader>
             <CardTitle>Historique des Résultats</CardTitle>
-            <CardDescription>
-              Consultez, filtrez et gérez toutes les analyses de combustibles enregistrées.
-            </CardDescription>
         </CardHeader>
         <CardContent>
             <ResultsTable />
