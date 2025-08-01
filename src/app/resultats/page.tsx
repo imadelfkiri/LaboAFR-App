@@ -4,13 +4,14 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  CardDescription
 } from "@/components/ui/card";
 
 export default function ResultsPage() {
   return (
     <div className="flex flex-1 flex-col">
        <Card>
-         <CardHeader>
+        <CardHeader>
             <CardTitle>Historique des Résultats</CardTitle>
         </CardHeader>
         <CardContent>

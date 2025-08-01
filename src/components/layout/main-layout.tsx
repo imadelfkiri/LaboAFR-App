@@ -9,10 +9,8 @@ import {
   SidebarInset,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
-import { Button } from '@/components/ui/button';
 import { Fuel } from 'lucide-react';
 import { SidebarNav } from './sidebar-nav';
-import { usePathname } from 'next/navigation';
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   return (
