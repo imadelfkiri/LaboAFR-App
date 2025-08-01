@@ -9,7 +9,7 @@ import {
 
 export default function ResultsPage() {
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex flex-1 flex-col p-4 lg:p-6">
        <Card>
         <CardHeader>
             <CardTitle>Historique des Résultats</CardTitle>

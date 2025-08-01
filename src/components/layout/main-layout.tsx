@@ -37,7 +37,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         <header className="flex h-16 items-center gap-4 border-b bg-background/95 backdrop-blur-sm px-4 lg:px-6 sticky top-0 z-30 md:hidden">
             <SidebarTrigger className="md:hidden" />
         </header>
-        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-background">
+        <main className="flex flex-1 flex-col bg-background">
           {children}
         </main>
       </SidebarInset>
