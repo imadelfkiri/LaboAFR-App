@@ -185,7 +185,7 @@ export function PciCalculator() {
   }
 
   return (
-    <Card className="w-full max-w-4xl shadow-lg">
+    <Card className="w-full max-w-3xl shadow-lg">
       <CardHeader>
         <CardTitle className="text-2xl font-bold tracking-tight">Calculateur de PCI Brut</CardTitle>
         <CardDescription>
@@ -194,8 +194,8 @@ export function PciCalculator() {
       </CardHeader>
        <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
-          <CardContent className="space-y-8">
-            <div className="grid grid-cols-1 gap-x-8 gap-y-6 md:grid-cols-3">
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 gap-x-6 gap-y-6 md:grid-cols-2">
                 <FormField
                   control={form.control}
                   name="type_combustible"
@@ -253,11 +253,11 @@ export function PciCalculator() {
                       </FormItem>
                   )}
               />
-              <FormField
+               <FormField
                 control={form.control}
                 name="date_arrivage"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="md:col-span-2">
                     <FormLabel>Date d'arrivage</FormLabel>
                     <Popover>
                       <PopoverTrigger asChild>
@@ -297,76 +297,81 @@ export function PciCalculator() {
               />
             </div>
              <Separator />
-             <div className="grid grid-cols-1 gap-x-8 gap-y-6 md:grid-cols-3">
-                <FormField
+             <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-2">
+                    <FormField
+                        control={form.control}
+                        name="pcs"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>PCS (kcal/kg)</FormLabel>
+                            <FormControl>
+                            <Input type="number" step="any" placeholder="ex: 8000" {...field} value={field.value ?? ''} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="h2o"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>% H2O</FormLabel>
+                            <FormControl>
+                            <Input type="number" step="any" placeholder="ex: 15" {...field} value={field.value ?? ''} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                </div>
+                <div className="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-3">
+                    <FormField
                     control={form.control}
-                    name="pcs"
+                    name="chlore"
                     render={({ field }) => (
                     <FormItem>
-                        <FormLabel>PCS (kcal/kg)</FormLabel>
+                        <FormLabel>% Cl-</FormLabel>
                         <FormControl>
-                        <Input type="number" step="any" placeholder="ex: 8000" {...field} value={field.value ?? ''} />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="h2o"
-                    render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>% H2O</FormLabel>
-                        <FormControl>
-                        <Input type="number" step="any" placeholder="ex: 15" {...field} value={field.value ?? ''} />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                    )}
-                />
-                 <FormField
-                  control={form.control}
-                  name="chlore"
-                  render={({ field }) => (
-                  <FormItem>
-                      <FormLabel>% Cl-</FormLabel>
-                      <FormControl>
-                      <Input type="number" step="any" placeholder="ex: 0.5" {...field} value={field.value ?? ''} />
-                      </FormControl>
-                      <FormDescription className="text-xs">Facultatif</FormDescription>
-                      <FormMessage />
-                  </FormItem>
-                  )}
-              />
-               <FormField
-                control={form.control}
-                name="cendres"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>% Cendres</FormLabel>
-                    <FormControl>
-                      <Input type="number" step="any" placeholder="ex: 10" {...field} value={field.value ?? ''} />
-                    </FormControl>
-                     <FormDescription className="text-xs">Facultatif</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-                 <FormField
-                    control={form.control}
-                    name="densite"
-                    render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Densité (t/m³)</FormLabel>
-                        <FormControl>
-                        <Input type="number" step="any" placeholder="ex: 0.8" {...field} value={field.value ?? ''} />
+                        <Input type="number" step="any" placeholder="ex: 0.5" {...field} value={field.value ?? ''} />
                         </FormControl>
                         <FormDescription className="text-xs">Facultatif</FormDescription>
                         <FormMessage />
                     </FormItem>
                     )}
                 />
-            </div>
+                <FormField
+                    control={form.control}
+                    name="cendres"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>% Cendres</FormLabel>
+                        <FormControl>
+                        <Input type="number" step="any" placeholder="ex: 10" {...field} value={field.value ?? ''} />
+                        </FormControl>
+                        <FormDescription className="text-xs">Facultatif</FormDescription>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+                    <FormField
+                        control={form.control}
+                        name="densite"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Densité (t/m³)</FormLabel>
+                            <FormControl>
+                            <Input type="number" step="any" placeholder="ex: 0.8" {...field} value={field.value ?? ''} />
+                            </FormControl>
+                            <FormDescription className="text-xs">Facultatif</FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                </div>
+             </div>
+             
              <FormField
                 control={form.control}
                 name="remarques"
@@ -405,3 +410,5 @@ export function PciCalculator() {
     </Card>
   );
 }
+
+    
