@@ -31,7 +31,6 @@ import {
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
   CardFooter,
@@ -187,9 +186,6 @@ export function PciCalculator() {
     <Card className="w-full max-w-4xl shadow-lg">
       <CardHeader>
         <CardTitle className="text-2xl font-bold tracking-tight">Calculateur de PCI Brut</CardTitle>
-        <CardDescription>
-          Saisissez les résultats d'analyse pour calculer la valeur PCI brute du combustible.
-        </CardDescription>
       </CardHeader>
        <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
