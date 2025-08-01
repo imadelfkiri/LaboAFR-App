@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { format, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
-import { CalendarIcon, Circle, Leaf, Droplets, Fuel, Mountain, Recycle, ShoppingBag, Trash2, TreePine, Layers, Building } from 'lucide-react';
+import { CalendarIcon, Fuel, Building } from 'lucide-react';
 import { collection, addDoc, Timestamp } from "firebase/firestore"; 
 
 
@@ -62,20 +62,6 @@ const formSchema = z.object({
   densite: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).positive({ message: "La densité doit être un nombre positif." }).optional().or(z.literal('')),
   remarques: z.string().optional(),
 });
-
-const fuelIcons: Record<string, React.ElementType> = {
-  "Pneus": Circle,
-  "Bois": TreePine,
-  "CSR": Recycle,
-  "Grignons": Leaf,
-  "Boues": Droplets,
-  "Pet Coke": Fuel,
-  "Charbon": Mountain,
-  "Caoutchouc": Circle,
-  "Textile": Layers,
-  "Plastiques": ShoppingBag,
-  "DMB": Trash2,
-};
 
 
 export function PciCalculator() {
@@ -204,11 +190,10 @@ export function PciCalculator() {
                           </FormControl>
                           <SelectContent>
                           {FUEL_TYPES.map((fuelType) => {
-                              const Icon = fuelIcons[fuelType] || Fuel;
                               return (
                                   <SelectItem key={fuelType} value={fuelType}>
                                       <div className="flex items-center gap-2">
-                                          <Icon className="h-4 w-4 text-muted-foreground" />
+                                          <Fuel className="h-4 w-4 text-muted-foreground" />
                                           <span>{fuelType}</span>
                                       </div>
                                   </SelectItem>
@@ -370,24 +355,24 @@ export function PciCalculator() {
                 )}
             />
           </CardContent>
-           <CardFooter className="flex-col items-stretch gap-4">
-                {pciResult !== null && (
-                    <div className="text-center animate-in fade-in-50 duration-500 bg-primary/10 rounded-lg p-4">
-                        <p className="text-sm font-semibold text-primary">PCI sur Brut Calculé</p>
-                        <p className="text-4xl font-bold text-primary tracking-tight">
-                            {pciResult.toLocaleString('fr-FR')}
-                             <span className="text-lg font-semibold text-primary/80 ml-2">kcal/kg</span>
-                        </p>
-                    </div>
-                )}
-                 <Button type="submit" size="lg" disabled={isSaving || pciResult === null} className="font-bold text-base py-6 transition-transform duration-150 ease-in-out active:scale-[0.98]">
-                    {isSaving ? "Enregistrement..." : "Enregistrer les résultats"}
-                </Button>
-            </CardFooter>
+           <CardFooter className="flex items-center justify-between gap-4">
+            {pciResult !== null ? (
+                <div className="text-center animate-in fade-in-50 duration-500">
+                    <p className="text-xs font-medium text-muted-foreground">PCI sur Brut</p>
+                    <p className="text-2xl font-bold text-primary tracking-tight">
+                        {pciResult.toLocaleString('fr-FR')}
+                         <span className="text-sm font-semibold text-primary/80 ml-1">kcal/kg</span>
+                    </p>
+                </div>
+            ) : (
+                <div/> 
+            )}
+             <Button type="submit" size="lg" disabled={isSaving || pciResult === null} className="font-bold text-base transition-transform duration-150 ease-in-out active:scale-[0.98]">
+                {isSaving ? "Enregistrement..." : "Enregistrer"}
+            </Button>
+        </CardFooter>
           </form>
         </Form>
     </Card>
   );
 }
-
-    
