@@ -211,8 +211,8 @@ export function PciCalculator() {
   useEffect(() => {
       if(filteredFournisseurs.length > 0) {
         const recentFours = getRecentItems(RECENT_FOURNISSEURS_KEY);
-        setRecentFournisseurs(recentFours);
-        sortFournisseurs(filteredFournisseurs, recentFours);
+        setRecentFournisseurs(newRecentFours);
+        sortFournisseurs(filteredFournisseurs, newRecentFours);
       } else {
         setSortedFournisseurs([]);
       }
@@ -440,257 +440,259 @@ export function PciCalculator() {
       </div>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <Card className="shadow-sm">
-                <CardHeader>
-                    <CardTitle>Informations Générales</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <FormField
-                        control={form.control}
-                        name="type_combustible"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Combustible</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Sélectionner..." />
-                                    </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {recentFuelTypes.length > 0 && (
-                                            <SelectGroup>
-                                                <SelectLabel>Récents</SelectLabel>
-                                                {recentFuelTypes.map((name) => {
-                                                    const fuelType = allFuelTypes.find(ft => ft.name === name);
-                                                    if (!fuelType) return null;
-                                                    return (
-                                                        <SelectItem key={fuelType.name} value={fuelType.name}>
-                                                            <div className="flex items-center gap-2">
-                                                                 <span>{fuelType.icon}</span>
-                                                                <span>{fuelType.name}</span>
-                                                            </div>
-                                                        </SelectItem>
-                                                    );
-                                                })}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card className="shadow-sm">
+                    <CardHeader>
+                        <CardTitle>Informations Générales</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <FormField
+                            control={form.control}
+                            name="type_combustible"
+                            render={({ field }) => (
+                                <FormItem className="md:col-span-2">
+                                    <FormLabel>Combustible</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Sélectionner..." />
+                                        </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {recentFuelTypes.length > 0 && (
+                                                <SelectGroup>
+                                                    <SelectLabel>Récents</SelectLabel>
+                                                    {recentFuelTypes.map((name) => {
+                                                        const fuelType = allFuelTypes.find(ft => ft.name === name);
+                                                        if (!fuelType) return null;
+                                                        return (
+                                                            <SelectItem key={fuelType.name} value={fuelType.name}>
+                                                                <div className="flex items-center gap-2">
+                                                                     <span>{fuelType.icon}</span>
+                                                                    <span>{fuelType.name}</span>
+                                                                </div>
+                                                            </SelectItem>
+                                                        );
+                                                    })}
+                                                </SelectGroup>
+                                            )}
+                                            {(recentFuelTypes.length > 0 && otherFuelTypes.length > 0) && <SelectSeparator />}
+                                             <SelectGroup>
+                                                {recentFuelTypes.length > 0 && <SelectLabel>Autres</SelectLabel>}
+                                                {otherFuelTypes.map((fuelType) => (
+                                                    <SelectItem key={fuelType.name} value={fuelType.name}>
+                                                        <div className="flex items-center gap-2">
+                                                            <span>{fuelType.icon}</span>
+                                                            <span>{fuelType.name}</span>
+                                                        </div>
+                                                    </SelectItem>
+                                                ))}
                                             </SelectGroup>
-                                        )}
-                                        {(recentFuelTypes.length > 0 && otherFuelTypes.length > 0) && <SelectSeparator />}
-                                         <SelectGroup>
-                                            {recentFuelTypes.length > 0 && <SelectLabel>Autres</SelectLabel>}
-                                            {otherFuelTypes.map((fuelType) => (
-                                                <SelectItem key={fuelType.name} value={fuelType.name}>
-                                                    <div className="flex items-center gap-2">
-                                                        <span>{fuelType.icon}</span>
-                                                        <span>{fuelType.name}</span>
+
+                                            <Separator className="my-1" />
+                                            <div
+                                                onSelect={(e) => e.preventDefault()}
+                                                onClick={() => setIsFuelModalOpen(true)}
+                                                className="relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground"
+                                            >
+                                                <PlusCircle className="mr-2 h-4 w-4" />
+                                                Ajouter un type
+                                            </div>
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                            />
+                            <FormField
+                            control={form.control}
+                            name="fournisseur"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Fournisseur</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value} disabled={isFournisseurDisabled}>
+                                        <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder={isFournisseurDisabled ? "Choisir un combustible" : "Sélectionner..."} />
+                                        </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {sortedFournisseurs.length === 0 && typeCombustibleValue ? (
+                                                 <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">Aucun fournisseur pour ce type.</div>
+                                            ) : null}
+                                            {recentFournisseurs.length > 0 && sortedFournisseurs.filter(f => recentFournisseurs.includes(f)).length > 0 && (
+                                                <SelectGroup>
+                                                    <SelectLabel>Récents</SelectLabel>
+                                                    {recentFournisseurs.map((fournisseur) => {
+                                                        if (!sortedFournisseurs.includes(fournisseur)) return null;
+                                                        return (
+                                                            <SelectItem key={fournisseur} value={fournisseur}>
+                                                                {fournisseur}
+                                                            </SelectItem>
+                                                        )
+                                                    })}
+                                                </SelectGroup>
+                                            )}
+                                            {(recentFournisseurs.length > 0 && otherFournisseurs.length > 0) && <SelectSeparator />}
+                                            <SelectGroup>
+                                                {recentFournisseurs.length > 0 && otherFournisseurs.length > 0 && <SelectLabel>Autres</SelectLabel>}
+                                                {otherFournisseurs.map((fournisseur) => (
+                                                    <SelectItem key={fournisseur} value={fournisseur}>
+                                                        {fournisseur}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectGroup>
+                                            {typeCombustibleValue && (
+                                                <>
+                                                    <Separator className="my-1" />
+                                                    <div
+                                                        onSelect={(e) => e.preventDefault()}
+                                                        onClick={() => setIsFournisseurModalOpen(true)}
+                                                        className="relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground"
+                                                    >
+                                                        <PlusCircle className="mr-2 h-4 w-4" />
+                                                        Ajouter un fournisseur
                                                     </div>
-                                                </SelectItem>
-                                            ))}
-                                        </SelectGroup>
-
-                                        <Separator className="my-1" />
-                                        <div
-                                            onSelect={(e) => e.preventDefault()}
-                                            onClick={() => setIsFuelModalOpen(true)}
-                                            className="relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground"
-                                        >
-                                            <PlusCircle className="mr-2 h-4 w-4" />
-                                            Ajouter un type
-                                        </div>
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                        />
-                        <FormField
-                        control={form.control}
-                        name="fournisseur"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Fournisseur</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value} disabled={isFournisseurDisabled}>
+                                                </>
+                                            )}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                            />
+                            <FormField
+                            control={form.control}
+                            name="date_arrivage"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Date d'arrivage</FormLabel>
+                                <Popover>
+                                    <PopoverTrigger asChild>
                                     <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder={isFournisseurDisabled ? "Choisir un combustible" : "Sélectionner..."} />
-                                    </SelectTrigger>
+                                        <Button
+                                        variant={"outline"}
+                                        className={cn(
+                                            "w-full justify-start text-left font-normal",
+                                            !field.value && "text-muted-foreground"
+                                        )}
+                                        >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {field.value ? (
+                                            format(field.value, "PPP", { locale: fr })
+                                        ) : (
+                                            <span>Choisir une date</span>
+                                        )}
+                                        </Button>
                                     </FormControl>
-                                    <SelectContent>
-                                        {sortedFournisseurs.length === 0 && typeCombustibleValue ? (
-                                             <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">Aucun fournisseur pour ce type.</div>
-                                        ) : null}
-                                        {recentFournisseurs.length > 0 && sortedFournisseurs.filter(f => recentFournisseurs.includes(f)).length > 0 && (
-                                            <SelectGroup>
-                                                <SelectLabel>Récents</SelectLabel>
-                                                {recentFournisseurs.map((fournisseur) => {
-                                                    if (!sortedFournisseurs.includes(fournisseur)) return null;
-                                                    return (
-                                                        <SelectItem key={fournisseur} value={fournisseur}>
-                                                            {fournisseur}
-                                                        </SelectItem>
-                                                    )
-                                                })}
-                                            </SelectGroup>
-                                        )}
-                                        {(recentFournisseurs.length > 0 && otherFournisseurs.length > 0) && <SelectSeparator />}
-                                        <SelectGroup>
-                                            {recentFournisseurs.length > 0 && otherFournisseurs.length > 0 && <SelectLabel>Autres</SelectLabel>}
-                                            {otherFournisseurs.map((fournisseur) => (
-                                                <SelectItem key={fournisseur} value={fournisseur}>
-                                                    {fournisseur}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectGroup>
-                                        {typeCombustibleValue && (
-                                            <>
-                                                <Separator className="my-1" />
-                                                <div
-                                                    onSelect={(e) => e.preventDefault()}
-                                                    onClick={() => setIsFournisseurModalOpen(true)}
-                                                    className="relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground"
-                                                >
-                                                    <PlusCircle className="mr-2 h-4 w-4" />
-                                                    Ajouter un fournisseur
-                                                </div>
-                                            </>
-                                        )}
-                                    </SelectContent>
-                                </Select>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                        mode="single"
+                                        selected={field.value}
+                                        onSelect={field.onChange}
+                                        disabled={(date) =>
+                                        date > new Date() || date < new Date("1900-01-01")
+                                        }
+                                        initialFocus
+                                        locale={fr}
+                                    />
+                                    </PopoverContent>
+                                </Popover>
                                 <FormMessage />
-                            </FormItem>
-                        )}
-                        />
-                        <FormField
-                        control={form.control}
-                        name="date_arrivage"
-                        render={({ field }) => (
-                            <FormItem>
-                            <FormLabel>Date d'arrivage</FormLabel>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                <FormControl>
-                                    <Button
-                                    variant={"outline"}
-                                    className={cn(
-                                        "w-full justify-start text-left font-normal",
-                                        !field.value && "text-muted-foreground"
-                                    )}
-                                    >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {field.value ? (
-                                        format(field.value, "PPP", { locale: fr })
-                                    ) : (
-                                        <span>Choisir une date</span>
-                                    )}
-                                    </Button>
-                                </FormControl>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                <Calendar
-                                    mode="single"
-                                    selected={field.value}
-                                    onSelect={field.onChange}
-                                    disabled={(date) =>
-                                    date > new Date() || date < new Date("1900-01-01")
-                                    }
-                                    initialFocus
-                                    locale={fr}
-                                />
-                                </PopoverContent>
-                            </Popover>
-                            <FormMessage />
-                            </FormItem>
-                        )}
-                        />
-                    </div>
-                </CardContent>
-            </Card>
-
-            <Card className="shadow-sm">
-                <CardHeader>
-                    <CardTitle>Données Analytiques</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-end">
-                        <FormField
-                            control={form.control}
-                            name="pcs"
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>PCS (kcal/kg)</FormLabel>
-                                <FormControl>
-                                <Input type="number" step="any" placeholder="ex: 7500" {...field} value={field.value ?? ''} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
+                                </FormItem>
                             )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="h2o"
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>% H2O</FormLabel>
-                                <FormControl>
-                                <Input type="number" step="any" placeholder="ex: 5.5" {...field} value={field.value ?? ''} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="chlore"
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>% Cl- (facultatif)</FormLabel>
-                                <FormControl>
-                                <Input type="number" step="any" placeholder="ex: 0.8" {...field} value={field.value ?? ''} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="cendres"
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>% Cendres (facultatif)</FormLabel>
-                                <FormControl>
-                                <Input type="number" step="any" placeholder="ex: 12" {...field} value={field.value ?? ''} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="densite"
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Densité (t/m³, facultatif)</FormLabel>
-                                <FormControl>
-                                <Input type="number" step="any" placeholder="ex: 0.6" {...field} value={field.value ?? ''} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                        <div className="p-4 rounded-lg bg-orange-50 border border-orange-200 text-center">
-                             <p className="text-sm font-medium text-orange-700 mb-1">PCI sur Brut (kcal/kg)</p>
-                            {pciResult !== null ? (
-                                <p className="text-2xl font-bold text-orange-600 tracking-tight">
-                                    {pciResult.toLocaleString('fr-FR')}
-                                </p>
-                            ) : (
-                                <p className="text-2xl font-bold text-gray-400">-</p>
-                            )}
+                            />
                         </div>
-                    </div>
-                </CardContent>
-            </Card>
+                    </CardContent>
+                </Card>
+
+                <Card className="shadow-sm">
+                    <CardHeader>
+                        <CardTitle>Données Analytiques</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
+                            <FormField
+                                control={form.control}
+                                name="pcs"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>PCS (kcal/kg)</FormLabel>
+                                    <FormControl>
+                                    <Input type="number" step="any" placeholder="ex: 7500" {...field} value={field.value ?? ''} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="h2o"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>% H2O</FormLabel>
+                                    <FormControl>
+                                    <Input type="number" step="any" placeholder="ex: 5.5" {...field} value={field.value ?? ''} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="chlore"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>% Cl- (facultatif)</FormLabel>
+                                    <FormControl>
+                                    <Input type="number" step="any" placeholder="ex: 0.8" {...field} value={field.value ?? ''} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="cendres"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>% Cendres (facultatif)</FormLabel>
+                                    <FormControl>
+                                    <Input type="number" step="any" placeholder="ex: 12" {...field} value={field.value ?? ''} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                             <FormField
+                                control={form.control}
+                                name="densite"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Densité (t/m³, facultatif)</FormLabel>
+                                    <FormControl>
+                                    <Input type="number" step="any" placeholder="ex: 0.6" {...field} value={field.value ?? ''} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                            <div className="p-4 rounded-lg bg-orange-50 border border-orange-200 text-center">
+                                 <p className="text-sm font-medium text-orange-700 mb-1">PCI sur Brut (kcal/kg)</p>
+                                {pciResult !== null ? (
+                                    <p className="text-2xl font-bold text-orange-600 tracking-tight">
+                                        {pciResult.toLocaleString('fr-FR')}
+                                    </p>
+                                ) : (
+                                    <p className="text-2xl font-bold text-gray-400">-</p>
+                                )}
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
             
             <Card className="shadow-sm">
                  <CardHeader>
