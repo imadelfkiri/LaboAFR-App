@@ -81,17 +81,31 @@ interface AggregatedResult {
     count: number;
 }
 
+const specMap: Record<string, { h2o: number, chlore: number, cendres: number }> = {
+    "CSR|Polluclean": { h2o: 16.5, chlore: 1.0, cendres: 15 },
+    "CSR|SMBRM": { h2o: 14, chlore: 0.6, cendres: 1 },
+    "DMB|MTR": { h2o: 15, chlore: 0.6, cendres: 15 },
+    "Grignons d'olives|Ain Seddeine": { h2o: 20, chlore: 0.5, cendres: 5 },
+    "Plastiques|ValRecete": { h2o: 15, chlore: 1.0, cendres: 15 },
+    "Plastiques|Bichara": { h2o: 10, chlore: 1.0, cendres: 15 },
+    "Plastiques|Valtradec": { h2o: 10, chlore: 1.0, cendres: 15 },
+    "Plastiques|Ssardi": { h2o: 18, chlore: 1.0, cendres: 15 },
+    "Pneus|RJL": { h2o: 1.0, chlore: 0.3, cendres: 1 },
+    "Pneus|Aliapur": { h2o: 1.0, chlore: 0.3, cendres: 1 },
+};
+
 const getPciColorClass = (value: number) => {
   if (value < 4500) return "text-red-600";
   if (value < 5500) return "text-orange-500";
   return "text-green-600";
 };
 
-const getColorByThreshold = (value: number, thresholds: number[]) => {
-  if (value < thresholds[0]) return "text-green-600";
-  if (value < thresholds[1]) return "text-yellow-600";
-  if (value < thresholds[2]) return "text-orange-500";
-  return "text-red-600";
+const getColorByThreshold = (value: number, specValue: number | undefined) => {
+    if (specValue === undefined || isNaN(value)) return ""; // No spec, no color
+    if (value <= specValue) return "text-green-600";
+    if (value <= specValue * 1.1) return "text-yellow-600"; // Within 10% of spec
+    if (value <= specValue * 1.25) return "text-orange-500"; // Within 25% of spec
+    return "text-red-600"; // Over 25% of spec
 };
 
 const calculateAverage = (results: Result[], field: keyof Result): number | null => {
@@ -472,7 +486,10 @@ export function ResultsTable() {
                             <TableBody>
                                 {filteredResults.length > 0 ? (
                                     <>
-                                        {filteredResults.map((result) => (
+                                        {filteredResults.map((result) => {
+                                             const specKey = `${result.type_combustible}|${result.fournisseur}`;
+                                             const spec = specMap[specKey];
+                                            return (
                                             <TableRow key={result.id}>
                                                 <TableCell className="font-medium px-4">{formatDate(result.date_arrivage)}</TableCell>
                                                 <TableCell className="px-4">
@@ -484,9 +501,9 @@ export function ResultsTable() {
                                                 <TableCell className="px-4">{result.fournisseur}</TableCell>
                                                 <TableCell className="text-right px-4">{formatNumber(result.pcs, 0)}</TableCell>
                                                 <TableCell className={cn("font-bold text-right px-4", getPciColorClass(result.pci_brut))}>{formatNumber(result.pci_brut, 0)}</TableCell>
-                                                <TableCell className={cn("text-right px-4", getColorByThreshold(result.h2o ?? 0, [10, 15, 20]))}>{formatNumber(result.h2o, 1)}</TableCell>
-                                                <TableCell className={cn("text-right px-4", getColorByThreshold(result.chlore ?? 0, [0.3, 0.6, 1]))}>{formatNumber(result.chlore, 2)}</TableCell>
-                                                <TableCell className={cn("text-right px-4", getColorByThreshold(result.cendres ?? 0, [5, 10, 15]))}>{formatNumber(result.cendres, 1)}</TableCell>
+                                                <TableCell className={cn("text-right px-4", getColorByThreshold(result.h2o, spec?.h2o))}>{formatNumber(result.h2o, 1)}</TableCell>
+                                                <TableCell className={cn("text-right px-4", getColorByThreshold(result.chlore, spec?.chlore))}>{formatNumber(result.chlore, 2)}</TableCell>
+                                                <TableCell className={cn("text-right px-4", getColorByThreshold(result.cendres, spec?.cendres))}>{formatNumber(result.cendres, 1)}</TableCell>
                                                 <TableCell className="text-right px-4">{formatNumber(result.densite, 2)}</TableCell>
                                                 <TableCell className="text-right px-4">{formatNumber(result.granulometrie, 1)}</TableCell>
                                                 <TableCell className="max-w-[150px] truncate text-muted-foreground px-4">
@@ -505,7 +522,7 @@ export function ResultsTable() {
                                                     </AlertDialogTrigger>
                                                 </TableCell>
                                             </TableRow>
-                                        ))}
+                                        )})}
                                         <TableRow className="bg-muted/40 font-semibold">
                                             <TableCell colSpan={4} className="px-4">Moyenne de la sélection</TableCell>
                                             <TableCell className="text-right text-primary px-4">{formatNumber(calculateAverage(filteredResults, 'pci_brut'), 0)}</TableCell>
@@ -545,3 +562,4 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
+
