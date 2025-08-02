@@ -255,9 +255,9 @@ export function PciCalculator() {
         const updatedTypes = [...allFuelTypes, newType].sort((a, b) => a.name.localeCompare(b.name));
         setAllFuelTypes(updatedTypes);
         addRecentItem(RECENT_FUEL_TYPES_KEY, newType.name);
-        const newRecentFuels = getRecentItems(RECENT_FUEL_TYPES_KEY);
-        setRecentFuelTypes(newRecentFuels);
-        sortFuelTypes(updatedTypes, newRecentFuels);
+        const recentFuels = getRecentItems(RECENT_FUEL_TYPES_KEY);
+        setRecentFuelTypes(recentFuels);
+        sortFuelTypes(updatedTypes, recentFuels);
 
         setValue("type_combustible", newType.name, { shouldValidate: true });
 
@@ -422,9 +422,6 @@ export function PciCalculator() {
     }
   }
 
-  const otherFuelTypes = sortedFuelTypes.filter(ft => !recentFuelTypes.includes(ft.name));
-  const recentFuelTypesFromAll = allFuelTypes.filter(ft => recentFuelTypes.includes(ft.name));
-
   const otherFournisseurs = sortedFournisseurs.filter(f => !recentFournisseurs.includes(f));
   const recentFournisseursFromSorted = sortedFournisseurs.filter(f => recentFournisseurs.includes(f));
   
@@ -507,35 +504,15 @@ export function PciCalculator() {
                                                 <SelectValue placeholder="Sélectionner..." />
                                             </SelectTrigger>
                                             </FormControl>
-                                            <SelectContent side="bottom" align="start" sideOffset={4} avoidCollisions={false} className="z-50">
-                                                {recentFuelTypesFromAll.length > 0 && (
-                                                    <SelectGroup>
-                                                        <SelectLabel>Récents</SelectLabel>
-                                                        {recentFuelTypesFromAll.map((fuelType) => (
-                                                            <SelectItem key={fuelType.name} value={fuelType.name}>
-                                                                <div className="flex items-center gap-2">
-                                                                    <span>{fuelType.icon}</span>
-                                                                    <span>{fuelType.name}</span>
-                                                                </div>
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectGroup>
-                                                )}
-                                                {(recentFuelTypesFromAll.length > 0 && otherFuelTypes.length > 0) && <SelectSeparator />}
-                                                {otherFuelTypes.length > 0 && (
-                                                    <SelectGroup>
-                                                        {recentFuelTypesFromAll.length > 0 && <SelectLabel>Autres</SelectLabel>}
-                                                        {otherFuelTypes.map((fuelType) => (
-                                                            <SelectItem key={fuelType.name} value={fuelType.name}>
-                                                                <div className="flex items-center gap-2">
-                                                                    <span>{fuelType.icon}</span>
-                                                                    <span>{fuelType.name}</span>
-                                                                </div>
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectGroup>
-                                                )}
-
+                                            <SelectContent side="bottom" avoidCollisions={false} className="z-50">
+                                                {sortedFuelTypes.map((fuelType) => (
+                                                    <SelectItem key={fuelType.name} value={fuelType.name}>
+                                                        <div className="flex items-center gap-2">
+                                                            <span>{fuelType.icon}</span>
+                                                            <span>{fuelType.name}</span>
+                                                        </div>
+                                                    </SelectItem>
+                                                ))}
                                                 <Separator className="my-1" />
                                                 <div
                                                     onSelect={(e) => e.preventDefault()}
@@ -563,7 +540,7 @@ export function PciCalculator() {
                                                 <SelectValue placeholder={isFournisseurDisabled ? "Choisir un combustible" : "Sélectionner..."} />
                                             </SelectTrigger>
                                             </FormControl>
-                                            <SelectContent side="bottom" align="start" sideOffset={4} avoidCollisions={false} className="z-50">
+                                            <SelectContent side="bottom" avoidCollisions={false} className="z-50">
                                                 {sortedFournisseurs.length === 0 && typeCombustibleValue ? (
                                                     <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">Aucun fournisseur disponible pour ce type.</div>
                                                 ) : null}
