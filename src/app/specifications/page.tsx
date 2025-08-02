@@ -2,11 +2,10 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { collection, getDocs, orderBy, query } from "firebase/firestore";
+import { collection, getDocs, query } from "firebase/firestore";
 import { db } from "@/lib/firebase"; 
 import { useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 
 interface Spec {
   id: string;
@@ -32,11 +31,17 @@ export default function SpecificationsPage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const q = query(collection(db, "specifications"), orderBy("combustible"), orderBy("fournisseur"));
+      const q = query(collection(db, "specifications"));
       const querySnapshot = await getDocs(q);
       const specs: Spec[] = [];
       querySnapshot.forEach((doc) => {
         specs.push({ id: doc.id, ...doc.data() } as Spec);
+      });
+      // Tri côté client pour éviter les erreurs d'index
+      specs.sort((a, b) => {
+        const combustibleCompare = a.combustible.localeCompare(b.combustible);
+        if (combustibleCompare !== 0) return combustibleCompare;
+        return a.fournisseur.localeCompare(b.fournisseur);
       });
       setData(specs);
       setLoading(false);
