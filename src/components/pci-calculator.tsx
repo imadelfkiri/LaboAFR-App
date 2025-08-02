@@ -41,6 +41,9 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectSeparator,
+  SelectGroup,
+  SelectLabel,
 } from "@/components/ui/select";
 import {
     Dialog,
@@ -81,11 +84,39 @@ const newFournisseurSchema = z.object({
     name: z.string().nonempty({ message: "Le nom du fournisseur est requis."}),
 });
 
+const RECENT_FUEL_TYPES_KEY = 'recentFuelTypes';
+const RECENT_FOURNISSEURS_KEY = 'recentFournisseurs';
+const MAX_RECENT_ITEMS = 5;
+
+// Helper to get and update recent items from localStorage
+const getRecentItems = (key: string): string[] => {
+    if (typeof window === 'undefined') return [];
+    const items = localStorage.getItem(key);
+    return items ? JSON.parse(items) : [];
+};
+
+const addRecentItem = (key: string, item: string) => {
+    if (typeof window === 'undefined') return;
+    let recentItems = getRecentItems(key);
+    recentItems = [item, ...recentItems.filter(i => i !== item)];
+    if (recentItems.length > MAX_RECENT_ITEMS) {
+        recentItems.pop();
+    }
+    localStorage.setItem(key, JSON.stringify(recentItems));
+};
+
+
 export function PciCalculator() {
   const [pciResult, setPciResult] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [fuelTypes, setFuelTypes] = useState<FuelType[]>([]);
-  const [fournisseurs, setFournisseurs] = useState<string[]>([]);
+  const [allFuelTypes, setAllFuelTypes] = useState<FuelType[]>([]);
+  const [allFournisseurs, setAllFournisseurs] = useState<string[]>([]);
+  
+  const [sortedFuelTypes, setSortedFuelTypes] = useState<FuelType[]>([]);
+  const [sortedFournisseurs, setSortedFournisseurs] = useState<string[]>([]);
+  const [recentFuelTypes, setRecentFuelTypes] = useState<string[]>([]);
+  const [recentFournisseurs, setRecentFournisseurs] = useState<string[]>([]);
+
 
   const [isFuelModalOpen, setIsFuelModalOpen] = useState(false);
   const [newFuelTypeName, setNewFuelTypeName] = useState("");
@@ -103,11 +134,32 @@ export function PciCalculator() {
             getFuelTypes(),
             getFournisseurs()
         ]);
-        setFuelTypes(fetchedFuelTypes);
-        setFournisseurs(fetchedFournisseurs);
+        setAllFuelTypes(fetchedFuelTypes);
+        setAllFournisseurs(fetchedFournisseurs);
+
+        const recentFuels = getRecentItems(RECENT_FUEL_TYPES_KEY);
+        setRecentFuelTypes(recentFuels);
+        sortFuelTypes(fetchedFuelTypes, recentFuels);
+
+        const recentFours = getRecentItems(RECENT_FOURNISSEURS_KEY);
+        setRecentFournisseurs(recentFours);
+        sortFournisseurs(fetchedFournisseurs, recentFours);
     }
     fetchData();
   }, []);
+
+  const sortFuelTypes = (allTypes: FuelType[], recent: string[]) => {
+      const recentList = recent.map(name => allTypes.find(ft => ft.name === name)).filter(Boolean) as FuelType[];
+      const otherList = allTypes.filter(ft => !recent.includes(ft.name));
+      setSortedFuelTypes([...recentList, ...otherList]);
+  };
+
+  const sortFournisseurs = (allFours: string[], recent: string[]) => {
+      const recentList = recent.filter(name => allFours.includes(name));
+      const otherList = allFours.filter(name => !recent.includes(name));
+      setSortedFournisseurs([...recentList, ...otherList]);
+  };
+
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -176,8 +228,12 @@ export function PciCalculator() {
         H_MAP[newFuel.name] = dataToSave.hValue;
         
         const newType: FuelType = { name: newFuel.name, icon: newFuel.icon };
-        const updatedTypes = [...fuelTypes, newType].sort((a, b) => a.name.localeCompare(b.name));
-        setFuelTypes(updatedTypes);
+        const updatedTypes = [...allFuelTypes, newType].sort((a, b) => a.name.localeCompare(b.name));
+        setAllFuelTypes(updatedTypes);
+        addRecentItem(RECENT_FUEL_TYPES_KEY, newType.name);
+        const newRecentFuels = getRecentItems(RECENT_FUEL_TYPES_KEY);
+        setRecentFuelTypes(newRecentFuels);
+        sortFuelTypes(updatedTypes, newRecentFuels);
 
         setValue("type_combustible", newType.name, { shouldValidate: true });
 
@@ -216,8 +272,14 @@ export function PciCalculator() {
         const docRef = doc(db, "fournisseurs", newFournisseur.name);
         await setDoc(docRef, { name: newFournisseur.name });
 
-        const updatedFournisseurs = [...fournisseurs, newFournisseur.name].sort();
-        setFournisseurs(updatedFournisseurs);
+        const updatedFournisseurs = [...allFournisseurs, newFournisseur.name].sort();
+        setAllFournisseurs(updatedFournisseurs);
+
+        addRecentItem(RECENT_FOURNISSEURS_KEY, newFournisseur.name);
+        const newRecentFours = getRecentItems(RECENT_FOURNISSEURS_KEY);
+        setRecentFournisseurs(newRecentFours);
+        sortFournisseurs(updatedFournisseurs, newRecentFours);
+
 
         setValue("fournisseur", newFournisseur.name, { shouldValidate: true });
 
@@ -262,6 +324,17 @@ export function PciCalculator() {
           setIsSaving(false);
           return;
       }
+
+      addRecentItem(RECENT_FUEL_TYPES_KEY, values.type_combustible);
+      addRecentItem(RECENT_FOURNISSEURS_KEY, values.fournisseur);
+
+      const newRecentFuels = getRecentItems(RECENT_FUEL_TYPES_KEY);
+      setRecentFuelTypes(newRecentFuels);
+      sortFuelTypes(allFuelTypes, newRecentFuels);
+
+      const newRecentFours = getRecentItems(RECENT_FOURNISSEURS_KEY);
+      setRecentFournisseurs(newRecentFours);
+      sortFournisseurs(allFournisseurs, newRecentFours);
       
       const dataToSave = {
         ...values,
@@ -299,6 +372,9 @@ export function PciCalculator() {
     }
   }
 
+  const otherFuelTypes = sortedFuelTypes.filter(ft => !recentFuelTypes.includes(ft.name));
+  const otherFournisseurs = sortedFournisseurs.filter(f => !recentFournisseurs.includes(f));
+
   return (
     <div className="w-full max-w-4xl space-y-8">
       <div className="text-center">
@@ -328,23 +404,45 @@ export function PciCalculator() {
                                     </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                    {fuelTypes.map((fuelType) => (
-                                        <SelectItem key={fuelType.name} value={fuelType.name}>
-                                            <div className="flex items-center gap-2">
-                                                <span>{fuelType.icon}</span>
-                                                <span>{fuelType.name}</span>
-                                            </div>
-                                        </SelectItem>
-                                    ))}
-                                    <Separator className="my-1" />
-                                     <div
-                                        onSelect={(e) => e.preventDefault()}
-                                        onClick={() => setIsFuelModalOpen(true)}
-                                        className="relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground"
-                                     >
-                                        <PlusCircle className="mr-2 h-4 w-4" />
-                                        Ajouter un type
-                                    </div>
+                                        {recentFuelTypes.length > 0 && (
+                                            <SelectGroup>
+                                                <SelectLabel>Récents</SelectLabel>
+                                                {recentFuelTypes.map((name) => {
+                                                    const fuelType = allFuelTypes.find(ft => ft.name === name);
+                                                    if (!fuelType) return null;
+                                                    return (
+                                                        <SelectItem key={fuelType.name} value={fuelType.name}>
+                                                            <div className="flex items-center gap-2">
+                                                                <span>{fuelType.icon}</span>
+                                                                <span>{fuelType.name}</span>
+                                                            </div>
+                                                        </SelectItem>
+                                                    );
+                                                })}
+                                            </SelectGroup>
+                                        )}
+                                        {(recentFuelTypes.length > 0 && otherFuelTypes.length > 0) && <SelectSeparator />}
+                                         <SelectGroup>
+                                            {recentFuelTypes.length > 0 && <SelectLabel>Autres</SelectLabel>}
+                                            {otherFuelTypes.map((fuelType) => (
+                                                <SelectItem key={fuelType.name} value={fuelType.name}>
+                                                    <div className="flex items-center gap-2">
+                                                        <span>{fuelType.icon}</span>
+                                                        <span>{fuelType.name}</span>
+                                                    </div>
+                                                </SelectItem>
+                                            ))}
+                                        </SelectGroup>
+
+                                        <Separator className="my-1" />
+                                        <div
+                                            onSelect={(e) => e.preventDefault()}
+                                            onClick={() => setIsFuelModalOpen(true)}
+                                            className="relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground"
+                                        >
+                                            <PlusCircle className="mr-2 h-4 w-4" />
+                                            Ajouter un type
+                                        </div>
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />
@@ -364,20 +462,34 @@ export function PciCalculator() {
                                     </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                    {fournisseurs.map((fournisseur) => (
-                                        <SelectItem key={fournisseur} value={fournisseur}>
-                                            {fournisseur}
-                                        </SelectItem>
-                                        ))}
-                                    <Separator className="my-1" />
-                                     <div
-                                        onSelect={(e) => e.preventDefault()}
-                                        onClick={() => setIsFournisseurModalOpen(true)}
-                                        className="relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground"
-                                     >
-                                        <PlusCircle className="mr-2 h-4 w-4" />
-                                        Ajouter un fournisseur
-                                    </div>
+                                        {recentFournisseurs.length > 0 && (
+                                            <SelectGroup>
+                                                <SelectLabel>Récents</SelectLabel>
+                                                {recentFournisseurs.map((fournisseur) => (
+                                                    <SelectItem key={fournisseur} value={fournisseur}>
+                                                        {fournisseur}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectGroup>
+                                        )}
+                                        {(recentFournisseurs.length > 0 && otherFournisseurs.length > 0) && <SelectSeparator />}
+                                        <SelectGroup>
+                                            {recentFournisseurs.length > 0 && <SelectLabel>Autres</SelectLabel>}
+                                            {otherFournisseurs.map((fournisseur) => (
+                                                <SelectItem key={fournisseur} value={fournisseur}>
+                                                    {fournisseur}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectGroup>
+                                        <Separator className="my-1" />
+                                        <div
+                                            onSelect={(e) => e.preventDefault()}
+                                            onClick={() => setIsFournisseurModalOpen(true)}
+                                            className="relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground"
+                                        >
+                                            <PlusCircle className="mr-2 h-4 w-4" />
+                                            Ajouter un fournisseur
+                                        </div>
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />
@@ -604,3 +716,5 @@ export function PciCalculator() {
     </div>
   );
 }
+
+    
