@@ -97,7 +97,7 @@ const specMap: Record<string, { pci_min?: number, h2o?: number, chlore?: number,
 const getPciColorClass = (value: number, combustible: string, fournisseur: string) => {
   const key = `${combustible}|${fournisseur}`;
   const spec = specMap[key];
-  if (!spec || spec.pci_min === undefined) return "text-orange-500"; // Default color if no spec
+  if (!spec || spec.pci_min === undefined) return "";
   return value < spec.pci_min ? "text-red-600 font-bold" : "text-green-600";
 };
 
@@ -506,13 +506,13 @@ export function ResultsTable() {
                                                 <TableCell className="px-4">{result.fournisseur}</TableCell>
                                                 <TableCell className="text-right px-4">{formatNumber(result.pcs, 0)}</TableCell>
                                                 <TableCell className={cn("font-bold text-right px-4", getPciColorClass(result.pci_brut, result.type_combustible, result.fournisseur))}>{formatNumber(result.pci_brut, 0)}</TableCell>
-                                                <TableCell className={`text-right px-4 ${getCustomColor(result.h2o, result.type_combustible, result.fournisseur, "h2o")}`}>
+                                                <TableCell className={cn("text-right px-4", getCustomColor(result.h2o, result.type_combustible, result.fournisseur, "h2o"))}>
                                                   {formatNumber(result.h2o, 1)}
                                                 </TableCell>
-                                                <TableCell className={`text-right px-4 ${getCustomColor(result.chlore, result.type_combustible, result.fournisseur, "chlore")}`}>
+                                                <TableCell className={cn("text-right px-4", getCustomColor(result.chlore, result.type_combustible, result.fournisseur, "chlore"))}>
                                                   {formatNumber(result.chlore, 2)}
                                                 </TableCell>
-                                                <TableCell className={`text-right px-4 ${getCustomColor(result.cendres, result.type_combustible, result.fournisseur, "cendres")}`}>
+                                                <TableCell className={cn("text-right px-4", getCustomColor(result.cendres, result.type_combustible, result.fournisseur, "cendres"))}>
                                                   {formatNumber(result.cendres, 1)}
                                                 </TableCell>
                                                 <TableCell className="text-right px-4">{formatNumber(result.densite, 2)}</TableCell>
@@ -573,3 +573,5 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
+
+    
