@@ -9,6 +9,19 @@ export interface FuelType {
     icon: string;
 }
 
+export interface Specification {
+    id: string;
+    combustible: string;
+    fournisseur: string;
+    H2O_max: number;
+    PCI_min: number;
+    chlorures_max: number;
+    cendres_max: number;
+    soufre_max?: number;
+    granulometrie_max_mm?: number;
+}
+
+
 export const INITIAL_FUEL_TYPES: (FuelType & { hValue: number })[] = [
     { name: "Bois", icon: "🌲", hValue: 6.0 },
     { name: "Boues", icon: "💧", hValue: 5.5 },
@@ -128,3 +141,40 @@ export const getFuelSupplierMap = async (): Promise<Record<string, string[]>> =>
 
     return map;
 }
+
+const INITIAL_SPECIFICATIONS: Omit<Specification, 'id'>[] = [
+    { combustible: "Pneus", fournisseur: "Aliapur", H2O_max: 3, PCI_min: 7500, chlorures_max: 0.3, cendres_max: 18, soufre_max: 1.8, granulometrie_max_mm: 350 },
+    { combustible: "Pneus", fournisseur: "RJL", H2O_max: 3, PCI_min: 7500, chlorures_max: 0.3, cendres_max: 18, soufre_max: 1.8, granulometrie_max_mm: 350 },
+    { combustible: "Plastiques", fournisseur: "ValRecete", H2O_max: 15, PCI_min: 4300, chlorures_max: 1, cendres_max: 15, soufre_max: 0.5, granulometrie_max_mm: 100 },
+    { combustible: "CSR", fournisseur: "Polluclean", H2O_max: 20, PCI_min: 4000, chlorures_max: 0.8, cendres_max: 20, soufre_max: 0.6, granulometrie_max_mm: 80 },
+    { combustible: "Bois", fournisseur: "Sotraforest", H2O_max: 25, PCI_min: 3500, chlorures_max: 0.1, cendres_max: 5 },
+    { combustible: "Boues", fournisseur: "ONEE", H2O_max: 80, PCI_min: 2500, chlorures_max: 0.2, cendres_max: 30 },
+];
+
+export const getSpecifications = async (): Promise<Specification[]> => {
+    const specificationsCollectionRef = collection(db, "specifications");
+    const querySnapshot = await getDocs(specificationsCollectionRef);
+    const specifications: Specification[] = [];
+
+    if (querySnapshot.empty) {
+        console.log("Specifications collection is empty, seeding with initial data...");
+        const batch = writeBatch(db);
+        INITIAL_SPECIFICATIONS.forEach(spec => {
+            const docRef = doc(specificationsCollectionRef); // Auto-generated ID
+            batch.set(docRef, spec);
+        });
+        await batch.commit();
+        console.log("Specifications seeding complete.");
+        // Re-fetch to get the generated IDs, or simply return the initial data for the first run
+        const seededSnapshot = await getDocs(specificationsCollectionRef);
+        seededSnapshot.forEach(doc => {
+            specifications.push({ id: doc.id, ...doc.data() } as Specification);
+        });
+        return specifications;
+    }
+
+    querySnapshot.forEach((doc) => {
+        specifications.push({ id: doc.id, ...doc.data() } as Specification);
+    });
+    return specifications;
+};
