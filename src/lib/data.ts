@@ -88,8 +88,6 @@ export const getFournisseurs = async (): Promise<string[]> => {
     return fournisseurs.sort();
 };
 
-export let FUEL_TYPE_SUPPLIERS_MAP: Record<string, string[]> = {};
-
 const INITIAL_FUEL_TYPE_SUPPLIERS_MAP: Record<string, string[]> = {
     "Bois": ["Sotraforest", "CNAPP", "SMBRM"],
     "Boues": ["ONEE"],
@@ -121,7 +119,6 @@ export const getFuelSupplierMap = async (): Promise<Record<string, string[]>> =>
         });
         await batch.commit();
         console.log("Seeding complete.");
-        FUEL_TYPE_SUPPLIERS_MAP = map;
         return map;
     }
     
@@ -129,6 +126,5 @@ export const getFuelSupplierMap = async (): Promise<Record<string, string[]>> =>
         map[doc.id] = doc.data().suppliers;
     });
 
-    FUEL_TYPE_SUPPLIERS_MAP = map;
     return map;
 }

@@ -308,9 +308,18 @@ export function PciCalculator() {
 
         // 2. Update the fuel_supplier_map
         const mapDocRef = doc(db, "fuel_supplier_map", selectedFuelType);
-        await updateDoc(mapDocRef, {
-            suppliers: arrayUnion(name)
-        });
+        
+        const mapDocSnap = await getDoc(mapDocRef);
+        if (mapDocSnap.exists()) {
+            await updateDoc(mapDocRef, {
+                suppliers: arrayUnion(name)
+            });
+        } else {
+            await setDoc(mapDocRef, {
+                suppliers: [name]
+            });
+        }
+
 
         // 3. Update local state
         const updatedMap = { ...fuelSupplierMap };
