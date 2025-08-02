@@ -619,7 +619,7 @@ export function PciCalculator() {
                 <Card className="p-6 rounded-2xl shadow-md bg-white/70 backdrop-blur-md">
                     <CardHeader>
                         <h2 className="text-xl font-semibold flex items-center gap-2 text-neutral-800">
-                            <FlaskConical /> Données Analytiques
+                            <FlaskConical className="w-5 h-5 mr-2 text-green-600" /> Données Analytiques
                         </h2>
                     </CardHeader>
                     <CardContent>
@@ -729,8 +729,7 @@ export function PciCalculator() {
             <Button 
                 type="submit" 
                 disabled={isSaving || pciResult === null} 
-                className="bg-green-500 hover:bg-green-600 text-white font-semibold px-6 py-3 rounded-full shadow-md fixed bottom-6 right-6 z-50 transition-transform duration-150 ease-in-out hover:scale-105 active:scale-100"
-                size="lg"
+                className="fixed bottom-6 right-6 bg-green-600 hover:bg-green-700 text-white rounded-full px-6 py-3 shadow-lg"
             >
                 {isSaving ? "Enregistrement..." : "Enregistrer"}
             </Button>
