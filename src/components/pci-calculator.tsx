@@ -8,7 +8,7 @@ import * as z from "zod";
 import { format, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
 import { CalendarIcon, Fuel, PlusCircle } from 'lucide-react';
-import { collection, addDoc, Timestamp, doc, setDoc } from "firebase/firestore";
+import { collection, addDoc, Timestamp, doc, setDoc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -56,7 +56,7 @@ import {
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator";
 import { calculerPCI } from '@/lib/pci';
-import { getFuelTypes, type FuelType, H_MAP, getFournisseurs, FUEL_TYPE_SUPPLIERS_MAP } from '@/lib/data';
+import { getFuelTypes, type FuelType, H_MAP, getFournisseurs, getFuelSupplierMap } from '@/lib/data';
 import { db } from '@/lib/firebase';
 import { useToast } from "@/hooks/use-toast";
 
@@ -81,7 +81,7 @@ const newFuelTypeSchema = z.object({
 });
 
 const newFournisseurSchema = z.object({
-    name: z.string().nonempty({ message: "Le nom du fournisseur est requis."}),
+    name: z.string().nonempty({ message: "Le nom du fournisseur est requis."}).regex(/^[a-zA-Z0-9\s-]+$/, "Le nom ne doit contenir que des lettres, chiffres, espaces ou tirets."),
 });
 
 const RECENT_FUEL_TYPES_KEY = 'recentFuelTypes';
@@ -111,6 +111,7 @@ export function PciCalculator() {
   const [isSaving, setIsSaving] = useState(false);
   const [allFuelTypes, setAllFuelTypes] = useState<FuelType[]>([]);
   const [allFournisseurs, setAllFournisseurs] = useState<string[]>([]);
+  const [fuelSupplierMap, setFuelSupplierMap] = useState<Record<string, string[]>>({});
   
   const [sortedFuelTypes, setSortedFuelTypes] = useState<FuelType[]>([]);
   const [filteredFournisseurs, setFilteredFournisseurs] = useState<string[]>([]);
@@ -131,12 +132,14 @@ export function PciCalculator() {
 
   useEffect(() => {
     async function fetchData() {
-        const [fetchedFuelTypes, fetchedFournisseurs] = await Promise.all([
+        const [fetchedFuelTypes, fetchedFournisseurs, fetchedMap] = await Promise.all([
             getFuelTypes(),
-            getFournisseurs()
+            getFournisseurs(),
+            getFuelSupplierMap()
         ]);
         setAllFuelTypes(fetchedFuelTypes);
         setAllFournisseurs(fetchedFournisseurs);
+        setFuelSupplierMap(fetchedMap);
 
         const recentFuels = getRecentItems(RECENT_FUEL_TYPES_KEY);
         setRecentFuelTypes(recentFuels);
@@ -196,14 +199,14 @@ export function PciCalculator() {
   }, [pcsValue, h2oValue, typeCombustibleValue, getValues]);
 
   useEffect(() => {
-    if (typeCombustibleValue) {
-        const relatedFournisseurs = FUEL_TYPE_SUPPLIERS_MAP[typeCombustibleValue] || [];
+    if (typeCombustibleValue && Object.keys(fuelSupplierMap).length > 0) {
+        const relatedFournisseurs = fuelSupplierMap[typeCombustibleValue] || [];
         setFilteredFournisseurs(relatedFournisseurs.sort());
         setValue('fournisseur', ''); // Reset fournisseur when combustible changes
     } else {
         setFilteredFournisseurs([]);
     }
-  }, [typeCombustibleValue, allFournisseurs, setValue]);
+  }, [typeCombustibleValue, allFournisseurs, setValue, fuelSupplierMap]);
 
   useEffect(() => {
       if(filteredFournisseurs.length > 0) {
@@ -288,34 +291,54 @@ export function PciCalculator() {
   };
 
   const handleAddFournisseur = async () => {
-      try {
+    const selectedFuelType = getValues("type_combustible");
+    if (!selectedFuelType) return;
+
+    try {
         const newFournisseur = newFournisseurSchema.parse({ name: newFournisseurName });
+        const name = newFournisseur.name.trim();
 
-        const docRef = doc(db, "fournisseurs", newFournisseur.name);
-        await setDoc(docRef, { name: newFournisseur.name });
+        // 1. Add to 'fournisseurs' collection if not exists
+        const fournisseurDocRef = doc(db, "fournisseurs", name);
+        const docSnap = await getDoc(fournisseurDocRef);
+        if (!docSnap.exists()) {
+            await setDoc(fournisseurDocRef, { name });
+            setAllFournisseurs(prev => [...prev, name].sort());
+        }
 
-        const updatedFournisseurs = [...allFournisseurs, newFournisseur.name].sort();
-        setAllFournisseurs(updatedFournisseurs);
+        // 2. Update the fuel_supplier_map
+        const mapDocRef = doc(db, "fuel_supplier_map", selectedFuelType);
+        await updateDoc(mapDocRef, {
+            suppliers: arrayUnion(name)
+        });
 
-        addRecentItem(RECENT_FOURNISSEURS_KEY, newFournisseur.name);
-        const newRecentFours = getRecentItems(RECENT_FOURNISSEURS_KEY);
-        setRecentFournisseurs(newRecentFours);
-        sortFournisseurs(updatedFournisseurs, newRecentFours);
+        // 3. Update local state
+        const updatedMap = { ...fuelSupplierMap };
+        if (!updatedMap[selectedFuelType]) {
+            updatedMap[selectedFuelType] = [];
+        }
+        if (!updatedMap[selectedFuelType].includes(name)) {
+            updatedMap[selectedFuelType].push(name);
+        }
+        setFuelSupplierMap(updatedMap);
+        
+        // This will trigger re-filtering and re-sorting
+        setFilteredFournisseurs(updatedMap[selectedFuelType].sort()); 
 
-
-        setValue("fournisseur", newFournisseur.name, { shouldValidate: true });
+        addRecentItem(RECENT_FOURNISSEURS_KEY, name);
+        setValue("fournisseur", name, { shouldValidate: true });
 
         toast({
             title: "Succès",
-            description: `Le fournisseur "${newFournisseur.name}" a été ajouté.`,
+            description: `Le fournisseur "${name}" a été ajouté et associé.`,
         });
 
         setIsFournisseurModalOpen(false);
         setNewFournisseurName("");
 
-      } catch (error) {
+    } catch (error) {
         if (error instanceof z.ZodError) {
-             toast({
+            toast({
                 variant: "destructive",
                 title: "Erreur de validation",
                 description: error.errors.map(e => e.message).join('\n'),
@@ -325,7 +348,7 @@ export function PciCalculator() {
             toast({
                 variant: "destructive",
                 title: "Erreur",
-                description: "Impossible d'ajouter le nouveau fournisseur.",
+                description: "Impossible d'ajouter ou d'associer le nouveau fournisseur.",
             });
         }
     }
@@ -486,7 +509,7 @@ export function PciCalculator() {
                                     </FormControl>
                                     <SelectContent>
                                         {sortedFournisseurs.length === 0 && typeCombustibleValue ? (
-                                             <div className="px-2 py-1.5 text-sm text-muted-foreground">Aucun fournisseur pour ce type.</div>
+                                             <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">Aucun fournisseur pour ce type.</div>
                                         ) : null}
                                         {recentFournisseurs.length > 0 && sortedFournisseurs.filter(f => recentFournisseurs.includes(f)).length > 0 && (
                                             <SelectGroup>
@@ -510,15 +533,19 @@ export function PciCalculator() {
                                                 </SelectItem>
                                             ))}
                                         </SelectGroup>
-                                        <Separator className="my-1" />
-                                        <div
-                                            onSelect={(e) => e.preventDefault()}
-                                            onClick={() => setIsFournisseurModalOpen(true)}
-                                            className="relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground"
-                                        >
-                                            <PlusCircle className="mr-2 h-4 w-4" />
-                                            Ajouter un fournisseur
-                                        </div>
+                                        {typeCombustibleValue && (
+                                            <>
+                                                <Separator className="my-1" />
+                                                <div
+                                                    onSelect={(e) => e.preventDefault()}
+                                                    onClick={() => setIsFournisseurModalOpen(true)}
+                                                    className="relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground"
+                                                >
+                                                    <PlusCircle className="mr-2 h-4 w-4" />
+                                                    Ajouter un fournisseur
+                                                </div>
+                                            </>
+                                        )}
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />
@@ -725,7 +752,7 @@ export function PciCalculator() {
                 <DialogHeader>
                     <DialogTitle>Ajouter un nouveau fournisseur</DialogTitle>
                     <DialogDescription>
-                        Entrez le nom du nouveau fournisseur.
+                        Entrez le nom du nouveau fournisseur pour le combustible "{typeCombustibleValue}".
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">

@@ -58,9 +58,9 @@ export const getFuelTypes = async (): Promise<FuelType[]> => {
 
 
 const INITIAL_FOURNISSEURS = [
-    "Ain Seddeine", "Aliapur", "Bichara", "Géocycle", "MTR",
-    "NAJD", "Polluclean", "SMBRM", "Sotraforest", "Ssardi",
-    "ValRecete", "Valtradec", "RJL", "CNAPP", "ONEE"
+    "Ain Seddeine", "Aliapur", "Bichara", "Géocycle", "MTR", "ONEE",
+    "NAJD", "Polluclean", "SMBRM", "Sotraforest", "Ssardi", "RJL", "CNAPP",
+    "ValRecete", "Valtradec"
 ].sort();
 
 export const getFournisseurs = async (): Promise<string[]> => {
@@ -88,7 +88,9 @@ export const getFournisseurs = async (): Promise<string[]> => {
     return fournisseurs.sort();
 };
 
-export const FUEL_TYPE_SUPPLIERS_MAP: Record<string, string[]> = {
+export let FUEL_TYPE_SUPPLIERS_MAP: Record<string, string[]> = {};
+
+const INITIAL_FUEL_TYPE_SUPPLIERS_MAP: Record<string, string[]> = {
     "Bois": ["Sotraforest", "CNAPP", "SMBRM"],
     "Boues": ["ONEE"],
     "CSR": ["SMBRM", "Polluclean"],
@@ -103,3 +105,30 @@ export const FUEL_TYPE_SUPPLIERS_MAP: Record<string, string[]> = {
     "RDF": ["Géocycle"],
     "Textile": ["SMBRM"]
 };
+
+export const getFuelSupplierMap = async (): Promise<Record<string, string[]>> => {
+    const mapCollectionRef = collection(db, "fuel_supplier_map");
+    const querySnapshot = await getDocs(mapCollectionRef);
+    const map: Record<string, string[]> = {};
+
+    if (querySnapshot.empty) {
+        console.log("Fuel supplier map is empty, seeding with initial data...");
+        const batch = writeBatch(db);
+        Object.entries(INITIAL_FUEL_TYPE_SUPPLIERS_MAP).forEach(([fuel, suppliers]) => {
+            const docRef = doc(mapCollectionRef, fuel);
+            batch.set(docRef, { suppliers });
+            map[fuel] = suppliers;
+        });
+        await batch.commit();
+        console.log("Seeding complete.");
+        FUEL_TYPE_SUPPLIERS_MAP = map;
+        return map;
+    }
+    
+    querySnapshot.forEach((doc) => {
+        map[doc.id] = doc.data().suppliers;
+    });
+
+    FUEL_TYPE_SUPPLIERS_MAP = map;
+    return map;
+}
