@@ -66,7 +66,7 @@ const formSchema = z.object({
   }),
   type_combustible: z.string().nonempty({ message: "Veuillez sélectionner un type de combustible." }),
   fournisseur: z.string().nonempty({ message: "Veuillez sélectionner un fournisseur." }),
-  pcs: z.coerce.number({required_error: "Le PCS est requis.", invalid_type_error: "Veuillez entrer un nombre."}).positive({ message: "Le PCS doit être un nombre positif." }),
+  pcs: z.coerce.number({required_error: "Veuillez renseigner une valeur valide pour le PCS.", invalid_type_error: "Veuillez entrer un nombre."}).positive({ message: "Le PCS doit être un nombre positif." }),
   h2o: z.coerce.number({required_error: "Le taux d'humidité est requis.", invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "L'humidité ne peut être négative." }).max(100, { message: "L'humidité ne peut dépasser 100%." }),
   chlore: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le chlore ne peut être négatif." }).optional().or(z.literal('')),
   cendres: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le % de cendres ne peut être négatif." }).optional().or(z.literal('')),
@@ -436,17 +436,17 @@ export function PciCalculator() {
     <div className="w-full max-w-4xl space-y-8 pb-24">
       <div className="text-center">
         <div className="inline-flex items-center justify-center gap-3">
-          <Fuel className="h-7 w-7 text-primary" />
-          <h1 className="text-3xl font-bold tracking-tight">Calculateur de PCI Brut</h1>
+          <FlaskConical className="h-7 w-7 text-primary" />
+          <h1 className="text-3xl font-bold tracking-tight text-gray-800">Calculateur de PCI Brut</h1>
         </div>
       </div>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card className="shadow-sm">
+                <Card className="shadow-sm rounded-2xl">
                     <CardHeader>
                        <CardTitle>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 text-gray-800">
                             <ClipboardList className="h-5 w-5" />
                             <span>Informations Générales</span>
                           </div>
@@ -463,7 +463,7 @@ export function PciCalculator() {
                                         <FormLabel>Combustible</FormLabel>
                                         <Select onValueChange={field.onChange} value={field.value}>
                                             <FormControl>
-                                            <SelectTrigger>
+                                            <SelectTrigger className="rounded-xl">
                                                 <SelectValue placeholder="Sélectionner..." />
                                             </SelectTrigger>
                                             </FormControl>
@@ -521,7 +521,7 @@ export function PciCalculator() {
                                         <FormLabel>Fournisseur</FormLabel>
                                         <Select onValueChange={field.onChange} value={field.value} disabled={isFournisseurDisabled}>
                                             <FormControl>
-                                            <SelectTrigger>
+                                            <SelectTrigger className="rounded-xl">
                                                 <SelectValue placeholder={isFournisseurDisabled ? "Choisir un combustible" : "Sélectionner..."} />
                                             </SelectTrigger>
                                             </FormControl>
@@ -582,7 +582,7 @@ export function PciCalculator() {
                                             <Button
                                             variant={"outline"}
                                             className={cn(
-                                                "w-full justify-start text-left font-normal",
+                                                "w-full justify-start text-left font-normal rounded-xl",
                                                 !field.value && "text-muted-foreground"
                                             )}
                                             >
@@ -619,7 +619,7 @@ export function PciCalculator() {
                                 render={({ field }) => (
                                 <FormItem>
                                      <FormLabel>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 text-gray-800">
                                         <MessageSquareText className="h-4 w-4" />
                                         <span>Remarques</span>
                                         </div>
@@ -627,7 +627,7 @@ export function PciCalculator() {
                                     <FormControl>
                                         <Textarea
                                             placeholder="Ajoutez une remarque (facultatif)..."
-                                            className="resize-none"
+                                            className="resize-none rounded-xl"
                                             {...field}
                                             value={field.value ?? ''}
                                         />
@@ -640,10 +640,10 @@ export function PciCalculator() {
                     </CardContent>
                 </Card>
 
-                <Card className="shadow-sm">
+                <Card className="shadow-sm rounded-2xl">
                     <CardHeader>
                        <CardTitle>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 text-gray-800">
                                 <FlaskConical className="h-5 w-5" />
                                 <span>Données Analytiques</span>
                             </div>
@@ -658,7 +658,7 @@ export function PciCalculator() {
                                 <FormItem>
                                     <FormLabel>PCS (kcal/kg)</FormLabel>
                                     <FormControl>
-                                    <Input type="number" step="any" placeholder="ex: 7500" {...field} value={field.value ?? ''} />
+                                    <Input type="number" step="any" placeholder="ex: 7500" {...field} value={field.value ?? ''} className="rounded-xl" />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -671,7 +671,7 @@ export function PciCalculator() {
                                 <FormItem>
                                     <FormLabel>% H2O</FormLabel>
                                     <FormControl>
-                                    <Input type="number" step="any" placeholder="ex: 5.5" {...field} value={field.value ?? ''} />
+                                    <Input type="number" step="any" placeholder="ex: 5.5" {...field} value={field.value ?? ''} className="rounded-xl" />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -684,7 +684,7 @@ export function PciCalculator() {
                                 <FormItem>
                                     <FormLabel>% Cl- (facultatif)</FormLabel>
                                     <FormControl>
-                                    <Input type="number" step="any" placeholder="ex: 0.8" {...field} value={field.value ?? ''} />
+                                    <Input type="number" step="any" placeholder="ex: 0.8" {...field} value={field.value ?? ''} className="rounded-xl" />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -697,7 +697,7 @@ export function PciCalculator() {
                                 <FormItem>
                                     <FormLabel>% Cendres (facultatif)</FormLabel>
                                     <FormControl>
-                                    <Input type="number" step="any" placeholder="ex: 12" {...field} value={field.value ?? ''} />
+                                    <Input type="number" step="any" placeholder="ex: 12" {...field} value={field.value ?? ''} className="rounded-xl" />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -710,17 +710,17 @@ export function PciCalculator() {
                                 <FormItem>
                                     <FormLabel>Densité (t/m³, facultatif)</FormLabel>
                                     <FormControl>
-                                    <Input type="number" step="any" placeholder="ex: 0.6" {...field} value={field.value ?? ''} />
+                                    <Input type="number" step="any" placeholder="ex: 0.6" {...field} value={field.value ?? ''} className="rounded-xl"/>
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
                                 )}
                             />
-                            <div className="p-4 rounded-lg bg-orange-50 border border-orange-200 text-center">
-                                 <p className="text-sm font-medium text-orange-700 mb-1">PCI sur Brut (kcal/kg)</p>
+                            <div className="p-4 rounded-lg bg-green-50 border border-green-200 text-center">
+                                 <p className="text-sm font-medium text-green-700 mb-1">PCI sur Brut (kcal/kg)</p>
                                 <p className={cn(
                                     "text-2xl font-bold tracking-tight transition-opacity duration-300",
-                                    pciResult !== null ? "text-orange-600 opacity-100" : "text-gray-400 opacity-50"
+                                    pciResult !== null ? "text-green-600 opacity-100" : "text-gray-400 opacity-50"
                                 )}>
                                     {pciResult !== null ? pciResult.toLocaleString('fr-FR') : '-'}
                                 </p>
