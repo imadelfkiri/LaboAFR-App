@@ -10,36 +10,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
-import { collection, getDocs, query } from "firebase/firestore";
-import { db } from "@/lib/firebase"; 
+import { getSpecifications, Specification } from "@/lib/data";
 import { useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ClipboardList } from "lucide-react";
 
-interface Spec {
-  id: string;
-  combustible: string;
-  fournisseur: string;
-  h2o: string;
-  pci: string;
-  chlorures: string;
-  cendres: string;
-  soufre: string;
-  granulometrie: string;
-}
-
 export default function SpecificationsPage() {
-  const [data, setData] = useState<Spec[]>([]);
+  const [data, setData] = useState<Specification[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
-      const q = query(collection(db, "specifications"));
-      const querySnapshot = await getDocs(q);
-      const specs: Spec[] = [];
-      querySnapshot.forEach((doc) => {
-        specs.push({ id: doc.id, ...doc.data() } as Spec);
-      });
+      setLoading(true);
+      const specs = await getSpecifications();
       // Tri côté client
       specs.sort((a, b) => {
         const combustibleCompare = a.combustible.localeCompare(b.combustible);
