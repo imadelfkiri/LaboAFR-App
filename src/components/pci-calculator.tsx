@@ -431,7 +431,7 @@ export function PciCalculator() {
   const isFournisseurDisabled = !typeCombustibleValue;
 
   return (
-    <div className="w-full max-w-4xl space-y-8">
+    <div className="w-full max-w-4xl space-y-8 pb-24">
       <div className="text-center">
         <div className="inline-flex items-center justify-center gap-3">
           <Fuel className="h-7 w-7 text-primary" />
@@ -717,11 +717,14 @@ export function PciCalculator() {
                 </CardContent>
             </Card>
             
-            <div className="flex justify-center pt-4">
-                <Button type="submit" size="lg" disabled={isSaving || pciResult === null} className="w-full max-w-xs font-bold text-base bg-primary hover:bg-primary/90 transition-transform duration-150 ease-in-out active:scale-[0.98]">
-                    {isSaving ? "Enregistrement..." : "Enregistrer"}
-                </Button>
-            </div>
+            <Button 
+                type="submit" 
+                disabled={isSaving || pciResult === null} 
+                className="fixed bottom-6 right-6 z-50 rounded-full shadow-lg transition-transform duration-150 ease-in-out hover:scale-105 active:scale-100"
+                size="lg"
+            >
+                {isSaving ? "Enregistrement..." : "Enregistrer"}
+            </Button>
         </form>
       </Form>
 
@@ -781,5 +784,3 @@ export function PciCalculator() {
     </div>
   );
 }
-
-    
