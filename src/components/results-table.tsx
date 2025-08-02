@@ -102,10 +102,8 @@ const getPciColorClass = (value: number) => {
 
 const getColorByThreshold = (value: number, specValue: number | undefined) => {
     if (specValue === undefined || isNaN(value)) return ""; // No spec, no color
-    if (value <= specValue) return "text-green-600";
-    if (value <= specValue * 1.1) return "text-yellow-600"; // Within 10% of spec
-    if (value <= specValue * 1.25) return "text-orange-500"; // Within 25% of spec
-    return "text-red-600"; // Over 25% of spec
+    if (value > specValue) return "text-red-600 font-bold";
+    return "text-green-600";
 };
 
 const calculateAverage = (results: Result[], field: keyof Result): number | null => {
@@ -562,4 +560,3 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
-
