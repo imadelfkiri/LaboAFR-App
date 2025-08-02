@@ -193,8 +193,11 @@ export function PciCalculator() {
                                     </FormControl>
                                     <SelectContent>
                                     {FUEL_TYPES.map((fuelType) => (
-                                        <SelectItem key={fuelType} value={fuelType}>
-                                            {fuelType}
+                                        <SelectItem key={fuelType.name} value={fuelType.name}>
+                                            <div className="flex items-center gap-2">
+                                                <span>{fuelType.icon}</span>
+                                                <span>{fuelType.name}</span>
+                                            </div>
                                         </SelectItem>
                                     ))}
                                     </SelectContent>

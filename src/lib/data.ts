@@ -14,7 +14,22 @@ export const H_MAP: Record<string, number> = {
   "RDF": 6.0,
 };
 
-export const FUEL_TYPES = Object.keys(H_MAP).sort();
+export const FUEL_TYPES = [
+    { name: "Bois", icon: "🌲" },
+    { name: "Boues", icon: "💧" },
+    { name: "CSR", icon: "♻️" },
+    { name: "Caoutchouc", icon: "🛞" },
+    { name: "Charbon", icon: "🪨" },
+    { name: "DMB", icon: "🧱" },
+    { name: "Grignons", icon: "🫒" },
+    { name: "Mélange", icon: "🧪" },
+    { name: "Pet Coke", icon: "🔥" },
+    { name: "Plastiques", icon: "🧴" },
+    { name: "Pneus", icon: "🚗" },
+    { name: "RDF", icon: "🔁" },
+    { name: "Textile", icon: "👗" }
+].sort((a, b) => a.name.localeCompare(b.name));
+
 
 export const FOURNISSEURS = [
     "Ain Seddeine",
@@ -30,3 +45,4 @@ export const FOURNISSEURS = [
     "ValRecete",
     "Valtradec"
 ].sort();
+
