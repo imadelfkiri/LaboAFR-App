@@ -8,7 +8,7 @@ import * as z from "zod";
 import { format, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
 import { CalendarIcon, Fuel, PlusCircle } from 'lucide-react';
-import { collection, addDoc, Timestamp, writeBatch, doc, setDoc } from "firebase/firestore";
+import { collection, addDoc, Timestamp, doc, setDoc } from "firebase/firestore";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -53,7 +53,7 @@ import {
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator";
 import { calculerPCI } from '@/lib/pci';
-import { getFuelTypes, type FuelType, FOURNISSEURS, H_MAP, INITIAL_FUEL_TYPES } from '@/lib/data';
+import { getFuelTypes, type FuelType, H_MAP, getFournisseurs } from '@/lib/data';
 import { db } from '@/lib/firebase';
 import { useToast } from "@/hooks/use-toast";
 
@@ -77,36 +77,36 @@ const newFuelTypeSchema = z.object({
     hValue: z.coerce.number({ required_error: "La valeur H est requise."}).min(0, { message: "La valeur H doit être positive." }),
 });
 
+const newFournisseurSchema = z.object({
+    name: z.string().nonempty({ message: "Le nom du fournisseur est requis."}),
+});
+
 export function PciCalculator() {
   const [pciResult, setPciResult] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [fuelTypes, setFuelTypes] = useState<FuelType[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [fournisseurs, setFournisseurs] = useState<string[]>([]);
+
+  const [isFuelModalOpen, setIsFuelModalOpen] = useState(false);
   const [newFuelTypeName, setNewFuelTypeName] = useState("");
   const [newFuelTypeIcon, setNewFuelTypeIcon] = useState("");
   const [newFuelTypeHValue, setNewFuelTypeHValue] = useState<number | string>("");
 
+  const [isFournisseurModalOpen, setIsFournisseurModalOpen] = useState(false);
+  const [newFournisseurName, setNewFournisseurName] = useState("");
+
   const { toast } = useToast();
 
   useEffect(() => {
-    async function fetchFuelTypes() {
-      const types = await getFuelTypes();
-      if (types.length === 0) {
-        // If no types in DB, populate with initial data
-        const batch = writeBatch(db);
-        const fuelTypesCollectionRef = collection(db, "fuel_types");
-        INITIAL_FUEL_TYPES.forEach(fuelType => {
-            const docRef = doc(fuelTypesCollectionRef, fuelType.name);
-            batch.set(docRef, fuelType);
-        });
-        await batch.commit();
-        const updatedTypes = await getFuelTypes();
-        setFuelTypes(updatedTypes);
-      } else {
-        setFuelTypes(types);
-      }
+    async function fetchData() {
+        const [fetchedFuelTypes, fetchedFournisseurs] = await Promise.all([
+            getFuelTypes(),
+            getFournisseurs()
+        ]);
+        setFuelTypes(fetchedFuelTypes);
+        setFournisseurs(fetchedFournisseurs);
     }
-    fetchFuelTypes();
+    fetchData();
   }, []);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -186,7 +186,7 @@ export function PciCalculator() {
             description: `Le type "${newType.name}" a été ajouté.`,
         });
 
-        setIsModalOpen(false);
+        setIsFuelModalOpen(false);
         setNewFuelTypeName("");
         setNewFuelTypeIcon("");
         setNewFuelTypeHValue("");
@@ -204,6 +204,44 @@ export function PciCalculator() {
                 variant: "destructive",
                 title: "Erreur",
                 description: "Impossible d'ajouter le nouveau type de combustible.",
+            });
+        }
+    }
+  };
+
+  const handleAddFournisseur = async () => {
+      try {
+        const newFournisseur = newFournisseurSchema.parse({ name: newFournisseurName });
+
+        const docRef = doc(db, "fournisseurs", newFournisseur.name);
+        await setDoc(docRef, { name: newFournisseur.name });
+
+        const updatedFournisseurs = [...fournisseurs, newFournisseur.name].sort();
+        setFournisseurs(updatedFournisseurs);
+
+        setValue("fournisseur", newFournisseur.name, { shouldValidate: true });
+
+        toast({
+            title: "Succès",
+            description: `Le fournisseur "${newFournisseur.name}" a été ajouté.`,
+        });
+
+        setIsFournisseurModalOpen(false);
+        setNewFournisseurName("");
+
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+             toast({
+                variant: "destructive",
+                title: "Erreur de validation",
+                description: error.errors.map(e => e.message).join('\n'),
+            });
+        } else {
+            console.error("Erreur lors de l'ajout du fournisseur:", error);
+            toast({
+                variant: "destructive",
+                title: "Erreur",
+                description: "Impossible d'ajouter le nouveau fournisseur.",
             });
         }
     }
@@ -301,7 +339,7 @@ export function PciCalculator() {
                                     <Separator className="my-1" />
                                      <div
                                         onSelect={(e) => e.preventDefault()}
-                                        onClick={() => setIsModalOpen(true)}
+                                        onClick={() => setIsFuelModalOpen(true)}
                                         className="relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground"
                                      >
                                         <PlusCircle className="mr-2 h-4 w-4" />
@@ -326,11 +364,20 @@ export function PciCalculator() {
                                     </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                    {FOURNISSEURS.map((fournisseur) => (
+                                    {fournisseurs.map((fournisseur) => (
                                         <SelectItem key={fournisseur} value={fournisseur}>
                                             {fournisseur}
                                         </SelectItem>
                                         ))}
+                                    <Separator className="my-1" />
+                                     <div
+                                        onSelect={(e) => e.preventDefault()}
+                                        onClick={() => setIsFournisseurModalOpen(true)}
+                                        className="relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground"
+                                     >
+                                        <PlusCircle className="mr-2 h-4 w-4" />
+                                        Ajouter un fournisseur
+                                    </div>
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />
@@ -501,7 +548,7 @@ export function PciCalculator() {
         </form>
       </Form>
 
-       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+       <Dialog open={isFuelModalOpen} onOpenChange={setIsFuelModalOpen}>
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Ajouter un nouveau type de combustible</DialogTitle>
@@ -531,8 +578,29 @@ export function PciCalculator() {
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+
+        <Dialog open={isFournisseurModalOpen} onOpenChange={setIsFournisseurModalOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Ajouter un nouveau fournisseur</DialogTitle>
+                    <DialogDescription>
+                        Entrez le nom du nouveau fournisseur.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="name" className="text-right">Nom</Label>
+                        <Input id="name" value={newFournisseurName} onChange={(e) => setNewFournisseurName(e.target.value)} className="col-span-3" />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button type="button" variant="secondary">Annuler</Button>
+                    </DialogClose>
+                    <Button type="button" onClick={handleAddFournisseur}>Ajouter</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </div>
   );
 }
-
-    

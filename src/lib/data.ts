@@ -1,21 +1,7 @@
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, doc, writeBatch } from "firebase/firestore";
 import { db } from "./firebase";
 
-export const H_MAP: Record<string, number> = {
-  "Pneus": 6.5,
-  "Bois": 6.0,
-  "CSR": 6.0,
-  "Grignons": 6.0,
-  "Boues": 5.5,
-  "Pet Coke": 3.5,
-  "Charbon": 4.5,
-  "Caoutchouc": 6.8,
-  "Textile": 6.0,
-  "Plastiques": 7.0,
-  "DMB": 6.5,
-  "Mélange": 6.0,
-  "RDF": 6.0,
-};
+export const H_MAP: Record<string, number> = {};
 
 export interface FuelType {
     name: string;
@@ -40,8 +26,24 @@ export const INITIAL_FUEL_TYPES: (FuelType & { hValue: number })[] = [
 
 
 export const getFuelTypes = async (): Promise<FuelType[]> => {
-    const querySnapshot = await getDocs(collection(db, "fuel_types"));
+    const fuelTypesCollectionRef = collection(db, "fuel_types");
+    const querySnapshot = await getDocs(fuelTypesCollectionRef);
     const types: FuelType[] = [];
+
+    if (querySnapshot.empty) {
+        console.log("Fuel types collection is empty, seeding with initial data...");
+        const batch = writeBatch(db);
+        INITIAL_FUEL_TYPES.forEach(fuelType => {
+            const docRef = doc(fuelTypesCollectionRef, fuelType.name);
+            batch.set(docRef, fuelType);
+            types.push({ name: fuelType.name, icon: fuelType.icon });
+            H_MAP[fuelType.name] = fuelType.hValue;
+        });
+        await batch.commit();
+        console.log("Seeding complete.");
+        return types.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
     querySnapshot.forEach((doc) => {
         const data = doc.data();
         types.push({ name: data.name, icon: data.icon });
@@ -54,17 +56,33 @@ export const getFuelTypes = async (): Promise<FuelType[]> => {
 };
 
 
-export const FOURNISSEURS = [
-    "Ain Seddeine",
-    "Aliapur",
-    "Bichara",
-    "Géocycle",
-    "MTR",
-    "NAJD",
-    "Polluclean",
-    "SMBRM",
-    "Sotraforest",
-    "Ssardi",
-    "ValRecete",
-    "Valtradec"
+const INITIAL_FOURNISSEURS = [
+    "Ain Seddeine", "Aliapur", "Bichara", "Géocycle", "MTR",
+    "NAJD", "Polluclean", "SMBRM", "Sotraforest", "Ssardi",
+    "ValRecete", "Valtradec"
 ].sort();
+
+export const getFournisseurs = async (): Promise<string[]> => {
+    const fournisseursCollectionRef = collection(db, "fournisseurs");
+    const querySnapshot = await getDocs(fournisseursCollectionRef);
+    const fournisseurs: string[] = [];
+
+    if (querySnapshot.empty) {
+        console.log("Fournisseurs collection is empty, seeding with initial data...");
+        const batch = writeBatch(db);
+        INITIAL_FOURNISSEURS.forEach(name => {
+            const docRef = doc(fournisseursCollectionRef, name);
+            batch.set(docRef, { name });
+            fournisseurs.push(name);
+        });
+        await batch.commit();
+        console.log("Seeding complete.");
+        return fournisseurs.sort();
+    }
+
+    querySnapshot.forEach((doc) => {
+        fournisseurs.push(doc.data().name);
+    });
+
+    return fournisseurs.sort();
+};

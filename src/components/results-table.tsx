@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -29,7 +30,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, XCircle, Trash2, Download, ChevronDown, FileOutput } from "lucide-react";
-import { getFuelTypes, type FuelType, FOURNISSEURS } from "@/lib/data";
+import { getFuelTypes, type FuelType, getFournisseurs } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
 import {
@@ -85,16 +86,21 @@ export function ResultsTable() {
     const [dateFilter, setDateFilter] = useState<DateRange | undefined>();
     const [resultToDelete, setResultToDelete] = useState<string | null>(null);
     const [fuelTypes, setFuelTypes] = useState<FuelType[]>([]);
+    const [fournisseurs, setFournisseurs] = useState<string[]>([]);
     const [fuelTypeMap, setFuelTypeMap] = useState<Map<string, string>>(new Map());
     const { toast } = useToast();
 
     useEffect(() => {
-        async function fetchTypes() {
-            const types = await getFuelTypes();
-            setFuelTypes(types);
-            setFuelTypeMap(new Map(types.map(fuel => [fuel.name, fuel.icon])));
+        async function fetchData() {
+            const [fetchedFuelTypes, fetchedFournisseurs] = await Promise.all([
+                getFuelTypes(),
+                getFournisseurs()
+            ]);
+            setFuelTypes(fetchedFuelTypes);
+            setFournisseurs(fetchedFournisseurs);
+            setFuelTypeMap(new Map(fetchedFuelTypes.map(fuel => [fuel.name, fuel.icon])));
         }
-        fetchTypes();
+        fetchData();
 
         let q = query(collection(db, "resultats"), orderBy("date_arrivage", "desc"));
 
@@ -338,7 +344,7 @@ export function ResultsTable() {
                                     <SelectValue placeholder="Filtrer par fournisseur..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {FOURNISSEURS.map(supplier => <SelectItem key={supplier} value={supplier}>{supplier}</SelectItem>)}
+                                    {fournisseurs.map(supplier => <SelectItem key={supplier} value={supplier}>{supplier}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                             <Popover>
