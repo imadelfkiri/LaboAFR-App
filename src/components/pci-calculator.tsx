@@ -691,13 +691,12 @@ export function PciCalculator() {
                             />
                             <div className="p-4 rounded-lg bg-orange-50 border border-orange-200 text-center">
                                  <p className="text-sm font-medium text-orange-700 mb-1">PCI sur Brut (kcal/kg)</p>
-                                {pciResult !== null ? (
-                                    <p className="text-2xl font-bold text-orange-600 tracking-tight">
-                                        {pciResult.toLocaleString('fr-FR')}
-                                    </p>
-                                ) : (
-                                    <p className="text-2xl font-bold text-gray-400">-</p>
-                                )}
+                                <p className={cn(
+                                    "text-2xl font-bold tracking-tight transition-opacity duration-300",
+                                    pciResult !== null ? "text-orange-600 opacity-100" : "text-gray-400 opacity-50"
+                                )}>
+                                    {pciResult !== null ? pciResult.toLocaleString('fr-FR') : '-'}
+                                </p>
                             </div>
                         </div>
                     </CardContent>
@@ -801,5 +800,3 @@ export function PciCalculator() {
     </div>
   );
 }
-
-    
