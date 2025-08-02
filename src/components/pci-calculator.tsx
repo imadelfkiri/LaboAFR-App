@@ -145,8 +145,6 @@ export function PciCalculator() {
         setRecentFuelTypes(recentFuels);
         sortFuelTypes(fetchedFuelTypes, recentFuels);
 
-        // Don't sort all suppliers initially, this will be handled by filtering
-        // The "recent" suppliers will be sorted against the filtered list.
         const recentFours = getRecentItems(RECENT_FOURNISSEURS_KEY);
         setRecentFournisseurs(recentFours);
     }
@@ -298,7 +296,6 @@ export function PciCalculator() {
         const newFournisseur = newFournisseurSchema.parse({ name: newFournisseurName });
         const name = newFournisseur.name.trim();
 
-        // 1. Add to 'fournisseurs' collection if not exists
         const fournisseurDocRef = doc(db, "fournisseurs", name);
         const docSnap = await getDoc(fournisseurDocRef);
         if (!docSnap.exists()) {
@@ -306,7 +303,6 @@ export function PciCalculator() {
             setAllFournisseurs(prev => [...prev, name].sort());
         }
 
-        // 2. Update the fuel_supplier_map
         const mapDocRef = doc(db, "fuel_supplier_map", selectedFuelType);
         
         const mapDocSnap = await getDoc(mapDocRef);
@@ -320,8 +316,6 @@ export function PciCalculator() {
             });
         }
 
-
-        // 3. Update local state
         const updatedMap = { ...fuelSupplierMap };
         if (!updatedMap[selectedFuelType]) {
             updatedMap[selectedFuelType] = [];
@@ -331,7 +325,6 @@ export function PciCalculator() {
         }
         setFuelSupplierMap(updatedMap);
         
-        // This will trigger re-filtering and re-sorting
         setFilteredFournisseurs(updatedMap[selectedFuelType].sort()); 
 
         addRecentItem(RECENT_FOURNISSEURS_KEY, name);
@@ -443,10 +436,10 @@ export function PciCalculator() {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card className="shadow-sm rounded-2xl">
+                <Card className="shadow-md rounded-2xl">
                     <CardHeader>
                        <CardTitle>
-                          <div className="flex items-center gap-2 text-gray-800">
+                          <div className="text-xl font-bold text-gray-800 flex items-center gap-2">
                             <ClipboardList className="h-5 w-5" />
                             <span>Informations Générales</span>
                           </div>
@@ -454,16 +447,58 @@ export function PciCalculator() {
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-6">
+                            <FormField
+                                control={form.control}
+                                name="date_arrivage"
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <FormLabel>Date d'arrivage</FormLabel>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                        <FormControl>
+                                            <Button
+                                            variant={"outline"}
+                                            className={cn(
+                                                "w-full justify-start text-left font-normal rounded-xl h-11 px-4 text-sm",
+                                                !field.value && "text-muted-foreground"
+                                            )}
+                                            >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {field.value ? (
+                                                format(field.value, "PPP", { locale: fr })
+                                            ) : (
+                                                <span>Choisir une date</span>
+                                            )}
+                                            </Button>
+                                        </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar
+                                            mode="single"
+                                            selected={field.value}
+                                            onSelect={field.onChange}
+                                            disabled={(date) =>
+                                            date > new Date() || date < new Date("1900-01-01")
+                                            }
+                                            initialFocus
+                                            locale={fr}
+                                        />
+                                        </PopoverContent>
+                                    </Popover>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <FormField
                                 control={form.control}
                                 name="type_combustible"
                                 render={({ field }) => (
-                                    <FormItem className="md:col-span-2">
+                                    <FormItem>
                                         <FormLabel>Combustible</FormLabel>
                                         <Select onValueChange={field.onChange} value={field.value}>
                                             <FormControl>
-                                            <SelectTrigger className="rounded-xl">
+                                            <SelectTrigger className="rounded-xl h-11 px-4 text-sm">
                                                 <SelectValue placeholder="Sélectionner..." />
                                             </SelectTrigger>
                                             </FormControl>
@@ -521,13 +556,13 @@ export function PciCalculator() {
                                         <FormLabel>Fournisseur</FormLabel>
                                         <Select onValueChange={field.onChange} value={field.value} disabled={isFournisseurDisabled}>
                                             <FormControl>
-                                            <SelectTrigger className="rounded-xl">
+                                            <SelectTrigger className="rounded-xl h-11 px-4 text-sm">
                                                 <SelectValue placeholder={isFournisseurDisabled ? "Choisir un combustible" : "Sélectionner..."} />
                                             </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
                                                 {sortedFournisseurs.length === 0 && typeCombustibleValue ? (
-                                                    <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">Aucun fournisseur pour ce type.</div>
+                                                    <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">Aucun fournisseur disponible pour ce type.</div>
                                                 ) : null}
                                                 {recentFournisseurs.length > 0 && sortedFournisseurs.filter(f => recentFournisseurs.includes(f)).length > 0 && (
                                                     <SelectGroup>
@@ -570,48 +605,6 @@ export function PciCalculator() {
                                     </FormItem>
                                 )}
                                 />
-                                <FormField
-                                control={form.control}
-                                name="date_arrivage"
-                                render={({ field }) => (
-                                    <FormItem>
-                                    <FormLabel>Date d'arrivage</FormLabel>
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                        <FormControl>
-                                            <Button
-                                            variant={"outline"}
-                                            className={cn(
-                                                "w-full justify-start text-left font-normal rounded-xl",
-                                                !field.value && "text-muted-foreground"
-                                            )}
-                                            >
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {field.value ? (
-                                                format(field.value, "PPP", { locale: fr })
-                                            ) : (
-                                                <span>Choisir une date</span>
-                                            )}
-                                            </Button>
-                                        </FormControl>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar
-                                            mode="single"
-                                            selected={field.value}
-                                            onSelect={field.onChange}
-                                            disabled={(date) =>
-                                            date > new Date() || date < new Date("1900-01-01")
-                                            }
-                                            initialFocus
-                                            locale={fr}
-                                        />
-                                        </PopoverContent>
-                                    </Popover>
-                                    <FormMessage />
-                                    </FormItem>
-                                )}
-                                />
                             </div>
                             <FormField
                                 control={form.control}
@@ -627,7 +620,7 @@ export function PciCalculator() {
                                     <FormControl>
                                         <Textarea
                                             placeholder="Ajoutez une remarque (facultatif)..."
-                                            className="resize-none rounded-xl"
+                                            className="resize-none rounded-xl min-h-[80px]"
                                             {...field}
                                             value={field.value ?? ''}
                                         />
@@ -640,10 +633,10 @@ export function PciCalculator() {
                     </CardContent>
                 </Card>
 
-                <Card className="shadow-sm rounded-2xl">
+                <Card className="shadow-md rounded-2xl">
                     <CardHeader>
                        <CardTitle>
-                            <div className="flex items-center gap-2 text-gray-800">
+                            <div className="text-xl font-bold text-gray-800 flex items-center gap-2">
                                 <FlaskConical className="h-5 w-5" />
                                 <span>Données Analytiques</span>
                             </div>
@@ -658,7 +651,7 @@ export function PciCalculator() {
                                 <FormItem>
                                     <FormLabel>PCS (kcal/kg)</FormLabel>
                                     <FormControl>
-                                    <Input type="number" step="any" placeholder="ex: 7500" {...field} value={field.value ?? ''} className="rounded-xl" />
+                                    <Input type="number" step="any" placeholder="ex: 7500" {...field} value={field.value ?? ''} className="rounded-xl h-11 px-4 text-sm" />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -671,7 +664,7 @@ export function PciCalculator() {
                                 <FormItem>
                                     <FormLabel>% H2O</FormLabel>
                                     <FormControl>
-                                    <Input type="number" step="any" placeholder="ex: 5.5" {...field} value={field.value ?? ''} className="rounded-xl" />
+                                    <Input type="number" step="any" placeholder="ex: 5.5" {...field} value={field.value ?? ''} className="rounded-xl h-11 px-4 text-sm" />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -684,7 +677,7 @@ export function PciCalculator() {
                                 <FormItem>
                                     <FormLabel>% Cl- (facultatif)</FormLabel>
                                     <FormControl>
-                                    <Input type="number" step="any" placeholder="ex: 0.8" {...field} value={field.value ?? ''} className="rounded-xl" />
+                                    <Input type="number" step="any" placeholder="ex: 0.8" {...field} value={field.value ?? ''} className="rounded-xl h-11 px-4 text-sm" />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -697,7 +690,7 @@ export function PciCalculator() {
                                 <FormItem>
                                     <FormLabel>% Cendres (facultatif)</FormLabel>
                                     <FormControl>
-                                    <Input type="number" step="any" placeholder="ex: 12" {...field} value={field.value ?? ''} className="rounded-xl" />
+                                    <Input type="number" step="any" placeholder="ex: 12" {...field} value={field.value ?? ''} className="rounded-xl h-11 px-4 text-sm" />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -710,7 +703,7 @@ export function PciCalculator() {
                                 <FormItem>
                                     <FormLabel>Densité (t/m³, facultatif)</FormLabel>
                                     <FormControl>
-                                    <Input type="number" step="any" placeholder="ex: 0.6" {...field} value={field.value ?? ''} className="rounded-xl"/>
+                                    <Input type="number" step="any" placeholder="ex: 0.6" {...field} value={field.value ?? ''} className="rounded-xl h-11 px-4 text-sm"/>
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -733,7 +726,7 @@ export function PciCalculator() {
             <Button 
                 type="submit" 
                 disabled={isSaving || pciResult === null} 
-                className="fixed bottom-6 right-6 z-50 rounded-full shadow-lg transition-transform duration-150 ease-in-out hover:scale-105 active:scale-100"
+                className="bg-green-500 hover:bg-green-600 text-white font-semibold px-6 py-3 rounded-full shadow-md fixed bottom-6 right-6 z-50 transition-transform duration-150 ease-in-out hover:scale-105 active:scale-100"
                 size="lg"
             >
                 {isSaving ? "Enregistrement..." : "Enregistrer"}
@@ -797,5 +790,3 @@ export function PciCalculator() {
     </div>
   );
 }
-
-    
