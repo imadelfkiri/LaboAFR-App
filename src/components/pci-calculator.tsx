@@ -66,11 +66,11 @@ const formSchema = z.object({
   }),
   type_combustible: z.string().nonempty({ message: "Veuillez sélectionner un type de combustible." }),
   fournisseur: z.string().nonempty({ message: "Veuillez sélectionner un fournisseur." }),
-  pcs: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).positive({ message: "Le PCS doit être un nombre positif." }),
-  h2o: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "L'humidité ne peut être négative." }).max(100, { message: "L'humidité ne peut dépasser 100%." }),
-  chlore: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le chlore ne peut être négatif." }),
-  cendres: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le % de cendres ne peut être négatif." }),
-  densite: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).positive({ message: "La densité doit être un nombre positif." }),
+  pcs: z.coerce.number({required_error: "Le PCS est requis.", invalid_type_error: "Veuillez entrer un nombre."}).positive({ message: "Le PCS doit être un nombre positif." }),
+  h2o: z.coerce.number({required_error: "Le taux d'humidité est requis.", invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "L'humidité ne peut être négative." }).max(100, { message: "L'humidité ne peut dépasser 100%." }),
+  chlore: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le chlore ne peut être négatif." }).optional().or(z.literal('')),
+  cendres: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le % de cendres ne peut être négatif." }).optional().or(z.literal('')),
+  densite: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).positive({ message: "La densité doit être un nombre positif." }).optional().or(z.literal('')),
   remarques: z.string().optional(),
 });
 
@@ -169,9 +169,9 @@ export function PciCalculator() {
       fournisseur: "",
       pcs: undefined,
       h2o: undefined,
-      chlore: undefined,
-      cendres: undefined,
-      densite: undefined,
+      chlore: '',
+      cendres: '',
+      densite: '',
       remarques: "",
     },
   });
@@ -186,7 +186,7 @@ export function PciCalculator() {
     const { pcs, h2o, type_combustible } = values;
 
     if (pcs !== undefined && h2o !== undefined && type_combustible) {
-      const result = calculerPCI(pcs, h2o, type_combustible);
+      const result = calculerPCI(Number(pcs), Number(h2o), type_combustible);
       setPciResult(result);
     } else {
         setPciResult(null);
@@ -579,7 +579,7 @@ export function PciCalculator() {
                             name="chlore"
                             render={({ field }) => (
                             <FormItem>
-                                <FormLabel>% Cl-</FormLabel>
+                                <FormLabel>% Cl- (facultatif)</FormLabel>
                                 <FormControl>
                                 <Input type="number" step="any" placeholder="ex: 0.8" {...field} value={field.value ?? ''} />
                                 </FormControl>
@@ -592,7 +592,7 @@ export function PciCalculator() {
                             name="cendres"
                             render={({ field }) => (
                             <FormItem>
-                                <FormLabel>% Cendres</FormLabel>
+                                <FormLabel>% Cendres (facultatif)</FormLabel>
                                 <FormControl>
                                 <Input type="number" step="any" placeholder="ex: 12" {...field} value={field.value ?? ''} />
                                 </FormControl>
@@ -605,7 +605,7 @@ export function PciCalculator() {
                             name="densite"
                             render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Densité (t/m³)</FormLabel>
+                                <FormLabel>Densité (t/m³, facultatif)</FormLabel>
                                 <FormControl>
                                 <Input type="number" step="any" placeholder="ex: 0.6" {...field} value={field.value ?? ''} />
                                 </FormControl>
