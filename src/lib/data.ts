@@ -9,16 +9,18 @@ export const H_MAP: Record<string, number> = {
   "Caoutchouc": 6.8,
   "Textile": 6.0,
   "Plastiques": 7.0,
-  "DMB": 6.5
+  "DMB": 6.5,
+  "Mélange": 6.0,
+  "RDF": 6.0,
 };
 
-export const FUEL_TYPES = Object.keys(H_MAP);
+export const FUEL_TYPES = Object.keys(H_MAP).sort();
 
 export const FOURNISSEURS = [
     "Ain Seddeine",
     "Aliapur",
     "Bichara",
-    "Geocycle",
+    "Géocycle",
     "MTR",
     "NAJD",
     "Polluclean",
