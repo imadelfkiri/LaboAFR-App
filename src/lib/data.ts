@@ -1,3 +1,4 @@
+
 import { collection, getDocs, doc, writeBatch } from "firebase/firestore";
 import { db } from "./firebase";
 
@@ -59,7 +60,7 @@ export const getFuelTypes = async (): Promise<FuelType[]> => {
 const INITIAL_FOURNISSEURS = [
     "Ain Seddeine", "Aliapur", "Bichara", "Géocycle", "MTR",
     "NAJD", "Polluclean", "SMBRM", "Sotraforest", "Ssardi",
-    "ValRecete", "Valtradec", "RJL", "CNAPP"
+    "ValRecete", "Valtradec", "RJL", "CNAPP", "ONEE"
 ].sort();
 
 export const getFournisseurs = async (): Promise<string[]> => {
@@ -89,16 +90,16 @@ export const getFournisseurs = async (): Promise<string[]> => {
 
 export const FUEL_TYPE_SUPPLIERS_MAP: Record<string, string[]> = {
     "Bois": ["Sotraforest", "CNAPP", "SMBRM"],
-    "Boues": ["Ain Seddeine"],
-    "CSR": ["SMBRM", "Polluclean", "Géocycle", "ValRecete"],
-    "Caoutchouc": ["Aliapur", "RJL"],
-    "Charbon": ["MTR"],
-    "DMB": ["Bichara", "NAJD"],
-    "Grignons": ["Ssardi"],
-    "Mélange": ["Géocycle", "ValRecete"],
-    "Pet Coke": ["MTR"],
-    "Plastiques": ["Valtradec"],
-    "Pneus": ["Aliapur", "RJL"],
-    "RDF": ["Géocycle", "Polluclean"],
-    "Textile": ["ValRecete"]
+    "Boues": ["ONEE"],
+    "CSR": ["SMBRM", "Polluclean"],
+    "Caoutchouc": ["Bichara", "SMBRM"],
+    "Charbon": [],
+    "DMB": ["MTR"],
+    "Grignons": ["Ain Seddeine"],
+    "Mélange": ["SMBRM"],
+    "Pet Coke": [],
+    "Plastiques": ["Bichara", "ValRecete", "Ssardi", "Valtradec", "NAJD"],
+    "Pneus": ["Aliapur", "RJL", "SMBRM"],
+    "RDF": ["Géocycle"],
+    "Textile": ["SMBRM"]
 };
