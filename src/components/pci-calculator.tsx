@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { format, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
-import { CalendarIcon, Fuel, PlusCircle } from 'lucide-react';
+import { CalendarIcon, Fuel, PlusCircle, ClipboardList, FlaskConical, MessageSquareText } from 'lucide-react';
 import { collection, addDoc, Timestamp, doc, setDoc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
 
 import { cn } from "@/lib/utils";
@@ -443,7 +443,12 @@ export function PciCalculator() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card className="shadow-sm">
                     <CardHeader>
-                        <CardTitle>Informations Générales</CardTitle>
+                       <CardTitle>
+                          <div className="flex items-center gap-2">
+                            <ClipboardList className="h-5 w-5" />
+                            <span>Informations Générales</span>
+                          </div>
+                       </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -610,7 +615,12 @@ export function PciCalculator() {
 
                 <Card className="shadow-sm">
                     <CardHeader>
-                        <CardTitle>Données Analytiques</CardTitle>
+                       <CardTitle>
+                            <div className="flex items-center gap-2">
+                                <FlaskConical className="h-5 w-5" />
+                                <span>Données Analytiques</span>
+                            </div>
+                       </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
@@ -696,7 +706,12 @@ export function PciCalculator() {
             
             <Card className="shadow-sm">
                  <CardHeader>
-                    <CardTitle>Remarques</CardTitle>
+                    <CardTitle>
+                        <div className="flex items-center gap-2">
+                           <MessageSquareText className="h-5 w-5" />
+                           <span>Remarques</span>
+                        </div>
+                    </CardTitle>
                 </CardHeader>
                 <CardContent>
                     <FormField
