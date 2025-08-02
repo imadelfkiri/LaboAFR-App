@@ -375,9 +375,9 @@ export function PciCalculator() {
       addRecentItem(RECENT_FUEL_TYPES_KEY, values.type_combustible);
       addRecentItem(RECENT_FOURNISSEURS_KEY, values.fournisseur);
 
-      const newRecentFuels = getRecentItems(RECENT_FUEL_TYPES_KEY);
-      setRecentFuelTypes(newRecentFuels);
-      sortFuelTypes(allFuelTypes, newRecentFuels);
+      const recentFuels = getRecentItems(RECENT_FUEL_TYPES_KEY);
+      setRecentFuelTypes(recentFuels);
+      sortFuelTypes(allFuelTypes, recentFuels);
 
       const recentFours = getRecentItems(RECENT_FOURNISSEURS_KEY);
       setRecentFournisseurs(recentFours);
@@ -502,7 +502,7 @@ export function PciCalculator() {
                                                 <SelectValue placeholder="Sélectionner..." />
                                             </SelectTrigger>
                                             </FormControl>
-                                            <SelectContent>
+                                            <SelectContent position="popper">
                                                 {recentFuelTypes.length > 0 && (
                                                     <SelectGroup>
                                                         <SelectLabel>Récents</SelectLabel>
@@ -560,7 +560,7 @@ export function PciCalculator() {
                                                 <SelectValue placeholder={isFournisseurDisabled ? "Choisir un combustible" : "Sélectionner..."} />
                                             </SelectTrigger>
                                             </FormControl>
-                                            <SelectContent>
+                                            <SelectContent position="popper">
                                                 {sortedFournisseurs.length === 0 && typeCombustibleValue ? (
                                                     <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">Aucun fournisseur disponible pour ce type.</div>
                                                 ) : null}
@@ -790,3 +790,5 @@ export function PciCalculator() {
     </div>
   );
 }
+
+    
