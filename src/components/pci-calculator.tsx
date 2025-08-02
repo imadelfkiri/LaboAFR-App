@@ -442,7 +442,7 @@ export function PciCalculator() {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card className="shadow-md rounded-2xl">
+                <Card className="p-6 rounded-2xl shadow-md bg-white/70 backdrop-blur-md">
                     <CardHeader>
                        <CardTitle>
                           <div className="text-xl font-bold text-gray-800 flex items-center gap-2">
@@ -617,7 +617,7 @@ export function PciCalculator() {
                     </CardContent>
                 </Card>
 
-                <Card className="shadow-md rounded-2xl">
+                <Card className="p-6 rounded-2xl shadow-md bg-white/70 backdrop-blur-md">
                     <CardHeader>
                        <CardTitle>
                             <div className="text-xl font-bold text-gray-800 flex items-center gap-2">
@@ -797,5 +797,3 @@ export function PciCalculator() {
     </div>
   );
 }
-
-    
