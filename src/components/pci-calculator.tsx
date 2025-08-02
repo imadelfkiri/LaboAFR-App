@@ -388,7 +388,9 @@ export function PciCalculator() {
 
       const newRecentFours = getRecentItems(RECENT_FOURNISSEURS_KEY);
       setRecentFournisseurs(newRecentFours);
-      sortFournisseurs(filteredFournisseurs, newRecentFours);
+      if (filteredFournisseurs.length > 0) {
+        sortFournisseurs(filteredFournisseurs, newRecentFours);
+      }
       
       const dataToSave = {
         ...values,
@@ -451,163 +453,188 @@ export function PciCalculator() {
                        </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <FormField
-                            control={form.control}
-                            name="type_combustible"
-                            render={({ field }) => (
-                                <FormItem className="md:col-span-2">
-                                    <FormLabel>Combustible</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}>
-                                        <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Sélectionner..." />
-                                        </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {recentFuelTypes.length > 0 && (
+                        <div className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <FormField
+                                control={form.control}
+                                name="type_combustible"
+                                render={({ field }) => (
+                                    <FormItem className="md:col-span-2">
+                                        <FormLabel>Combustible</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                            <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Sélectionner..." />
+                                            </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {recentFuelTypes.length > 0 && (
+                                                    <SelectGroup>
+                                                        <SelectLabel>Récents</SelectLabel>
+                                                        {recentFuelTypes.map((name) => {
+                                                            const fuelType = allFuelTypes.find(ft => ft.name === name);
+                                                            if (!fuelType) return null;
+                                                            return (
+                                                                <SelectItem key={fuelType.name} value={fuelType.name}>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span>{fuelType.icon}</span>
+                                                                        <span>{fuelType.name}</span>
+                                                                    </div>
+                                                                </SelectItem>
+                                                            );
+                                                        })}
+                                                    </SelectGroup>
+                                                )}
+                                                {(recentFuelTypes.length > 0 && otherFuelTypes.length > 0) && <SelectSeparator />}
                                                 <SelectGroup>
-                                                    <SelectLabel>Récents</SelectLabel>
-                                                    {recentFuelTypes.map((name) => {
-                                                        const fuelType = allFuelTypes.find(ft => ft.name === name);
-                                                        if (!fuelType) return null;
-                                                        return (
-                                                            <SelectItem key={fuelType.name} value={fuelType.name}>
-                                                                <div className="flex items-center gap-2">
-                                                                     <span>{fuelType.icon}</span>
-                                                                    <span>{fuelType.name}</span>
-                                                                </div>
-                                                            </SelectItem>
-                                                        );
-                                                    })}
+                                                    {recentFuelTypes.length > 0 && <SelectLabel>Autres</SelectLabel>}
+                                                    {otherFuelTypes.map((fuelType) => (
+                                                        <SelectItem key={fuelType.name} value={fuelType.name}>
+                                                            <div className="flex items-center gap-2">
+                                                                <span>{fuelType.icon}</span>
+                                                                <span>{fuelType.name}</span>
+                                                            </div>
+                                                        </SelectItem>
+                                                    ))}
                                                 </SelectGroup>
-                                            )}
-                                            {(recentFuelTypes.length > 0 && otherFuelTypes.length > 0) && <SelectSeparator />}
-                                             <SelectGroup>
-                                                {recentFuelTypes.length > 0 && <SelectLabel>Autres</SelectLabel>}
-                                                {otherFuelTypes.map((fuelType) => (
-                                                    <SelectItem key={fuelType.name} value={fuelType.name}>
-                                                        <div className="flex items-center gap-2">
-                                                            <span>{fuelType.icon}</span>
-                                                            <span>{fuelType.name}</span>
-                                                        </div>
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectGroup>
 
-                                            <Separator className="my-1" />
-                                            <div
-                                                onSelect={(e) => e.preventDefault()}
-                                                onClick={() => setIsFuelModalOpen(true)}
-                                                className="relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground"
-                                            >
-                                                <PlusCircle className="mr-2 h-4 w-4" />
-                                                Ajouter un type
-                                            </div>
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                            />
-                            <FormField
-                            control={form.control}
-                            name="fournisseur"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Fournisseur</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value} disabled={isFournisseurDisabled}>
-                                        <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder={isFournisseurDisabled ? "Choisir un combustible" : "Sélectionner..."} />
-                                        </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {sortedFournisseurs.length === 0 && typeCombustibleValue ? (
-                                                 <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">Aucun fournisseur pour ce type.</div>
-                                            ) : null}
-                                            {recentFournisseurs.length > 0 && sortedFournisseurs.filter(f => recentFournisseurs.includes(f)).length > 0 && (
+                                                <Separator className="my-1" />
+                                                <div
+                                                    onSelect={(e) => e.preventDefault()}
+                                                    onClick={() => setIsFuelModalOpen(true)}
+                                                    className="relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground"
+                                                >
+                                                    <PlusCircle className="mr-2 h-4 w-4" />
+                                                    Ajouter un type
+                                                </div>
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                                />
+                                <FormField
+                                control={form.control}
+                                name="fournisseur"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Fournisseur</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value} disabled={isFournisseurDisabled}>
+                                            <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder={isFournisseurDisabled ? "Choisir un combustible" : "Sélectionner..."} />
+                                            </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {sortedFournisseurs.length === 0 && typeCombustibleValue ? (
+                                                    <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">Aucun fournisseur pour ce type.</div>
+                                                ) : null}
+                                                {recentFournisseurs.length > 0 && sortedFournisseurs.filter(f => recentFournisseurs.includes(f)).length > 0 && (
+                                                    <SelectGroup>
+                                                        <SelectLabel>Récents</SelectLabel>
+                                                        {recentFournisseurs.map((fournisseur) => {
+                                                            if (!sortedFournisseurs.includes(fournisseur)) return null;
+                                                            return (
+                                                                <SelectItem key={fournisseur} value={fournisseur}>
+                                                                    {fournisseur}
+                                                                </SelectItem>
+                                                            )
+                                                        })}
+                                                    </SelectGroup>
+                                                )}
+                                                {(recentFournisseurs.length > 0 && otherFournisseurs.length > 0) && <SelectSeparator />}
                                                 <SelectGroup>
-                                                    <SelectLabel>Récents</SelectLabel>
-                                                    {recentFournisseurs.map((fournisseur) => {
-                                                        if (!sortedFournisseurs.includes(fournisseur)) return null;
-                                                        return (
-                                                            <SelectItem key={fournisseur} value={fournisseur}>
-                                                                {fournisseur}
-                                                            </SelectItem>
-                                                        )
-                                                    })}
+                                                    {recentFournisseurs.length > 0 && otherFournisseurs.length > 0 && <SelectLabel>Autres</SelectLabel>}
+                                                    {otherFournisseurs.map((fournisseur) => (
+                                                        <SelectItem key={fournisseur} value={fournisseur}>
+                                                            {fournisseur}
+                                                        </SelectItem>
+                                                    ))}
                                                 </SelectGroup>
+                                                {typeCombustibleValue && (
+                                                    <>
+                                                        <Separator className="my-1" />
+                                                        <div
+                                                            onSelect={(e) => e.preventDefault()}
+                                                            onClick={() => setIsFournisseurModalOpen(true)}
+                                                            className="relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground"
+                                                        >
+                                                            <PlusCircle className="mr-2 h-4 w-4" />
+                                                            Ajouter un fournisseur
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                                />
+                                <FormField
+                                control={form.control}
+                                name="date_arrivage"
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <FormLabel>Date d'arrivage</FormLabel>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                        <FormControl>
+                                            <Button
+                                            variant={"outline"}
+                                            className={cn(
+                                                "w-full justify-start text-left font-normal",
+                                                !field.value && "text-muted-foreground"
                                             )}
-                                            {(recentFournisseurs.length > 0 && otherFournisseurs.length > 0) && <SelectSeparator />}
-                                            <SelectGroup>
-                                                {recentFournisseurs.length > 0 && otherFournisseurs.length > 0 && <SelectLabel>Autres</SelectLabel>}
-                                                {otherFournisseurs.map((fournisseur) => (
-                                                    <SelectItem key={fournisseur} value={fournisseur}>
-                                                        {fournisseur}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectGroup>
-                                            {typeCombustibleValue && (
-                                                <>
-                                                    <Separator className="my-1" />
-                                                    <div
-                                                        onSelect={(e) => e.preventDefault()}
-                                                        onClick={() => setIsFournisseurModalOpen(true)}
-                                                        className="relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground"
-                                                    >
-                                                        <PlusCircle className="mr-2 h-4 w-4" />
-                                                        Ajouter un fournisseur
-                                                    </div>
-                                                </>
+                                            >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {field.value ? (
+                                                format(field.value, "PPP", { locale: fr })
+                                            ) : (
+                                                <span>Choisir une date</span>
                                             )}
-                                        </SelectContent>
-                                    </Select>
+                                            </Button>
+                                        </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar
+                                            mode="single"
+                                            selected={field.value}
+                                            onSelect={field.onChange}
+                                            disabled={(date) =>
+                                            date > new Date() || date < new Date("1900-01-01")
+                                            }
+                                            initialFocus
+                                            locale={fr}
+                                        />
+                                        </PopoverContent>
+                                    </Popover>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                                />
+                            </div>
+                            <FormField
+                                control={form.control}
+                                name="remarques"
+                                render={({ field }) => (
+                                <FormItem>
+                                     <FormLabel>
+                                        <div className="flex items-center gap-2">
+                                        <MessageSquareText className="h-4 w-4" />
+                                        <span>Remarques</span>
+                                        </div>
+                                    </FormLabel>
+                                    <FormControl>
+                                        <Textarea
+                                            placeholder="Ajoutez une remarque (facultatif)..."
+                                            className="resize-none"
+                                            {...field}
+                                            value={field.value ?? ''}
+                                        />
+                                    </FormControl>
                                     <FormMessage />
                                 </FormItem>
-                            )}
-                            />
-                            <FormField
-                            control={form.control}
-                            name="date_arrivage"
-                            render={({ field }) => (
-                                <FormItem>
-                                <FormLabel>Date d'arrivage</FormLabel>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                    <FormControl>
-                                        <Button
-                                        variant={"outline"}
-                                        className={cn(
-                                            "w-full justify-start text-left font-normal",
-                                            !field.value && "text-muted-foreground"
-                                        )}
-                                        >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {field.value ? (
-                                            format(field.value, "PPP", { locale: fr })
-                                        ) : (
-                                            <span>Choisir une date</span>
-                                        )}
-                                        </Button>
-                                    </FormControl>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar
-                                        mode="single"
-                                        selected={field.value}
-                                        onSelect={field.onChange}
-                                        disabled={(date) =>
-                                        date > new Date() || date < new Date("1900-01-01")
-                                        }
-                                        initialFocus
-                                        locale={fr}
-                                    />
-                                    </PopoverContent>
-                                </Popover>
-                                <FormMessage />
-                                </FormItem>
-                            )}
+                                )}
                             />
                         </div>
                     </CardContent>
@@ -702,36 +729,6 @@ export function PciCalculator() {
                     </CardContent>
                 </Card>
             </div>
-            
-            <Card className="shadow-sm">
-                 <CardHeader>
-                    <CardTitle>
-                        <div className="flex items-center gap-2">
-                           <MessageSquareText className="h-5 w-5" />
-                           <span>Remarques</span>
-                        </div>
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <FormField
-                        control={form.control}
-                        name="remarques"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormControl>
-                                <Textarea
-                                    placeholder="Ajoutez une remarque (facultatif)..."
-                                    className="resize-none"
-                                    {...field}
-                                    value={field.value ?? ''}
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                </CardContent>
-            </Card>
             
             <Button 
                 type="submit" 
