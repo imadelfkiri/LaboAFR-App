@@ -59,7 +59,7 @@ export const getFuelTypes = async (): Promise<FuelType[]> => {
 const INITIAL_FOURNISSEURS = [
     "Ain Seddeine", "Aliapur", "Bichara", "Géocycle", "MTR",
     "NAJD", "Polluclean", "SMBRM", "Sotraforest", "Ssardi",
-    "ValRecete", "Valtradec"
+    "ValRecete", "Valtradec", "RJL", "CNAPP"
 ].sort();
 
 export const getFournisseurs = async (): Promise<string[]> => {
@@ -85,4 +85,20 @@ export const getFournisseurs = async (): Promise<string[]> => {
     });
 
     return fournisseurs.sort();
+};
+
+export const FUEL_TYPE_SUPPLIERS_MAP: Record<string, string[]> = {
+    "Bois": ["Sotraforest", "CNAPP", "SMBRM"],
+    "Boues": ["Ain Seddeine"],
+    "CSR": ["SMBRM", "Polluclean", "Géocycle", "ValRecete"],
+    "Caoutchouc": ["Aliapur", "RJL"],
+    "Charbon": ["MTR"],
+    "DMB": ["Bichara", "NAJD"],
+    "Grignons": ["Ssardi"],
+    "Mélange": ["Géocycle", "ValRecete"],
+    "Pet Coke": ["MTR"],
+    "Plastiques": ["Valtradec"],
+    "Pneus": ["Aliapur", "RJL"],
+    "RDF": ["Géocycle", "Polluclean"],
+    "Textile": ["ValRecete"]
 };

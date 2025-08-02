@@ -56,7 +56,7 @@ import {
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator";
 import { calculerPCI } from '@/lib/pci';
-import { getFuelTypes, type FuelType, H_MAP, getFournisseurs } from '@/lib/data';
+import { getFuelTypes, type FuelType, H_MAP, getFournisseurs, FUEL_TYPE_SUPPLIERS_MAP } from '@/lib/data';
 import { db } from '@/lib/firebase';
 import { useToast } from "@/hooks/use-toast";
 
@@ -113,6 +113,7 @@ export function PciCalculator() {
   const [allFournisseurs, setAllFournisseurs] = useState<string[]>([]);
   
   const [sortedFuelTypes, setSortedFuelTypes] = useState<FuelType[]>([]);
+  const [filteredFournisseurs, setFilteredFournisseurs] = useState<string[]>([]);
   const [sortedFournisseurs, setSortedFournisseurs] = useState<string[]>([]);
   const [recentFuelTypes, setRecentFuelTypes] = useState<string[]>([]);
   const [recentFournisseurs, setRecentFournisseurs] = useState<string[]>([]);
@@ -141,9 +142,10 @@ export function PciCalculator() {
         setRecentFuelTypes(recentFuels);
         sortFuelTypes(fetchedFuelTypes, recentFuels);
 
+        // Don't sort all suppliers initially, this will be handled by filtering
+        // The "recent" suppliers will be sorted against the filtered list.
         const recentFours = getRecentItems(RECENT_FOURNISSEURS_KEY);
         setRecentFournisseurs(recentFours);
-        sortFournisseurs(fetchedFournisseurs, recentFours);
     }
     fetchData();
   }, []);
@@ -154,9 +156,9 @@ export function PciCalculator() {
       setSortedFuelTypes([...recentList, ...otherList]);
   };
 
-  const sortFournisseurs = (allFours: string[], recent: string[]) => {
-      const recentList = recent.filter(name => allFours.includes(name));
-      const otherList = allFours.filter(name => !recent.includes(name));
+  const sortFournisseurs = (fournisseursToFilter: string[], recent: string[]) => {
+      const recentList = recent.filter(name => fournisseursToFilter.includes(name));
+      const otherList = fournisseursToFilter.filter(name => !recent.includes(name));
       setSortedFournisseurs([...recentList, ...otherList]);
   };
 
@@ -192,6 +194,26 @@ export function PciCalculator() {
         setPciResult(null);
     }
   }, [pcsValue, h2oValue, typeCombustibleValue, getValues]);
+
+  useEffect(() => {
+    if (typeCombustibleValue) {
+        const relatedFournisseurs = FUEL_TYPE_SUPPLIERS_MAP[typeCombustibleValue] || [];
+        setFilteredFournisseurs(relatedFournisseurs.sort());
+        setValue('fournisseur', ''); // Reset fournisseur when combustible changes
+    } else {
+        setFilteredFournisseurs([]);
+    }
+  }, [typeCombustibleValue, allFournisseurs, setValue]);
+
+  useEffect(() => {
+      if(filteredFournisseurs.length > 0) {
+        const recentFours = getRecentItems(RECENT_FOURNISSEURS_KEY);
+        setRecentFournisseurs(recentFours);
+        sortFournisseurs(filteredFournisseurs, recentFours);
+      } else {
+        setSortedFournisseurs([]);
+      }
+  }, [filteredFournisseurs]);
 
   const resetForm = () => {
     reset({
@@ -334,7 +356,7 @@ export function PciCalculator() {
 
       const newRecentFours = getRecentItems(RECENT_FOURNISSEURS_KEY);
       setRecentFournisseurs(newRecentFours);
-      sortFournisseurs(allFournisseurs, newRecentFours);
+      sortFournisseurs(filteredFournisseurs, newRecentFours);
       
       const dataToSave = {
         ...values,
@@ -374,6 +396,7 @@ export function PciCalculator() {
 
   const otherFuelTypes = sortedFuelTypes.filter(ft => !recentFuelTypes.includes(ft.name));
   const otherFournisseurs = sortedFournisseurs.filter(f => !recentFournisseurs.includes(f));
+  const isFournisseurDisabled = !typeCombustibleValue;
 
   return (
     <div className="w-full max-w-4xl space-y-8">
@@ -455,26 +478,32 @@ export function PciCalculator() {
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Fournisseur</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
+                                <Select onValueChange={field.onChange} value={field.value} disabled={isFournisseurDisabled}>
                                     <FormControl>
                                     <SelectTrigger>
-                                        <SelectValue placeholder="Sélectionner..." />
+                                        <SelectValue placeholder={isFournisseurDisabled ? "Choisir un combustible" : "Sélectionner..."} />
                                     </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                        {recentFournisseurs.length > 0 && (
+                                        {sortedFournisseurs.length === 0 && typeCombustibleValue ? (
+                                             <div className="px-2 py-1.5 text-sm text-muted-foreground">Aucun fournisseur pour ce type.</div>
+                                        ) : null}
+                                        {recentFournisseurs.length > 0 && sortedFournisseurs.filter(f => recentFournisseurs.includes(f)).length > 0 && (
                                             <SelectGroup>
                                                 <SelectLabel>Récents</SelectLabel>
-                                                {recentFournisseurs.map((fournisseur) => (
-                                                    <SelectItem key={fournisseur} value={fournisseur}>
-                                                        {fournisseur}
-                                                    </SelectItem>
-                                                ))}
+                                                {recentFournisseurs.map((fournisseur) => {
+                                                    if (!sortedFournisseurs.includes(fournisseur)) return null;
+                                                    return (
+                                                        <SelectItem key={fournisseur} value={fournisseur}>
+                                                            {fournisseur}
+                                                        </SelectItem>
+                                                    )
+                                                })}
                                             </SelectGroup>
                                         )}
                                         {(recentFournisseurs.length > 0 && otherFournisseurs.length > 0) && <SelectSeparator />}
                                         <SelectGroup>
-                                            {recentFournisseurs.length > 0 && <SelectLabel>Autres</SelectLabel>}
+                                            {recentFournisseurs.length > 0 && otherFournisseurs.length > 0 && <SelectLabel>Autres</SelectLabel>}
                                             {otherFournisseurs.map((fournisseur) => (
                                                 <SelectItem key={fournisseur} value={fournisseur}>
                                                     {fournisseur}
