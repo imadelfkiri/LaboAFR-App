@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -7,7 +8,7 @@ import * as z from "zod";
 import { format, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
 import { CalendarIcon, Fuel, PlusCircle } from 'lucide-react';
-import { collection, addDoc, Timestamp, getDocs, writeBatch, doc } from "firebase/firestore";
+import { collection, addDoc, Timestamp, writeBatch, doc, setDoc } from "firebase/firestore";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -33,7 +34,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardFooter,
 } from "@/components/ui/card";
 import {
   Select,
@@ -56,7 +56,6 @@ import { calculerPCI } from '@/lib/pci';
 import { getFuelTypes, type FuelType, FOURNISSEURS, H_MAP, INITIAL_FUEL_TYPES } from '@/lib/data';
 import { db } from '@/lib/firebase';
 import { useToast } from "@/hooks/use-toast";
-import { DropdownMenuItem } from './ui/dropdown-menu';
 
 const formSchema = z.object({
   date_arrivage: z.date({
@@ -165,7 +164,6 @@ export function PciCalculator() {
             hValue: newFuelTypeHValue,
         });
 
-        // Firestore document ID should be the name for easier querying/updates
         const docRef = doc(db, "fuel_types", newFuel.name);
         const dataToSave = { 
             name: newFuel.name, 
@@ -173,9 +171,8 @@ export function PciCalculator() {
             hValue: newFuel.hValue 
         };
 
-        await addDoc(collection(db, "fuel_types"), dataToSave);
+        await setDoc(docRef, dataToSave);
 
-        // Update H_MAP locally
         H_MAP[newFuel.name] = dataToSave.hValue;
         
         const newType: FuelType = { name: newFuel.name, icon: newFuel.icon };
@@ -302,16 +299,14 @@ export function PciCalculator() {
                                         </SelectItem>
                                     ))}
                                     <Separator className="my-1" />
-                                     <DropdownMenuItem
-                                        onSelect={(e) => {
-                                            e.preventDefault();
-                                            setIsModalOpen(true);
-                                        }}
-                                        className="cursor-pointer"
+                                     <div
+                                        onSelect={(e) => e.preventDefault()}
+                                        onClick={() => setIsModalOpen(true)}
+                                        className="relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground"
                                      >
                                         <PlusCircle className="mr-2 h-4 w-4" />
                                         Ajouter un type
-                                    </DropdownMenuItem>
+                                    </div>
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />
@@ -539,3 +534,5 @@ export function PciCalculator() {
     </div>
   );
 }
+
+    
