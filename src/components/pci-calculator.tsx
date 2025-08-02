@@ -56,6 +56,7 @@ import { calculerPCI } from '@/lib/pci';
 import { getFuelTypes, type FuelType, FOURNISSEURS, H_MAP, INITIAL_FUEL_TYPES } from '@/lib/data';
 import { db } from '@/lib/firebase';
 import { useToast } from "@/hooks/use-toast";
+import { DropdownMenuItem } from './ui/dropdown-menu';
 
 const formSchema = z.object({
   date_arrivage: z.date({
@@ -74,7 +75,7 @@ const formSchema = z.object({
 const newFuelTypeSchema = z.object({
     name: z.string().nonempty({ message: "Le nom du combustible est requis."}),
     icon: z.string().nonempty({ message: "L'icône est requise." }),
-    hValue: z.coerce.number().min(0, { message: "La valeur H doit être positive." }),
+    hValue: z.coerce.number({ required_error: "La valeur H est requise."}).min(0, { message: "La valeur H doit être positive." }),
 });
 
 export function PciCalculator() {
@@ -164,14 +165,20 @@ export function PciCalculator() {
             hValue: newFuelTypeHValue,
         });
 
-        const newType: FuelType = { name: newFuel.name, icon: newFuel.icon };
-        const dataToSave = { ...newType, hValue: newFuel.hValue };
+        // Firestore document ID should be the name for easier querying/updates
+        const docRef = doc(db, "fuel_types", newFuel.name);
+        const dataToSave = { 
+            name: newFuel.name, 
+            icon: newFuel.icon, 
+            hValue: newFuel.hValue 
+        };
 
         await addDoc(collection(db, "fuel_types"), dataToSave);
 
         // Update H_MAP locally
-        H_MAP[newType.name] = dataToSave.hValue;
-
+        H_MAP[newFuel.name] = dataToSave.hValue;
+        
+        const newType: FuelType = { name: newFuel.name, icon: newFuel.icon };
         const updatedTypes = [...fuelTypes, newType].sort((a, b) => a.name.localeCompare(b.name));
         setFuelTypes(updatedTypes);
 
@@ -295,16 +302,16 @@ export function PciCalculator() {
                                         </SelectItem>
                                     ))}
                                     <Separator className="my-1" />
-                                    <div 
-                                        className="relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none hover:bg-accent focus:bg-accent focus:text-accent-foreground"
+                                     <DropdownMenuItem
                                         onSelect={(e) => {
                                             e.preventDefault();
-                                            setIsModalOpen(true)
+                                            setIsModalOpen(true);
                                         }}
-                                    >
+                                        className="cursor-pointer"
+                                     >
                                         <PlusCircle className="mr-2 h-4 w-4" />
                                         Ajouter un type
-                                    </div>
+                                    </DropdownMenuItem>
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />
