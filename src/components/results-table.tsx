@@ -29,7 +29,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, XCircle, Trash2, Download, ChevronDown, FileOutput } from "lucide-react";
-import { FUEL_TYPES, FOURNISSEURS } from "@/lib/data";
+import { getFuelTypes, type FuelType, FOURNISSEURS } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
 import {
@@ -77,8 +77,6 @@ interface AggregatedResult {
     count: number;
 }
 
-const fuelTypeMap = new Map(FUEL_TYPES.map(fuel => [fuel.name, fuel.icon]));
-
 export function ResultsTable() {
     const [results, setResults] = useState<Result[]>([]);
     const [loading, setLoading] = useState(true);
@@ -86,9 +84,18 @@ export function ResultsTable() {
     const [fournisseurFilter, setFournisseurFilter] = useState<string>("");
     const [dateFilter, setDateFilter] = useState<DateRange | undefined>();
     const [resultToDelete, setResultToDelete] = useState<string | null>(null);
+    const [fuelTypes, setFuelTypes] = useState<FuelType[]>([]);
+    const [fuelTypeMap, setFuelTypeMap] = useState<Map<string, string>>(new Map());
     const { toast } = useToast();
 
     useEffect(() => {
+        async function fetchTypes() {
+            const types = await getFuelTypes();
+            setFuelTypes(types);
+            setFuelTypeMap(new Map(types.map(fuel => [fuel.name, fuel.icon])));
+        }
+        fetchTypes();
+
         let q = query(collection(db, "resultats"), orderBy("date_arrivage", "desc"));
 
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -323,7 +330,7 @@ export function ResultsTable() {
                                     <SelectValue placeholder="Filtrer par type..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {FUEL_TYPES.map(fuel => <SelectItem key={fuel.name} value={fuel.name}>{fuel.name}</SelectItem>)}
+                                    {fuelTypes.map(fuel => <SelectItem key={fuel.name} value={fuel.name}>{fuel.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                             <Select value={fournisseurFilter} onValueChange={setFournisseurFilter}>
@@ -433,7 +440,7 @@ export function ResultsTable() {
                                         <TableCell className="font-medium px-4">{formatDate(result.date_arrivage)}</TableCell>
                                         <TableCell className="px-4">
                                             <div className="flex items-center gap-2">
-                                                <span>{fuelTypeMap.get(result.type_combustible)}</span>
+                                                <span>{fuelTypeMap.get(result.type_combustible) ?? '❓'}</span>
                                                 <span>{result.type_combustible}</span>
                                             </div>
                                         </TableCell>

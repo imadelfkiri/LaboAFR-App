@@ -6,8 +6,8 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { format, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
-import { CalendarIcon, Fuel } from 'lucide-react';
-import { collection, addDoc, Timestamp } from "firebase/firestore";
+import { CalendarIcon, Fuel, PlusCircle } from 'lucide-react';
+import { collection, addDoc, Timestamp, getDocs, writeBatch, doc } from "firebase/firestore";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import {
   FormLabel,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Popover,
@@ -41,8 +42,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+    DialogClose,
+} from "@/components/ui/dialog"
+import { Separator } from "@/components/ui/separator";
 import { calculerPCI } from '@/lib/pci';
-import { FUEL_TYPES, FOURNISSEURS } from '@/lib/data';
+import { getFuelTypes, type FuelType, FOURNISSEURS, H_MAP, INITIAL_FUEL_TYPES } from '@/lib/data';
 import { db } from '@/lib/firebase';
 import { useToast } from "@/hooks/use-toast";
 
@@ -60,10 +71,43 @@ const formSchema = z.object({
   remarques: z.string().optional(),
 });
 
+const newFuelTypeSchema = z.object({
+    name: z.string().nonempty({ message: "Le nom du combustible est requis."}),
+    icon: z.string().nonempty({ message: "L'icône est requise." }),
+    hValue: z.coerce.number().min(0, { message: "La valeur H doit être positive." }),
+});
+
 export function PciCalculator() {
   const [pciResult, setPciResult] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [fuelTypes, setFuelTypes] = useState<FuelType[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newFuelTypeName, setNewFuelTypeName] = useState("");
+  const [newFuelTypeIcon, setNewFuelTypeIcon] = useState("");
+  const [newFuelTypeHValue, setNewFuelTypeHValue] = useState<number | string>("");
+
   const { toast } = useToast();
+
+  useEffect(() => {
+    async function fetchFuelTypes() {
+      const types = await getFuelTypes();
+      if (types.length === 0) {
+        // If no types in DB, populate with initial data
+        const batch = writeBatch(db);
+        const fuelTypesCollectionRef = collection(db, "fuel_types");
+        INITIAL_FUEL_TYPES.forEach(fuelType => {
+            const docRef = doc(fuelTypesCollectionRef, fuelType.name);
+            batch.set(docRef, fuelType);
+        });
+        await batch.commit();
+        const updatedTypes = await getFuelTypes();
+        setFuelTypes(updatedTypes);
+      } else {
+        setFuelTypes(types);
+      }
+    }
+    fetchFuelTypes();
+  }, []);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -80,7 +124,7 @@ export function PciCalculator() {
     },
   });
 
-  const { watch, reset, getValues } = form;
+  const { watch, reset, getValues, setValue } = form;
   const pcsValue = watch("pcs");
   const h2oValue = watch("h2o");
   const typeCombustibleValue = watch("type_combustible");
@@ -111,6 +155,56 @@ export function PciCalculator() {
     });
     setPciResult(null);
   };
+
+  const handleAddFuelType = async () => {
+      try {
+        const newFuel = newFuelTypeSchema.parse({ 
+            name: newFuelTypeName, 
+            icon: newFuelTypeIcon,
+            hValue: newFuelTypeHValue,
+        });
+
+        const newType: FuelType = { name: newFuel.name, icon: newFuel.icon };
+        const dataToSave = { ...newType, hValue: newFuel.hValue };
+
+        await addDoc(collection(db, "fuel_types"), dataToSave);
+
+        // Update H_MAP locally
+        H_MAP[newType.name] = dataToSave.hValue;
+
+        const updatedTypes = [...fuelTypes, newType].sort((a, b) => a.name.localeCompare(b.name));
+        setFuelTypes(updatedTypes);
+
+        setValue("type_combustible", newType.name, { shouldValidate: true });
+
+        toast({
+            title: "Succès",
+            description: `Le type "${newType.name}" a été ajouté.`,
+        });
+
+        setIsModalOpen(false);
+        setNewFuelTypeName("");
+        setNewFuelTypeIcon("");
+        setNewFuelTypeHValue("");
+
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+             toast({
+                variant: "destructive",
+                title: "Erreur de validation",
+                description: error.errors.map(e => e.message).join('\n'),
+            });
+        } else {
+            console.error("Erreur lors de l'ajout du type:", error);
+            toast({
+                variant: "destructive",
+                title: "Erreur",
+                description: "Impossible d'ajouter le nouveau type de combustible.",
+            });
+        }
+    }
+  };
+
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSaving(true);
@@ -192,7 +286,7 @@ export function PciCalculator() {
                                     </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                    {FUEL_TYPES.map((fuelType) => (
+                                    {fuelTypes.map((fuelType) => (
                                         <SelectItem key={fuelType.name} value={fuelType.name}>
                                             <div className="flex items-center gap-2">
                                                 <span>{fuelType.icon}</span>
@@ -200,6 +294,17 @@ export function PciCalculator() {
                                             </div>
                                         </SelectItem>
                                     ))}
+                                    <Separator className="my-1" />
+                                    <div 
+                                        className="relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none hover:bg-accent focus:bg-accent focus:text-accent-foreground"
+                                        onSelect={(e) => {
+                                            e.preventDefault();
+                                            setIsModalOpen(true)
+                                        }}
+                                    >
+                                        <PlusCircle className="mr-2 h-4 w-4" />
+                                        Ajouter un type
+                                    </div>
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />
@@ -281,7 +386,7 @@ export function PciCalculator() {
                     <CardTitle>Données Analytiques</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-end">
                         <FormField
                             control={form.control}
                             name="pcs"
@@ -347,22 +452,17 @@ export function PciCalculator() {
                             </FormItem>
                             )}
                         />
+                        <div className="p-4 rounded-lg bg-orange-50 border border-orange-200 text-center">
+                             <p className="text-sm font-medium text-orange-700 mb-1">PCI sur Brut (kcal/kg)</p>
+                            {pciResult !== null ? (
+                                <p className="text-2xl font-bold text-orange-600 tracking-tight">
+                                    {pciResult.toLocaleString('fr-FR')}
+                                </p>
+                            ) : (
+                                <p className="text-2xl font-bold text-gray-400">-</p>
+                            )}
+                        </div>
                     </div>
-                </CardContent>
-            </Card>
-            
-            <Card className="bg-gray-50 border-dashed shadow-sm">
-                <CardHeader>
-                    <CardTitle className="text-center text-base font-semibold text-gray-600">PCI sur Brut (kcal/kg)</CardTitle>
-                </CardHeader>
-                <CardContent className="text-center">
-                    {pciResult !== null ? (
-                        <p className="text-4xl font-bold text-gray-900 tracking-tight">
-                            {pciResult.toLocaleString('fr-FR')}
-                        </p>
-                    ) : (
-                        <p className="text-4xl font-bold text-gray-400">-</p>
-                    )}
                 </CardContent>
             </Card>
             
@@ -392,12 +492,43 @@ export function PciCalculator() {
             </Card>
             
             <div className="flex justify-center pt-4">
-                <Button type="submit" size="lg" disabled={isSaving || pciResult === null} className="w-full max-w-xs font-bold text-base bg-[#3F51B5] hover:bg-[#3F51B5]/90 transition-transform duration-150 ease-in-out active:scale-[0.98]">
+                <Button type="submit" size="lg" disabled={isSaving || pciResult === null} className="w-full max-w-xs font-bold text-base bg-primary hover:bg-primary/90 transition-transform duration-150 ease-in-out active:scale-[0.98]">
                     {isSaving ? "Enregistrement..." : "Enregistrer"}
                 </Button>
             </div>
         </form>
       </Form>
+
+       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Ajouter un nouveau type de combustible</DialogTitle>
+                    <DialogDescription>
+                        Entrez les informations pour le nouveau type.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="name" className="text-right">Nom</Label>
+                        <Input id="name" value={newFuelTypeName} onChange={(e) => setNewFuelTypeName(e.target.value)} className="col-span-3" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="icon" className="text-right">Icône (emoji)</Label>
+                        <Input id="icon" value={newFuelTypeIcon} onChange={(e) => setNewFuelTypeIcon(e.target.value)} className="col-span-3" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="hValue" className="text-right">Valeur H</Label>
+                        <Input id="hValue" type="number" value={newFuelTypeHValue} onChange={(e) => setNewFuelTypeHValue(e.target.value)} className="col-span-3" />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button type="button" variant="secondary">Annuler</Button>
+                    </DialogClose>
+                    <Button type="button" onClick={handleAddFuelType}>Ajouter</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </div>
   );
 }
