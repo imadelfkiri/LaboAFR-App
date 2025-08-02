@@ -81,7 +81,7 @@ interface AggregatedResult {
     count: number;
 }
 
-const specMap: Record<string, { h2o: number, chlore: number, cendres: number }> = {
+const specMap: Record<string, { h2o?: number, chlore?: number, cendres?: number }> = {
   "CSR|Polluclean": { h2o: 16.5, chlore: 1.0, cendres: 15 },
   "CSR|SMBRM": { h2o: 14, chlore: 0.6, cendres: 1 },
   "DMB|MTR": { h2o: 15, chlore: 0.6, cendres: 15 },
@@ -100,11 +100,20 @@ const getPciColorClass = (value: number) => {
   return "text-green-600";
 };
 
-const getColorByThreshold = (value: number, specValue: number | undefined) => {
-    if (specValue === undefined || isNaN(value)) return ""; // No spec, no color
-    if (value > specValue) return "text-red-600 font-bold";
-    return "text-green-600";
+const getCustomColor = (
+  value: number,
+  combustible: string,
+  fournisseur: string,
+  param: "h2o" | "chlore" | "cendres"
+) => {
+  const key = `${combustible}|${fournisseur}`;
+  const spec = specMap[key];
+  if (!spec || spec[param] === undefined) return "";
+  const threshold = spec[param];
+  if (threshold === undefined) return "";
+  return value > threshold ? "text-red-600 font-bold" : "text-green-600";
 };
+
 
 const calculateAverage = (results: Result[], field: keyof Result): number | null => {
   const validValues = results.map(r => r[field]).filter(v => typeof v === 'number') as number[];
@@ -484,10 +493,7 @@ export function ResultsTable() {
                             <TableBody>
                                 {filteredResults.length > 0 ? (
                                     <>
-                                        {filteredResults.map((result) => {
-                                             const specKey = `${result.type_combustible}|${result.fournisseur}`;
-                                             const spec = specMap[specKey];
-                                            return (
+                                        {filteredResults.map((result) => (
                                             <TableRow key={result.id}>
                                                 <TableCell className="font-medium px-4">{formatDate(result.date_arrivage)}</TableCell>
                                                 <TableCell className="px-4">
@@ -499,9 +505,9 @@ export function ResultsTable() {
                                                 <TableCell className="px-4">{result.fournisseur}</TableCell>
                                                 <TableCell className="text-right px-4">{formatNumber(result.pcs, 0)}</TableCell>
                                                 <TableCell className={cn("font-bold text-right px-4", getPciColorClass(result.pci_brut))}>{formatNumber(result.pci_brut, 0)}</TableCell>
-                                                <TableCell className={cn("text-right px-4", getColorByThreshold(result.h2o, spec?.h2o))}>{formatNumber(result.h2o, 1)}</TableCell>
-                                                <TableCell className={cn("text-right px-4", getColorByThreshold(result.chlore, spec?.chlore))}>{formatNumber(result.chlore, 2)}</TableCell>
-                                                <TableCell className={cn("text-right px-4", getColorByThreshold(result.cendres, spec?.cendres))}>{formatNumber(result.cendres, 1)}</TableCell>
+                                                <TableCell className={cn("text-right px-4", getCustomColor(result.h2o, result.type_combustible, result.fournisseur, 'h2o'))}>{formatNumber(result.h2o, 1)}</TableCell>
+                                                <TableCell className={cn("text-right px-4", getCustomColor(result.chlore, result.type_combustible, result.fournisseur, 'chlore'))}>{formatNumber(result.chlore, 2)}</TableCell>
+                                                <TableCell className={cn("text-right px-4", getCustomColor(result.cendres, result.type_combustible, result.fournisseur, 'cendres'))}>{formatNumber(result.cendres, 1)}</TableCell>
                                                 <TableCell className="text-right px-4">{formatNumber(result.densite, 2)}</TableCell>
                                                 <TableCell className="text-right px-4">{formatNumber(result.granulometrie, 1)}</TableCell>
                                                 <TableCell className="max-w-[150px] truncate text-muted-foreground px-4">
@@ -520,7 +526,7 @@ export function ResultsTable() {
                                                     </AlertDialogTrigger>
                                                 </TableCell>
                                             </TableRow>
-                                        )})}
+                                        ))}
                                         <TableRow className="bg-muted/40 font-semibold">
                                             <TableCell colSpan={4} className="px-4">Moyenne de la sélection</TableCell>
                                             <TableCell className="text-right text-primary px-4">{formatNumber(calculateAverage(filteredResults, 'pci_brut'), 0)}</TableCell>
@@ -562,4 +568,6 @@ export function ResultsTable() {
 }
 
     
+    
+
     
