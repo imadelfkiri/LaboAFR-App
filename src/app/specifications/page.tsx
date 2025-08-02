@@ -1,11 +1,20 @@
 
 "use client";
 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { collection, getDocs, query } from "firebase/firestore";
 import { db } from "@/lib/firebase"; 
 import { useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ClipboardList } from "lucide-react";
 
 interface Spec {
   id: string;
@@ -20,7 +29,7 @@ interface Spec {
 }
 
 const formatNumber = (num: number | undefined | null, suffix = '') => {
-    if (num === undefined || num === null) return <span className="text-muted-foreground">-</span>;
+    if (num === undefined || num === null || isNaN(num)) return <span className="text-muted-foreground">-</span>;
     return <>{num.toLocaleString('fr-FR')} {suffix}</>;
 }
 
@@ -50,60 +59,66 @@ export default function SpecificationsPage() {
   }, []);
 
   return (
-    <div className="p-4 md:p-8">
+    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">Spécifications Techniques</h1>
+        <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+          <ClipboardList className="h-8 w-8" />
+          Spécifications Techniques
+        </h1>
       </div>
 
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[...Array(6)].map((_, i) => (
-            <Card key={i}>
-              <CardHeader>
-                <Skeleton className="h-6 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <Skeleton className="h-5 w-full" />
-                  <Skeleton className="h-5 w-full" />
-                  <Skeleton className="h-5 w-full" />
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Combustible</TableHead>
+                <TableHead>Fournisseur</TableHead>
+                <TableHead className="text-right">H₂O Max (%)</TableHead>
+                <TableHead className="text-right">PCI Min (kcal/kg)</TableHead>
+                <TableHead className="text-right">Chlorures Max (%)</TableHead>
+                <TableHead className="text-right">Cendres Max (%)</TableHead>
+                <TableHead className="text-right">Soufre Max (%)</TableHead>
+                <TableHead className="text-right">Granulométrie Max (mm)</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                [...Array(5)].map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-5 w-16" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-5 w-20" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-5 w-16" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-5 w-16" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-5 w-16" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-5 w-20" /></TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                data.map((spec) => (
+                  <TableRow key={spec.id}>
+                    <TableCell className="font-medium">{spec.combustible}</TableCell>
+                    <TableCell>{spec.fournisseur}</TableCell>
+                    <TableCell className="text-right">{formatNumber(spec.H2O_max)}</TableCell>
+                    <TableCell className="text-right">{formatNumber(spec.PCI_min)}</TableCell>
+                    <TableCell className="text-right">{formatNumber(spec.chlorures_max)}</TableCell>
+                    <TableCell className="text-right">{formatNumber(spec.cendres_max)}</TableCell>
+                    <TableCell className="text-right">{formatNumber(spec.soufre_max)}</TableCell>
+                    <TableCell className="text-right">{formatNumber(spec.granulometrie_max_mm)}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+           { !loading && data.length === 0 && (
+                <div className="text-center p-8 text-muted-foreground">
+                    Aucune spécification trouvée.
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {data.map((spec) => (
-            <Card key={spec.id} className="flex flex-col">
-              <CardHeader>
-                <CardTitle className="text-xl">{spec.combustible}</CardTitle>
-                <p className="text-sm text-muted-foreground">{spec.fournisseur}</p>
-              </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm flex-1">
-                <div className="font-medium">H₂O Max</div>
-                <div className="text-right">{formatNumber(spec.H2O_max, '%')}</div>
-
-                <div className="font-medium">PCI Min</div>
-                <div className="text-right">{formatNumber(spec.PCI_min, 'kcal/kg')}</div>
-                
-                <div className="font-medium">Chlorures Max</div>
-                <div className="text-right">{formatNumber(spec.chlorures_max, '%')}</div>
-                
-                <div className="font-medium">Cendres Max</div>
-                <div className="text-right">{formatNumber(spec.cendres_max, '%')}</div>
-                
-                <div className="font-medium">Soufre Max</div>
-                <div className="text-right">{formatNumber(spec.soufre_max, '%')}</div>
-
-                <div className="font-medium">Granulométrie Max</div>
-                <div className="text-right">{formatNumber(spec.granulometrie_max_mm, 'mm')}</div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+            )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
