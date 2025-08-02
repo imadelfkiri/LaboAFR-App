@@ -423,7 +423,11 @@ export function PciCalculator() {
   }
 
   const otherFuelTypes = sortedFuelTypes.filter(ft => !recentFuelTypes.includes(ft.name));
+  const recentFuelTypesFromAll = allFuelTypes.filter(ft => recentFuelTypes.includes(ft.name));
+
   const otherFournisseurs = sortedFournisseurs.filter(f => !recentFournisseurs.includes(f));
+  const recentFournisseursFromSorted = sortedFournisseurs.filter(f => recentFournisseurs.includes(f));
+  
   const isFournisseurDisabled = !typeCombustibleValue;
 
   return (
@@ -504,35 +508,33 @@ export function PciCalculator() {
                                             </SelectTrigger>
                                             </FormControl>
                                             <SelectContent side="bottom" align="start" sideOffset={4}>
-                                                {recentFuelTypes.length > 0 && (
+                                                {recentFuelTypesFromAll.length > 0 && (
                                                     <SelectGroup>
                                                         <SelectLabel>Récents</SelectLabel>
-                                                        {recentFuelTypes.map((name) => {
-                                                            const fuelType = allFuelTypes.find(ft => ft.name === name);
-                                                            if (!fuelType) return null;
-                                                            return (
-                                                                <SelectItem key={fuelType.name} value={fuelType.name}>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span>{fuelType.icon}</span>
-                                                                        <span>{fuelType.name}</span>
-                                                                    </div>
-                                                                </SelectItem>
-                                                            );
-                                                        })}
+                                                        {recentFuelTypesFromAll.map((fuelType) => (
+                                                            <SelectItem key={fuelType.name} value={fuelType.name}>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span>{fuelType.icon}</span>
+                                                                    <span>{fuelType.name}</span>
+                                                                </div>
+                                                            </SelectItem>
+                                                        ))}
                                                     </SelectGroup>
                                                 )}
-                                                {(recentFuelTypes.length > 0 && otherFuelTypes.length > 0) && <SelectSeparator />}
-                                                <SelectGroup>
-                                                    {recentFuelTypes.length > 0 && <SelectLabel>Autres</SelectLabel>}
-                                                    {otherFuelTypes.map((fuelType) => (
-                                                        <SelectItem key={fuelType.name} value={fuelType.name}>
-                                                            <div className="flex items-center gap-2">
-                                                                <span>{fuelType.icon}</span>
-                                                                <span>{fuelType.name}</span>
-                                                            </div>
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectGroup>
+                                                {(recentFuelTypesFromAll.length > 0 && otherFuelTypes.length > 0) && <SelectSeparator />}
+                                                {otherFuelTypes.length > 0 && (
+                                                    <SelectGroup>
+                                                        {recentFuelTypesFromAll.length > 0 && <SelectLabel>Autres</SelectLabel>}
+                                                        {otherFuelTypes.map((fuelType) => (
+                                                            <SelectItem key={fuelType.name} value={fuelType.name}>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span>{fuelType.icon}</span>
+                                                                    <span>{fuelType.name}</span>
+                                                                </div>
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectGroup>
+                                                )}
 
                                                 <Separator className="my-1" />
                                                 <div
@@ -561,32 +563,31 @@ export function PciCalculator() {
                                                 <SelectValue placeholder={isFournisseurDisabled ? "Choisir un combustible" : "Sélectionner..."} />
                                             </SelectTrigger>
                                             </FormControl>
-                                            <SelectContent side="bottom" sideOffset={4}>
+                                            <SelectContent side="bottom" align="start" sideOffset={4}>
                                                 {sortedFournisseurs.length === 0 && typeCombustibleValue ? (
                                                     <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">Aucun fournisseur disponible pour ce type.</div>
                                                 ) : null}
-                                                {recentFournisseurs.length > 0 && sortedFournisseurs.filter(f => recentFournisseurs.includes(f)).length > 0 && (
+                                                {recentFournisseursFromSorted.length > 0 && (
                                                     <SelectGroup>
                                                         <SelectLabel>Récents</SelectLabel>
-                                                        {recentFournisseurs.map((fournisseur) => {
-                                                            if (!sortedFournisseurs.includes(fournisseur)) return null;
-                                                            return (
-                                                                <SelectItem key={fournisseur} value={fournisseur}>
-                                                                    {fournisseur}
-                                                                </SelectItem>
-                                                            )
-                                                        })}
+                                                        {recentFournisseursFromSorted.map((fournisseur) => (
+                                                          <SelectItem key={fournisseur} value={fournisseur}>
+                                                              {fournisseur}
+                                                          </SelectItem>
+                                                        ))}
                                                     </SelectGroup>
                                                 )}
-                                                {(recentFournisseurs.length > 0 && otherFournisseurs.length > 0) && <SelectSeparator />}
-                                                <SelectGroup>
-                                                    {recentFournisseurs.length > 0 && otherFournisseurs.length > 0 && <SelectLabel>Autres</SelectLabel>}
-                                                    {otherFournisseurs.map((fournisseur) => (
-                                                        <SelectItem key={fournisseur} value={fournisseur}>
-                                                            {fournisseur}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectGroup>
+                                                {(recentFournisseursFromSorted.length > 0 && otherFournisseurs.length > 0) && <SelectSeparator />}
+                                                {otherFournisseurs.length > 0 && (
+                                                    <SelectGroup>
+                                                        {recentFournisseursFromSorted.length > 0 && <SelectLabel>Autres</SelectLabel>}
+                                                        {otherFournisseurs.map((fournisseur) => (
+                                                            <SelectItem key={fournisseur} value={fournisseur}>
+                                                                {fournisseur}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectGroup>
+                                                )}
                                                 {typeCombustibleValue && (
                                                     <>
                                                         <Separator className="my-1" />
