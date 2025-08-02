@@ -507,7 +507,7 @@ export function PciCalculator() {
                                                 <SelectValue placeholder="Sélectionner..." />
                                             </SelectTrigger>
                                             </FormControl>
-                                            <SelectContent side="bottom" align="start" sideOffset={4}>
+                                            <SelectContent side="bottom" align="start" sideOffset={4} avoidCollisions={false} className="z-50">
                                                 {recentFuelTypesFromAll.length > 0 && (
                                                     <SelectGroup>
                                                         <SelectLabel>Récents</SelectLabel>
@@ -563,7 +563,7 @@ export function PciCalculator() {
                                                 <SelectValue placeholder={isFournisseurDisabled ? "Choisir un combustible" : "Sélectionner..."} />
                                             </SelectTrigger>
                                             </FormControl>
-                                            <SelectContent side="bottom" align="start" sideOffset={4}>
+                                            <SelectContent side="bottom" align="start" sideOffset={4} avoidCollisions={false} className="z-50">
                                                 {sortedFournisseurs.length === 0 && typeCombustibleValue ? (
                                                     <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">Aucun fournisseur disponible pour ce type.</div>
                                                 ) : null}
