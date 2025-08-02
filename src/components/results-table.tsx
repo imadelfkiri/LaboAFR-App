@@ -82,16 +82,16 @@ interface AggregatedResult {
 }
 
 const specMap: Record<string, { h2o: number, chlore: number, cendres: number }> = {
-    "CSR|Polluclean": { h2o: 16.5, chlore: 1.0, cendres: 15 },
-    "CSR|SMBRM": { h2o: 14, chlore: 0.6, cendres: 1 },
-    "DMB|MTR": { h2o: 15, chlore: 0.6, cendres: 15 },
-    "Grignons d'olives|Ain Seddeine": { h2o: 20, chlore: 0.5, cendres: 5 },
-    "Plastiques|ValRecete": { h2o: 15, chlore: 1.0, cendres: 15 },
-    "Plastiques|Bichara": { h2o: 10, chlore: 1.0, cendres: 15 },
-    "Plastiques|Valtradec": { h2o: 10, chlore: 1.0, cendres: 15 },
-    "Plastiques|Ssardi": { h2o: 18, chlore: 1.0, cendres: 15 },
-    "Pneus|RJL": { h2o: 1.0, chlore: 0.3, cendres: 1 },
-    "Pneus|Aliapur": { h2o: 1.0, chlore: 0.3, cendres: 1 },
+  "CSR|Polluclean": { h2o: 16.5, chlore: 1.0, cendres: 15 },
+  "CSR|SMBRM": { h2o: 14, chlore: 0.6, cendres: 1 },
+  "DMB|MTR": { h2o: 15, chlore: 0.6, cendres: 15 },
+  "Grignons d'olives|Ain Seddeine": { h2o: 20, chlore: 0.5, cendres: 5 },
+  "Plastiques|ValRecete": { h2o: 15, chlore: 1.0, cendres: 15 },
+  "Plastiques|Bichara": { h2o: 10, chlore: 1.0, cendres: 15 },
+  "Plastiques|Valtradec": { h2o: 10, chlore: 1.0, cendres: 15 },
+  "Plastiques|Ssardi": { h2o: 18, chlore: 1.0, cendres: 15 },
+  "Pneus|RJL": { h2o: 1.0, chlore: 0.3, cendres: 1 },
+  "Pneus|Aliapur": { h2o: 1.0, chlore: 0.3, cendres: 1 },
 };
 
 const getPciColorClass = (value: number) => {
@@ -561,4 +561,5 @@ export function ResultsTable() {
     );
 }
 
+    
     
