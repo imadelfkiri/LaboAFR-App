@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -502,7 +503,7 @@ export function PciCalculator() {
                                                 <SelectValue placeholder="Sélectionner..." />
                                             </SelectTrigger>
                                             </FormControl>
-                                            <SelectContent side="bottom" sideOffset={4}>
+                                            <SelectContent side="bottom" align="start" sideOffset={4}>
                                                 {recentFuelTypes.length > 0 && (
                                                     <SelectGroup>
                                                         <SelectLabel>Récents</SelectLabel>
