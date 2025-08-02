@@ -22,7 +22,7 @@ interface Spec {
   fournisseur: string;
   h2o: string;
   pci: string;
-  chlore: string;
+  chlorures: string;
   cendres: string;
   soufre: string;
   granulometrie: string;
@@ -97,7 +97,7 @@ export default function SpecificationsPage() {
                     <TableCell>{spec.fournisseur}</TableCell>
                     <TableCell>{spec.h2o}</TableCell>
                     <TableCell>{spec.pci}</TableCell>
-                    <TableCell>{spec.chlore}</TableCell>
+                    <TableCell>{spec.chlorures}</TableCell>
                     <TableCell>{spec.cendres}</TableCell>
                     <TableCell>{spec.soufre}</TableCell>
                     <TableCell>{spec.granulometrie}</TableCell>
