@@ -51,7 +51,6 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { useToast } from '@/hooks/use-toast';
-import { Separator } from '@/components/ui/separator';
 
 interface Result {
     id: string;
@@ -298,7 +297,7 @@ export function ResultsTable() {
 
     if (loading) {
         return (
-             <div className="space-y-4 pt-4">
+             <div className="space-y-4 pt-4 px-4 lg:px-6">
                 <Skeleton className="h-10 w-full" />
                 <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2'>
                     <Skeleton className="h-10 w-full" />
@@ -313,7 +312,7 @@ export function ResultsTable() {
 
     return (
         <AlertDialog onOpenChange={(open) => !open && setResultToDelete(null)}>
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 p-4 lg:p-6">
                 <div className='grid grid-cols-1 md:grid-cols-3 gap-4 items-start'>
                     <div className="md:col-span-2">
                         <label className="text-sm font-medium text-muted-foreground mb-2 block">Filtres</label>
@@ -413,34 +412,34 @@ export function ResultsTable() {
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-muted/50 hover:bg-muted/50">
-                                <TableHead className="w-[120px]">Date Arrivage</TableHead>
-                                <TableHead>Type Combustible</TableHead>
-                                <TableHead>Fournisseur</TableHead>
-                                <TableHead className="text-right">PCS</TableHead>
-                                <TableHead className="text-right text-primary font-bold">PCI sur Brut</TableHead>
-                                <TableHead className="text-right">% H2O</TableHead>
-                                <TableHead className="text-right">% Cl-</TableHead>
-                                <TableHead className="text-right">% Cendres</TableHead>
-                                <TableHead className="text-right">Densité</TableHead>
-                                <TableHead>Remarques</TableHead>
-                                <TableHead className="w-[50px] text-right">Action</TableHead>
+                                <TableHead className="w-[120px] px-4">Date Arrivage</TableHead>
+                                <TableHead className="px-4">Type Combustible</TableHead>
+                                <TableHead className="px-4">Fournisseur</TableHead>
+                                <TableHead className="text-right px-4">PCS</TableHead>
+                                <TableHead className="text-right text-primary font-bold px-4">PCI sur Brut</TableHead>
+                                <TableHead className="text-right px-4">% H2O</TableHead>
+                                <TableHead className="text-right px-4">% Cl-</TableHead>
+                                <TableHead className="text-right px-4">% Cendres</TableHead>
+                                <TableHead className="text-right px-4">Densité</TableHead>
+                                <TableHead className="px-4">Remarques</TableHead>
+                                <TableHead className="w-[50px] text-right px-4">Action</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filteredResults.length > 0 ? (
                                 filteredResults.map((result) => (
                                     <TableRow key={result.id}>
-                                        <TableCell className="font-medium">{formatDate(result.date_arrivage)}</TableCell>
-                                        <TableCell>{result.type_combustible}</TableCell>
-                                        <TableCell>{result.fournisseur}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(result.pcs, 0)}</TableCell>
-                                        <TableCell className="font-bold text-right text-primary">{formatNumber(result.pci_brut, 0)}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(result.h2o, 1)}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(result.chlore, 2)}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(result.cendres, 1)}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(result.densite, 2)}</TableCell>
-                                        <TableCell className="max-w-[150px] truncate text-muted-foreground">{result.remarques}</TableCell>
-                                        <TableCell className="text-right">
+                                        <TableCell className="font-medium px-4">{formatDate(result.date_arrivage)}</TableCell>
+                                        <TableCell className="px-4">{result.type_combustible}</TableCell>
+                                        <TableCell className="px-4">{result.fournisseur}</TableCell>
+                                        <TableCell className="text-right px-4">{formatNumber(result.pcs, 0)}</TableCell>
+                                        <TableCell className="font-bold text-right text-primary px-4">{formatNumber(result.pci_brut, 0)}</TableCell>
+                                        <TableCell className="text-right px-4">{formatNumber(result.h2o, 1)}</TableCell>
+                                        <TableCell className="text-right px-4">{formatNumber(result.chlore, 2)}</TableCell>
+                                        <TableCell className="text-right px-4">{formatNumber(result.cendres, 1)}</TableCell>
+                                        <TableCell className="text-right px-4">{formatNumber(result.densite, 2)}</TableCell>
+                                        <TableCell className="max-w-[150px] truncate text-muted-foreground px-4">{result.remarques}</TableCell>
+                                        <TableCell className="text-right px-4">
                                             <AlertDialogTrigger asChild>
                                                 <Button variant="ghost" size="icon" onClick={() => setResultToDelete(result.id)}>
                                                     <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive"/>
@@ -476,3 +475,5 @@ export function ResultsTable() {
         </AlertDialog>
     );
 }
+
+    

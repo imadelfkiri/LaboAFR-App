@@ -4,9 +4,6 @@ import { ResultsTable } from "@/components/results-table";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription
 } from "@/components/ui/card";
 import { Plus } from 'lucide-react';
 
@@ -16,7 +13,7 @@ export default function ResultsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Historique des Résultats</h1>
         <Button asChild>
-          <Link href="/">
+          <Link href="/calculateur">
             <Plus className="mr-2 h-4 w-4" />
             Ajouter un Résultat
           </Link>
@@ -30,3 +27,5 @@ export default function ResultsPage() {
     </div>
   );
 }
+
+    
