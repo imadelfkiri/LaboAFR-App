@@ -602,7 +602,7 @@ export function PciCalculator() {
                                     </FormLabel>
                                     <FormControl>
                                         <Textarea
-                                            placeholder="Ajoutez une remarque (facultatif)..."
+                                            placeholder="Ajoutez une remarque..."
                                             className="resize-none rounded-xl min-h-[80px]"
                                             {...field}
                                             value={field.value ?? ''}
@@ -631,7 +631,7 @@ export function PciCalculator() {
                                 <FormItem>
                                     <FormLabel>PCS (kcal/kg)</FormLabel>
                                     <FormControl>
-                                    <Input type="number" step="any" placeholder="ex: 7500" {...field} value={field.value ?? ''} className="rounded-xl h-11 px-4 text-sm" />
+                                    <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className="rounded-xl h-11 px-4 text-sm" />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -644,7 +644,7 @@ export function PciCalculator() {
                                 <FormItem>
                                     <FormLabel>% H2O</FormLabel>
                                     <FormControl>
-                                    <Input type="number" step="any" placeholder="ex: 5.5" {...field} value={field.value ?? ''} className="rounded-xl h-11 px-4 text-sm" />
+                                    <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className="rounded-xl h-11 px-4 text-sm" />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -655,9 +655,9 @@ export function PciCalculator() {
                                 name="chlore"
                                 render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>% Cl- (facultatif)</FormLabel>
+                                    <FormLabel>% Cl-</FormLabel>
                                     <FormControl>
-                                    <Input type="number" step="any" placeholder="ex: 0.8" {...field} value={field.value ?? ''} className="rounded-xl h-11 px-4 text-sm" />
+                                    <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className="rounded-xl h-11 px-4 text-sm" />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -668,9 +668,9 @@ export function PciCalculator() {
                                 name="cendres"
                                 render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>% Cendres (facultatif)</FormLabel>
+                                    <FormLabel>% Cendres</FormLabel>
                                     <FormControl>
-                                    <Input type="number" step="any" placeholder="ex: 12" {...field} value={field.value ?? ''} className="rounded-xl h-11 px-4 text-sm" />
+                                    <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className="rounded-xl h-11 px-4 text-sm" />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -681,9 +681,9 @@ export function PciCalculator() {
                                 name="densite"
                                 render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Densité (t/m³, facultatif)</FormLabel>
+                                    <FormLabel>Densité (t/m³)</FormLabel>
                                     <FormControl>
-                                    <Input type="number" step="any" placeholder="ex: 0.6" {...field} value={field.value ?? ''} className="rounded-xl h-11 px-4 text-sm"/>
+                                    <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className="rounded-xl h-11 px-4 text-sm"/>
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -702,7 +702,7 @@ export function PciCalculator() {
                                     <Input
                                         type="number"
                                         step="0.1"
-                                        placeholder="ex: 30"
+                                        placeholder=" "
                                         {...field}
                                         value={field.value ?? ''}
                                         className="rounded-xl h-11 px-4 text-sm"
