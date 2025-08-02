@@ -8,7 +8,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { format, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
-import { CalendarIcon, Fuel, PlusCircle, ClipboardList, FlaskConical, MessageSquareText } from 'lucide-react';
+import { CalendarIcon, Fuel, PlusCircle, ClipboardList, FlaskConical, MessageSquareText, Ruler } from 'lucide-react';
 import { collection, addDoc, Timestamp, doc, setDoc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
 
 import { cn } from "@/lib/utils";
@@ -72,6 +72,7 @@ const formSchema = z.object({
   chlore: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le chlore ne peut être négatif." }).optional().or(z.literal('')),
   cendres: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le % de cendres ne peut être négatif." }).optional().or(z.literal('')),
   densite: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).positive({ message: "La densité doit être un nombre positif." }).optional().or(z.literal('')),
+  granulometrie: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).positive({ message: "La granulométrie doit être un nombre positif." }).optional().or(z.literal('')),
   remarques: z.string().optional(),
 });
 
@@ -176,6 +177,7 @@ export function PciCalculator() {
       chlore: '',
       cendres: '',
       densite: '',
+      granulometrie: '',
       remarques: "",
     },
   });
@@ -227,6 +229,7 @@ export function PciCalculator() {
         chlore: '' as any,
         cendres: '' as any,
         densite: '' as any,
+        granulometrie: '' as any,
         remarques: "",
     });
     setPciResult(null);
@@ -393,6 +396,7 @@ export function PciCalculator() {
         chlore: Number(values.chlore) || 0,
         cendres: Number(values.cendres) || 0,
         densite: Number(values.densite) || 0,
+        granulometrie: Number(values.granulometrie) || 0,
         remarques: values.remarques || "",
         createdAt: new Date(),
       };
@@ -505,14 +509,15 @@ export function PciCalculator() {
                                             </SelectTrigger>
                                             </FormControl>
                                             <SelectContent side="bottom" avoidCollisions={false} className="z-50">
-                                                {sortedFuelTypes.map((fuelType) => (
-                                                    <SelectItem key={fuelType.name} value={fuelType.name}>
-                                                        <div className="flex items-center gap-2">
-                                                            <span>{fuelType.icon}</span>
-                                                            <span>{fuelType.name}</span>
-                                                        </div>
-                                                    </SelectItem>
-                                                ))}
+                                                <SelectItem value="Bois">🌲 Bois</SelectItem>
+                                                <SelectItem value="Boues">💧 Boues</SelectItem>
+                                                <SelectItem value="Caoutchouc">🧽 Caoutchouc</SelectItem>
+                                                <SelectItem value="Charbon">🪨 Charbon</SelectItem>
+                                                <SelectItem value="CSR">♻️ CSR</SelectItem>
+                                                <SelectItem value="DMB">🧱 DMB</SelectItem>
+                                                <SelectItem value="Grignons">🫒 Grignons</SelectItem>
+                                                <SelectItem value="Pneus">🚛 Pneus</SelectItem>
+                                                <SelectItem value="Plastiques">🧴 Plastiques</SelectItem>
                                                 <Separator className="my-1" />
                                                 <div
                                                     onSelect={(e) => e.preventDefault()}
@@ -688,7 +693,30 @@ export function PciCalculator() {
                                 </FormItem>
                                 )}
                             />
-                            <div className="p-4 rounded-lg bg-green-50 border border-green-200 text-center">
+                             <FormField
+                                control={form.control}
+                                name="granulometrie"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="flex items-center gap-1">
+                                      <Ruler className="w-4 h-4 text-muted-foreground" />
+                                      Granulométrie (mm)
+                                    </FormLabel>
+                                    <FormControl>
+                                    <Input
+                                        type="number"
+                                        step="0.1"
+                                        placeholder="ex: 30"
+                                        {...field}
+                                        value={field.value ?? ''}
+                                        className="rounded-xl h-11 px-4 text-sm"
+                                    />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                            <div className="p-4 rounded-lg bg-green-50 border border-green-200 text-center md:col-span-2">
                                  <p className="text-sm font-medium text-green-700 mb-1">PCI sur Brut (kcal/kg)</p>
                                 <p className={cn(
                                     "text-2xl font-bold tracking-tight transition-opacity duration-300",

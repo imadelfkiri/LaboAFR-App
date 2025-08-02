@@ -63,6 +63,7 @@ interface Result {
     cendres: number;
     chlore: number;
     densite: number;
+    granulometrie: number;
     pci_brut: number;
     remarques: string;
 }
@@ -75,6 +76,7 @@ interface AggregatedResult {
     cendres: number;
     chlore: number;
     densite: number;
+    granulometrie: number;
     count: number;
 }
 
@@ -181,7 +183,7 @@ export function ResultsTable() {
         const headers = [
             "Date Arrivage", "Type Combustible", "Fournisseur", 
             "PCS", "PCI sur Brut", "% H2O", "% Cl-", "% Cendres", 
-            "Densité", "Remarques"
+            "Densité", "Granulométrie", "Remarques"
         ];
         const rows = data.map(result => [
             formatDate(result.date_arrivage),
@@ -193,6 +195,7 @@ export function ResultsTable() {
             formatNumber(result.chlore, 2),
             formatNumber(result.cendres, 1),
             formatNumber(result.densite, 2),
+            formatNumber(result.granulometrie, 1),
             `"${result.remarques || ''}"`
         ].join(';'));
         return [headers.join(';'), ...rows].join('\n');
@@ -201,7 +204,7 @@ export function ResultsTable() {
     const convertAggregatedToCSV = (data: AggregatedResult[]) => {
         const headers = [
             "Type Combustible", "Analyses", "PCS Moyen", "PCI Moyen", 
-            "% H2O Moyen", "% Cl- Moyen", "% Cendres Moyen", "Densité Moyenne"
+            "% H2O Moyen", "% Cl- Moyen", "% Cendres Moyen", "Densité Moyenne", "Granulométrie Moyenne"
         ];
         const rows = data.map(result => [
             result.type_combustible,
@@ -212,6 +215,7 @@ export function ResultsTable() {
             formatNumber(result.chlore, 2),
             formatNumber(result.cendres, 1),
             formatNumber(result.densite, 2),
+            formatNumber(result.granulometrie, 1),
         ].join(';'));
         return [headers.join(';'), ...rows].join('\n');
     };
@@ -284,7 +288,7 @@ export function ResultsTable() {
             if (!aggregation[result.type_combustible]) {
                 aggregation[result.type_combustible] = {
                     type_combustible: result.type_combustible,
-                    pcs: 0, pci_brut: 0, h2o: 0, cendres: 0, chlore: 0, densite: 0, count: 0
+                    pcs: 0, pci_brut: 0, h2o: 0, cendres: 0, chlore: 0, densite: 0, granulometrie: 0, count: 0
                 };
             }
             const current = aggregation[result.type_combustible];
@@ -294,6 +298,7 @@ export function ResultsTable() {
             current.cendres += result.cendres;
             current.chlore += result.chlore;
             current.densite += result.densite;
+            current.granulometrie += result.granulometrie;
             current.count += 1;
         });
 
@@ -305,6 +310,7 @@ export function ResultsTable() {
             cendres: agg.cendres / agg.count,
             chlore: agg.chlore / agg.count,
             densite: agg.densite / agg.count,
+            granulometrie: agg.granulometrie / agg.count,
         }));
     };
 
@@ -435,6 +441,7 @@ export function ResultsTable() {
                                 <TableHead className="text-right px-4">% Cl-</TableHead>
                                 <TableHead className="text-right px-4">% Cendres</TableHead>
                                 <TableHead className="text-right px-4">Densité</TableHead>
+                                <TableHead className="text-right px-4">Granulométrie</TableHead>
                                 <TableHead className="px-4">Remarques</TableHead>
                                 <TableHead className="w-[50px] text-right px-4">Action</TableHead>
                             </TableRow>
@@ -457,6 +464,7 @@ export function ResultsTable() {
                                         <TableCell className="text-right px-4">{formatNumber(result.chlore, 2)}</TableCell>
                                         <TableCell className="text-right px-4">{formatNumber(result.cendres, 1)}</TableCell>
                                         <TableCell className="text-right px-4">{formatNumber(result.densite, 2)}</TableCell>
+                                        <TableCell className="text-right px-4">{formatNumber(result.granulometrie, 1)}</TableCell>
                                         <TableCell className="max-w-[150px] truncate text-muted-foreground px-4">{result.remarques}</TableCell>
                                         <TableCell className="text-right px-4">
                                             <AlertDialogTrigger asChild>
@@ -469,7 +477,7 @@ export function ResultsTable() {
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
+                                    <TableCell colSpan={12} className="h-24 text-center text-muted-foreground">
                                         Aucun résultat trouvé pour les filtres sélectionnés.
                                     </TableCell>
                                 </TableRow>

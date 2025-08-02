@@ -63,7 +63,7 @@ export function StatisticsDashboard() {
 
   const summaryStats = useMemo(() => {
     if (results.length === 0) {
-      return { pciMoyen: 0, h2oMoyen: 0, chloreMoyen: 0 };
+      return { pciMoyen: 0, h2oMoyen: 0, chloreMoyen: 0, granulometrieMoyenne: 0 };
     }
     const totalPci = results.reduce((acc, curr) => acc + curr.pci_brut, 0);
     const totalH2o = results.reduce((acc, curr) => acc + curr.h2o, 0);
