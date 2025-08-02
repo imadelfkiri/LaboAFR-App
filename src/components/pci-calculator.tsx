@@ -386,10 +386,10 @@ export function PciCalculator() {
       setRecentFuelTypes(newRecentFuels);
       sortFuelTypes(allFuelTypes, newRecentFuels);
 
-      const newRecentFours = getRecentItems(RECENT_FOURNISSEURS_KEY);
-      setRecentFournisseurs(newRecentFours);
+      const recentFours = getRecentItems(RECENT_FOURNISSEURS_KEY);
+      setRecentFournisseurs(recentFours);
       if (filteredFournisseurs.length > 0) {
-        sortFournisseurs(filteredFournisseurs, newRecentFours);
+        sortFournisseurs(filteredFournisseurs, recentFours);
       }
       
       const dataToSave = {
@@ -797,3 +797,5 @@ export function PciCalculator() {
     </div>
   );
 }
+
+    
