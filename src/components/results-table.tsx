@@ -505,9 +505,15 @@ export function ResultsTable() {
                                                 <TableCell className="px-4">{result.fournisseur}</TableCell>
                                                 <TableCell className="text-right px-4">{formatNumber(result.pcs, 0)}</TableCell>
                                                 <TableCell className={cn("font-bold text-right px-4", getPciColorClass(result.pci_brut))}>{formatNumber(result.pci_brut, 0)}</TableCell>
-                                                <TableCell className={cn("text-right px-4", getCustomColor(result.h2o, result.type_combustible, result.fournisseur, 'h2o'))}>{formatNumber(result.h2o, 1)}</TableCell>
-                                                <TableCell className={cn("text-right px-4", getCustomColor(result.chlore, result.type_combustible, result.fournisseur, 'chlore'))}>{formatNumber(result.chlore, 2)}</TableCell>
-                                                <TableCell className={cn("text-right px-4", getCustomColor(result.cendres, result.type_combustible, result.fournisseur, 'cendres'))}>{formatNumber(result.cendres, 1)}</TableCell>
+                                                <TableCell className={`text-right px-4 ${getCustomColor(result.h2o, result.type_combustible, result.fournisseur, "h2o")}`}>
+                                                  {formatNumber(result.h2o, 1)}
+                                                </TableCell>
+                                                <TableCell className={`text-right px-4 ${getCustomColor(result.chlore, result.type_combustible, result.fournisseur, "chlore")}`}>
+                                                  {formatNumber(result.chlore, 2)}
+                                                </TableCell>
+                                                <TableCell className={`text-right px-4 ${getCustomColor(result.cendres, result.type_combustible, result.fournisseur, "cendres")}`}>
+                                                  {formatNumber(result.cendres, 1)}
+                                                </TableCell>
                                                 <TableCell className="text-right px-4">{formatNumber(result.densite, 2)}</TableCell>
                                                 <TableCell className="text-right px-4">{formatNumber(result.granulometrie, 1)}</TableCell>
                                                 <TableCell className="max-w-[150px] truncate text-muted-foreground px-4">
@@ -568,6 +574,8 @@ export function ResultsTable() {
 }
 
     
+    
+
     
 
     
