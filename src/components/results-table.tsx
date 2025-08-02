@@ -81,23 +81,24 @@ interface AggregatedResult {
     count: number;
 }
 
-const specMap: Record<string, { h2o?: number, chlore?: number, cendres?: number }> = {
-  "CSR|Polluclean": { h2o: 16.5, chlore: 1.0, cendres: 15 },
-  "CSR|SMBRM": { h2o: 14, chlore: 0.6, cendres: 1 },
-  "DMB|MTR": { h2o: 15, chlore: 0.6, cendres: 15 },
-  "Grignons d'olives|Ain Seddeine": { h2o: 20, chlore: 0.5, cendres: 5 },
-  "Plastiques|ValRecete": { h2o: 15, chlore: 1.0, cendres: 15 },
-  "Plastiques|Bichara": { h2o: 10, chlore: 1.0, cendres: 15 },
-  "Plastiques|Valtradec": { h2o: 10, chlore: 1.0, cendres: 15 },
-  "Plastiques|Ssardi": { h2o: 18, chlore: 1.0, cendres: 15 },
-  "Pneus|RJL": { h2o: 1.0, chlore: 0.3, cendres: 1 },
-  "Pneus|Aliapur": { h2o: 1.0, chlore: 0.3, cendres: 1 },
+const specMap: Record<string, { pci_min?: number, h2o?: number, chlore?: number, cendres?: number }> = {
+  "CSR|Polluclean": { h2o: 16.5, chlore: 1.0, cendres: 15, pci_min: 4000 },
+  "CSR|SMBRM": { h2o: 14, chlore: 0.6, cendres: 1, pci_min: 5000 },
+  "DMB|MTR": { h2o: 15, chlore: 0.6, cendres: 15, pci_min: 4300 },
+  "Grignons|Ain Seddeine": { h2o: 20, chlore: 0.5, cendres: 5, pci_min: 3700 },
+  "Plastiques|ValRecete": { h2o: 15, chlore: 1.0, cendres: 15, pci_min: 4300 },
+  "Plastiques|Bichara": { h2o: 10, chlore: 1.0, cendres: 15, pci_min: 4200 },
+  "Plastiques|Valtradec": { h2o: 10, chlore: 1.0, cendres: 15, pci_min: 6000 },
+  "Plastiques|Ssardi": { h2o: 18, chlore: 1.0, cendres: 15, pci_min: 4200 },
+  "Pneus|RJL": { h2o: 1.0, chlore: 0.3, cendres: 1, pci_min: 6800 },
+  "Pneus|Aliapur": { h2o: 1.0, chlore: 0.3, cendres: 1, pci_min: 6800 },
 };
 
-const getPciColorClass = (value: number) => {
-  if (value < 4500) return "text-red-600";
-  if (value < 5500) return "text-orange-500";
-  return "text-green-600";
+const getPciColorClass = (value: number, combustible: string, fournisseur: string) => {
+  const key = `${combustible}|${fournisseur}`;
+  const spec = specMap[key];
+  if (!spec || spec.pci_min === undefined) return "text-orange-500"; // Default color if no spec
+  return value < spec.pci_min ? "text-red-600 font-bold" : "text-green-600";
 };
 
 const getCustomColor = (
@@ -504,7 +505,7 @@ export function ResultsTable() {
                                                 </TableCell>
                                                 <TableCell className="px-4">{result.fournisseur}</TableCell>
                                                 <TableCell className="text-right px-4">{formatNumber(result.pcs, 0)}</TableCell>
-                                                <TableCell className={cn("font-bold text-right px-4", getPciColorClass(result.pci_brut))}>{formatNumber(result.pci_brut, 0)}</TableCell>
+                                                <TableCell className={cn("font-bold text-right px-4", getPciColorClass(result.pci_brut, result.type_combustible, result.fournisseur))}>{formatNumber(result.pci_brut, 0)}</TableCell>
                                                 <TableCell className={`text-right px-4 ${getCustomColor(result.h2o, result.type_combustible, result.fournisseur, "h2o")}`}>
                                                   {formatNumber(result.h2o, 1)}
                                                 </TableCell>
@@ -572,10 +573,3 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
-
-    
-    
-
-    
-
-    
