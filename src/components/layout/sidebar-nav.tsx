@@ -6,7 +6,7 @@ import { SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui
 import { Flame, Database } from 'lucide-react';
 
 const links = [
-  { href: '/', label: 'Calculateur PCI', icon: Flame },
+  { href: '/calculateur', label: 'Calculateur PCI', icon: Flame },
   { href: '/resultats', label: 'Résultats', icon: Database },
 ];
 
