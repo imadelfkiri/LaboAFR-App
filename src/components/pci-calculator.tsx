@@ -211,8 +211,8 @@ export function PciCalculator() {
   useEffect(() => {
       if(filteredFournisseurs.length > 0) {
         const recentFours = getRecentItems(RECENT_FOURNISSEURS_KEY);
-        setRecentFournisseurs(newRecentFours);
-        sortFournisseurs(filteredFournisseurs, newRecentFours);
+        setRecentFournisseurs(recentFours);
+        sortFournisseurs(filteredFournisseurs, recentFours);
       } else {
         setSortedFournisseurs([]);
       }
@@ -786,3 +786,5 @@ export function PciCalculator() {
     </div>
   );
 }
+
+    
