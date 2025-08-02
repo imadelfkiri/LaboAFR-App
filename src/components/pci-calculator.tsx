@@ -620,7 +620,7 @@ export function PciCalculator() {
                     <CardHeader>
                        <CardTitle>
                             <div className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                                <FlaskConical className="h-5 w-5" />
+                                <FlaskConical className="w-5 h-5 mr-2 text-green-600" />
                                 <span>Données Analytiques</span>
                             </div>
                        </CardTitle>
@@ -796,5 +796,3 @@ export function PciCalculator() {
     </div>
   );
 }
-
-    
