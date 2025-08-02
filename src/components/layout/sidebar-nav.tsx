@@ -3,11 +3,12 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
-import { Flame, Database } from 'lucide-react';
+import { Flame, Database, BarChart3 } from 'lucide-react';
 
 const links = [
   { href: '/calculateur', label: 'Calculateur PCI', icon: Flame },
   { href: '/resultats', label: 'Résultats', icon: Database },
+  { href: '/statistiques', label: 'Statistiques', icon: BarChart3 },
 ];
 
 export function SidebarNav() {
