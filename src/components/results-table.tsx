@@ -77,6 +77,7 @@ interface AggregatedResult {
     count: number;
 }
 
+const fuelTypeMap = new Map(FUEL_TYPES.map(fuel => [fuel.name, fuel.icon]));
 
 export function ResultsTable() {
     const [results, setResults] = useState<Result[]>([]);
@@ -322,7 +323,7 @@ export function ResultsTable() {
                                     <SelectValue placeholder="Filtrer par type..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {FUEL_TYPES.map(fuel => <SelectItem key={fuel} value={fuel}>{fuel}</SelectItem>)}
+                                    {FUEL_TYPES.map(fuel => <SelectItem key={fuel.name} value={fuel.name}>{fuel.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                             <Select value={fournisseurFilter} onValueChange={setFournisseurFilter}>
@@ -430,7 +431,12 @@ export function ResultsTable() {
                                 filteredResults.map((result) => (
                                     <TableRow key={result.id}>
                                         <TableCell className="font-medium px-4">{formatDate(result.date_arrivage)}</TableCell>
-                                        <TableCell className="px-4">{result.type_combustible}</TableCell>
+                                        <TableCell className="px-4">
+                                            <div className="flex items-center gap-2">
+                                                <span>{fuelTypeMap.get(result.type_combustible)}</span>
+                                                <span>{result.type_combustible}</span>
+                                            </div>
+                                        </TableCell>
                                         <TableCell className="px-4">{result.fournisseur}</TableCell>
                                         <TableCell className="text-right px-4">{formatNumber(result.pcs, 0)}</TableCell>
                                         <TableCell className="font-bold text-right text-primary px-4">{formatNumber(result.pci_brut, 0)}</TableCell>
@@ -475,5 +481,3 @@ export function ResultsTable() {
         </AlertDialog>
     );
 }
-
-    
