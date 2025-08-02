@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, startOfDay, endOfDay, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -79,6 +80,27 @@ interface AggregatedResult {
     granulometrie: number;
     count: number;
 }
+
+const getPciColorClass = (value: number) => {
+  if (value < 4500) return "text-red-600";
+  if (value < 5500) return "text-orange-500";
+  return "text-green-600";
+};
+
+const getColorByThreshold = (value: number, thresholds: number[]) => {
+  if (value < thresholds[0]) return "text-green-600";
+  if (value < thresholds[1]) return "text-yellow-600";
+  if (value < thresholds[2]) return "text-orange-500";
+  return "text-red-600";
+};
+
+const calculateAverage = (results: Result[], field: keyof Result): number | null => {
+  const validValues = results.map(r => r[field]).filter(v => typeof v === 'number') as number[];
+  if (!validValues.length) return null;
+  const sum = validValues.reduce((acc, val) => acc + val, 0);
+  return sum / validValues.length;
+};
+
 
 export function ResultsTable() {
     const [results, setResults] = useState<Result[]>([]);
@@ -331,174 +353,195 @@ export function ResultsTable() {
     }
 
     return (
-        <AlertDialog onOpenChange={(open) => !open && setResultToDelete(null)}>
-            <div className="flex flex-col gap-4 p-4 lg:p-6">
-                <div className='grid grid-cols-1 md:grid-cols-3 gap-4 items-start'>
-                    <div className="md:col-span-2">
-                        <label className="text-sm font-medium text-muted-foreground mb-2 block">Filtres</label>
-                        <div className="flex flex-wrap items-center gap-2">
-                            <Select value={typeFilter} onValueChange={setTypeFilter}>
-                                <SelectTrigger className="w-full sm:w-auto flex-1 min-w-[180px]">
-                                    <SelectValue placeholder="Filtrer par type..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {fuelTypes.map(fuel => <SelectItem key={fuel.name} value={fuel.name}>{fuel.name}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                            <Select value={fournisseurFilter} onValueChange={setFournisseurFilter}>
-                                <SelectTrigger className="w-full sm:w-auto flex-1 min-w-[180px]">
-                                    <SelectValue placeholder="Filtrer par fournisseur..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {fournisseurs.map(supplier => <SelectItem key={supplier} value={supplier}>{supplier}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        id="date"
-                                        variant={"outline"}
-                                        className={cn(
-                                            "w-full sm:w-auto flex-1 min-w-[240px] justify-start text-left font-normal",
-                                            !dateFilter && "text-muted-foreground"
-                                        )}
-                                        >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {dateFilter?.from ? (
-                                            dateFilter.to ? (
-                                            <>
-                                                {format(dateFilter.from, "d MMM y", { locale: fr })} -{" "}
-                                                {format(dateFilter.to, "d MMM y", { locale: fr })}
-                                            </>
+        <TooltipProvider>
+            <AlertDialog onOpenChange={(open) => !open && setResultToDelete(null)}>
+                <div className="flex flex-col gap-4 p-4 lg:p-6">
+                    <div className='grid grid-cols-1 md:grid-cols-3 gap-4 items-start'>
+                        <div className="md:col-span-2">
+                            <label className="text-sm font-medium text-muted-foreground mb-2 block">Filtres</label>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                                    <SelectTrigger className="w-full sm:w-auto flex-1 min-w-[180px]">
+                                        <SelectValue placeholder="Filtrer par type..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {fuelTypes.map(fuel => <SelectItem key={fuel.name} value={fuel.name}>{fuel.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                <Select value={fournisseurFilter} onValueChange={setFournisseurFilter}>
+                                    <SelectTrigger className="w-full sm:w-auto flex-1 min-w-[180px]">
+                                        <SelectValue placeholder="Filtrer par fournisseur..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {fournisseurs.map(supplier => <SelectItem key={supplier} value={supplier}>{supplier}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            id="date"
+                                            variant={"outline"}
+                                            className={cn(
+                                                "w-full sm:w-auto flex-1 min-w-[240px] justify-start text-left font-normal",
+                                                !dateFilter && "text-muted-foreground"
+                                            )}
+                                            >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {dateFilter?.from ? (
+                                                dateFilter.to ? (
+                                                <>
+                                                    {format(dateFilter.from, "d MMM y", { locale: fr })} -{" "}
+                                                    {format(dateFilter.to, "d MMM y", { locale: fr })}
+                                                </>
+                                                ) : (
+                                                    format(dateFilter.from, "d MMM y", { locale: fr })
+                                                )
                                             ) : (
-                                                format(dateFilter.from, "d MMM y", { locale: fr })
-                                            )
-                                        ) : (
-                                            <span>Filtrer par date</span>
-                                        )}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar
-                                        initialFocus
-                                        mode="range"
-                                        defaultMonth={dateFilter?.from}
-                                        selected={dateFilter}
-                                        onSelect={setDateFilter}
-                                        numberOfMonths={2}
-                                        locale={fr}
-                                    />
-                                </PopoverContent>
-                            </Popover>
-                            <Button onClick={resetFilters} variant="ghost" className="text-muted-foreground hover:text-foreground h-10 px-3">
-                                <XCircle className="mr-2 h-4 w-4"/>
-                                Réinitialiser
-                            </Button>
+                                                <span>Filtrer par date</span>
+                                            )}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar
+                                            initialFocus
+                                            mode="range"
+                                            defaultMonth={dateFilter?.from}
+                                            selected={dateFilter}
+                                            onSelect={setDateFilter}
+                                            numberOfMonths={2}
+                                            locale={fr}
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                                <Button onClick={resetFilters} variant="ghost" className="text-muted-foreground hover:text-foreground h-10 px-3">
+                                    <XCircle className="mr-2 h-4 w-4"/>
+                                    Réinitialiser
+                                </Button>
+                            </div>
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium text-muted-foreground mb-2 block">Téléchargement</label>
+                            <div className='flex flex-wrap gap-2'>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" className="w-full sm:w-auto">
+                                            <Download className="mr-2 h-4 w-4"/>
+                                            Télécharger un Rapport
+                                            <ChevronDown className="ml-2 h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => handleReportDownload('daily')}>
+                                            Rapport Journalier
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleReportDownload('weekly')}>
+                                            Rapport Hebdomadaire
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleReportDownload('monthly')}>
+                                            Rapport Mensuel
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem onClick={handleFilteredExport}>
+                                            <FileOutput className="mr-2 h-4 w-4"/>
+                                            Exporter la vue filtrée
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
                         </div>
                     </div>
-                     <div>
-                        <label className="text-sm font-medium text-muted-foreground mb-2 block">Téléchargement</label>
-                        <div className='flex flex-wrap gap-2'>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" className="w-full sm:w-auto">
-                                        <Download className="mr-2 h-4 w-4"/>
-                                        Télécharger un Rapport
-                                        <ChevronDown className="ml-2 h-4 w-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => handleReportDownload('daily')}>
-                                        Rapport Journalier
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleReportDownload('weekly')}>
-                                        Rapport Hebdomadaire
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleReportDownload('monthly')}>
-                                        Rapport Mensuel
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={handleFilteredExport}>
-                                        <FileOutput className="mr-2 h-4 w-4"/>
-                                        Exporter la vue filtrée
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
-                    </div>
-                </div>
 
-                <div className="rounded-lg border overflow-hidden">
-                    <Table>
-                        <TableHeader>
-                            <TableRow className="bg-muted/50 hover:bg-muted/50">
-                                <TableHead className="w-[120px] px-4">Date Arrivage</TableHead>
-                                <TableHead className="px-4">Type Combustible</TableHead>
-                                <TableHead className="px-4">Fournisseur</TableHead>
-                                <TableHead className="text-right px-4">PCS</TableHead>
-                                <TableHead className="text-right text-primary font-bold px-4">PCI sur Brut</TableHead>
-                                <TableHead className="text-right px-4">% H2O</TableHead>
-                                <TableHead className="text-right px-4">% Cl-</TableHead>
-                                <TableHead className="text-right px-4">% Cendres</TableHead>
-                                <TableHead className="text-right px-4">Densité</TableHead>
-                                <TableHead className="text-right px-4">Granulométrie</TableHead>
-                                <TableHead className="px-4">Remarques</TableHead>
-                                <TableHead className="w-[50px] text-right px-4">Action</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {filteredResults.length > 0 ? (
-                                filteredResults.map((result) => (
-                                    <TableRow key={result.id}>
-                                        <TableCell className="font-medium px-4">{formatDate(result.date_arrivage)}</TableCell>
-                                        <TableCell className="px-4">
-                                            <div className="flex items-center gap-2">
-                                                <span>{fuelTypeMap.get(result.type_combustible) ?? '❓'}</span>
-                                                <span>{result.type_combustible}</span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="px-4">{result.fournisseur}</TableCell>
-                                        <TableCell className="text-right px-4">{formatNumber(result.pcs, 0)}</TableCell>
-                                        <TableCell className="font-bold text-right text-primary px-4">{formatNumber(result.pci_brut, 0)}</TableCell>
-                                        <TableCell className="text-right px-4">{formatNumber(result.h2o, 1)}</TableCell>
-                                        <TableCell className="text-right px-4">{formatNumber(result.chlore, 2)}</TableCell>
-                                        <TableCell className="text-right px-4">{formatNumber(result.cendres, 1)}</TableCell>
-                                        <TableCell className="text-right px-4">{formatNumber(result.densite, 2)}</TableCell>
-                                        <TableCell className="text-right px-4">{formatNumber(result.granulometrie, 1)}</TableCell>
-                                        <TableCell className="max-w-[150px] truncate text-muted-foreground px-4">{result.remarques}</TableCell>
-                                        <TableCell className="text-right px-4">
-                                            <AlertDialogTrigger asChild>
-                                                <Button variant="ghost" size="icon" onClick={() => setResultToDelete(result.id)}>
-                                                    <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive"/>
-                                                </Button>
-                                            </AlertDialogTrigger>
+                    <div className="rounded-lg border overflow-hidden">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="bg-muted/50 hover:bg-muted/50">
+                                    <TableHead className="w-[120px] px-4">Date Arrivage</TableHead>
+                                    <TableHead className="px-4">Type Combustible</TableHead>
+                                    <TableHead className="px-4">Fournisseur</TableHead>
+                                    <TableHead className="text-right px-4">PCS</TableHead>
+                                    <TableHead className="text-right text-primary font-bold px-4">PCI sur Brut</TableHead>
+                                    <TableHead className="text-right px-4">% H2O</TableHead>
+                                    <TableHead className="text-right px-4">% Cl-</TableHead>
+                                    <TableHead className="text-right px-4">% Cendres</TableHead>
+                                    <TableHead className="text-right px-4">Densité</TableHead>
+                                    <TableHead className="text-right px-4">Granulométrie</TableHead>
+                                    <TableHead className="px-4">Remarques</TableHead>
+                                    <TableHead className="w-[50px] text-right px-4">Action</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {filteredResults.length > 0 ? (
+                                    <>
+                                        {filteredResults.map((result) => (
+                                            <TableRow key={result.id}>
+                                                <TableCell className="font-medium px-4">{formatDate(result.date_arrivage)}</TableCell>
+                                                <TableCell className="px-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <span>{fuelTypeMap.get(result.type_combustible) ?? '❓'}</span>
+                                                        <span>{result.type_combustible}</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="px-4">{result.fournisseur}</TableCell>
+                                                <TableCell className="text-right px-4">{formatNumber(result.pcs, 0)}</TableCell>
+                                                <TableCell className={cn("font-bold text-right px-4", getPciColorClass(result.pci_brut))}>{formatNumber(result.pci_brut, 0)}</TableCell>
+                                                <TableCell className={cn("text-right px-4", getColorByThreshold(result.h2o ?? 0, [10, 15, 20]))}>{formatNumber(result.h2o, 1)}</TableCell>
+                                                <TableCell className={cn("text-right px-4", getColorByThreshold(result.chlore ?? 0, [0.3, 0.6, 1]))}>{formatNumber(result.chlore, 2)}</TableCell>
+                                                <TableCell className={cn("text-right px-4", getColorByThreshold(result.cendres ?? 0, [5, 10, 15]))}>{formatNumber(result.cendres, 1)}</TableCell>
+                                                <TableCell className="text-right px-4">{formatNumber(result.densite, 2)}</TableCell>
+                                                <TableCell className="text-right px-4">{formatNumber(result.granulometrie, 1)}</TableCell>
+                                                <TableCell className="max-w-[150px] truncate text-muted-foreground px-4">
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <span>{result.remarques}</span>
+                                                        </TooltipTrigger>
+                                                        {result.remarques && <TooltipContent>{result.remarques}</TooltipContent>}
+                                                    </Tooltip>
+                                                </TableCell>
+                                                <TableCell className="text-right px-4">
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button variant="ghost" size="icon" onClick={() => setResultToDelete(result.id)}>
+                                                            <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive"/>
+                                                        </Button>
+                                                    </AlertDialogTrigger>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                        <TableRow className="bg-muted/40 font-semibold">
+                                            <TableCell colSpan={4} className="px-4">Moyenne de la sélection</TableCell>
+                                            <TableCell className="text-right text-primary px-4">{formatNumber(calculateAverage(filteredResults, 'pci_brut'), 0)}</TableCell>
+                                            <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'h2o'), 1)}</TableCell>
+                                            <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'chlore'), 2)}</TableCell>
+                                            <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'cendres'), 1)}</TableCell>
+                                            <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'densite'), 2)}</TableCell>
+                                            <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'granulometrie'), 1)}</TableCell>
+                                            <TableCell colSpan={2} />
+                                        </TableRow>
+                                    </>
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={12} className="h-24 text-center text-muted-foreground">
+                                            Aucun résultat trouvé pour les filtres sélectionnés.
                                         </TableCell>
                                     </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell colSpan={12} className="h-24 text-center text-muted-foreground">
-                                        Aucun résultat trouvé pour les filtres sélectionnés.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                        <AlertDialogTitle>Êtes-vous absolument sûr ?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Cette action est irréversible. Le résultat sera définitivement supprimé
+                            de la base de données.
+                        </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                        <AlertDialogCancel>Annuler</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Supprimer</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
                 </div>
-                 <AlertDialogContent>
-                    <AlertDialogHeader>
-                    <AlertDialogTitle>Êtes-vous absolument sûr ?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        Cette action est irréversible. Le résultat sera définitivement supprimé
-                        de la base de données.
-                    </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                    <AlertDialogCancel>Annuler</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Supprimer</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </div>
-        </AlertDialog>
+            </AlertDialog>
+        </TooltipProvider>
     );
 }
