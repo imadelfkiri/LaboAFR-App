@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format, startOfDay, endOfDay, subDays } from "date-fns";
+import { format, startOfDay, endOfDay, subDays, isValid, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
   Select,
@@ -128,6 +128,26 @@ const calculateAverage = (results: Result[], field: keyof Result): number | null
   return sum / validValues.length;
 };
 
+function formatDate(date: { seconds: number; nanoseconds: number } | string | Date): string {
+  if (!date) return "Date inconnue";
+  
+  let parsedDate: Date;
+
+  if (typeof date === "string") {
+    parsedDate = parseISO(date);
+  } else if (typeof (date as any).seconds === 'number') {
+    parsedDate = new Date((date as { seconds: number }).seconds * 1000);
+  } else {
+    parsedDate = new Date(date);
+  }
+  
+  if (!isValid(parsedDate)) {
+    return "Date inconnue";
+  }
+  
+  return format(parsedDate, "dd/MM/yyyy");
+}
+
 
 export function ResultsTable() {
     const [results, setResults] = useState<Result[]>([]);
@@ -217,11 +237,6 @@ export function ResultsTable() {
             setResultToDelete(null);
         }
     };
-
-    const formatDate = (timestamp: { seconds: number, nanoseconds: number }) => {
-        if (!timestamp) return 'N/A';
-        return format(new Date(timestamp.seconds * 1000), "dd/MM/yyyy", { locale: fr });
-    }
     
     const formatNumber = (num: number | null | undefined, fractionDigits: number = 2) => {
         if (num === null || num === undefined || isNaN(num)) return 'N/A';
@@ -410,7 +425,7 @@ export function ResultsTable() {
         }
     };
 
-    const handleReportDownload = (period: 'daily' | 'weekly' | 'monthly', exportFormat: 'csv' | 'pdf') => {
+    const handleReportDownload = (period: 'daily' | 'weekly' | 'monthly', exportType: 'csv' | 'pdf') => {
         const now = new Date();
         let startDate: Date;
         let endDate: Date = endOfDay(now);
@@ -442,7 +457,7 @@ export function ResultsTable() {
         });
 
         if (period === 'daily') {
-             if (exportFormat === 'csv') {
+             if (exportType === 'csv') {
                 const csvString = convertIndividualToCSV(reportData);
                 downloadCSV(csvString, filename);
             } else {
@@ -450,7 +465,7 @@ export function ResultsTable() {
             }
         } else {
             const aggregatedData = aggregateResults(reportData);
-            if (exportFormat === 'csv') {
+            if (exportType === 'csv') {
                 const csvString = convertAggregatedToCSV(aggregatedData);
                 downloadCSV(csvString, filename);
             } else {
@@ -506,7 +521,7 @@ export function ResultsTable() {
         <TooltipProvider>
             <AlertDialog onOpenChange={(open) => !open && setResultToDelete(null)}>
                 <div className="flex flex-col gap-4 p-4 lg:p-6 h-full">
-                    <div className='flex flex-wrap items-center gap-2 bg-green-100/50 text-green-900 font-medium rounded-lg px-3 py-2 border border-green-200'>
+                    <div className='flex flex-wrap items-center gap-2 bg-green-100 text-green-800 font-semibold rounded-md px-3 py-2'>
                         <Select value={typeFilter} onValueChange={setTypeFilter}>
                             <SelectTrigger className="w-full sm:w-auto flex-1 min-w-[160px] bg-white border-green-300 hover:bg-green-50">
                                 <SelectValue placeholder="Type..." />
@@ -529,7 +544,7 @@ export function ResultsTable() {
                                     id="date"
                                     variant={"outline"}
                                     className={cn(
-                                        "w-full sm:w-auto flex-1 min-w-[210px] justify-start text-left font-medium bg-white border-green-300 hover:bg-green-50",
+                                        "w-full sm:w-auto flex-1 min-w-[210px] justify-start text-left font-medium bg-white border-green-300 hover:bg-green-50 text-gray-800",
                                         !dateFilter && "text-muted-foreground"
                                     )}
                                     >
@@ -566,9 +581,9 @@ export function ResultsTable() {
                         </Button>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="outline" className="w-full sm:w-auto bg-white hover:bg-green-50 border-green-300">
+                                <Button variant="outline" className="w-full sm:w-auto bg-white hover:bg-green-50 border-green-300 text-gray-800">
                                     <Download className="mr-2 h-4 w-4"/>
-                                    Rapport
+                                    <span>Rapport</span>
                                     <ChevronDown className="ml-2 h-4 w-4" />
                                 </Button>
                             </DropdownMenuTrigger>
@@ -714,5 +729,3 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
-
-    
