@@ -361,16 +361,18 @@ export function ResultsTable() {
           halign: 'center',
       };
       const alternateRowStyles = { fillColor: [250, 250, 250] }; // #FAFAFA
-      const tableStyles = { margin: { top: 45, right: margin, bottom: 25, left: margin } };
       
       const pdfNumber = (num: any, fractionDigits = 2) => {
         if (num === null || num === undefined || isNaN(num)) return 'N/A';
-        const factor = Math.pow(10, fractionDigits);
-        const roundedNum = Math.round(num * factor) / factor;
-        return roundedNum.toLocaleString('fr-FR', {
+        
+        const options: Intl.NumberFormatOptions = {
             minimumFractionDigits: fractionDigits,
             maximumFractionDigits: fractionDigits,
-        });
+            useGrouping: true,
+        };
+        
+        // Use a space as a thousands separator for French locale
+        return new Intl.NumberFormat('fr-FR', options).format(num);
       };
 
       let head: any[], body: any[];
@@ -417,8 +419,6 @@ export function ResultsTable() {
           }
       });
       
-      const finalY = (doc as any).lastAutoTable.finalY || 270;
-
       // Footer
       const pageHeight = doc.internal.pageSize.getHeight();
       doc.setFontSize(8);
@@ -435,7 +435,9 @@ export function ResultsTable() {
     
         let period = "Période personnalisée";
         if (isValid(fromDate)) {
-            period = `Du ${format(fromDate as Date, "dd/MM/yy")} au ${isValid(toDate) ? format(toDate as Date, "dd/MM/yy") : '...'}`;
+          period = `Du ${format(fromDate as Date, "dd/MM/yy")} au ${isValid(toDate) ? format(toDate as Date, "dd/MM/yy") : '...'}`;
+        } else {
+          period = "Toutes les dates"
         }
         
         const filename = `Export_Filtre_${isValid(new Date()) ? format(new Date(), "yyyy-MM-dd") : 'custom'}`;
@@ -463,7 +465,6 @@ export function ResultsTable() {
     
         if (period === 'daily') {
             startDate = startOfDay(subDays(now, 1));
-            endDate = endOfDay(now);
             filename = `Rapport_Journalier_${format(now, 'yyyy-MM-dd')}`;
             title = 'Rapport Journalier des Résultats AFR';
             periodStr = isValid(startDate) ? format(startDate, 'dd MMMM yyyy', { locale: fr }) : "Date inconnue";
@@ -759,6 +760,8 @@ export function ResultsTable() {
     );
 }
 
+
+    
 
     
 
