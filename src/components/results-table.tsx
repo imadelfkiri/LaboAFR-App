@@ -367,16 +367,15 @@ export function ResultsTable() {
         const options: Intl.NumberFormatOptions = {
           minimumFractionDigits: fractionDigits,
           maximumFractionDigits: fractionDigits,
-          useGrouping: true,
+          useGrouping: false, 
         };
-        // Replace non-breaking space with a regular apostrophe for jsPDF compatibility
-        return new Intl.NumberFormat('fr-FR', options).format(num).replace(/\s/g, "'");
+        return new Intl.NumberFormat('fr-FR', options).format(num);
       };
 
       let head: any[], body: any[];
 
       if (isAggregated) {
-          head = [["Combustible", "Analyses", "PCI Moyen", "% H₂O Moyen", "% Cl⁻ Moyen", "% Cendres Moyen"]];
+          head = [["Combustible", "Analyses", "PCI Moyen", "% H2O Moyen", "% Cl- Moyen", "% Cendres Moyen"]];
           body = (data as AggregatedResult[]).map(r => [
               r.type_combustible,
               r.count,
@@ -386,7 +385,7 @@ export function ResultsTable() {
               pdfNumber(r.cendres, 1)
           ]);
       } else {
-          head = [["Date", "Combustible", "Fournisseur", "PCI", "% H₂O", "% Cl⁻", "% Cendres"]];
+          head = [["Date", "Combustible", "Fournisseur", "PCI", "% H2O", "% Cl-", "% Cendres"]];
           body = (data as Result[]).map(r => [
               formatDate(r.date_arrivage),
               r.type_combustible,
@@ -759,4 +758,5 @@ export function ResultsTable() {
     );
 }
 
+    
     
