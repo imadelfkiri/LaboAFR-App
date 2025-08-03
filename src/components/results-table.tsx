@@ -248,9 +248,9 @@ export function ResultsTable() {
         const roundedNum = Math.round(num * factor) / factor;
     
         if (fractionDigits === 0) {
-            return roundedNum.toLocaleString('fr-FR');
+            return roundedNum.toLocaleString('fr-FR', {useGrouping: true});
         }
-        return roundedNum.toLocaleString('fr-FR', { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits });
+        return roundedNum.toLocaleString('fr-FR', { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits, useGrouping: false });
     }
 
     const convertIndividualToCSV = (data: Result[]) => {
@@ -261,9 +261,16 @@ export function ResultsTable() {
         ];
         const rows = data.map(result => {
             const alerts = [];
-            if (result.pci_brut < 4000) alerts.push("⚠️ PCI bas");
-            if (result.h2o > 15) alerts.push("⚠️ H2O élevé");
-            if (result.chlore > 1.2) alerts.push("⚠️ Cl- élevé");
+            const key = `${result.type_combustible}|${result.fournisseur}`;
+            const spec = specMap[key];
+            if (spec?.pci_min && result.pci_brut < spec.pci_min) alerts.push("⚠️ PCI bas (spec)");
+            else if(result.pci_brut < 4000) alerts.push("⚠️ PCI bas");
+
+            if (spec?.h2o && result.h2o > spec.h2o) alerts.push("⚠️ H2O élevé (spec)");
+            else if (result.h2o > 15) alerts.push("⚠️ H2O élevé");
+
+            if (spec?.chlore && result.chlore > spec.chlore) alerts.push("⚠️ Cl- élevé (spec)");
+            else if (result.chlore > 1.2) alerts.push("⚠️ Cl- élevé");
 
             return [
                 formatDate(result.date_arrivage),
@@ -341,10 +348,10 @@ export function ResultsTable() {
       doc.rect(0, 0, doc.internal.pageSize.width, 30, 'F');
 
       if (heidelbergLogo && typeof heidelbergLogo === 'string' && heidelbergLogo.startsWith('data:image/')) {
-        doc.addImage(heidelbergLogo, 'PNG', margin, 10, 30, 10);
+        try { doc.addImage(heidelbergLogo, 'PNG', margin, 10, 30, 10); } catch(e) { console.error("Error adding Heidelberg logo:", e); }
       }
       if (asmentLogo && typeof asmentLogo === 'string' && asmentLogo.startsWith('data:image/')) {
-        doc.addImage(asmentLogo, 'PNG', pageWidth - margin - 25, 10, 25, 10);
+        try { doc.addImage(asmentLogo, 'PNG', pageWidth - margin - 25, 10, 25, 10); } catch(e) { console.error("Error adding Asment logo:", e); }
       }
       
       doc.setFontSize(16);
@@ -366,7 +373,11 @@ export function ResultsTable() {
 
       const pdfNumber = (num: any, fractionDigits = 0) => {
           if (num === null || num === undefined || isNaN(num)) return 'N/A';
-          return num.toFixed(fractionDigits);
+          return num.toLocaleString('fr-FR', {
+            minimumFractionDigits: fractionDigits,
+            maximumFractionDigits: fractionDigits,
+            useGrouping: fractionDigits === 0,
+          });
       };
 
       let head: any[], body: any[];
@@ -413,12 +424,18 @@ export function ResultsTable() {
                   const result = data[hookData.row.index];
                   let fillColor: [number, number, number] | undefined = undefined;
 
-                  if (hookData.column.dataKey === '3') { // PCI
-                      if (result.pci_brut < 4000) fillColor = [255, 230, 204]; // orange
-                  } else if (hookData.column.dataKey === '4') { // H2O
-                      if (result.h2o > 15) fillColor = [255, 204, 204]; // red
-                  } else if (hookData.column.dataKey === '5') { // Cl-
-                      if (result.chlore > 1.2) fillColor = [255, 255, 204]; // yellow
+                  const key = `${result.type_combustible}|${result.fournisseur}`;
+                  const spec = specMap[key];
+
+                  if (hookData.column.index === 3) { // PCI
+                      if (spec?.pci_min && result.pci_brut < spec.pci_min) fillColor = [255, 230, 204];
+                      else if (result.pci_brut < 4000) fillColor = [255, 230, 204]; // orange
+                  } else if (hookData.column.index === 4) { // H2O
+                      if (spec?.h2o && result.h2o > spec.h2o) fillColor = [255, 204, 204];
+                      else if (result.h2o > 15) fillColor = [255, 204, 204]; // red
+                  } else if (hookData.column.index === 5) { // Cl-
+                      if (spec?.chlore && result.chlore > spec.chlore) fillColor = [255, 255, 204];
+                      else if (result.chlore > 1.2) fillColor = [255, 255, 204]; // yellow
                   }
                   
                   if (fillColor) {
