@@ -82,15 +82,15 @@ interface AggregatedResult {
 
 const specMap: Record<string, { pci_min?: number, h2o?: number, chlore?: number, cendres?: number }> = {
   "CSR|Polluclean": { h2o: 16.5, chlore: 1.0, cendres: 15, pci_min: 4000 },
-  "CSR|SMBRM": { h2o: 14, chlore: 0.6, cendres: 1, pci_min: 5000 },
+  "CSR|SMBRM": { h2o: 14, chlore: 0.6, cendres: 15, pci_min: 5000 },
   "DMB|MTR": { h2o: 15, chlore: 0.6, cendres: 15, pci_min: 4300 },
   "Grignons|Ain Seddeine": { h2o: 20, chlore: 0.5, cendres: 5, pci_min: 3700 },
   "Plastiques|ValRecete": { h2o: 15, chlore: 1.0, cendres: 15, pci_min: 4300 },
   "Plastiques|Bichara": { h2o: 10, chlore: 1.0, cendres: 15, pci_min: 4200 },
   "Plastiques|Valtradec": { h2o: 10, chlore: 1.0, cendres: 15, pci_min: 6000 },
   "Plastiques|Ssardi": { h2o: 18, chlore: 1.0, cendres: 15, pci_min: 4200 },
-  "Pneus|RJL": { h2o: 1.0, chlore: 0.3, cendres: 1, pci_min: 6800 },
-  "Pneus|Aliapur": { h2o: 1.0, chlore: 0.3, cendres: 1, pci_min: 6800 },
+  "Pneus|RJL": { h2o: 1.0, chlore: 0.3, cendres: 18, pci_min: 6800 },
+  "Pneus|Aliapur": { h2o: 1.0, chlore: 0.3, cendres: 18, pci_min: 6800 },
 };
 
 const getPciColorClass = (value: number, combustible: string, fournisseur: string) => {
@@ -258,20 +258,24 @@ export function ResultsTable() {
         const isFullReport = reportType === 'Mensuel' || reportType === 'Filtré';
         
         let title = `Rapport ${reportType} analyses des AF`;
+        let reportDate = new Date();
         if (reportType === 'Journalier') {
-            title = `Rapport Journalier du ${format(subDays(new Date(), 1), 'dd-MM-yyyy')} analyses des AF`
+            const yesterday = subDays(new Date(), 1);
+            title = `Rapport Journalier du ${format(yesterday, 'dd-MM-yyyy')} analyses des AF`
+            reportDate = yesterday;
         }
 
+
         const subtitle = "Suivi des combustibles solides non dangereux";
-        const filename = `${reportType}_AFR_Report_${format(new Date(), "yyyy-MM-dd")}.xlsx`;
+        const filename = `${reportType}_AFR_Report_${format(reportDate, "yyyy-MM-dd")}.xlsx`;
 
         const headersFull = ["Date", "Type Combustible", "Fournisseur", "PCS", "PCI", "% H2O", "% Cl-", "% Cendres", "Densité", "Granulométrie", "Remarques", "Alertes"];
         const headersSimple = ["Date", "Type Combustible", "Fournisseur", "PCI", "% H2O", "% Cl-", "Remarques", "Alertes"];
         const headers = isFullReport ? headersFull : headersSimple;
-
+        
         const ws_data: (string | number | { v: string|number; s: any })[][] = [
-            [title],
-            [subtitle],
+            [{ v: title, s: { font: { bold: true, sz: 14 }, alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } } }],
+            [{ v: subtitle, s: { font: { sz: 12 }, alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } } }],
             [],
             headers.map(h => ({ v: h, s: { font: { bold: true }, alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "CDE9D6" } } } }))
         ];
@@ -281,62 +285,64 @@ export function ResultsTable() {
             const spec = specMap[key] || {};
             const alerts = [];
 
-            const pciCell: { v: number, s?: any } = { v: result.pci_brut };
+            const pciCell: { v: number, s?: any } = { v: result.pci_brut, s: { alignment: { horizontal: "center" } } };
             if (spec.pci_min && result.pci_brut < spec.pci_min) {
                 alerts.push("⚠️ PCI bas");
-                pciCell.s = { fill: { fgColor: { rgb: "FFCCCC" } } }; // Red
+                pciCell.s.fill = { fgColor: { rgb: "FFCCCC" } };
             } else if (result.pci_brut < 4000) {
-                 pciCell.s = { fill: { fgColor: { rgb: "FFE6CC" } } }; // Orange
+                 pciCell.s.fill = { fgColor: { rgb: "FFE6CC" } };
             }
 
-            const h2oCell: { v: number, s?: any } = { v: result.h2o };
-            if (spec.h2o && result.h2o > spec.h2o) {
+            const h2oCell: { v: number, s?: any } = { v: result.h2o, s: { alignment: { horizontal: "center" } } };
+            if ((spec.h2o && result.h2o > spec.h2o) || result.h2o > 15) {
                 alerts.push("⚠️ H2O élevé");
-                h2oCell.s = { fill: { fgColor: { rgb: "FFE6CC" } } }; // Orange
+                h2oCell.s.fill = { fgColor: { rgb: "FFE6CC" } };
             }
             
-            const chloreCell: { v: number, s?: any } = { v: result.chlore };
-            if (spec.chlore && result.chlore > spec.chlore) {
+            const chloreCell: { v: number, s?: any } = { v: result.chlore, s: { alignment: { horizontal: "center" } } };
+            if ((spec.chlore && result.chlore > spec.chlore) || result.chlore > 1.2) {
                 alerts.push("⚠️ Cl- élevé");
-                chloreCell.s = { fill: { fgColor: { rgb: "FFFFCC" } } }; // Yellow
+                chloreCell.s.fill = { fgColor: { rgb: "FFFFCC" } };
             }
             
-            const cendresCell: { v: number, s?: any } = { v: result.cendres };
+            const cendresCell: { v: number, s?: any } = { v: result.cendres, s: { alignment: { horizontal: "center" } } };
             if (spec.cendres && result.cendres > spec.cendres) {
                  alerts.push("⚠️ Cendres élevées");
-                 cendresCell.s = { fill: { fgColor: { rgb: "E0E0E0" } } };// Gray
+                 cendresCell.s.fill = { fgColor: { rgb: "E0E0E0" } };
             }
 
             const alertText = alerts.join(', ');
-            const alertCell = { v: alertText, s: alerts.length > 0 ? { font: { bold: true, color: { rgb: "FF0000" }}} : {}};
+            const alertCell = { v: alertText, s: alerts.length > 0 ? { font: { bold: true, color: { rgb: "FF0000" }}, alignment: { horizontal: "left" } } : { alignment: { horizontal: "left" } }};
             
+            let row;
             if (isFullReport) {
-                ws_data.push([
-                    formatDate(result.date_arrivage),
-                    result.type_combustible,
-                    result.fournisseur,
-                    result.pcs,
+                row = [
+                    { v: formatDate(result.date_arrivage), s: { alignment: { horizontal: "center" } } },
+                    { v: result.type_combustible, s: { alignment: { horizontal: "left" } } },
+                    { v: result.fournisseur, s: { alignment: { horizontal: "left" } } },
+                    { v: result.pcs, s: { alignment: { horizontal: "center" } } },
                     pciCell,
                     h2oCell,
                     chloreCell,
                     cendresCell,
-                    result.densite,
-                    result.granulometrie,
-                    result.remarques,
+                    { v: result.densite, s: { alignment: { horizontal: "center" } } },
+                    { v: result.granulometrie, s: { alignment: { horizontal: "center" } } },
+                    { v: result.remarques, s: { alignment: { horizontal: "left" } } },
                     alertCell
-                ]);
+                ];
             } else {
-                 ws_data.push([
-                    formatDate(result.date_arrivage),
-                    result.type_combustible,
-                    result.fournisseur,
+                 row = [
+                    { v: formatDate(result.date_arrivage), s: { alignment: { horizontal: "center" } } },
+                    { v: result.type_combustible, s: { alignment: { horizontal: "left" } } },
+                    { v: result.fournisseur, s: { alignment: { horizontal: "left" } } },
                     pciCell,
                     h2oCell,
                     chloreCell,
-                    result.remarques,
+                    { v: result.remarques, s: { alignment: { horizontal: "left" } } },
                     alertCell
-                ]);
+                ];
             }
+            ws_data.push(row);
         });
         
         const ws = XLSX.utils.aoa_to_sheet(ws_data);
@@ -345,16 +351,13 @@ export function ResultsTable() {
             { s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } },
             { s: { r: 1, c: 0 }, e: { r: 1, c: headers.length - 1 } }
         ];
-
-        ws['A1'].s = { font: { bold: true, sz: 14 }, alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } };
-        ws['A2'].s = { font: { sz: 12 }, alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } };
         
         const colWidths = headers.map((h, i) => ({
             wch: Math.max(
                 h.length,
                 ...ws_data.slice(4).map(row => {
                     const cell = row[i];
-                    const value = typeof cell === 'object' && cell !== null && 'v' in cell ? cell.v : cell;
+                    const value = (typeof cell === 'object' && cell !== null && 'v' in cell) ? cell.v : cell;
                     return value ? value.toString().length : 0;
                 })
             ) + 2
@@ -607,5 +610,3 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
-
-    
