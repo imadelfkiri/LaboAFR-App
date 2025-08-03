@@ -362,16 +362,15 @@ export function ResultsTable() {
       };
       const alternateRowStyles = { fillColor: [250, 250, 250] };
       
-      const pdfNumber = (num: any, fractionDigits = 2) => {
+      const pdfNumber = (num: any, fractionDigits = 0) => {
         if (num === null || num === undefined || isNaN(num)) return 'N/A';
-        
         const options: Intl.NumberFormatOptions = {
-            minimumFractionDigits: fractionDigits,
-            maximumFractionDigits: fractionDigits,
-            useGrouping: true,
+          minimumFractionDigits: fractionDigits,
+          maximumFractionDigits: fractionDigits,
+          useGrouping: true,
         };
-        
-        return new Intl.NumberFormat('fr-FR', options).format(num);
+        // Replace non-breaking space with a regular apostrophe for jsPDF compatibility
+        return new Intl.NumberFormat('fr-FR', options).format(num).replace(/\s/g, "'");
       };
 
       let head: any[], body: any[];
@@ -759,3 +758,5 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
+
+    
