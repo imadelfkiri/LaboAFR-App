@@ -327,6 +327,9 @@ export function ResultsTable() {
       const margin = 15;
 
       // Header
+      doc.setFillColor(229, 245, 235); // vert très clair (correspond à #E5F5EB)
+      doc.rect(0, 0, pageWidth, 30, 'F'); // Fond du bandeau
+
       if (heidelbergLogo && typeof heidelbergLogo === 'string' && heidelbergLogo.startsWith('data:image/')) {
         doc.addImage(heidelbergLogo, 'PNG', margin, 10, 30, 10);
       }
@@ -334,31 +337,30 @@ export function ResultsTable() {
         doc.addImage(asmentLogo, 'PNG', pageWidth - margin - 25, 10, 25, 10);
       }
 
-
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor('#333333');
-      doc.text(title, pageWidth / 2, 18, { align: 'center' });
+      doc.setTextColor(51, 51, 51); // #333333
+      doc.text(title, pageWidth / 2, 14, { align: 'center' });
       
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
-      doc.text("Suivi des analyses des combustibles solides non dangereux", pageWidth / 2, 24, { align: 'center' });
+      doc.text("Suivi des analyses des combustibles solides non dangereux", pageWidth / 2, 22, { align: 'center' });
 
-      doc.setDrawColor('#AAAAAA');
-      doc.line(margin, 30, pageWidth - margin, 30);
+      doc.setDrawColor(170, 170, 170); // #AAAAAA
+      doc.line(margin, 28, pageWidth - margin, 28);
       
       doc.setFontSize(9);
-      doc.setTextColor('#333333');
+      doc.setTextColor(51, 51, 51);
       doc.text(`Période: ${period}`, margin, 38);
 
       // Table
       const headStyles = {
-          fillColor: '#E5F5EB',
-          textColor: '#006644',
+          fillColor: [229, 245, 235],
+          textColor: [0, 102, 68], // #006644
           fontStyle: 'bold',
           halign: 'center',
       };
-      const alternateRowStyles = { fillColor: '#FAFAFA' };
+      const alternateRowStyles = { fillColor: [250, 250, 250] }; // #FAFAFA
       const tableStyles = { margin: { top: 45, right: margin, bottom: 25, left: margin } };
 
       let head: any[], body: any[];
@@ -409,7 +411,7 @@ export function ResultsTable() {
       // Footer
       const pageHeight = doc.internal.pageSize.getHeight();
       doc.setFontSize(8);
-      doc.setTextColor('#888888');
+      doc.setTextColor(136, 136, 136); // #888888
       doc.text("ER.CTR.22 Version 5 du janvier 2026", margin, pageHeight - 10);
       doc.text("Document généré automatiquement par FuelTrack AFR", pageWidth / 2, pageHeight - 10, { align: 'center' });
 
@@ -745,3 +747,6 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
+
+
+    
