@@ -72,13 +72,9 @@ interface Result {
 
 interface AggregatedResult {
     type_combustible: string;
-    pcs: number;
     pci_brut: number;
     h2o: number;
-    cendres: number;
     chlore: number;
-    densite: number;
-    granulometrie: number;
     count: number;
 }
 
@@ -250,8 +246,8 @@ export function ResultsTable() {
     const convertIndividualToCSV = (data: Result[]) => {
         const headers = [
             "Date Arrivage", "Type Combustible", "Fournisseur", 
-            "PCS", "PCI sur Brut", "% H2O", "% Cl-",
-            "% Cendres", "Densité", "Granulométrie", "Remarques", "Alertes"
+            "PCI sur Brut", "% H2O", "% Cl-",
+            "Remarques", "Alertes"
         ];
         const rows = data.map(result => {
             const alerts = [];
@@ -273,13 +269,9 @@ export function ResultsTable() {
                 formatDate(result.date_arrivage),
                 result.type_combustible,
                 result.fournisseur,
-                formatNumber(result.pcs, 0).replace(/\s/g, ''),
                 formatNumber(result.pci_brut, 0).replace(/\s/g, ''),
                 formatNumber(result.h2o, 1),
                 formatNumber(result.chlore, 2),
-                formatNumber(result.cendres, 1),
-                formatNumber(result.densite, 2),
-                formatNumber(result.granulometrie, 1),
                 `"${result.remarques || ''}"`,
                 `"${alerts.join(', ')}"`
             ].join(';');
@@ -289,19 +281,15 @@ export function ResultsTable() {
 
     const convertAggregatedToCSV = (data: AggregatedResult[]) => {
         const headers = [
-            "Type Combustible", "Analyses", "PCS Moyen", "PCI Moyen", 
-            "% H2O Moyen", "% Cl- Moyen", "% Cendres Moyen", "Densité Moyenne", "Granulométrie Moyenne"
+            "Type Combustible", "Analyses", "PCI Moyen", 
+            "% H2O Moyen", "% Cl- Moyen"
         ];
         const rows = data.map(result => [
             result.type_combustible,
             result.count,
-            formatNumber(result.pcs, 0).replace(/\s/g, ''),
             formatNumber(result.pci_brut, 0).replace(/\s/g, ''),
             formatNumber(result.h2o, 1),
-            formatNumber(result.chlore, 2),
-            formatNumber(result.cendres, 1),
-            formatNumber(result.densite, 2),
-            formatNumber(result.granulometrie, 1),
+            formatNumber(result.chlore, 2)
         ].join(';'));
         return [headers.join(';'), ...rows].join('\n');
     };
@@ -380,29 +368,21 @@ export function ResultsTable() {
             if (!aggregation[result.type_combustible]) {
                 aggregation[result.type_combustible] = {
                     type_combustible: result.type_combustible,
-                    pcs: 0, pci_brut: 0, h2o: 0, cendres: 0, chlore: 0, densite: 0, granulometrie: 0, count: 0
+                    pci_brut: 0, h2o: 0, chlore: 0, count: 0
                 };
             }
             const current = aggregation[result.type_combustible];
-            current.pcs += result.pcs;
             current.pci_brut += result.pci_brut;
             current.h2o += result.h2o;
-            current.cendres += result.cendres;
             current.chlore += result.chlore;
-            current.densite += result.densite;
-            current.granulometrie += result.granulometrie;
             current.count += 1;
         });
 
         return Object.values(aggregation).map(agg => ({
             ...agg,
-            pcs: agg.pcs / agg.count,
             pci_brut: agg.pci_brut / agg.count,
             h2o: agg.h2o / agg.count,
-            cendres: agg.cendres / agg.count,
             chlore: agg.chlore / agg.count,
-            densite: agg.densite / agg.count,
-            granulometrie: agg.granulometrie / agg.count,
         }));
     };
 
@@ -610,3 +590,5 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
+
+    
