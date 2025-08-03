@@ -327,7 +327,7 @@ export function ResultsTable() {
       const margin = 15;
 
       doc.setFillColor(217, 237, 223);
-      doc.rect(0, 0, doc.internal.pageSize.width, 20, 'F');
+      doc.rect(0, 0, doc.internal.pageSize.width, 30, 'F');
 
       if (heidelbergLogo && typeof heidelbergLogo === 'string' && heidelbergLogo.startsWith('data:image/')) {
         doc.addImage(heidelbergLogo, 'PNG', margin, 10, 30, 10);
@@ -336,8 +336,6 @@ export function ResultsTable() {
         doc.addImage(asmentLogo, 'PNG', pageWidth - margin - 25, 10, 25, 10);
       }
       
-      doc.setTextColor(0, 102, 0);
-
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(51, 51, 51);
@@ -345,6 +343,7 @@ export function ResultsTable() {
       
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
+      doc.setTextColor(51, 51, 51);
       doc.text("Suivi des analyses des combustibles solides non dangereux", pageWidth / 2, 22, { align: 'center' });
 
       doc.setDrawColor(170, 170, 170);
@@ -359,7 +358,7 @@ export function ResultsTable() {
           const options: Intl.NumberFormatOptions = {
             minimumFractionDigits: fractionDigits,
             maximumFractionDigits: fractionDigits,
-            useGrouping: false
+            useGrouping: false // Ne pas utiliser de séparateur de milliers
           };
           return new Intl.NumberFormat('fr-FR', options).format(num);
       };
@@ -367,7 +366,7 @@ export function ResultsTable() {
       let head: any[], body: any[];
 
       if (isAggregated) {
-          head = [["Combustible", "Analyses", "PCI Moyen", "% H2O Moyen", "% Cl- Moyen", "% Cendres Moyen"]];
+          head = [["Combustible", "Analyses", "PCI Moyen", "% H2O", "% Cl-", "% Cendres"]];
           body = (data as AggregatedResult[]).map(r => [
               r.type_combustible,
               r.count,
@@ -377,7 +376,7 @@ export function ResultsTable() {
               pdfNumber(r.cendres, 1)
           ]);
       } else {
-          head = [["Date", "Combustible", "Fournisseur", "PCI", "% H2O", "% Cl-", "% Cendres"]];
+          head = [["Date", "Combustible", "Fournisseur", "PCI", "% H2O", "% Cl-", "Remarque"]];
           body = (data as Result[]).map(r => [
               formatDate(r.date_arrivage),
               r.type_combustible,
@@ -385,7 +384,7 @@ export function ResultsTable() {
               pdfNumber(r.pci_brut, 0),
               pdfNumber(r.h2o, 1),
               pdfNumber(r.chlore, 2),
-              pdfNumber(r.cendres, 1)
+              r.remarques || ''
           ]);
       }
       
@@ -752,6 +751,8 @@ export function ResultsTable() {
 }
 
     
+    
+
     
 
     
