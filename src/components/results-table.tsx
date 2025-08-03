@@ -380,12 +380,6 @@ export function ResultsTable() {
             <AlertDialog onOpenChange={(open) => !open && setResultToDelete(null)}>
                 <div className="flex flex-col gap-4 p-4 lg:p-6 h-full">
                     <div className='flex flex-wrap items-center gap-2 bg-green-100/50 text-green-900 font-medium rounded-lg px-3 py-2 border border-green-200'>
-                        <Button asChild variant="outline" className="bg-white hover:bg-green-50 border-green-300">
-                          <Link href="/calculateur">
-                            <Plus className="mr-2 h-4 w-4" />
-                            Ajouter un Résultat
-                          </Link>
-                        </Button>
                         <Select value={typeFilter} onValueChange={setTypeFilter}>
                             <SelectTrigger className="w-full sm:w-auto flex-1 min-w-[160px] bg-white border-green-300 hover:bg-green-50">
                                 <SelectValue placeholder="Type..." />
