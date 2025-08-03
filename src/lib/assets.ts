@@ -1,9 +1,9 @@
 // src/lib/assets.ts
 
-// Heidelberg Materials Logo (placeholder)
+// Valid 1x1 transparent PNG for Heidelberg Materials Logo
 export const heidelbergLogo =
-  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAAA8CAYAAADe/pGfAAAAHElEQVR42mN8//9/PAwYgAFGgAFGgAFGgAFGgAEGANMAAAVYDRgAAAAASUVORK5CYII=';
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 
-// Asment Temara Logo (placeholder)
+// Valid 1x1 transparent PNG for Asment Temara Logo
 export const asmentLogo =
-  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJYAAACWCAYAAAA8AXHiAAAAHElEQVR42mN8//9/PAwYgAFGgAFGgAFGgAFGgAEGANMAAAVYDRgAAAAASUVORK5CYII=';
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
