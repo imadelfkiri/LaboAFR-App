@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, XCircle, Trash2, Download, ChevronDown, FileOutput, FileText } from "lucide-react";
+import { CalendarIcon, XCircle, Trash2, Download, ChevronDown, FileOutput, FileText, Plus } from "lucide-react";
 import { getFuelTypes, type FuelType, getFournisseurs } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
@@ -411,13 +411,18 @@ export function ResultsTable() {
       doc.save(`${title.replace(/\s/g, '_')}.pdf`);
     }
 
-    const handleFilteredExport = (exportFormat: 'csv' | 'pdf') => {
-        const filename = `Export_Filtre_${formatDate(new Date())}`;
+    const handleFilteredExport = (exportType: 'csv' | 'pdf') => {
+        const fromDate = dateFilter?.from;
+        const toDate = dateFilter?.to;
+
         let period = "Période personnalisée";
-        if (dateFilter?.from) {
-          period = `Du ${format(dateFilter.from, "dd/MM/yy")} au ${dateFilter.to ? format(dateFilter.to, "dd/MM/yy") : '...'}`;
+        if (isValid(fromDate)) {
+            period = `Du ${format(fromDate as Date, "dd/MM/yy")} au ${isValid(toDate) ? format(toDate as Date, "dd/MM/yy") : '...'}`;
         }
-        if (exportFormat === 'csv') {
+        
+        const filename = `Export_Filtre_${format(new Date(), "yyyy-MM-dd")}`;
+
+        if (exportType === 'csv') {
           const csvString = convertIndividualToCSV(filteredResults);
           downloadCSV(csvString, filename);
         } else {
@@ -438,22 +443,22 @@ export function ResultsTable() {
             endDate = endOfDay(now);
             filename = `Rapport_Journalier_${format(now, 'yyyy-MM-dd')}`;
             title = 'Rapport Journalier des Résultats AFR';
-            periodStr = format(startDate, 'dd MMMM yyyy', { locale: fr });
+            periodStr = isValid(startDate) ? format(startDate, 'dd MMMM yyyy', { locale: fr }) : "Date inconnue";
         } else if (period === 'weekly') {
             startDate = startOfDay(subDays(now, 7));
             filename = `Rapport_Hebdomadaire_${format(now, 'yyyy-MM-dd')}`;
             title = 'Rapport Hebdomadaire des Résultats AFR';
-            periodStr = `Du ${format(startDate, 'dd/MM/yy')} au ${format(endDate, 'dd/MM/yy')}`;
+            periodStr = `Du ${isValid(startDate) ? format(startDate, 'dd/MM/yy') : '...'} au ${isValid(endDate) ? format(endDate, 'dd/MM/yy') : '...'}`;
         } else { // monthly
             startDate = startOfDay(subDays(now, 30));
             filename = `Rapport_Mensuel_${format(now, 'yyyy-MM')}`;
             title = 'Rapport Mensuel des Résultats AFR';
-            periodStr = `Du ${format(startDate, 'dd/MM/yy')} au ${format(endDate, 'dd/MM/yy')}`;
+            periodStr = `Du ${isValid(startDate) ? format(startDate, 'dd/MM/yy') : '...'} au ${isValid(endDate) ? format(endDate, 'dd/MM/yy') : '...'}`;
         }
 
         const reportData = results.filter(result => {
             const dateArrivage = new Date(result.date_arrivage.seconds * 1000);
-            return dateArrivage >= startDate && dateArrivage <= endDate;
+            return isValid(dateArrivage) && dateArrivage >= startDate && dateArrivage <= endDate;
         });
 
         if (period === 'daily') {
