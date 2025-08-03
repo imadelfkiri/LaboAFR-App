@@ -327,8 +327,8 @@ export function ResultsTable() {
       const margin = 15;
 
       // Header
-      doc.setFillColor(229, 245, 235); // vert très clair (correspond à #E5F5EB)
-      doc.rect(0, 0, pageWidth, 30, 'F'); // Fond du bandeau
+      doc.setFillColor(229, 245, 235);
+      doc.rect(0, 0, pageWidth, 30, 'F');
 
       if (heidelbergLogo && typeof heidelbergLogo === 'string' && heidelbergLogo.startsWith('data:image/')) {
         doc.addImage(heidelbergLogo, 'PNG', margin, 10, 30, 10);
@@ -339,14 +339,14 @@ export function ResultsTable() {
 
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(51, 51, 51); // #333333
+      doc.setTextColor(51, 51, 51);
       doc.text(title, pageWidth / 2, 14, { align: 'center' });
       
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
       doc.text("Suivi des analyses des combustibles solides non dangereux", pageWidth / 2, 22, { align: 'center' });
 
-      doc.setDrawColor(170, 170, 170); // #AAAAAA
+      doc.setDrawColor(170, 170, 170);
       doc.line(margin, 28, pageWidth - margin, 28);
       
       doc.setFontSize(9);
@@ -356,11 +356,11 @@ export function ResultsTable() {
       // Table
       const headStyles = {
           fillColor: [229, 245, 235],
-          textColor: [0, 102, 68], // #006644
+          textColor: [0, 102, 68],
           fontStyle: 'bold',
           halign: 'center',
       };
-      const alternateRowStyles = { fillColor: [250, 250, 250] }; // #FAFAFA
+      const alternateRowStyles = { fillColor: [250, 250, 250] };
       
       const pdfNumber = (num: any, fractionDigits = 2) => {
         if (num === null || num === undefined || isNaN(num)) return 'N/A';
@@ -371,7 +371,6 @@ export function ResultsTable() {
             useGrouping: true,
         };
         
-        // Use a space as a thousands separator for French locale
         return new Intl.NumberFormat('fr-FR', options).format(num);
       };
 
@@ -407,7 +406,7 @@ export function ResultsTable() {
           theme: 'grid',
           headStyles,
           alternateRowStyles,
-          styles: { fontSize: 8, cellPadding: 2 },
+          styles: { fontSize: 8, cellPadding: 2, font: 'helvetica' },
           columnStyles: {
               0: { halign: 'left' },
               1: { halign: 'left' },
@@ -422,7 +421,7 @@ export function ResultsTable() {
       // Footer
       const pageHeight = doc.internal.pageSize.getHeight();
       doc.setFontSize(8);
-      doc.setTextColor(136, 136, 136); // #888888
+      doc.setTextColor(136, 136, 136);
       doc.text("ER.CTR.22 Version 5 du janvier 2026", margin, pageHeight - 10);
       doc.text("Document généré automatiquement par FuelTrack AFR", pageWidth / 2, pageHeight - 10, { align: 'center' });
 
@@ -465,7 +464,8 @@ export function ResultsTable() {
     
         if (period === 'daily') {
             startDate = startOfDay(subDays(now, 1));
-            filename = `Rapport_Journalier_${format(now, 'yyyy-MM-dd')}`;
+            endDate = endOfDay(startDate);
+            filename = `Rapport_Journalier_${format(startDate, 'yyyy-MM-dd')}`;
             title = 'Rapport Journalier des Résultats AFR';
             periodStr = isValid(startDate) ? format(startDate, 'dd MMMM yyyy', { locale: fr }) : "Date inconnue";
         } else if (period === 'weekly') {
@@ -759,10 +759,3 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
-
-
-    
-
-    
-
-    
