@@ -34,8 +34,8 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         </SidebarContent>
       </Sidebar>
       <SidebarInset>
-        <header className="flex h-16 items-center gap-4 border-b bg-background/95 backdrop-blur-sm px-4 lg:px-6 sticky top-0 z-30 md:hidden">
-            <SidebarTrigger className="md:hidden" />
+        <header className="flex h-16 items-center gap-4 border-b bg-background/95 backdrop-blur-sm px-4 lg:px-6 sticky top-0 z-30">
+            <SidebarTrigger />
         </header>
         <main className="flex flex-1 flex-col bg-background">
           {children}
