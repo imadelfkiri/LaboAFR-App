@@ -21,7 +21,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Ne rien rendre sur le serveur pour éviter les incohérences d'hydratation.
-  // Un simple `null` peut parfois causer des problèmes, donc on retourne un fragment vide.
+  // La page complète est rendue côté client une fois que le composant est monté.
   if (!isClient) {
     return <>{children}</>;
   }
