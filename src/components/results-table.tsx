@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import { collection, query, onSnapshot, orderBy, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
@@ -30,7 +31,7 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, XCircle, Trash2, Download, ChevronDown, FileOutput } from "lucide-react";
+import { CalendarIcon, XCircle, Trash2, Download, ChevronDown, FileOutput, Plus } from "lucide-react";
 import { getFuelTypes, type FuelType, getFournisseurs } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
@@ -139,33 +140,37 @@ export function ResultsTable() {
 
     useEffect(() => {
         setIsClient(true)
-        async function fetchData() {
-            const [fetchedFuelTypes, fetchedFournisseurs] = await Promise.all([
-                getFuelTypes(),
-                getFournisseurs()
-            ]);
-            setFuelTypes(fetchedFuelTypes);
-            setFournisseurs(fetchedFournisseurs);
-            setFuelTypeMap(new Map(fetchedFuelTypes.map(fuel => [fuel.name, fuel.icon])));
-        }
-        fetchData();
+    }, [])
 
-        let q = query(collection(db, "resultats"), orderBy("date_arrivage", "desc"));
+    useEffect(() => {
+      if (!isClient) return;
+      async function fetchData() {
+          const [fetchedFuelTypes, fetchedFournisseurs] = await Promise.all([
+              getFuelTypes(),
+              getFournisseurs()
+          ]);
+          setFuelTypes(fetchedFuelTypes);
+          setFournisseurs(fetchedFournisseurs);
+          setFuelTypeMap(new Map(fetchedFuelTypes.map(fuel => [fuel.name, fuel.icon])));
+      }
+      fetchData();
 
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            const resultsData: Result[] = [];
-            querySnapshot.forEach((doc) => {
-                resultsData.push({ id: doc.id, ...doc.data() } as Result);
-            });
-            setResults(resultsData);
-            setLoading(false);
-        }, (error) => {
-            console.error("Erreur de lecture Firestore:", error);
-            setLoading(false);
-        });
+      let q = query(collection(db, "resultats"), orderBy("date_arrivage", "desc"));
 
-        return () => unsubscribe();
-    }, []);
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+          const resultsData: Result[] = [];
+          querySnapshot.forEach((doc) => {
+              resultsData.push({ id: doc.id, ...doc.data() } as Result);
+          });
+          setResults(resultsData);
+          setLoading(false);
+      }, (error) => {
+          console.error("Erreur de lecture Firestore:", error);
+          setLoading(false);
+      });
+
+      return () => unsubscribe();
+    }, [isClient]);
 
     const filteredResults = useMemo(() => {
         return results.filter(result => {
@@ -363,22 +368,8 @@ export function ResultsTable() {
 
     if (loading || !isClient) {
         return (
-             <div className="space-y-4 pt-4 px-4 lg:px-6">
-                <div className='grid grid-cols-1 md:grid-cols-3 gap-4 mb-4'>
-                    <div className="md:col-span-2">
-                        <Skeleton className="h-4 w-16 mb-2" />
-                        <div className="flex flex-wrap items-center gap-2">
-                            <Skeleton className="h-10 w-full sm:w-auto flex-1 min-w-[180px]" />
-                            <Skeleton className="h-10 w-full sm:w-auto flex-1 min-w-[180px]" />
-                            <Skeleton className="h-10 w-full sm:w-auto flex-1 min-w-[240px]" />
-                            <Skeleton className="h-10 w-24" />
-                        </div>
-                    </div>
-                    <div>
-                        <Skeleton className="h-4 w-20 mb-2" />
-                        <Skeleton className="h-10 w-full sm:w-[230px]" />
-                    </div>
-                </div>
+             <div className="space-y-2 p-4 lg:p-6">
+                <Skeleton className="h-10 w-full" />
                  <Skeleton className="h-96 w-full" />
             </div>
         )
@@ -388,99 +379,95 @@ export function ResultsTable() {
         <TooltipProvider>
             <AlertDialog onOpenChange={(open) => !open && setResultToDelete(null)}>
                 <div className="flex flex-col gap-4 p-4 lg:p-6 h-full">
-                    <div className='grid grid-cols-1 md:grid-cols-3 gap-4 items-start'>
-                        <div className="md:col-span-2">
-                            <label className="text-sm font-medium text-muted-foreground mb-2 block">Filtres</label>
-                            <div className="flex flex-wrap items-center gap-2">
-                                <Select value={typeFilter} onValueChange={setTypeFilter}>
-                                    <SelectTrigger className="w-full sm:w-auto flex-1 min-w-[180px]">
-                                        <SelectValue placeholder="Filtrer par type..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {fuelTypes.map(fuel => <SelectItem key={fuel.name} value={fuel.name}>{fuel.name}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                <Select value={fournisseurFilter} onValueChange={setFournisseurFilter}>
-                                    <SelectTrigger className="w-full sm:w-auto flex-1 min-w-[180px]">
-                                        <SelectValue placeholder="Filtrer par fournisseur..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {fournisseurs.map(supplier => <SelectItem key={supplier} value={supplier}>{supplier}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            id="date"
-                                            variant={"outline"}
-                                            className={cn(
-                                                "w-full sm:w-auto flex-1 min-w-[240px] justify-start text-left font-normal",
-                                                !dateFilter && "text-muted-foreground"
-                                            )}
-                                            >
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {dateFilter?.from ? (
-                                                dateFilter.to ? (
-                                                <>
-                                                    {format(dateFilter.from, "d MMM y", { locale: fr })} -{" "}
-                                                    {format(dateFilter.to, "d MMM y", { locale: fr })}
-                                                </>
-                                                ) : (
-                                                    format(dateFilter.from, "d MMM y", { locale: fr })
-                                                )
-                                            ) : (
-                                                <span>Filtrer par date</span>
-                                            )}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar
-                                            initialFocus
-                                            mode="range"
-                                            defaultMonth={dateFilter?.from}
-                                            selected={dateFilter}
-                                            onSelect={setDateFilter}
-                                            numberOfMonths={2}
-                                            locale={fr}
-                                        />
-                                    </PopoverContent>
-                                </Popover>
-                                <Button onClick={resetFilters} variant="ghost" className="text-muted-foreground hover:text-foreground h-10 px-3">
-                                    <XCircle className="mr-2 h-4 w-4"/>
-                                    Réinitialiser
+                    <div className='flex flex-wrap items-center gap-2 bg-green-100/50 text-green-900 font-medium rounded-lg px-3 py-2 border border-green-200'>
+                        <Button asChild variant="outline" className="bg-white hover:bg-green-50 border-green-300">
+                          <Link href="/calculateur">
+                            <Plus className="mr-2 h-4 w-4" />
+                            Ajouter un Résultat
+                          </Link>
+                        </Button>
+                        <Select value={typeFilter} onValueChange={setTypeFilter}>
+                            <SelectTrigger className="w-full sm:w-auto flex-1 min-w-[160px] bg-white border-green-300 hover:bg-green-50">
+                                <SelectValue placeholder="Type..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {fuelTypes.map(fuel => <SelectItem key={fuel.name} value={fuel.name}>{fuel.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                        <Select value={fournisseurFilter} onValueChange={setFournisseurFilter}>
+                            <SelectTrigger className="w-full sm:w-auto flex-1 min-w-[160px] bg-white border-green-300 hover:bg-green-50">
+                                <SelectValue placeholder="Fournisseur..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {fournisseurs.map(supplier => <SelectItem key={supplier} value={supplier}>{supplier}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    id="date"
+                                    variant={"outline"}
+                                    className={cn(
+                                        "w-full sm:w-auto flex-1 min-w-[210px] justify-start text-left font-medium bg-white border-green-300 hover:bg-green-50",
+                                        !dateFilter && "text-muted-foreground"
+                                    )}
+                                    >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {dateFilter?.from ? (
+                                        dateFilter.to ? (
+                                        <>
+                                            {format(dateFilter.from, "d MMM y", { locale: fr })} -{" "}
+                                            {format(dateFilter.to, "d MMM y", { locale: fr })}
+                                        </>
+                                        ) : (
+                                            format(dateFilter.from, "d MMM y", { locale: fr })
+                                        )
+                                    ) : (
+                                        <span>Filtrer par date</span>
+                                    )}
                                 </Button>
-                            </div>
-                        </div>
-                        <div>
-                            <label className="text-sm font-medium text-muted-foreground mb-2 block">Téléchargement</label>
-                            <div className='flex flex-wrap gap-2'>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" className="w-full sm:w-auto">
-                                            <Download className="mr-2 h-4 w-4"/>
-                                            Télécharger un Rapport
-                                            <ChevronDown className="ml-2 h-4 w-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                        <DropdownMenuItem onClick={() => handleReportDownload('daily')}>
-                                            Rapport Journalier
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => handleReportDownload('weekly')}>
-                                            Rapport Hebdomadaire
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => handleReportDownload('monthly')}>
-                                            Rapport Mensuel
-                                        </DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem onClick={handleFilteredExport}>
-                                            <FileOutput className="mr-2 h-4 w-4"/>
-                                            Exporter la vue filtrée
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
-                        </div>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                    initialFocus
+                                    mode="range"
+                                    defaultMonth={dateFilter?.from}
+                                    selected={dateFilter}
+                                    onSelect={setDateFilter}
+                                    numberOfMonths={2}
+                                    locale={fr}
+                                />
+                            </PopoverContent>
+                        </Popover>
+                        <Button onClick={resetFilters} variant="ghost" className="text-green-700 hover:text-green-900 hover:bg-green-100 h-9 px-3">
+                            <XCircle className="mr-2 h-4 w-4"/>
+                            Réinitialiser
+                        </Button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" className="w-full sm:w-auto bg-white hover:bg-green-50 border-green-300">
+                                    <Download className="mr-2 h-4 w-4"/>
+                                    Rapport
+                                    <ChevronDown className="ml-2 h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleReportDownload('daily')}>
+                                    Rapport Journalier
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleReportDownload('weekly')}>
+                                    Rapport Hebdomadaire
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleReportDownload('monthly')}>
+                                    Rapport Mensuel
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={handleFilteredExport}>
+                                    <FileOutput className="mr-2 h-4 w-4"/>
+                                    Exporter la vue filtrée
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
 
                     <ScrollArea className="flex-grow rounded-lg border">
