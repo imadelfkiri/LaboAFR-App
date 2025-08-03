@@ -54,6 +54,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import * as XLSX from 'xlsx';
 
 interface Result {
     id: string;
@@ -75,6 +76,7 @@ interface AggregatedResult {
     pci_brut: number;
     h2o: number;
     chlore: number;
+    cendres: number;
     count: number;
 }
 
@@ -243,90 +245,128 @@ export function ResultsTable() {
         return roundedNum.toLocaleString('fr-FR', { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits, useGrouping: false });
     }
 
-    const convertIndividualToCSV = (data: Result[]) => {
-        const headers = [
-            "Date Arrivage", "Type Combustible", "Fournisseur", 
-            "PCI sur Brut", "% H2O", "% Cl-",
-            "Remarques", "Alertes"
-        ];
-        const rows = data.map(result => {
-            const alerts = [];
-            const key = `${result.type_combustible}|${result.fournisseur}`;
-            const spec = specMap[key];
-
-            if (spec?.pci_min && result.pci_brut < spec.pci_min) alerts.push("⚠️ PCI bas (spec)");
-            else if (result.pci_brut < 4000) alerts.push("⚠️ PCI bas");
-
-            if (spec?.h2o && result.h2o > spec.h2o) alerts.push("⚠️ H2O élevé (spec)");
-            else if (result.h2o > 15) alerts.push("⚠️ H2O élevé");
-
-            if (spec?.chlore && result.chlore > spec.chlore) alerts.push("⚠️ Cl- élevé (spec)");
-            else if (result.chlore > 1.2) alerts.push("⚠️ Cl- élevé");
-            
-            if (spec?.cendres && result.cendres > spec.cendres) alerts.push("⚠️ Cendres élevé (spec)");
-
-            return [
-                formatDate(result.date_arrivage),
-                result.type_combustible,
-                result.fournisseur,
-                formatNumber(result.pci_brut, 0).replace(/\s/g, ''),
-                formatNumber(result.h2o, 1),
-                formatNumber(result.chlore, 2),
-                `"${result.remarques || ''}"`,
-                `"${alerts.join(', ')}"`
-            ].join(';');
-        });
-        return [headers.join(';'), ...rows].join('\n');
-    };
-
-    const convertAggregatedToCSV = (data: AggregatedResult[]) => {
-        const headers = [
-            "Type Combustible", "Analyses", "PCI Moyen", 
-            "% H2O Moyen", "% Cl- Moyen"
-        ];
-        const rows = data.map(result => [
-            result.type_combustible,
-            result.count,
-            formatNumber(result.pci_brut, 0).replace(/\s/g, ''),
-            formatNumber(result.h2o, 1),
-            formatNumber(result.chlore, 2)
-        ].join(';'));
-        return [headers.join(';'), ...rows].join('\n');
-    };
-
-    const downloadCSV = (csvString: string, filename: string) => {
-         if (!csvString || csvString.split('\n').length < 2) {
+    const exportToExcel = (data: Result[], reportType: string) => {
+        if (!data || data.length === 0) {
             toast({
                 variant: "destructive",
                 title: "Aucune donnée",
-                description: `Il n'y a aucune donnée à exporter pour la sélection.`,
+                description: "Il n'y a aucune donnée à exporter pour la sélection.",
             });
             return;
         }
-        const blob = new Blob([`\uFEFF${csvString}`], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        if (link.download !== undefined) {
-            const url = URL.createObjectURL(blob);
-            link.setAttribute('href', url);
-            link.setAttribute('download', `${filename}.csv`);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+
+        const title = `Rapport ${reportType} analyses des AF`;
+        const subtitle = "Suivi des combustibles solides non dangereux";
+        const filename = `${reportType}_AFR_Report_${format(new Date(), "yyyy-MM-dd")}.xlsx`;
+        
+        const headers = ["Date", "Type Combustible", "Fournisseur", "PCS", "PCI", "% H2O", "% Cl-", "% Cendres", "Densité", "Granulométrie", "Remarques", "Alertes"];
+
+        const ws_data: any[][] = [
+            [title],
+            [subtitle],
+            [],
+            headers
+        ];
+
+        data.forEach(result => {
+            const key = `${result.type_combustible}|${result.fournisseur}`;
+            const spec = specMap[key] || {};
+            const alerts = [];
+
+            if (spec.pci_min && result.pci_brut < spec.pci_min) alerts.push("⚠️ PCI bas");
+            else if (result.pci_brut < 4000) alerts.push("⚠️ PCI bas (Général)");
+
+            if (spec.h2o && result.h2o > spec.h2o) alerts.push("⚠️ H2O élevé");
+            if (spec.chlore && result.chlore > spec.chlore) alerts.push("⚠️ Cl- élevé");
+            if (spec.cendres && result.cendres > spec.cendres) alerts.push("⚠️ Cendres élevées");
+
+            const row = [
+                formatDate(result.date_arrivage),
+                result.type_combustible,
+                result.fournisseur,
+                result.pcs,
+                result.pci_brut,
+                result.h2o,
+                result.chlore,
+                result.cendres,
+                result.densite,
+                result.granulometrie,
+                result.remarques,
+                alerts.join(', ')
+            ];
+            ws_data.push(row);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(ws_data);
+
+        // Merging cells for titles
+        ws['!merges'] = [
+            { s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } },
+            { s: { r: 1, c: 0 }, e: { r: 1, c: headers.length - 1 } }
+        ];
+
+        // Styling
+        const titleStyle = { font: { bold: true, sz: 14 }, alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } };
+        const subtitleStyle = { font: { sz: 12 }, alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } };
+        const headerStyle = { font: { bold: true }, alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "CDE9D6" } } };
+        const centerAlign = { alignment: { horizontal: "center" } };
+
+        ws['A1'].s = titleStyle;
+        ws['A2'].s = subtitleStyle;
+
+        headers.forEach((_, c) => {
+            const cellRef = XLSX.utils.encode_cell({r: 3, c});
+            ws[cellRef].s = headerStyle;
+        });
+        
+        for(let R = 4; R < ws_data.length; ++R) {
+            for(let C = 0; C < headers.length; ++C) {
+                const cell_ref = XLSX.utils.encode_cell({r:R, c:C});
+                if(!ws[cell_ref]) continue;
+
+                let cellStyle: any = { border: { top: {style:"thin"}, bottom:{style:"thin"}, left:{style:"thin"}, right:{style:"thin"}}};
+                
+                const result = data[R-4];
+                const key = `${result.type_combustible}|${result.fournisseur}`;
+                const spec = specMap[key] || {};
+
+                if (C === 4 && spec.pci_min && result.pci_brut < spec.pci_min) cellStyle.fill = { fgColor: { rgb: "FFCCCC" } }; // Red
+                if (C === 5 && spec.h2o && result.h2o > spec.h2o) cellStyle.fill = { fgColor: { rgb: "FFE6CC" } }; // Orange
+                if (C === 6 && spec.chlore && result.chlore > spec.chlore) cellStyle.fill = { fgColor: { rgb: "FFFFCC" } }; // Yellow
+                if (C === 7 && spec.cendres && result.cendres > spec.cendres) cellStyle.fill = { fgColor: { rgb: "E0E0E0" } }; // Gray
+                
+                if ([0, 3, 4, 5, 6, 7, 8, 9].includes(C)) {
+                    cellStyle.alignment = { horizontal: "center" };
+                }
+
+                if (C === 11 && ws_data[R][C] && (ws_data[R][C] as string).length > 0) {
+                     cellStyle.font = { bold: true, color: { rgb: "FF0000" }};
+                }
+
+                ws[cell_ref].s = cellStyle;
+            }
         }
+        
+        // Auto column widths
+        const colWidths = headers.map((h, i) => ({
+            wch: Math.max(
+                h.length,
+                ...ws_data.slice(4).map(row => row[i] ? row[i].toString().length : 0)
+            ) + 2
+        }));
+        ws['!cols'] = colWidths;
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Rapport AFR");
+
+        XLSX.writeFile(wb, filename);
     };
-    
-    const handleFilteredExport = () => {
-        const filename = `Export_Filtre_${isValid(new Date()) ? format(new Date(), "yyyy-MM-dd") : 'custom'}`;
-        const csvString = convertIndividualToCSV(filteredResults);
-        downloadCSV(csvString, filename);
-    };
-    
+
     const handleReportDownload = (period: 'daily' | 'weekly' | 'monthly') => {
         const now = new Date();
         let startDate: Date;
         let endDate: Date = endOfDay(now);
-        let filename: string;
+        let reportType: string;
     
         if (!isValid(now)) {
             toast({ variant: "destructive", title: "Date système invalide", description: "Impossible de générer le rapport." });
@@ -336,56 +376,22 @@ export function ResultsTable() {
         if (period === 'daily') {
             startDate = startOfDay(subDays(now, 1));
             endDate = endOfDay(startDate);
-            filename = `Rapport_Journalier_${format(startDate, 'yyyy-MM-dd')}`;
+            reportType = `Journalier du ${format(startDate, 'dd-MM-yyyy')}`;
         } else if (period === 'weekly') {
             startDate = startOfDay(subDays(now, 7));
-            filename = `Rapport_Hebdomadaire_${format(now, 'yyyy-MM-dd')}`;
+            reportType = `Hebdomadaire`;
         } else { // monthly
             startDate = startOfDay(subDays(now, 30));
-            filename = `Rapport_Mensuel_${format(now, 'yyyy-MM')}`;
+            reportType = `Mensuel`;
         }
     
         const reportData = results.filter(result => {
             const dateArrivage = new Date(result.date_arrivage.seconds * 1000);
             return isValid(dateArrivage) && dateArrivage >= startDate && dateArrivage <= endDate;
         });
-    
-        if (period === 'daily') {
-            const csvString = convertIndividualToCSV(reportData);
-            downloadCSV(csvString, filename);
-        } else {
-            const aggregatedData = aggregateResults(reportData);
-            const csvString = convertAggregatedToCSV(aggregatedData);
-            downloadCSV(csvString, filename);
-        }
+
+        exportToExcel(reportData, reportType);
     };
-    
-
-    const aggregateResults = (data: Result[]): AggregatedResult[] => {
-        const aggregation: Record<string, AggregatedResult> = {};
-
-        data.forEach(result => {
-            if (!aggregation[result.type_combustible]) {
-                aggregation[result.type_combustible] = {
-                    type_combustible: result.type_combustible,
-                    pci_brut: 0, h2o: 0, chlore: 0, count: 0
-                };
-            }
-            const current = aggregation[result.type_combustible];
-            current.pci_brut += result.pci_brut;
-            current.h2o += result.h2o;
-            current.chlore += result.chlore;
-            current.count += 1;
-        });
-
-        return Object.values(aggregation).map(agg => ({
-            ...agg,
-            pci_brut: agg.pci_brut / agg.count,
-            h2o: agg.h2o / agg.count,
-            chlore: agg.chlore / agg.count,
-        }));
-    };
-
 
     if (loading || !isClient) {
         return (
@@ -462,7 +468,7 @@ export function ResultsTable() {
                             <DropdownMenuTrigger asChild>
                                 <Button variant="outline" className="w-full sm:w-auto bg-white hover:bg-green-50 border-green-300 text-gray-800">
                                     <Download className="mr-2 h-4 w-4"/>
-                                    <span>Rapport CSV</span>
+                                    <span>Rapport Excel</span>
                                     <ChevronDown className="ml-2 h-4 w-4" />
                                 </Button>
                             </DropdownMenuTrigger>
@@ -480,7 +486,7 @@ export function ResultsTable() {
                                     Rapport Mensuel
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => handleFilteredExport()}>
+                                <DropdownMenuItem onClick={() => exportToExcel(filteredResults, 'Filtre')}>
                                     <FileOutput className="mr-2 h-4 w-4"/>
                                     Exporter la vue filtrée
                                 </DropdownMenuItem>
@@ -590,5 +596,3 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
-
-    
