@@ -362,18 +362,28 @@ export function ResultsTable() {
       };
       const alternateRowStyles = { fillColor: [250, 250, 250] }; // #FAFAFA
       const tableStyles = { margin: { top: 45, right: margin, bottom: 25, left: margin } };
+      
+      const pdfNumber = (num: any, fractionDigits = 2) => {
+        if (num === null || num === undefined || isNaN(num)) return 'N/A';
+        const factor = Math.pow(10, fractionDigits);
+        const roundedNum = Math.round(num * factor) / factor;
+        return roundedNum.toLocaleString('fr-FR', {
+            minimumFractionDigits: fractionDigits,
+            maximumFractionDigits: fractionDigits,
+        });
+      };
 
       let head: any[], body: any[];
 
       if (isAggregated) {
-          head = [["Combustible", "Analyses", "PCI Moyen", "% H2O Moyen", "% Cl- Moyen", "% Cendres Moyen"]];
+          head = [["Combustible", "Analyses", "PCI Moyen", "% H₂O Moyen", "% Cl⁻ Moyen", "% Cendres Moyen"]];
           body = (data as AggregatedResult[]).map(r => [
               r.type_combustible,
               r.count,
-              formatNumber(r.pci_brut, 0),
-              formatNumber(r.h2o, 1),
-              formatNumber(r.chlore, 2),
-              formatNumber(r.cendres, 1)
+              pdfNumber(r.pci_brut, 0),
+              pdfNumber(r.h2o, 1),
+              pdfNumber(r.chlore, 2),
+              pdfNumber(r.cendres, 1)
           ]);
       } else {
           head = [["Date", "Combustible", "Fournisseur", "PCI", "% H₂O", "% Cl⁻", "% Cendres"]];
@@ -381,10 +391,10 @@ export function ResultsTable() {
               formatDate(r.date_arrivage),
               r.type_combustible,
               r.fournisseur,
-              formatNumber(r.pci_brut, 0),
-              formatNumber(r.h2o, 1),
-              formatNumber(r.chlore, 2),
-              formatNumber(r.cendres, 1)
+              pdfNumber(r.pci_brut, 0),
+              pdfNumber(r.h2o, 1),
+              pdfNumber(r.chlore, 2),
+              pdfNumber(r.cendres, 1)
           ]);
       }
 
@@ -398,6 +408,7 @@ export function ResultsTable() {
           styles: { fontSize: 8, cellPadding: 2 },
           columnStyles: {
               0: { halign: 'left' },
+              1: { halign: 'left' },
               2: { halign: 'left' },
               3: { halign: 'right' },
               4: { halign: 'right' },
@@ -748,5 +759,7 @@ export function ResultsTable() {
     );
 }
 
+
+    
 
     
