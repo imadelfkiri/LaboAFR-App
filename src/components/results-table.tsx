@@ -129,23 +129,23 @@ const calculateAverage = (results: Result[], field: keyof Result): number | null
 };
 
 function formatDate(date: { seconds: number; nanoseconds: number } | string | Date): string {
-  if (!date) return "Date inconnue";
-  
-  let parsedDate: Date;
+    if (!date) return "Date inconnue";
 
-  if (typeof date === "string") {
-    parsedDate = parseISO(date);
-  } else if (typeof (date as any).seconds === 'number') {
-    parsedDate = new Date((date as { seconds: number }).seconds * 1000);
-  } else {
-    parsedDate = new Date(date);
-  }
-  
-  if (!isValid(parsedDate)) {
-    return "Date inconnue";
-  }
-  
-  return format(parsedDate, "dd/MM/yyyy");
+    let parsedDate: Date;
+
+    if (typeof date === "string") {
+        parsedDate = parseISO(date);
+    } else if (date && typeof (date as any).seconds === 'number') {
+        parsedDate = new Date((date as { seconds: number }).seconds * 1000);
+    } else {
+        parsedDate = new Date(date);
+    }
+
+    if (!isValid(parsedDate)) {
+        return "Date inconnue";
+    }
+
+    return format(parsedDate, "dd/MM/yyyy");
 }
 
 
@@ -327,8 +327,13 @@ export function ResultsTable() {
       const margin = 15;
 
       // Header
-      doc.addImage(heidelbergLogo, 'PNG', margin, 10, 30, 10);
-      doc.addImage(asmentLogo, 'PNG', pageWidth - margin - 25, 10, 25, 10);
+      if (heidelbergLogo && typeof heidelbergLogo === 'string' && heidelbergLogo.startsWith('data:image/')) {
+        doc.addImage(heidelbergLogo, 'PNG', margin, 10, 30, 10);
+      }
+      if (asmentLogo && typeof asmentLogo === 'string' && asmentLogo.startsWith('data:image/')) {
+        doc.addImage(asmentLogo, 'PNG', pageWidth - margin - 25, 10, 25, 10);
+      }
+
 
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
@@ -414,14 +419,14 @@ export function ResultsTable() {
     const handleFilteredExport = (exportType: 'csv' | 'pdf') => {
         const fromDate = dateFilter?.from;
         const toDate = dateFilter?.to;
-
+    
         let period = "Période personnalisée";
         if (isValid(fromDate)) {
             period = `Du ${format(fromDate as Date, "dd/MM/yy")} au ${isValid(toDate) ? format(toDate as Date, "dd/MM/yy") : '...'}`;
         }
         
-        const filename = `Export_Filtre_${format(new Date(), "yyyy-MM-dd")}`;
-
+        const filename = `Export_Filtre_${isValid(new Date()) ? format(new Date(), "yyyy-MM-dd") : 'custom'}`;
+    
         if (exportType === 'csv') {
           const csvString = convertIndividualToCSV(filteredResults);
           downloadCSV(csvString, filename);
@@ -429,7 +434,7 @@ export function ResultsTable() {
           exportToPDF(filteredResults, 'Rapport Vue Filtrée', period, false);
         }
     };
-
+    
     const handleReportDownload = (period: 'daily' | 'weekly' | 'monthly', exportType: 'csv' | 'pdf') => {
         const now = new Date();
         let startDate: Date;
@@ -437,7 +442,12 @@ export function ResultsTable() {
         let filename: string;
         let title: string;
         let periodStr: string;
-
+    
+        if (!isValid(now)) {
+            toast({ variant: "destructive", title: "Date système invalide", description: "Impossible de générer le rapport." });
+            return;
+        }
+    
         if (period === 'daily') {
             startDate = startOfDay(subDays(now, 1));
             endDate = endOfDay(now);
@@ -455,12 +465,12 @@ export function ResultsTable() {
             title = 'Rapport Mensuel des Résultats AFR';
             periodStr = `Du ${isValid(startDate) ? format(startDate, 'dd/MM/yy') : '...'} au ${isValid(endDate) ? format(endDate, 'dd/MM/yy') : '...'}`;
         }
-
+    
         const reportData = results.filter(result => {
             const dateArrivage = new Date(result.date_arrivage.seconds * 1000);
             return isValid(dateArrivage) && dateArrivage >= startDate && dateArrivage <= endDate;
         });
-
+    
         if (period === 'daily') {
              if (exportType === 'csv') {
                 const csvString = convertIndividualToCSV(reportData);
@@ -478,6 +488,7 @@ export function ResultsTable() {
             }
         }
     };
+    
 
     const aggregateResults = (data: Result[]): AggregatedResult[] => {
         const aggregation: Record<string, AggregatedResult> = {};
