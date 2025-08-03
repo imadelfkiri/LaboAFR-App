@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, XCircle, Trash2, Download, ChevronDown, FileOutput, Plus } from "lucide-react";
+import { CalendarIcon, XCircle, Trash2, Download, ChevronDown, FileOutput, FileText } from "lucide-react";
 import { getFuelTypes, type FuelType, getFournisseurs } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
@@ -55,6 +55,10 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { heidelbergLogo, asmentLogo } from '@/lib/assets';
+
 
 interface Result {
     id: string;
@@ -293,28 +297,143 @@ export function ResultsTable() {
         }
     };
     
-    const handleFilteredExport = () => {
-        const csvString = convertIndividualToCSV(filteredResults);
-        const filename = `Export_Filtre_${format(new Date(), 'yyyy-MM-dd')}`;
-        downloadCSV(csvString, filename);
+    const exportToPDF = (data: Result[] | AggregatedResult[], title: string, period: string, isAggregated: boolean) => {
+      if (data.length === 0) {
+        toast({
+            variant: "destructive",
+            title: "Aucune donnée",
+            description: `Il n'y a aucune donnée à exporter en PDF pour la sélection.`,
+        });
+        return;
+      }
+
+      const doc = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 15;
+
+      // Header
+      doc.addImage(heidelbergLogo, 'PNG', margin, 10, 30, 10);
+      doc.addImage(asmentLogo, 'PNG', pageWidth - margin - 25, 10, 25, 10);
+
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor('#333333');
+      doc.text(title, pageWidth / 2, 18, { align: 'center' });
+      
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text("Suivi des analyses des combustibles solides non dangereux", pageWidth / 2, 24, { align: 'center' });
+
+      doc.setDrawColor('#AAAAAA');
+      doc.line(margin, 30, pageWidth - margin, 30);
+      
+      doc.setFontSize(9);
+      doc.setTextColor('#333333');
+      doc.text(`Période: ${period}`, margin, 38);
+
+      // Table
+      const headStyles = {
+          fillColor: '#E5F5EB',
+          textColor: '#006644',
+          fontStyle: 'bold',
+          halign: 'center',
+      };
+      const alternateRowStyles = { fillColor: '#FAFAFA' };
+      const tableStyles = { margin: { top: 45, right: margin, bottom: 25, left: margin } };
+
+      let head: any[], body: any[];
+
+      if (isAggregated) {
+          head = [["Combustible", "Analyses", "PCI Moyen", "% H2O Moyen", "% Cl- Moyen", "% Cendres Moyen"]];
+          body = (data as AggregatedResult[]).map(r => [
+              r.type_combustible,
+              r.count,
+              formatNumber(r.pci_brut, 0),
+              formatNumber(r.h2o, 1),
+              formatNumber(r.chlore, 2),
+              formatNumber(r.cendres, 1)
+          ]);
+      } else {
+          head = [["Date", "Combustible", "Fournisseur", "PCI", "% H₂O", "% Cl⁻", "% Cendres"]];
+          body = (data as Result[]).map(r => [
+              formatDate(r.date_arrivage),
+              r.type_combustible,
+              r.fournisseur,
+              formatNumber(r.pci_brut, 0),
+              formatNumber(r.h2o, 1),
+              formatNumber(r.chlore, 2),
+              formatNumber(r.cendres, 1)
+          ]);
+      }
+
+      autoTable(doc, {
+          head,
+          body,
+          startY: 42,
+          theme: 'grid',
+          headStyles,
+          alternateRowStyles,
+          styles: { fontSize: 8, cellPadding: 2 },
+          columnStyles: {
+              0: { halign: 'left' },
+              2: { halign: 'left' },
+              3: { halign: 'right' },
+              4: { halign: 'right' },
+              5: { halign: 'right' },
+              6: { halign: 'right' },
+          }
+      });
+      
+      const finalY = (doc as any).lastAutoTable.finalY || 270;
+
+      // Footer
+      const pageHeight = doc.internal.pageSize.getHeight();
+      doc.setFontSize(8);
+      doc.setTextColor('#888888');
+      doc.text("ER.CTR.22 Version 5 du janvier 2026", margin, pageHeight - 10);
+      doc.text("Document généré automatiquement par FuelTrack AFR", pageWidth / 2, pageHeight - 10, { align: 'center' });
+
+      doc.save(`${title.replace(/\s/g, '_')}.pdf`);
+    }
+
+    const handleFilteredExport = (format: 'csv' | 'pdf') => {
+        const filename = `Export_Filtre_${formatDate(new Date())}`;
+        let period = "Période personnalisée";
+        if (dateFilter?.from) {
+          period = `Du ${format(dateFilter.from, "dd/MM/yy")} au ${dateFilter.to ? format(dateFilter.to, "dd/MM/yy") : '...'}`;
+        }
+        if (format === 'csv') {
+          const csvString = convertIndividualToCSV(filteredResults);
+          downloadCSV(csvString, filename);
+        } else {
+          exportToPDF(filteredResults, 'Rapport Vue Filtrée', period, false);
+        }
     };
 
-    const handleReportDownload = (period: 'daily' | 'weekly' | 'monthly') => {
+    const handleReportDownload = (period: 'daily' | 'weekly' | 'monthly', format: 'csv' | 'pdf') => {
         const now = new Date();
         let startDate: Date;
         let endDate: Date = endOfDay(now);
         let filename: string;
+        let title: string;
+        let periodStr: string;
 
         if (period === 'daily') {
             startDate = startOfDay(subDays(now, 1));
             endDate = endOfDay(now);
             filename = `Rapport_Journalier_${format(now, 'yyyy-MM-dd')}`;
+            title = 'Rapport Journalier des Résultats AFR';
+            periodStr = format(startDate, 'dd MMMM yyyy', { locale: fr });
         } else if (period === 'weekly') {
             startDate = startOfDay(subDays(now, 7));
             filename = `Rapport_Hebdomadaire_${format(now, 'yyyy-MM-dd')}`;
+            title = 'Rapport Hebdomadaire des Résultats AFR';
+            periodStr = `Du ${format(startDate, 'dd/MM/yy')} au ${format(endDate, 'dd/MM/yy')}`;
         } else { // monthly
             startDate = startOfDay(subDays(now, 30));
             filename = `Rapport_Mensuel_${format(now, 'yyyy-MM')}`;
+            title = 'Rapport Mensuel des Résultats AFR';
+            periodStr = `Du ${format(startDate, 'dd/MM/yy')} au ${format(endDate, 'dd/MM/yy')}`;
         }
 
         const reportData = results.filter(result => {
@@ -323,12 +442,20 @@ export function ResultsTable() {
         });
 
         if (period === 'daily') {
-            const csvString = convertIndividualToCSV(reportData);
-            downloadCSV(csvString, filename);
+             if (format === 'csv') {
+                const csvString = convertIndividualToCSV(reportData);
+                downloadCSV(csvString, filename);
+            } else {
+                exportToPDF(reportData, title, periodStr, false);
+            }
         } else {
             const aggregatedData = aggregateResults(reportData);
-            const csvString = convertAggregatedToCSV(aggregatedData);
-            downloadCSV(csvString, filename);
+            if (format === 'csv') {
+                const csvString = convertAggregatedToCSV(aggregatedData);
+                downloadCSV(csvString, filename);
+            } else {
+                exportToPDF(aggregatedData, title, periodStr, true);
+            }
         }
     };
 
@@ -446,19 +573,40 @@ export function ResultsTable() {
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleReportDownload('daily')}>
-                                    Rapport Journalier
+                                <DropdownMenuItem onClick={() => handleReportDownload('daily', 'pdf')}>
+                                    <FileText className="mr-2 h-4 w-4"/>
+                                    Rapport Journalier (PDF)
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleReportDownload('weekly')}>
-                                    Rapport Hebdomadaire
+                                <DropdownMenuItem onClick={() => handleReportDownload('weekly', 'pdf')}>
+                                    <FileText className="mr-2 h-4 w-4"/>
+                                    Rapport Hebdomadaire (PDF)
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleReportDownload('monthly')}>
-                                    Rapport Mensuel
+                                <DropdownMenuItem onClick={() => handleReportDownload('monthly', 'pdf')}>
+                                    <FileText className="mr-2 h-4 w-4"/>
+                                    Rapport Mensuel (PDF)
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={handleFilteredExport}>
+                                <DropdownMenuItem onClick={() => handleFilteredExport('pdf')}>
+                                    <FileText className="mr-2 h-4 w-4"/>
+                                    Exporter la vue filtrée (PDF)
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                 <DropdownMenuItem onClick={() => handleReportDownload('daily', 'csv')}>
                                     <FileOutput className="mr-2 h-4 w-4"/>
-                                    Exporter la vue filtrée
+                                    Rapport Journalier (CSV)
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleReportDownload('weekly', 'csv')}>
+                                     <FileOutput className="mr-2 h-4 w-4"/>
+                                    Rapport Hebdomadaire (CSV)
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleReportDownload('monthly', 'csv')}>
+                                     <FileOutput className="mr-2 h-4 w-4"/>
+                                    Rapport Mensuel (CSV)
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleFilteredExport('csv')}>
+                                    <FileOutput className="mr-2 h-4 w-4"/>
+                                    Exporter la vue filtrée (CSV)
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
