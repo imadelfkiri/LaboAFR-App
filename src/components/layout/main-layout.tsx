@@ -20,31 +20,34 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     setIsClient(true);
   }, []);
 
+  if (!isClient) {
+    // Rendu minimaliste côté serveur pour éviter les erreurs d'hydratation
+    return null;
+  }
+
   return (
     <SidebarProvider>
-      {isClient && (
-        <Sidebar>
-          <SidebarHeader className="p-4">
-            <div className="flex items-center gap-3">
-              <div className='flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar-primary'>
-                  <Fuel className="h-6 w-6 text-sidebar-primary-foreground" />
-              </div>
-              <div className="flex flex-col">
-                  <h2 className="text-lg font-bold tracking-tight text-sidebar-primary-foreground">
-                      FuelTrack
-                  </h2>
-                  <p className="text-xs text-sidebar-foreground/80">AFR Monitoring</p>
-              </div>
+      <Sidebar>
+        <SidebarHeader className="p-4">
+          <div className="flex items-center gap-3">
+            <div className='flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar-primary'>
+                <Fuel className="h-6 w-6 text-sidebar-primary-foreground" />
             </div>
-          </SidebarHeader>
-          <SidebarContent>
-              <SidebarNav />
-          </SidebarContent>
-        </Sidebar>
-      )}
+            <div className="flex flex-col">
+                <h2 className="text-lg font-bold tracking-tight text-sidebar-primary-foreground">
+                    FuelTrack
+                </h2>
+                <p className="text-xs text-sidebar-foreground/80">AFR Monitoring</p>
+            </div>
+          </div>
+        </SidebarHeader>
+        <SidebarContent>
+            <SidebarNav />
+        </SidebarContent>
+      </Sidebar>
       <SidebarInset>
         <header className="flex h-16 items-center gap-4 border-b bg-background/95 backdrop-blur-sm px-4 lg:px-6 sticky top-0 z-30">
-          {isClient && <SidebarTrigger />}
+          <SidebarTrigger />
         </header>
         {children}
       </SidebarInset>
