@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -45,9 +46,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         <header className="flex h-16 items-center gap-4 border-b bg-background/95 backdrop-blur-sm px-4 lg:px-6 sticky top-0 z-30">
           {isClient && <SidebarTrigger />}
         </header>
-        <main className="flex flex-1 flex-col bg-background">
-          {children}
-        </main>
+        {children}
       </SidebarInset>
     </SidebarProvider>
   );
