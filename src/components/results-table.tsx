@@ -57,6 +57,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import type { CellHookData } from 'jspdf-autotable';
 import { heidelbergLogo, asmentLogo } from '@/lib/assets';
 
 
@@ -103,8 +104,9 @@ const specMap: Record<string, { pci_min?: number, h2o?: number, chlore?: number,
 const getPciColorClass = (value: number, combustible: string, fournisseur: string) => {
   const key = `${combustible}|${fournisseur}`;
   const spec = specMap[key];
-  if (!spec || spec.pci_min === undefined) return "";
-  return value < spec.pci_min ? "text-red-600 font-bold" : "text-green-600";
+  if (spec && spec.pci_min !== undefined && value < spec.pci_min) return "text-red-600 font-bold";
+  if (value < 4000) return "text-orange-600 font-bold";
+  return "text-green-600";
 };
 
 const getCustomColor = (
@@ -115,10 +117,12 @@ const getCustomColor = (
 ) => {
   const key = `${combustible}|${fournisseur}`;
   const spec = specMap[key];
-  if (!spec || spec[param] === undefined) return "";
-  const threshold = spec[param];
-  if (threshold === undefined) return "";
-  return value > threshold ? "text-red-600 font-bold" : "text-green-600";
+  if (spec && spec[param] !== undefined && value > (spec[param] ?? Infinity)) return "text-red-600 font-bold";
+  
+  if (param === 'h2o' && value > 15) return "text-red-600 font-bold";
+  if (param === 'chlore' && value > 1.2) return "text-yellow-600 font-bold";
+  
+  return "text-green-600";
 };
 
 const calculateAverage = (results: Result[], field: keyof Result): number | null => {
@@ -252,22 +256,29 @@ export function ResultsTable() {
     const convertIndividualToCSV = (data: Result[]) => {
         const headers = [
             "Date Arrivage", "Type Combustible", "Fournisseur", 
-            "PCS", "PCI sur Brut", "% H2O", "% Cl-", "% Cendres", 
-            "Densité", "Granulométrie", "Remarques"
+            "PCS", "PCI sur Brut", "% H2O", "% Cl-",
+            "Densité", "Granulométrie", "Remarques", "Alertes"
         ];
-        const rows = data.map(result => [
-            formatDate(result.date_arrivage),
-            result.type_combustible,
-            result.fournisseur,
-            formatNumber(result.pcs, 0),
-            formatNumber(result.pci_brut, 0),
-            formatNumber(result.h2o, 1),
-            formatNumber(result.chlore, 2),
-            formatNumber(result.cendres, 1),
-            formatNumber(result.densite, 2),
-            formatNumber(result.granulometrie, 1),
-            `"${result.remarques || ''}"`
-        ].join(';'));
+        const rows = data.map(result => {
+            const alerts = [];
+            if (result.pci_brut < 4000) alerts.push("⚠️ PCI bas");
+            if (result.h2o > 15) alerts.push("⚠️ H2O élevé");
+            if (result.chlore > 1.2) alerts.push("⚠️ Cl- élevé");
+
+            return [
+                formatDate(result.date_arrivage),
+                result.type_combustible,
+                result.fournisseur,
+                formatNumber(result.pcs, 0),
+                formatNumber(result.pci_brut, 0),
+                formatNumber(result.h2o, 1),
+                formatNumber(result.chlore, 2),
+                formatNumber(result.densite, 2),
+                formatNumber(result.granulometrie, 1),
+                `"${result.remarques || ''}"`,
+                `"${alerts.join(', ')}"`
+            ].join(';');
+        });
         return [headers.join(';'), ...rows].join('\n');
     };
 
@@ -312,8 +323,8 @@ export function ResultsTable() {
         }
     };
     
-    const exportToPDF = (data: Result[] | AggregatedResult[], title: string, period: string, isAggregated: boolean) => {
-      if (data.length === 0) {
+    const exportToPDF = (data: Result[], title: string, period: string, isAggregated: boolean, aggregatedData?: AggregatedResult[]) => {
+      if ((!isAggregated && data.length === 0) || (isAggregated && (!aggregatedData || aggregatedData.length === 0))) {
         toast({
             variant: "destructive",
             title: "Aucune donnée",
@@ -322,7 +333,7 @@ export function ResultsTable() {
         return;
       }
 
-      const doc = new jsPDF('p', 'mm', 'a4');
+      const doc = new jsPDF('l', 'mm', 'a4'); // Landscape for more space
       const pageWidth = doc.internal.pageSize.getWidth();
       const margin = 15;
 
@@ -355,19 +366,14 @@ export function ResultsTable() {
 
       const pdfNumber = (num: any, fractionDigits = 0) => {
           if (num === null || num === undefined || isNaN(num)) return 'N/A';
-          const options: Intl.NumberFormatOptions = {
-            minimumFractionDigits: fractionDigits,
-            maximumFractionDigits: fractionDigits,
-            useGrouping: false // Ne pas utiliser de séparateur de milliers
-          };
-          return new Intl.NumberFormat('fr-FR', options).format(num);
+          return num.toFixed(fractionDigits);
       };
 
       let head: any[], body: any[];
 
-      if (isAggregated) {
+      if (isAggregated && aggregatedData) {
           head = [["Combustible", "Analyses", "PCI Moyen", "% H2O", "% Cl-", "% Cendres"]];
-          body = (data as AggregatedResult[]).map(r => [
+          body = aggregatedData.map(r => [
               r.type_combustible,
               r.count,
               pdfNumber(r.pci_brut, 0),
@@ -377,7 +383,7 @@ export function ResultsTable() {
           ]);
       } else {
           head = [["Date", "Combustible", "Fournisseur", "PCI", "% H2O", "% Cl-", "Remarque"]];
-          body = (data as Result[]).map(r => [
+          body = data.map(r => [
               formatDate(r.date_arrivage),
               r.type_combustible,
               r.fournisseur,
@@ -395,20 +401,35 @@ export function ResultsTable() {
           styles: {
             halign: 'center',
             valign: 'middle',
-            fontSize: 10,
+            fontSize: 8,
           },
           headStyles: {
             fillColor: [217, 237, 223],
             textColor: 0,
             halign: 'center',
           },
-          bodyStyles: {
-            halign: 'center',
+          didDrawCell: (hookData: CellHookData) => {
+              if (hookData.section === 'body' && !isAggregated) {
+                  const result = data[hookData.row.index];
+                  let fillColor: [number, number, number] | undefined = undefined;
+
+                  if (hookData.column.dataKey === '3') { // PCI
+                      if (result.pci_brut < 4000) fillColor = [255, 230, 204]; // orange
+                  } else if (hookData.column.dataKey === '4') { // H2O
+                      if (result.h2o > 15) fillColor = [255, 204, 204]; // red
+                  } else if (hookData.column.dataKey === '5') { // Cl-
+                      if (result.chlore > 1.2) fillColor = [255, 255, 204]; // yellow
+                  }
+                  
+                  if (fillColor) {
+                      doc.setFillColor(...fillColor);
+                      doc.rect(hookData.cell.x, hookData.cell.y, hookData.cell.width, hookData.cell.height, 'F');
+                  }
+              }
           },
           theme: 'grid',
       });
       
-      // Footer
       const pageHeight = doc.internal.pageSize.getHeight();
       doc.setFontSize(8);
       doc.setTextColor(136, 136, 136);
@@ -488,7 +509,7 @@ export function ResultsTable() {
                 const csvString = convertAggregatedToCSV(aggregatedData);
                 downloadCSV(csvString, filename);
             } else {
-                exportToPDF(aggregatedData, title, periodStr, true);
+                exportToPDF(reportData, title, periodStr, true, aggregatedData);
             }
         }
     };
@@ -749,10 +770,5 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
-
-    
-    
-
-    
 
     
