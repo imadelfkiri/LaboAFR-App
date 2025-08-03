@@ -2,6 +2,8 @@
 "use client";
 
 import React from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   SidebarProvider,
   Sidebar,
@@ -10,19 +12,27 @@ import {
   SidebarInset,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
-import { Fuel } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Fuel, Plus } from 'lucide-react';
 import { SidebarNav } from './sidebar-nav';
+
+const pageTitles: { [key: string]: string } = {
+  '/calculateur': 'Calculateur PCI',
+  '/resultats': 'Historique des Résultats',
+  '/statistiques': 'Tableau de Bord des Statistiques',
+  '/specifications': 'Spécifications Techniques',
+};
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const [isClient, setIsClient] = React.useState(false);
+  const pathname = usePathname();
+  const title = pageTitles[pathname] || 'FuelTrack AFR';
 
   React.useEffect(() => {
     setIsClient(true);
   }, []);
 
   if (!isClient) {
-    // Affiche uniquement le contenu de la page sur le serveur pour éviter les erreurs d'hydratation.
-    // La mise en page complète sera rendue côté client.
     return <>{children}</>;
   }
 
@@ -47,12 +57,25 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         </SidebarContent>
       </Sidebar>
       <SidebarInset>
-        <header className="flex h-16 items-center gap-4 border-b bg-background/95 backdrop-blur-sm px-4 lg:px-6 sticky top-0 z-30">
-          <SidebarTrigger />
+        <header className="flex h-16 items-center justify-between gap-4 border-b bg-background/95 backdrop-blur-sm px-4 lg:px-6 sticky top-0 z-30">
+          <div className="flex items-center gap-2">
+            <SidebarTrigger />
+          </div>
+          <div className="flex-1 text-center">
+            <h1 className="text-xl font-bold tracking-tight">{title}</h1>
+          </div>
+          <div className="flex items-center justify-end" style={{ minWidth: '160px' }}>
+             {pathname === '/resultats' && (
+                <Button asChild className="bg-green-500 hover:bg-green-600 text-white text-sm font-semibold px-3 py-1.5 rounded-md flex items-center gap-1">
+                  <Link href="/calculateur">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Ajouter un Résultat
+                  </Link>
+                </Button>
+            )}
+          </div>
         </header>
-        <main className="flex-1">
-            {children}
-        </main>
+        {children}
       </SidebarInset>
     </SidebarProvider>
   );
