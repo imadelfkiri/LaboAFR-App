@@ -23,6 +23,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   // Ne rien rendre sur le serveur pour éviter les incohérences d'hydratation.
   // La page complète est rendue côté client une fois que le composant est monté.
   if (!isClient) {
+    // Affiche le contenu de la page sans la mise en page principale côté serveur.
     return <>{children}</>;
   }
 
