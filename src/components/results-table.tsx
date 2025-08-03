@@ -473,8 +473,8 @@ export function ResultsTable() {
                         </div>
                     </div>
 
-                    <div className="rounded-lg border overflow-hidden">
-                        <Table>
+                    <div className="rounded-lg border overflow-auto">
+                        <Table className="min-w-[1200px]">
                             <TableHeader>
                                 <TableRow className="bg-muted/50 hover:bg-muted/50">
                                     <TableHead className="w-[120px] px-4">Date Arrivage</TableHead>
