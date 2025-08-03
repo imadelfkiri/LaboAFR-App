@@ -396,13 +396,13 @@ export function ResultsTable() {
       doc.save(`${title.replace(/\s/g, '_')}.pdf`);
     }
 
-    const handleFilteredExport = (format: 'csv' | 'pdf') => {
+    const handleFilteredExport = (exportFormat: 'csv' | 'pdf') => {
         const filename = `Export_Filtre_${formatDate(new Date())}`;
         let period = "Période personnalisée";
         if (dateFilter?.from) {
           period = `Du ${format(dateFilter.from, "dd/MM/yy")} au ${dateFilter.to ? format(dateFilter.to, "dd/MM/yy") : '...'}`;
         }
-        if (format === 'csv') {
+        if (exportFormat === 'csv') {
           const csvString = convertIndividualToCSV(filteredResults);
           downloadCSV(csvString, filename);
         } else {
@@ -410,7 +410,7 @@ export function ResultsTable() {
         }
     };
 
-    const handleReportDownload = (period: 'daily' | 'weekly' | 'monthly', format: 'csv' | 'pdf') => {
+    const handleReportDownload = (period: 'daily' | 'weekly' | 'monthly', exportFormat: 'csv' | 'pdf') => {
         const now = new Date();
         let startDate: Date;
         let endDate: Date = endOfDay(now);
@@ -442,7 +442,7 @@ export function ResultsTable() {
         });
 
         if (period === 'daily') {
-             if (format === 'csv') {
+             if (exportFormat === 'csv') {
                 const csvString = convertIndividualToCSV(reportData);
                 downloadCSV(csvString, filename);
             } else {
@@ -450,7 +450,7 @@ export function ResultsTable() {
             }
         } else {
             const aggregatedData = aggregateResults(reportData);
-            if (format === 'csv') {
+            if (exportFormat === 'csv') {
                 const csvString = convertAggregatedToCSV(aggregatedData);
                 downloadCSV(csvString, filename);
             } else {
@@ -714,3 +714,5 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
+
+    
