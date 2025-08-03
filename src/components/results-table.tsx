@@ -326,9 +326,8 @@ export function ResultsTable() {
       const pageWidth = doc.internal.pageSize.getWidth();
       const margin = 15;
 
-      // Header
-      doc.setFillColor(229, 245, 235);
-      doc.rect(0, 0, pageWidth, 30, 'F');
+      doc.setFillColor(217, 237, 223);
+      doc.rect(0, 0, doc.internal.pageSize.width, 20, 'F');
 
       if (heidelbergLogo && typeof heidelbergLogo === 'string' && heidelbergLogo.startsWith('data:image/')) {
         doc.addImage(heidelbergLogo, 'PNG', margin, 10, 30, 10);
@@ -336,6 +335,8 @@ export function ResultsTable() {
       if (asmentLogo && typeof asmentLogo === 'string' && asmentLogo.startsWith('data:image/')) {
         doc.addImage(asmentLogo, 'PNG', pageWidth - margin - 25, 10, 25, 10);
       }
+      
+      doc.setTextColor(0, 102, 0);
 
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
@@ -353,23 +354,14 @@ export function ResultsTable() {
       doc.setTextColor(51, 51, 51);
       doc.text(`Période: ${period}`, margin, 38);
 
-      // Table
-      const headStyles = {
-          fillColor: [229, 245, 235],
-          textColor: [0, 102, 68],
-          fontStyle: 'bold',
-          halign: 'center',
-      };
-      const alternateRowStyles = { fillColor: [250, 250, 250] };
-      
       const pdfNumber = (num: any, fractionDigits = 0) => {
-        if (num === null || num === undefined || isNaN(num)) return 'N/A';
-        const options: Intl.NumberFormatOptions = {
-          minimumFractionDigits: fractionDigits,
-          maximumFractionDigits: fractionDigits,
-          useGrouping: false, 
-        };
-        return new Intl.NumberFormat('fr-FR', options).format(num);
+          if (num === null || num === undefined || isNaN(num)) return 'N/A';
+          const options: Intl.NumberFormatOptions = {
+            minimumFractionDigits: fractionDigits,
+            maximumFractionDigits: fractionDigits,
+            useGrouping: false
+          };
+          return new Intl.NumberFormat('fr-FR', options).format(num);
       };
 
       let head: any[], body: any[];
@@ -396,24 +388,25 @@ export function ResultsTable() {
               pdfNumber(r.cendres, 1)
           ]);
       }
-
+      
       autoTable(doc, {
           head,
           body,
-          startY: 42,
+          startY: 50,
+          styles: {
+            halign: 'center',
+            valign: 'middle',
+            fontSize: 10,
+          },
+          headStyles: {
+            fillColor: [217, 237, 223],
+            textColor: 0,
+            halign: 'center',
+          },
+          bodyStyles: {
+            halign: 'center',
+          },
           theme: 'grid',
-          headStyles,
-          alternateRowStyles,
-          styles: { fontSize: 8, cellPadding: 2, font: 'helvetica' },
-          columnStyles: {
-              0: { halign: 'left' },
-              1: { halign: 'left' },
-              2: { halign: 'left' },
-              3: { halign: 'right' },
-              4: { halign: 'right' },
-              5: { halign: 'right' },
-              6: { halign: 'right' },
-          }
       });
       
       // Footer
@@ -759,4 +752,6 @@ export function ResultsTable() {
 }
 
     
+    
+
     
