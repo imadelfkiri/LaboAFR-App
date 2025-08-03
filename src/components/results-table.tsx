@@ -53,6 +53,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { useToast } from '@/hooks/use-toast';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 interface Result {
     id: string;
@@ -115,7 +116,6 @@ const getCustomColor = (
   return value > threshold ? "text-red-600 font-bold" : "text-green-600";
 };
 
-
 const calculateAverage = (results: Result[], field: keyof Result): number | null => {
   const validValues = results.map(r => r[field]).filter(v => typeof v === 'number') as number[];
   if (!validValues.length) return null;
@@ -135,8 +135,10 @@ export function ResultsTable() {
     const [fournisseurs, setFournisseurs] = useState<string[]>([]);
     const [fuelTypeMap, setFuelTypeMap] = useState<Map<string, string>>(new Map());
     const { toast } = useToast();
+    const [isClient, setIsClient] = useState(false)
 
     useEffect(() => {
+        setIsClient(true)
         async function fetchData() {
             const [fetchedFuelTypes, fetchedFournisseurs] = await Promise.all([
                 getFuelTypes(),
@@ -359,17 +361,25 @@ export function ResultsTable() {
     };
 
 
-    if (loading) {
+    if (loading || !isClient) {
         return (
              <div className="space-y-4 pt-4 px-4 lg:px-6">
-                <Skeleton className="h-10 w-full" />
-                <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2'>
-                    <Skeleton className="h-10 w-full" />
-                    <Skeleton className="h-10 w-full" />
-                    <Skeleton className="h-10 w-full" />
-                    <Skeleton className="h-10 w-full" />
+                <div className='grid grid-cols-1 md:grid-cols-3 gap-4 mb-4'>
+                    <div className="md:col-span-2">
+                        <Skeleton className="h-4 w-16 mb-2" />
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Skeleton className="h-10 w-full sm:w-auto flex-1 min-w-[180px]" />
+                            <Skeleton className="h-10 w-full sm:w-auto flex-1 min-w-[180px]" />
+                            <Skeleton className="h-10 w-full sm:w-auto flex-1 min-w-[240px]" />
+                            <Skeleton className="h-10 w-24" />
+                        </div>
+                    </div>
+                    <div>
+                        <Skeleton className="h-4 w-20 mb-2" />
+                        <Skeleton className="h-10 w-full sm:w-[230px]" />
+                    </div>
                 </div>
-                 <Skeleton className="h-40 w-full" />
+                 <Skeleton className="h-96 w-full" />
             </div>
         )
     }
@@ -377,7 +387,7 @@ export function ResultsTable() {
     return (
         <TooltipProvider>
             <AlertDialog onOpenChange={(open) => !open && setResultToDelete(null)}>
-                <div className="flex flex-col gap-4 p-4 lg:p-6">
+                <div className="flex flex-col gap-4 p-4 lg:p-6 h-full">
                     <div className='grid grid-cols-1 md:grid-cols-3 gap-4 items-start'>
                         <div className="md:col-span-2">
                             <label className="text-sm font-medium text-muted-foreground mb-2 block">Filtres</label>
@@ -473,12 +483,12 @@ export function ResultsTable() {
                         </div>
                     </div>
 
-                    <div className="rounded-lg border overflow-auto">
+                    <ScrollArea className="flex-grow rounded-lg border">
                         <Table className="min-w-[1200px]">
                             <TableHeader>
                                 <TableRow className="bg-muted/50 hover:bg-muted/50">
-                                    <TableHead className="w-[120px] px-4">Date Arrivage</TableHead>
-                                    <TableHead className="px-4">Type Combustible</TableHead>
+                                    <TableHead className="w-[120px] px-4 sticky left-0 bg-muted/50">Date Arrivage</TableHead>
+                                    <TableHead className="px-4 sticky left-[120px] bg-muted/50">Type Combustible</TableHead>
                                     <TableHead className="px-4">Fournisseur</TableHead>
                                     <TableHead className="text-right px-4">PCS</TableHead>
                                     <TableHead className="text-right text-primary font-bold px-4">PCI sur Brut</TableHead>
@@ -488,7 +498,7 @@ export function ResultsTable() {
                                     <TableHead className="text-right px-4">Densité</TableHead>
                                     <TableHead className="text-right px-4">Granulométrie</TableHead>
                                     <TableHead className="px-4">Remarques</TableHead>
-                                    <TableHead className="w-[50px] text-right px-4">Action</TableHead>
+                                    <TableHead className="w-[50px] text-right px-4 sticky right-0 bg-muted/50">Action</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -496,8 +506,8 @@ export function ResultsTable() {
                                     <>
                                         {filteredResults.map((result) => (
                                             <TableRow key={result.id}>
-                                                <TableCell className="font-medium px-4">{formatDate(result.date_arrivage)}</TableCell>
-                                                <TableCell className="px-4">
+                                                <TableCell className="font-medium px-4 sticky left-0 bg-background">{formatDate(result.date_arrivage)}</TableCell>
+                                                <TableCell className="px-4 sticky left-[120px] bg-background">
                                                     <div className="flex items-center gap-2">
                                                         <span>{fuelTypeMap.get(result.type_combustible) ?? '❓'}</span>
                                                         <span>{result.type_combustible}</span>
@@ -525,7 +535,7 @@ export function ResultsTable() {
                                                         {result.remarques && <TooltipContent>{result.remarques}</TooltipContent>}
                                                     </Tooltip>
                                                 </TableCell>
-                                                <TableCell className="text-right px-4">
+                                                <TableCell className="text-right px-4 sticky right-0 bg-background">
                                                     <AlertDialogTrigger asChild>
                                                         <Button variant="ghost" size="icon" onClick={() => setResultToDelete(result.id)}>
                                                             <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive"/>
@@ -535,14 +545,14 @@ export function ResultsTable() {
                                             </TableRow>
                                         ))}
                                         <TableRow className="bg-muted/40 font-semibold">
-                                            <TableCell colSpan={4} className="px-4">Moyenne de la sélection</TableCell>
+                                            <TableCell colSpan={4} className="px-4 sticky left-0 bg-muted/40">Moyenne de la sélection</TableCell>
                                             <TableCell className="text-right text-primary px-4">{formatNumber(calculateAverage(filteredResults, 'pci_brut'), 0)}</TableCell>
                                             <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'h2o'), 1)}</TableCell>
                                             <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'chlore'), 2)}</TableCell>
                                             <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'cendres'), 1)}</TableCell>
                                             <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'densite'), 2)}</TableCell>
                                             <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'granulometrie'), 1)}</TableCell>
-                                            <TableCell colSpan={2} />
+                                            <TableCell colSpan={2} className='sticky right-0 bg-muted/40'/>
                                         </TableRow>
                                     </>
                                 ) : (
@@ -554,7 +564,9 @@ export function ResultsTable() {
                                 )}
                             </TableBody>
                         </Table>
-                    </div>
+                         <ScrollBar orientation="horizontal" />
+                    </ScrollArea>
+
                     <AlertDialogContent>
                         <AlertDialogHeader>
                         <AlertDialogTitle>Êtes-vous absolument sûr ?</AlertDialogTitle>
@@ -573,5 +585,3 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
-
-    

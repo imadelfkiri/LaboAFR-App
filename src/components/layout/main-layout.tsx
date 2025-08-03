@@ -20,10 +20,9 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     setIsClient(true);
   }, []);
 
-  // Ne rien rendre sur le serveur pour éviter les incohérences d'hydratation.
-  // La page complète est rendue côté client une fois que le composant est monté.
   if (!isClient) {
-    // Affiche le contenu de la page sans la mise en page principale côté serveur.
+    // Affiche uniquement le contenu de la page sur le serveur pour éviter les erreurs d'hydratation.
+    // La mise en page complète sera rendue côté client.
     return <>{children}</>;
   }
 
@@ -51,7 +50,9 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         <header className="flex h-16 items-center gap-4 border-b bg-background/95 backdrop-blur-sm px-4 lg:px-6 sticky top-0 z-30">
           <SidebarTrigger />
         </header>
-        {children}
+        <main className="flex-1">
+            {children}
+        </main>
       </SidebarInset>
     </SidebarProvider>
   );
