@@ -309,8 +309,7 @@ export function ResultsTable() {
         const titleStyle = { font: { bold: true, sz: 14 }, alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } };
         const subtitleStyle = { font: { sz: 12 }, alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } };
         const headerStyle = { font: { bold: true }, alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "CDE9D6" } } };
-        const centerAlign = { alignment: { horizontal: "center" } };
-
+        
         ws['A1'].s = titleStyle;
         ws['A2'].s = subtitleStyle;
 
@@ -330,15 +329,21 @@ export function ResultsTable() {
                 const key = `${result.type_combustible}|${result.fournisseur}`;
                 const spec = specMap[key] || {};
 
-                if (C === 4 && spec.pci_min && result.pci_brut < spec.pci_min) cellStyle.fill = { fgColor: { rgb: "FFCCCC" } }; // Red
+                // Conditional Formatting
+                if (C === 4) { // PCI
+                   if (spec.pci_min && result.pci_brut < spec.pci_min) cellStyle.fill = { fgColor: { rgb: "FFCCCC" } }; // Red
+                   else if (result.pci_brut < 4000) cellStyle.fill = { fgColor: { rgb: "FFE6CC" } }; // Orange
+                }
                 if (C === 5 && spec.h2o && result.h2o > spec.h2o) cellStyle.fill = { fgColor: { rgb: "FFE6CC" } }; // Orange
                 if (C === 6 && spec.chlore && result.chlore > spec.chlore) cellStyle.fill = { fgColor: { rgb: "FFFFCC" } }; // Yellow
                 if (C === 7 && spec.cendres && result.cendres > spec.cendres) cellStyle.fill = { fgColor: { rgb: "E0E0E0" } }; // Gray
                 
+                // Alignment
                 if ([0, 3, 4, 5, 6, 7, 8, 9].includes(C)) {
                     cellStyle.alignment = { horizontal: "center" };
                 }
 
+                // Alerts column styling
                 if (C === 11 && ws_data[R][C] && (ws_data[R][C] as string).length > 0) {
                      cellStyle.font = { bold: true, color: { rgb: "FF0000" }};
                 }
@@ -596,3 +601,5 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
+
+    
