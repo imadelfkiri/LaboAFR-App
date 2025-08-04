@@ -57,7 +57,7 @@ export const getFuelTypes = async (): Promise<FuelType[]> => {
         console.log("Seeding complete.");
     }
 
-    const orderedQuery = query(fuelTypesCollectionRef, orderBy("createdAt", "desc"));
+    const orderedQuery = query(fuelTypesCollectionRef);
     const orderedSnapshot = await getDocs(orderedQuery);
     const types: FuelType[] = [];
     orderedSnapshot.forEach((doc) => {
@@ -184,5 +184,7 @@ export const getSpecifications = async (): Promise<Specification[]> => {
     });
     return specifications;
 };
+
+    
 
     
