@@ -7,6 +7,8 @@ export const H_MAP: Record<string, number> = {};
 export interface FuelType {
     name: string;
     icon: string;
+    hValue: number;
+    createdAt?: any; 
 }
 
 export interface Specification {
@@ -35,7 +37,7 @@ export const INITIAL_FUEL_TYPES: Omit<FuelType, 'createdAt'>[] = [
     { name: "CSR", icon: "♻️", hValue: 6.0 },
     { name: "Boues", icon: "💧", hValue: 5.5 },
     { name: "Bois", icon: "🌲", hValue: 6.0 },
-].map(fuel => ({ ...fuel }));
+];
 
 
 export const getFuelTypes = async (): Promise<FuelType[]> => {
@@ -48,32 +50,30 @@ export const getFuelTypes = async (): Promise<FuelType[]> => {
         console.log("Fuel types collection is empty, seeding with initial data...");
         const batch = writeBatch(db);
         
-        INITIAL_FUEL_TYPES.forEach((fuelType: any) => {
+        INITIAL_FUEL_TYPES.forEach((fuelType) => {
             const docRef = doc(fuelTypesCollectionRef, fuelType.name);
-            batch.set(docRef, { ...fuelType, createdAt: serverTimestamp() });
-            types.push({ name: fuelType.name, icon: fuelType.icon });
+            const dataWithTimestamp = { ...fuelType, createdAt: serverTimestamp() };
+            batch.set(docRef, dataWithTimestamp);
             H_MAP[fuelType.name] = fuelType.hValue;
         });
         await batch.commit();
         console.log("Seeding complete.");
-        // Re-fetch to get sorted data
+
+        // Re-fetch to get sorted data with timestamps
         const newSnapshot = await getDocs(q);
         newSnapshot.forEach(doc => {
-            const data = doc.data();
-            if (!types.some(t => t.name === data.name)) {
-                types.push({ name: data.name, icon: data.icon });
-                 if (data.hValue !== undefined) {
-                    H_MAP[data.name] = data.hValue;
-                }
+            const data = doc.data() as FuelType;
+            types.push(data);
+            if (data.hValue !== undefined) {
+                H_MAP[data.name] = data.hValue;
             }
         });
         return types;
     }
 
     querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        types.push({ name: data.name, icon: data.icon });
-        // Also update H_MAP dynamically
+        const data = doc.data() as FuelType;
+        types.push(data);
         if (data.hValue !== undefined) {
             H_MAP[data.name] = data.hValue;
         }
