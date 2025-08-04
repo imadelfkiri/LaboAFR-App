@@ -241,16 +241,15 @@ export function PciCalculator() {
 
         H_MAP[newFuel.name] = dataToSave.hValue;
         
-        const newType: FuelType = { name: newFuel.name, icon: newFuel.icon };
         // Refetch to get the new sorted list
         const updatedTypes = await getFuelTypes();
         setAllFuelTypes(updatedTypes);
         
-        setValue("type_combustible", newType.name, { shouldValidate: true });
+        setValue("type_combustible", newFuel.name, { shouldValidate: true });
 
         toast({
             title: "Succès",
-            description: `Le type "${newType.name}" a été ajouté.`,
+            description: `Le type "${newFuel.name}" a été ajouté.`,
         });
 
         setIsFuelModalOpen(false);
@@ -763,5 +762,7 @@ export function PciCalculator() {
     </div>
   );
 }
+
+    
 
     
