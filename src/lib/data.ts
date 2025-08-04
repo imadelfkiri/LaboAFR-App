@@ -1,7 +1,6 @@
 
-import { collection, getDocs, doc, writeBatch, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, doc, writeBatch, query, orderBy, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
-import { Timestamp } from "firebase/firestore";
 
 export const H_MAP: Record<string, number> = {};
 
@@ -22,22 +21,21 @@ export interface Specification {
     granulometrie: string;
 }
 
-
-export const INITIAL_FUEL_TYPES: (FuelType & { hValue: number; createdAt: Timestamp })[] = [
-    { name: "Bois", icon: "🌲", hValue: 6.0, createdAt: Timestamp.fromDate(new Date("2023-01-01T10:00:00Z")) },
-    { name: "Boues", icon: "💧", hValue: 5.5, createdAt: Timestamp.fromDate(new Date("2023-01-01T10:01:00Z")) },
-    { name: "CSR", icon: "♻️", hValue: 6.0, createdAt: Timestamp.fromDate(new Date("2023-01-01T10:02:00Z")) },
-    { name: "Caoutchouc", icon: "🛞", hValue: 6.8, createdAt: Timestamp.fromDate(new Date("2023-01-01T10:03:00Z")) },
-    { name: "Charbon", icon: "🪨", hValue: 4.5, createdAt: Timestamp.fromDate(new Date("2023-01-01T10:04:00Z")) },
-    { name: "DMB", icon: "🧱", hValue: 6.5, createdAt: Timestamp.fromDate(new Date("2023-01-01T10:05:00Z")) },
-    { name: "Grignons", icon: "🫒", hValue: 6.0, createdAt: Timestamp.fromDate(new Date("2023-01-01T10:06:00Z")) },
-    { name: "Mélange", icon: "🧪", hValue: 6.0, createdAt: Timestamp.fromDate(new Date("2023-01-01T10:07:00Z")) },
-    { name: "Pet Coke", icon: "🔥", hValue: 3.5, createdAt: Timestamp.fromDate(new Date("2023-01-01T10:08:00Z")) },
-    { name: "Plastiques", icon: "🧴", hValue: 7.0, createdAt: Timestamp.fromDate(new Date("2023-01-01T10:09:00Z")) },
-    { name: "Pneus", icon: "🚗", hValue: 6.5, createdAt: Timestamp.fromDate(new Date("2023-01-01T10:10:00Z")) },
-    { name: "RDF", icon: "🔁", hValue: 6.0, createdAt: Timestamp.fromDate(new Date("2023-01-01T10:11:00Z")) },
-    { name: "Textile", icon: "👗", hValue: 6.0, createdAt: Timestamp.fromDate(new Date("2023-01-01T10:12:00Z")) }
-];
+export const INITIAL_FUEL_TYPES: Omit<FuelType, 'createdAt'>[] = [
+    { name: "Textile", icon: "👗", hValue: 6.0 },
+    { name: "RDF", icon: "🔁", hValue: 6.0 },
+    { name: "Pneus", icon: "🚗", hValue: 6.5 },
+    { name: "Plastiques", icon: "🧴", hValue: 7.0 },
+    { name: "Pet Coke", icon: "🔥", hValue: 3.5 },
+    { name: "Mélange", icon: "🧪", hValue: 6.0 },
+    { name: "Grignons", icon: "🫒", hValue: 6.0 },
+    { name: "DMB", icon: "🧱", hValue: 6.5 },
+    { name: "Charbon", icon: "🪨", hValue: 4.5 },
+    { name: "Caoutchouc", icon: "🛞", hValue: 6.8 },
+    { name: "CSR", icon: "♻️", hValue: 6.0 },
+    { name: "Boues", icon: "💧", hValue: 5.5 },
+    { name: "Bois", icon: "🌲", hValue: 6.0 },
+].map(fuel => ({ ...fuel }));
 
 
 export const getFuelTypes = async (): Promise<FuelType[]> => {
@@ -49,16 +47,26 @@ export const getFuelTypes = async (): Promise<FuelType[]> => {
     if (querySnapshot.empty) {
         console.log("Fuel types collection is empty, seeding with initial data...");
         const batch = writeBatch(db);
-        const sortedInitialData = [...INITIAL_FUEL_TYPES].sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
         
-        sortedInitialData.forEach(fuelType => {
+        INITIAL_FUEL_TYPES.forEach((fuelType: any) => {
             const docRef = doc(fuelTypesCollectionRef, fuelType.name);
-            batch.set(docRef, fuelType);
+            batch.set(docRef, { ...fuelType, createdAt: serverTimestamp() });
             types.push({ name: fuelType.name, icon: fuelType.icon });
             H_MAP[fuelType.name] = fuelType.hValue;
         });
         await batch.commit();
         console.log("Seeding complete.");
+        // Re-fetch to get sorted data
+        const newSnapshot = await getDocs(q);
+        newSnapshot.forEach(doc => {
+            const data = doc.data();
+            if (!types.some(t => t.name === data.name)) {
+                types.push({ name: data.name, icon: data.icon });
+                 if (data.hValue !== undefined) {
+                    H_MAP[data.name] = data.hValue;
+                }
+            }
+        });
         return types;
     }
 

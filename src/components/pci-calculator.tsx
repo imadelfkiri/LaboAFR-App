@@ -8,7 +8,7 @@ import * as z from "zod";
 import { format, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
 import { CalendarIcon, Fuel, PlusCircle, ClipboardList, FlaskConical, MessageSquareText, Ruler } from 'lucide-react';
-import { collection, addDoc, Timestamp, doc, setDoc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
+import { collection, addDoc, Timestamp, doc, setDoc, getDoc, updateDoc, arrayUnion, serverTimestamp } from "firebase/firestore";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -191,7 +191,7 @@ export function PciCalculator() {
             name: newFuel.name, 
             icon: newFuel.icon, 
             hValue: newFuel.hValue,
-            createdAt: Timestamp.now(),
+            createdAt: serverTimestamp(),
         };
 
         await setDoc(docRef, dataToSave);
@@ -323,7 +323,7 @@ export function PciCalculator() {
         densite: Number(values.densite) || 0,
         granulometrie: Number(values.granulometrie) || 0,
         remarques: values.remarques || "",
-        createdAt: Timestamp.now(),
+        createdAt: serverTimestamp(),
       };
 
       await addDoc(collection(db, "resultats"), dataToSave);
@@ -693,6 +693,3 @@ export function PciCalculator() {
 }
 
     
-
-    
-
