@@ -88,8 +88,7 @@ const getPciColorClass = (value: number, combustible: string, fournisseur: strin
   const key = `${combustible}|${fournisseur}`;
   const spec = specMap[key];
   if (spec && spec.pci_min !== undefined && value < spec.pci_min) return "text-red-600 font-bold";
-  if (value < 4000) return "text-orange-600";
-  return "text-green-600";
+  return "";
 };
 
 const getCustomColor = (
@@ -101,10 +100,6 @@ const getCustomColor = (
   const key = `${combustible}|${fournisseur}`;
   const spec = specMap[key];
   if (spec && spec[param] !== undefined && value > (spec[param] ?? Infinity)) return "text-red-600 font-bold";
-  
-  if (param === 'h2o' && value > 15) return "text-red-600 font-bold";
-  if (param === 'chlore' && value > 1.2) return "text-yellow-600 font-bold";
-  
   return "";
 };
 
@@ -250,14 +245,14 @@ export function ResultsTable() {
         const subtitleStyle = { font: { bold: true, sz: 12 }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } };
         const headerStyle = { font: { bold: true, color: { rgb: "000000" } }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "CDE9D6" } }, border };
         
-        const baseCellStyle = { border };
-        const centerAlign = { ...baseCellStyle, alignment: { horizontal: "center", vertical: "center" } };
-        const leftAlign = { ...baseCellStyle, alignment: { horizontal: "left", vertical: "center", wrapText: true } };
+        const baseCellStyle = { border, alignment: { vertical: "center" } };
+        const centerAlignStyle = { ...baseCellStyle, alignment: { ...baseCellStyle.alignment, horizontal: "center" } };
+        const leftAlignStyle = { ...baseCellStyle, alignment: { ...baseCellStyle.alignment, horizontal: "left", wrapText: true } };
         
-        const pciLowColor = { fgColor: { rgb: "F8D7DA" } };
-        const h2oHighColor = { fgColor: { rgb: "FFF3CD" } };
-        const clHighColor = { fgColor: { rgb: "FFF9C4" } };
-        const cendresHighColor = { fgColor: { rgb: "E2E3E5" } };
+        const pciLowColor = { fgColor: { rgb: "F8D7DA" } }; // rouge
+        const h2oHighColor = { fgColor: { rgb: "FFF3CD" } }; // orange
+        const clHighColor = { fgColor: { rgb: "FFF9C4" } }; // jaune
+        const cendresHighColor = { fgColor: { rgb: "E2E3E5" } }; // gris
         const alertFont = { bold: true, color: { rgb: "FF0000" } };
 
         const ws_data: (any)[][] = [
@@ -266,92 +261,102 @@ export function ResultsTable() {
             [], 
             headers.map(h => ({ v: h, s: headerStyle }))
         ];
+        
+        // Add empty row for title style to work
+        ws_data[0] = [...ws_data[0], ...Array(headers.length - 1).fill({v: "", s: titleStyle})];
+        ws_data[1] = [...ws_data[1], ...Array(headers.length - 1).fill({v: "", s: subtitleStyle})];
+
 
         data.forEach(result => {
             const key = `${result.type_combustible}|${result.fournisseur}`;
             const spec = specMap[key] || {};
             const alerts: string[] = [];
             
-            // --- Cellules et MEC ---
-            const pciCell = { v: result.pci_brut, s: { ...centerAlign } as any };
+            const pciCellStyle = { ...centerAlignStyle } as any;
             if (spec.pci_min !== undefined && result.pci_brut < spec.pci_min) {
                 alerts.push("⚠️ PCI bas");
-                pciCell.s.fill = pciLowColor;
+                pciCellStyle.fill = pciLowColor;
             }
             
-            const h2oCell = { v: result.h2o, s: { ...centerAlign } as any };
+            const h2oCellStyle = { ...centerAlignStyle } as any;
             if (spec.h2o !== undefined && result.h2o > spec.h2o) {
                 alerts.push("⚠️ H2O élevé");
-                h2oCell.s.fill = h2oHighColor;
+                h2oCellStyle.fill = h2oHighColor;
             }
     
-            const chloreCell = { v: result.chlore, s: { ...centerAlign } as any };
+            const chloreCellStyle = { ...centerAlignStyle } as any;
             if (spec.chlore !== undefined && result.chlore > spec.chlore) {
                 alerts.push("⚠️ Cl- élevé");
-                chloreCell.s.fill = clHighColor;
+                chloreCellStyle.fill = clHighColor;
             }
 
             const alertText = alerts.join(', ');
-            const alertCell = { v: alertText, s: { ...leftAlign } as any };
-            if (alerts.length > 0) {
-                alertCell.s.font = alertFont;
+            const alertCellStyle = { ...leftAlignStyle } as any;
+            if (alerts.length > 1) {
+                alertCellStyle.font = alertFont;
             }
             
             let row;
             if (isFullReport) {
-                const cendresCell = { v: result.cendres, s: { ...centerAlign } as any };
+                const cendresCellStyle = { ...centerAlignStyle } as any;
                 if (spec.cendres !== undefined && result.cendres > spec.cendres) {
                     alerts.push("⚠️ Cendres élevées"); 
-                    cendresCell.s.fill = cendresHighColor;
+                    cendresCellStyle.fill = cendresHighColor;
                 }
                  const fullAlertText = alerts.join(', ');
-                 const fullAlertCell = { v: fullAlertText, s: { ...leftAlign } as any };
-                 if (alerts.length > 0) {
-                    fullAlertCell.s.font = alertFont;
+                 const fullAlertCellStyle = { ...leftAlignStyle } as any;
+                 if (alerts.length > 1) {
+                    fullAlertCellStyle.font = alertFont;
                  }
 
                 row = [
-                    { v: formatDate(result.date_arrivage), s: centerAlign },
-                    { v: result.type_combustible, s: leftAlign },
-                    { v: result.fournisseur, s: leftAlign },
-                    { v: result.pcs, s: centerAlign },
-                    pciCell, h2oCell, chloreCell, cendresCell,
-                    { v: result.densite, s: centerAlign },
-                    { v: result.granulometrie, s: centerAlign },
-                    { v: result.remarques || '', s: leftAlign },
-                    fullAlertCell
+                    { v: formatDate(result.date_arrivage), s: centerAlignStyle },
+                    { v: result.type_combustible, s: leftAlignStyle },
+                    { v: result.fournisseur, s: leftAlignStyle },
+                    { v: result.pcs, s: centerAlignStyle },
+                    { v: result.pci_brut, s: pciCellStyle },
+                    { v: result.h2o, s: h2oCellStyle },
+                    { v: result.chlore, s: chloreCellStyle },
+                    { v: result.cendres, s: cendresCellStyle },
+                    { v: result.densite, s: centerAlignStyle },
+                    { v: result.granulometrie, s: centerAlignStyle },
+                    { v: result.remarques || '', s: leftAlignStyle },
+                    { v: fullAlertText, s: fullAlertCellStyle }
                 ];
             } else {
                  row = [
-                    { v: formatDate(result.date_arrivage), s: centerAlign },
-                    { v: result.type_combustible, s: leftAlign },
-                    { v: result.fournisseur, s: leftAlign },
-                    pciCell, h2oCell, chloreCell,
-                    { v: result.remarques || '', s: leftAlign },
-                    alertCell
+                    { v: formatDate(result.date_arrivage), s: centerAlignStyle },
+                    { v: result.type_combustible, s: leftAlignStyle },
+                    { v: result.fournisseur, s: leftAlignStyle },
+                    { v: result.pci_brut, s: pciCellStyle },
+                    { v: result.h2o, s: h2oCellStyle },
+                    { v: result.chlore, s: chloreCellStyle },
+                    { v: result.remarques || '', s: leftAlignStyle },
+                    { v: alertText, s: alertCellStyle }
                 ];
             }
             ws_data.push(row);
         });
         
-        const ws = XLSX.utils.aoa_to_sheet(ws_data);
+        const ws = XLSX.utils.aoa_to_sheet(ws_data, { cellStyles: true });
     
         if (!ws['!merges']) ws['!merges'] = [];
         const mergeEndColumn = headers.length - 1;
         ws['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: mergeEndColumn } });
         ws['!merges'].push({ s: { r: 1, c: 0 }, e: { r: 1, c: mergeEndColumn } });
     
-        const colWidths = headers.map((h, i) => ({
-            wch: Math.max(
-                h.length,
+        const colWidths = headers.map((header, i) => {
+            const maxLength = Math.max(
+                header.length,
                 ...ws_data.slice(4).map(row => {
                     const cell = row[i];
-                    const value = (cell && typeof cell === 'object' && 'v' in cell) ? cell.v : cell;
+                    const value = cell && cell.v ? cell.v : '';
                     return value ? value.toString().length : 0;
                 })
-            ) + 2
-        }));
-        
+            );
+            return { wch: maxLength + 2 };
+        });
+
         const remarksIndex = headers.indexOf('Remarques');
         if (remarksIndex > -1) colWidths[remarksIndex] = { wch: 30 };
         const alertsIndex = headers.indexOf('Alertes');
