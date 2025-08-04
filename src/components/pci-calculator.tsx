@@ -56,7 +56,7 @@ import {
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator";
 import { calculerPCI } from '@/lib/pci';
-import { getFuelTypes, type FuelType, H_MAP, getFournisseurs, getFuelSupplierMap } from '@/lib/data';
+import { getFuelTypes, type FuelType, H_MAP, getFournisseurs, getFuelSupplierMap, fixFuelTypesMissingCreatedAt } from '@/lib/data';
 import { db } from '@/lib/firebase';
 import { useToast } from "@/hooks/use-toast";
 
@@ -139,25 +139,32 @@ export function PciCalculator() {
   };
 
   const fetchAndSetData = async () => {
-    const [fetchedFuelTypes, fetchedFournisseurs, fetchedMap] = await Promise.all([
-        getFuelTypes(),
-        getFournisseurs(),
-        getFuelSupplierMap()
-    ]);
-    
-    const sortedFuelTypes = [...fetchedFuelTypes].sort((a, b) => {
+      const [fetchedFuelTypes, fetchedFournisseurs, fetchedMap] = await Promise.all([
+          getFuelTypes(),
+          getFournisseurs(),
+          getFuelSupplierMap()
+      ]);
+      
+      // Fallback sort
+      fetchedFuelTypes.sort((a, b) => {
         const timeA = a.createdAt?.seconds ?? 0;
         const timeB = b.createdAt?.seconds ?? 0;
         return timeB - timeA;
-    });
+      });
 
-    setAllFuelTypes(sortedFuelTypes);
-    setAllFournisseurs(fetchedFournisseurs);
-    setFuelSupplierMap(fetchedMap);
+      setAllFuelTypes(fetchedFuelTypes);
+      setAllFournisseurs(fetchedFournisseurs);
+      setFuelSupplierMap(fetchedMap);
   };
 
   useEffect(() => {
-    fetchAndSetData();
+    // Run the fix function once on startup
+    const fixData = async () => {
+        await fixFuelTypesMissingCreatedAt();
+        // After fixing, fetch the data
+        await fetchAndSetData();
+    }
+    fixData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -186,7 +193,7 @@ export function PciCalculator() {
         setFilteredFournisseurs([]);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [typeCombustibleValue, allFournisseurs, setValue]);
+  }, [typeCombustibleValue, fuelSupplierMap, setValue]);
 
 
   const handleAddFuelType = async () => {
@@ -700,5 +707,3 @@ export function PciCalculator() {
     </div>
   );
 }
-
-    

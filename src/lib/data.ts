@@ -43,9 +43,10 @@ export const INITIAL_FUEL_TYPES: Omit<FuelType, 'createdAt'>[] = [
 export const getFuelTypes = async (): Promise<FuelType[]> => {
     const fuelTypesCollectionRef = collection(db, "fuel_types");
     
-    // Ensure the collection is populated on first run
-    const initialSnapshot = await getDocs(query(fuelTypesCollectionRef));
-    if (initialSnapshot.empty) {
+    const orderedQuery = query(fuelTypesCollectionRef, orderBy("createdAt", "desc"));
+    const orderedSnapshot = await getDocs(orderedQuery);
+    
+    if (orderedSnapshot.empty) {
         console.log("Fuel types collection is empty, seeding with initial data...");
         const batch = writeBatch(db);
         
@@ -56,11 +57,19 @@ export const getFuelTypes = async (): Promise<FuelType[]> => {
         });
         await batch.commit();
         console.log("Seeding complete.");
+        
+        const newSnapshot = await getDocs(orderedQuery);
+        const types: FuelType[] = [];
+        newSnapshot.forEach((doc) => {
+            const data = doc.data() as FuelType;
+            types.push(data);
+             if (data.hValue !== undefined) {
+                H_MAP[data.name] = data.hValue;
+            }
+        });
+        return types;
     }
 
-    // Fetch sorted data
-    const orderedQuery = query(fuelTypesCollectionRef, orderBy("createdAt", "desc"));
-    const orderedSnapshot = await getDocs(orderedQuery);
     const types: FuelType[] = [];
     orderedSnapshot.forEach((doc) => {
         const data = doc.data() as FuelType;
@@ -73,6 +82,28 @@ export const getFuelTypes = async (): Promise<FuelType[]> => {
     return types;
 };
 
+export const fixFuelTypesMissingCreatedAt = async () => {
+    const ref = collection(db, "fuel_types");
+    const snapshot = await getDocs(ref);
+    const batch = writeBatch(db);
+    let updatesMade = false;
+
+    snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (!data.createdAt) {
+            updatesMade = true;
+            const docRef = doc(ref, docSnap.id);
+            batch.update(docRef, { createdAt: serverTimestamp() });
+        }
+    });
+
+    if (updatesMade) {
+        await batch.commit();
+        console.log("Mise à jour terminée : Tous les documents fuel_types ont maintenant un champ createdAt.");
+    } else {
+        console.log("Aucune mise à jour nécessaire : Tous les documents fuel_types ont déjà un champ createdAt.");
+    }
+};
 
 const INITIAL_FOURNISSEURS = [
     "Ain Seddeine", "Aliapur", "Bichara", "Géocycle", "MTR", "ONEE",
@@ -95,7 +126,7 @@ export const getFournisseurs = async (): Promise<string[]> => {
         });
         await batch.commit();
         console.log("Seeding complete.");
-        return fournisseurs;
+        return fournisseurs.sort();
     }
 
     querySnapshot.forEach((doc) => {
@@ -186,5 +217,3 @@ export const getSpecifications = async (): Promise<Specification[]> => {
     });
     return specifications;
 };
-
-    
