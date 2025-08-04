@@ -111,9 +111,10 @@ export function PciCalculator() {
         getFuelSupplierMap()
     ]);
 
-    const sortedFuelTypes = fetchedFuelTypes.sort((a, b) => {
+    const sortedFuelTypes = [...fetchedFuelTypes].sort((a, b) => {
         const timeA = a.createdAt?.seconds ?? 0;
         const timeB = b.createdAt?.seconds ?? 0;
+        if (timeA === 0 && timeB === 0) return a.name.localeCompare(b.name);
         return timeB - timeA;
     });
     
@@ -697,11 +698,3 @@ export function PciCalculator() {
     </div>
   );
 }
-
-    
-
-    
-
-    
-
-

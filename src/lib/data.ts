@@ -184,7 +184,3 @@ export const getSpecifications = async (): Promise<Specification[]> => {
     });
     return specifications;
 };
-
-    
-
-    
