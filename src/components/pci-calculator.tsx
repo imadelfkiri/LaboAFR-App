@@ -85,7 +85,6 @@ const newFournisseurSchema = z.object({
     name: z.string().nonempty({ message: "Le nom du fournisseur est requis."}).regex(/^[a-zA-Z0-9\s-]+$/, "Le nom ne doit contenir que des lettres, chiffres, espaces ou tirets."),
 });
 
-const RECENT_FUEL_TYPES_KEY = 'recentFuelTypes';
 const RECENT_FOURNISSEURS_KEY = 'recentFournisseurs';
 const MAX_RECENT_ITEMS = 5;
 
@@ -114,10 +113,8 @@ export function PciCalculator() {
   const [allFournisseurs, setAllFournisseurs] = useState<string[]>([]);
   const [fuelSupplierMap, setFuelSupplierMap] = useState<Record<string, string[]>>({});
   
-  const [sortedFuelTypes, setSortedFuelTypes] = useState<FuelType[]>([]);
   const [filteredFournisseurs, setFilteredFournisseurs] = useState<string[]>([]);
   const [sortedFournisseurs, setSortedFournisseurs] = useState<string[]>([]);
-  const [recentFuelTypes, setRecentFuelTypes] = useState<string[]>([]);
   const [recentFournisseurs, setRecentFournisseurs] = useState<string[]>([]);
 
 
@@ -142,21 +139,11 @@ export function PciCalculator() {
         setAllFournisseurs(fetchedFournisseurs);
         setFuelSupplierMap(fetchedMap);
 
-        const recentFuels = getRecentItems(RECENT_FUEL_TYPES_KEY);
-        setRecentFuelTypes(recentFuels);
-        sortFuelTypes(fetchedFuelTypes, recentFuels);
-
         const recentFours = getRecentItems(RECENT_FOURNISSEURS_KEY);
         setRecentFournisseurs(recentFours);
     }
     fetchData();
   }, []);
-
-  const sortFuelTypes = (allTypes: FuelType[], recent: string[]) => {
-      const recentList = recent.map(name => allTypes.find(ft => ft.name === name)).filter(Boolean) as FuelType[];
-      const otherList = allTypes.filter(ft => !recent.includes(ft.name));
-      setSortedFuelTypes([...recentList, ...otherList]);
-  };
 
   const sortFournisseurs = (fournisseursToFilter: string[], recent: string[]) => {
       const recentList = recent.filter(name => fournisseursToFilter.includes(name));
@@ -246,7 +233,8 @@ export function PciCalculator() {
         const dataToSave = { 
             name: newFuel.name, 
             icon: newFuel.icon, 
-            hValue: newFuel.hValue 
+            hValue: newFuel.hValue,
+            createdAt: Timestamp.now(),
         };
 
         await setDoc(docRef, dataToSave);
@@ -254,13 +242,10 @@ export function PciCalculator() {
         H_MAP[newFuel.name] = dataToSave.hValue;
         
         const newType: FuelType = { name: newFuel.name, icon: newFuel.icon };
-        const updatedTypes = [...allFuelTypes, newType].sort((a, b) => a.name.localeCompare(b.name));
+        // Refetch to get the new sorted list
+        const updatedTypes = await getFuelTypes();
         setAllFuelTypes(updatedTypes);
-        addRecentItem(RECENT_FUEL_TYPES_KEY, newType.name);
-        const recentFuels = getRecentItems(RECENT_FUEL_TYPES_KEY);
-        setRecentFuelTypes(recentFuels);
-        sortFuelTypes(updatedTypes, recentFuels);
-
+        
         setValue("type_combustible", newType.name, { shouldValidate: true });
 
         toast({
@@ -375,12 +360,7 @@ export function PciCalculator() {
           return;
       }
 
-      addRecentItem(RECENT_FUEL_TYPES_KEY, values.type_combustible);
       addRecentItem(RECENT_FOURNISSEURS_KEY, values.fournisseur);
-
-      const recentFuels = getRecentItems(RECENT_FUEL_TYPES_KEY);
-      setRecentFuelTypes(recentFuels);
-      sortFuelTypes(allFuelTypes, recentFuels);
 
       const recentFours = getRecentItems(RECENT_FOURNISSEURS_KEY);
       setRecentFournisseurs(recentFours);
@@ -432,6 +412,7 @@ export function PciCalculator() {
 
   return (
     <div className="w-full max-w-4xl space-y-4 pb-24">
+      <div className="h-4" />
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -502,15 +483,11 @@ export function PciCalculator() {
                                             </SelectTrigger>
                                             </FormControl>
                                             <SelectContent side="bottom" avoidCollisions={false} className="z-50">
-                                                <SelectItem value="Bois">🌲 Bois</SelectItem>
-                                                <SelectItem value="Boues">💧 Boues</SelectItem>
-                                                <SelectItem value="Caoutchouc">🧽 Caoutchouc</SelectItem>
-                                                <SelectItem value="Charbon">🪨 Charbon</SelectItem>
-                                                <SelectItem value="CSR">♻️ CSR</SelectItem>
-                                                <SelectItem value="DMB">🧱 DMB</SelectItem>
-                                                <SelectItem value="Grignons">🫒 Grignons</SelectItem>
-                                                <SelectItem value="Pneus">🚛 Pneus</SelectItem>
-                                                <SelectItem value="Plastiques">🧴 Plastiques</SelectItem>
+                                                {allFuelTypes.map((fuel) => (
+                                                    <SelectItem key={fuel.name} value={fuel.name}>
+                                                        {fuel.icon} {fuel.name}
+                                                    </SelectItem>
+                                                ))}
                                                 <Separator className="my-1" />
                                                 <div
                                                     onSelect={(e) => e.preventDefault()}
