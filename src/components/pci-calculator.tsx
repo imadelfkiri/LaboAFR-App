@@ -110,7 +110,7 @@ export function PciCalculator() {
         getFournisseurs(),
         getFuelSupplierMap()
     ]);
-
+    
     const sortedFuelTypes = [...fetchedFuelTypes].sort((a, b) => {
         const timeA = a.createdAt?.seconds ?? 0;
         const timeB = b.createdAt?.seconds ?? 0;
