@@ -190,8 +190,7 @@ export function PciCalculator() {
         const dataToSave = { 
             name: newFuel.name, 
             icon: newFuel.icon, 
-            hValue: newFuel.hValue,
-            createdAt: serverTimestamp(),
+            hValue: newFuel.hValue
         };
 
         await setDoc(docRef, dataToSave);
@@ -355,7 +354,6 @@ export function PciCalculator() {
 
   return (
     <div className="w-full max-w-4xl space-y-4 pb-24">
-      <div className="h-4" />
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

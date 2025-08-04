@@ -1,5 +1,5 @@
 
-import { collection, getDocs, doc, writeBatch, query, orderBy, serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, doc, writeBatch, query, setDoc } from "firebase/firestore";
 import { db } from "./firebase";
 
 export const H_MAP: Record<string, number> = {};
@@ -8,7 +8,6 @@ export interface FuelType {
     name: string;
     icon: string;
     hValue: number;
-    createdAt?: any; 
 }
 
 export interface Specification {
@@ -23,7 +22,7 @@ export interface Specification {
     granulometrie: string;
 }
 
-export const INITIAL_FUEL_TYPES: Omit<FuelType, 'createdAt'>[] = [
+export const INITIAL_FUEL_TYPES: FuelType[] = [
     { name: "Textile", icon: "👗", hValue: 6.0 },
     { name: "RDF", icon: "🔁", hValue: 6.0 },
     { name: "Pneus", icon: "🚗", hValue: 6.5 },
@@ -42,8 +41,7 @@ export const INITIAL_FUEL_TYPES: Omit<FuelType, 'createdAt'>[] = [
 
 export const getFuelTypes = async (): Promise<FuelType[]> => {
     const fuelTypesCollectionRef = collection(db, "fuel_types");
-    const q = query(fuelTypesCollectionRef, orderBy("createdAt", "desc"));
-    const querySnapshot = await getDocs(q);
+    const querySnapshot = await getDocs(fuelTypesCollectionRef);
     const types: FuelType[] = [];
 
     if (querySnapshot.empty) {
@@ -52,15 +50,14 @@ export const getFuelTypes = async (): Promise<FuelType[]> => {
         
         INITIAL_FUEL_TYPES.forEach((fuelType) => {
             const docRef = doc(fuelTypesCollectionRef, fuelType.name);
-            const dataWithTimestamp = { ...fuelType, createdAt: serverTimestamp() };
-            batch.set(docRef, dataWithTimestamp);
+            batch.set(docRef, fuelType);
             H_MAP[fuelType.name] = fuelType.hValue;
         });
         await batch.commit();
         console.log("Seeding complete.");
 
-        // Re-fetch to get sorted data with timestamps
-        const newSnapshot = await getDocs(q);
+        // Re-fetch to get sorted data
+        const newSnapshot = await getDocs(fuelTypesCollectionRef);
         newSnapshot.forEach(doc => {
             const data = doc.data() as FuelType;
             types.push(data);
@@ -68,7 +65,7 @@ export const getFuelTypes = async (): Promise<FuelType[]> => {
                 H_MAP[data.name] = data.hValue;
             }
         });
-        return types;
+        return types.sort((a, b) => a.name.localeCompare(b.name));
     }
 
     querySnapshot.forEach((doc) => {
@@ -78,7 +75,7 @@ export const getFuelTypes = async (): Promise<FuelType[]> => {
             H_MAP[data.name] = data.hValue;
         }
     });
-    return types;
+    return types.sort((a, b) => a.name.localeCompare(b.name));
 };
 
 
