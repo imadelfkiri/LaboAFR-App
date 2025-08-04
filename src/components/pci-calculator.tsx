@@ -119,7 +119,7 @@ export function PciCalculator() {
     });
 
     setAllFuelTypes(sortedFuelTypes);
-    setAllFournisseurs(fetchedFournisseurs);
+    setAllFournisseurs(fetchedFournisseurs.sort());
     setFuelSupplierMap(fetchedMap);
   };
 
