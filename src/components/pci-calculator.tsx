@@ -111,7 +111,6 @@ export function PciCalculator() {
         getFuelSupplierMap()
     ]);
 
-    // Sort fuel types by createdAt timestamp in descending order
     const sortedFuelTypes = fetchedFuelTypes.sort((a, b) => {
         const timeA = a.createdAt?.seconds ?? 0;
         const timeB = b.createdAt?.seconds ?? 0;
@@ -704,4 +703,5 @@ export function PciCalculator() {
     
 
     
+
 
