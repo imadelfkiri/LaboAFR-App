@@ -277,7 +277,7 @@ export function ResultsTable() {
             [{ v: title, s: { font: { bold: true, sz: 14 }, alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } } }],
             [{ v: subtitle, s: { font: { sz: 12 }, alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } } }],
             [],
-            headers.map(h => ({ v: h, s: { font: { bold: true }, alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "CDE9D6" } } } }))
+            headers.map(h => ({ v: h, s: { font: { bold: true }, alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "CDE9D6" } }, border: { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } } } }))
         ];
 
         data.forEach(result => {
@@ -288,31 +288,32 @@ export function ResultsTable() {
             const pciCell: { v: number, s?: any } = { v: result.pci_brut, s: { alignment: { horizontal: "center" } } };
             if (spec.pci_min && result.pci_brut < spec.pci_min) {
                 alerts.push("⚠️ PCI bas");
-                pciCell.s.fill = { fgColor: { rgb: "FFCCCC" } };
+                pciCell.s.fill = { fgColor: { rgb: "FFCCCC" } }; // Rouge clair
             } else if (result.pci_brut < 4000) {
-                 pciCell.s.fill = { fgColor: { rgb: "FFE6CC" } };
+                 pciCell.s.fill = { fgColor: { rgb: "FFE6CC" } }; // Orange clair
             }
 
             const h2oCell: { v: number, s?: any } = { v: result.h2o, s: { alignment: { horizontal: "center" } } };
             if ((spec.h2o && result.h2o > spec.h2o) || result.h2o > 15) {
                 alerts.push("⚠️ H2O élevé");
-                h2oCell.s.fill = { fgColor: { rgb: "FFE6CC" } };
+                h2oCell.s.fill = { fgColor: { rgb: "FFE6CC" } }; // Orange clair
             }
             
             const chloreCell: { v: number, s?: any } = { v: result.chlore, s: { alignment: { horizontal: "center" } } };
             if ((spec.chlore && result.chlore > spec.chlore) || result.chlore > 1.2) {
                 alerts.push("⚠️ Cl- élevé");
-                chloreCell.s.fill = { fgColor: { rgb: "FFFFCC" } };
+                chloreCell.s.fill = { fgColor: { rgb: "FFFFCC" } }; // Jaune clair
             }
             
             const cendresCell: { v: number, s?: any } = { v: result.cendres, s: { alignment: { horizontal: "center" } } };
             if (spec.cendres && result.cendres > spec.cendres) {
                  alerts.push("⚠️ Cendres élevées");
-                 cendresCell.s.fill = { fgColor: { rgb: "E0E0E0" } };
+                 cendresCell.s.fill = { fgColor: { rgb: "E0E0E0" } }; // Gris clair
             }
 
             const alertText = alerts.join(', ');
-            const alertCell = { v: alertText, s: alerts.length > 0 ? { font: { bold: true, color: { rgb: "FF0000" }}, alignment: { horizontal: "left" } } : { alignment: { horizontal: "left" } }};
+            const alertCellStyle = alerts.length > 0 ? { font: { bold: true, color: { rgb: "FF0000" }}, alignment: { horizontal: "left" } } : { alignment: { horizontal: "left" } };
+            const alertCell = { v: alertText, s: alertCellStyle };
             
             let row;
             if (isFullReport) {
@@ -342,7 +343,13 @@ export function ResultsTable() {
                     alertCell
                 ];
             }
-            ws_data.push(row);
+            // Add borders to all cells
+            const finalRow = row.map(cell => {
+                const cellObject = (typeof cell === 'object' && cell !== null && 'v' in cell) ? cell : { v: cell };
+                return { ...cellObject, s: { ...cellObject.s, border: { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } } } };
+            });
+
+            ws_data.push(finalRow);
         });
         
         const ws = XLSX.utils.aoa_to_sheet(ws_data);
@@ -360,7 +367,7 @@ export function ResultsTable() {
                     const value = (typeof cell === 'object' && cell !== null && 'v' in cell) ? cell.v : cell;
                     return value ? value.toString().length : 0;
                 })
-            ) + 2
+            ) + 5
         }));
         ws['!cols'] = colWidths;
         
@@ -610,3 +617,5 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
+
+    
