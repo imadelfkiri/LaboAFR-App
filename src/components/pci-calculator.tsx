@@ -111,15 +111,10 @@ export function PciCalculator() {
         getFuelSupplierMap()
     ]);
     
-    // Tri chronologique côté client pour garantir l'ordre
-    const sortedFuelTypes = [...fetchedFuelTypes].sort((a, b) => {
-        const timeA = a.createdAt?.seconds ?? 0;
-        const timeB = b.createdAt?.seconds ?? 0;
-        return timeB - timeA;
-    });
-    
+    const sortedFuelTypes = [...fetchedFuelTypes].sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
+
     setAllFuelTypes(sortedFuelTypes);
-    setAllFournisseurs(fetchedFournisseurs.sort());
+    setAllFournisseurs(fetchedFournisseurs);
     setFuelSupplierMap(fetchedMap);
   };
 
@@ -698,6 +693,8 @@ export function PciCalculator() {
     </div>
   );
 }
+
+    
 
     
 
