@@ -104,33 +104,10 @@ export function PciCalculator() {
 
   const { toast } = useToast();
 
-  const fetchAndSetData = async () => {
-    const [fetchedFuelTypes, fetchedFournisseurs, fetchedMap] = await Promise.all([
-        getFuelTypes(),
-        getFournisseurs(),
-        getFuelSupplierMap()
-    ]);
-    
-    // Explicitly sort by creation date (desc) client-side for robustness
-    const sortedFuelTypes = [...fetchedFuelTypes].sort((a, b) => {
-        const timeA = a.createdAt?.seconds ?? 0;
-        const timeB = b.createdAt?.seconds ?? 0;
-        return timeB - timeA;
-    });
-
-    setAllFuelTypes(sortedFuelTypes);
-    setAllFournisseurs(fetchedFournisseurs.sort());
-    setFuelSupplierMap(fetchedMap);
-  };
-
-  useEffect(() => {
-    fetchAndSetData();
-  }, []);
-
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      date_arrivage: subDays(new Date(), 1),
+      date_arrivage: undefined,
       type_combustible: "",
       fournisseur: "",
       pcs: undefined,
@@ -144,6 +121,47 @@ export function PciCalculator() {
   });
 
   const { watch, reset, getValues, setValue } = form;
+
+  const resetForm = () => {
+    reset({
+        date_arrivage: subDays(new Date(), 1),
+        type_combustible: "",
+        fournisseur: "",
+        pcs: '' as any,
+        h2o: '' as any,
+        chlore: '' as any,
+        cendres: '' as any,
+        densite: '' as any,
+        granulometrie: '' as any,
+        remarques: "",
+    });
+    setPciResult(null);
+  };
+
+  const fetchAndSetData = async () => {
+    const [fetchedFuelTypes, fetchedFournisseurs, fetchedMap] = await Promise.all([
+        getFuelTypes(),
+        getFournisseurs(),
+        getFuelSupplierMap()
+    ]);
+    
+    const sortedFuelTypes = [...fetchedFuelTypes].sort((a, b) => {
+        const timeA = a.createdAt?.seconds ?? 0;
+        const timeB = b.createdAt?.seconds ?? 0;
+        return timeB - timeA;
+    });
+
+    setAllFuelTypes(sortedFuelTypes);
+    setAllFournisseurs(fetchedFournisseurs);
+    setFuelSupplierMap(fetchedMap);
+  };
+
+  useEffect(() => {
+    fetchAndSetData();
+    setValue('date_arrivage', subDays(new Date(), 1));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const pcsValue = watch("pcs");
   const h2oValue = watch("h2o");
   const typeCombustibleValue = watch("type_combustible");
@@ -168,24 +186,9 @@ export function PciCalculator() {
     } else {
         setFilteredFournisseurs([]);
     }
-  }, [typeCombustibleValue, allFournisseurs, setValue, fuelSupplierMap]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typeCombustibleValue, allFournisseurs, setValue]);
 
-
-  const resetForm = () => {
-    reset({
-        date_arrivage: subDays(new Date(), 1),
-        type_combustible: "",
-        fournisseur: "",
-        pcs: '' as any,
-        h2o: '' as any,
-        chlore: '' as any,
-        cendres: '' as any,
-        densite: '' as any,
-        granulometrie: '' as any,
-        remarques: "",
-    });
-    setPciResult(null);
-  };
 
   const handleAddFuelType = async () => {
       try {
@@ -698,3 +701,5 @@ export function PciCalculator() {
     </div>
   );
 }
+
+    
