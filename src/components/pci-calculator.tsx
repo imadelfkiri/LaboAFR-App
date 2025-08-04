@@ -238,7 +238,7 @@ export function PciCalculator() {
       try {
         const newFuel = newFuelTypeSchema.parse({ 
             name: newFuelTypeName, 
-            icon: newFuelTypeIcon,
+            icon: newFuelTypeIcon, 
             hValue: newFuelTypeHValue,
         });
 
@@ -431,13 +431,7 @@ export function PciCalculator() {
   const isFournisseurDisabled = !typeCombustibleValue;
 
   return (
-    <div className="w-full max-w-4xl space-y-8 pb-24">
-      <div className="text-center">
-        <div className="inline-flex items-center justify-center gap-3">
-          <FlaskConical className="h-7 w-7 text-primary" />
-          <h1 className="text-3xl font-bold tracking-tight text-gray-800">Calculateur de PCI Brut</h1>
-        </div>
-      </div>
+    <div className="w-full max-w-4xl space-y-4 pb-24">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -792,3 +786,5 @@ export function PciCalculator() {
     </div>
   );
 }
+
+    
