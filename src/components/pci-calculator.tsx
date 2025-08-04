@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { format, subDays } from "date-fns";
+import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { CalendarIcon, Fuel, PlusCircle, ClipboardList, FlaskConical, MessageSquareText, Ruler } from 'lucide-react';
 import { collection, addDoc, Timestamp, doc, setDoc, getDoc, updateDoc, arrayUnion, serverTimestamp } from "firebase/firestore";
@@ -124,7 +124,7 @@ export function PciCalculator() {
 
   const resetForm = () => {
     reset({
-        date_arrivage: subDays(new Date(), 1),
+        date_arrivage: undefined,
         type_combustible: "",
         fournisseur: "",
         pcs: '' as any,
@@ -158,7 +158,6 @@ export function PciCalculator() {
 
   useEffect(() => {
     fetchAndSetData();
-    setValue('date_arrivage', subDays(new Date(), 1));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -701,5 +700,7 @@ export function PciCalculator() {
     </div>
   );
 }
+
+    
 
     
