@@ -1,5 +1,5 @@
 
-import { collection, getDocs, doc, writeBatch, query, setDoc } from "firebase/firestore";
+import { collection, getDocs, doc, writeBatch, query, setDoc, orderBy, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
 
 export const H_MAP: Record<string, number> = {};
@@ -8,6 +8,7 @@ export interface FuelType {
     name: string;
     icon: string;
     hValue: number;
+    createdAt?: any;
 }
 
 export interface Specification {
@@ -22,7 +23,7 @@ export interface Specification {
     granulometrie: string;
 }
 
-export const INITIAL_FUEL_TYPES: FuelType[] = [
+export const INITIAL_FUEL_TYPES: Omit<FuelType, 'createdAt'>[] = [
     { name: "Textile", icon: "👗", hValue: 6.0 },
     { name: "RDF", icon: "🔁", hValue: 6.0 },
     { name: "Pneus", icon: "🚗", hValue: 6.5 },
@@ -41,41 +42,49 @@ export const INITIAL_FUEL_TYPES: FuelType[] = [
 
 export const getFuelTypes = async (): Promise<FuelType[]> => {
     const fuelTypesCollectionRef = collection(db, "fuel_types");
-    const querySnapshot = await getDocs(fuelTypesCollectionRef);
-    const types: FuelType[] = [];
-
+    let q = query(fuelTypesCollectionRef);
+    
+    const querySnapshot = await getDocs(q);
+    
     if (querySnapshot.empty) {
         console.log("Fuel types collection is empty, seeding with initial data...");
         const batch = writeBatch(db);
         
         INITIAL_FUEL_TYPES.forEach((fuelType) => {
             const docRef = doc(fuelTypesCollectionRef, fuelType.name);
-            batch.set(docRef, fuelType);
-            H_MAP[fuelType.name] = fuelType.hValue;
+            const dataWithTimestamp: FuelType = { ...fuelType, createdAt: serverTimestamp() };
+            batch.set(docRef, dataWithTimestamp);
         });
         await batch.commit();
         console.log("Seeding complete.");
 
-        // Re-fetch to get sorted data
-        const newSnapshot = await getDocs(fuelTypesCollectionRef);
-        newSnapshot.forEach(doc => {
+        // Re-fetch with ordering after seeding
+        const seededQuery = query(fuelTypesCollectionRef, orderBy("createdAt", "desc"));
+        const seededSnapshot = await getDocs(seededQuery);
+        const types: FuelType[] = [];
+        seededSnapshot.forEach(doc => {
             const data = doc.data() as FuelType;
             types.push(data);
             if (data.hValue !== undefined) {
                 H_MAP[data.name] = data.hValue;
             }
         });
-        return types.sort((a, b) => a.name.localeCompare(b.name));
+        return types;
     }
 
-    querySnapshot.forEach((doc) => {
+    // If not empty, fetch with ordering
+    const orderedQuery = query(fuelTypesCollectionRef, orderBy("createdAt", "desc"));
+    const orderedSnapshot = await getDocs(orderedQuery);
+    const types: FuelType[] = [];
+    orderedSnapshot.forEach((doc) => {
         const data = doc.data() as FuelType;
         types.push(data);
         if (data.hValue !== undefined) {
             H_MAP[data.name] = data.hValue;
         }
     });
-    return types.sort((a, b) => a.name.localeCompare(b.name));
+
+    return types;
 };
 
 

@@ -190,7 +190,8 @@ export function PciCalculator() {
         const dataToSave = { 
             name: newFuel.name, 
             icon: newFuel.icon, 
-            hValue: newFuel.hValue
+            hValue: newFuel.hValue,
+            createdAt: serverTimestamp(),
         };
 
         await setDoc(docRef, dataToSave);
@@ -689,5 +690,7 @@ export function PciCalculator() {
     </div>
   );
 }
+
+    
 
     
