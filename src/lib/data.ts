@@ -57,7 +57,7 @@ export const getFuelTypes = async (): Promise<FuelType[]> => {
         console.log("Seeding complete.");
     }
 
-    const orderedQuery = query(fuelTypesCollectionRef);
+    const orderedQuery = query(fuelTypesCollectionRef, orderBy("createdAt", "desc"));
     const orderedSnapshot = await getDocs(orderedQuery);
     const types: FuelType[] = [];
     orderedSnapshot.forEach((doc) => {
