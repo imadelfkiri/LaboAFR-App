@@ -376,7 +376,7 @@ export function PciCalculator() {
         densite: Number(values.densite) || 0,
         granulometrie: Number(values.granulometrie) || 0,
         remarques: values.remarques || "",
-        createdAt: new Date(),
+        createdAt: Timestamp.now(),
       };
 
       await addDoc(collection(db, "resultats"), dataToSave);
@@ -762,7 +762,3 @@ export function PciCalculator() {
     </div>
   );
 }
-
-    
-
-    
