@@ -250,10 +250,10 @@ export function ResultsTable() {
         const centerAlign = { alignment: { horizontal: "center", vertical: "center" }, border: { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } }};
         const leftAlign = { alignment: { horizontal: "left", vertical: "center", wrapText: true }, border: { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } }};
         
-        const pciLowColor = { fgColor: { rgb: "F8D7DA" }};
-        const h2oHighColor = { fgColor: { rgb: "FFF3CD" }};
-        const clHighColor = { fgColor: { rgb: "FFF9C4" }};
-        const cendresHighColor = { fgColor: { rgb: "E2E3E5" }};
+        const pciLowColor = { fgColor: { rgb: "F8D7DA" }}; // light red
+        const h2oHighColor = { fgColor: { rgb: "FFF3CD" }}; // light orange/yellow
+        const clHighColor = { fgColor: { rgb: "FFF9C4" }}; // light yellow
+        const cendresHighColor = { fgColor: { rgb: "E2E3E5" }}; // light grey
     
         const ws_data: (any)[][] = [
             [ { v: title, s: titleStyle } ],
@@ -287,7 +287,7 @@ export function ResultsTable() {
 
             const alertText = alerts.join(', ');
             const alertCell = { v: alertText, s: { ...leftAlign } as any };
-            if (alerts.length > 1) {
+            if (alerts.length > 0) { // Changed from > 1 to > 0 to apply style even for a single alert
                 alertCell.s.font = { bold: true, color: { rgb: "FF0000" } };
             }
             
@@ -298,9 +298,10 @@ export function ResultsTable() {
                     alerts.push("⚠️ Cendres élevées"); 
                     cendresCell.s.fill = cendresHighColor;
                 }
+                 // regenerate alerts text to include Cendres
                  const fullAlertText = alerts.join(', ');
                  const fullAlertCell = { v: fullAlertText, s: { ...leftAlign } as any };
-                 if (alerts.length > 1) {
+                 if (alerts.length > 0) {
                     fullAlertCell.s.font = { bold: true, color: { rgb: "FF0000" } };
                  }
 
@@ -340,15 +341,18 @@ export function ResultsTable() {
                 h.length,
                 ...ws_data.slice(4).map(row => {
                     const cell = row[i];
+                    // Handle both plain values and styled cell objects
                     const value = (cell && typeof cell === 'object' && 'v' in cell) ? cell.v : cell;
                     return value ? value.toString().length : 0;
                 })
             ) + 5
         }));
+        
+        // Specific widths for certain columns to avoid them being too wide or too narrow
         const remarksIndex = headers.indexOf('Remarques');
         if (remarksIndex > -1) colWidths[remarksIndex] = { wch: 30 };
         const alertsIndex = headers.indexOf('Alertes');
-        if (alertsIndex > -1) colWidths[alertsIndex] = { wch: 30 };
+        if (alertsIndex > -1) colWidths[alertsIndex] = { wch: 40 };
 
         ws['!cols'] = colWidths;
         
