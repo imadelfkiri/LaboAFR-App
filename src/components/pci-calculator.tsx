@@ -111,10 +111,10 @@ export function PciCalculator() {
         getFuelSupplierMap()
     ]);
     
+    // Tri chronologique côté client pour garantir l'ordre
     const sortedFuelTypes = [...fetchedFuelTypes].sort((a, b) => {
         const timeA = a.createdAt?.seconds ?? 0;
         const timeB = b.createdAt?.seconds ?? 0;
-        if (timeA === 0 && timeB === 0) return a.name.localeCompare(b.name);
         return timeB - timeA;
     });
     
@@ -196,7 +196,7 @@ export function PciCalculator() {
         });
 
         const docRef = doc(db, "fuel_types", newFuel.name);
-        const dataToSave: FuelType = { 
+        const dataToSave = { 
             name: newFuel.name, 
             icon: newFuel.icon, 
             hValue: newFuel.hValue,
@@ -698,3 +698,5 @@ export function PciCalculator() {
     </div>
   );
 }
+
+    

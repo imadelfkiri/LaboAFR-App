@@ -8,7 +8,7 @@ export interface FuelType {
     name: string;
     icon: string;
     hValue: number;
-    createdAt?: any;
+    createdAt?: { seconds: number; nanoseconds: number; };
 }
 
 export interface Specification {
@@ -50,7 +50,7 @@ export const getFuelTypes = async (): Promise<FuelType[]> => {
         
         INITIAL_FUEL_TYPES.forEach((fuelType) => {
             const docRef = doc(fuelTypesCollectionRef, fuelType.name);
-            const dataWithTimestamp: FuelType = { ...fuelType, createdAt: serverTimestamp() };
+            const dataWithTimestamp = { ...fuelType, createdAt: serverTimestamp() };
             batch.set(docRef, dataWithTimestamp);
         });
         await batch.commit();
@@ -184,3 +184,5 @@ export const getSpecifications = async (): Promise<Specification[]> => {
     });
     return specifications;
 };
+
+    
