@@ -145,7 +145,7 @@ export function PciCalculator() {
           getFuelSupplierMap()
       ]);
       
-      // Tri côté client robuste pour garantir l'ordre
+      // Solution Ultime: Tri côté client pour forcer l'ordre chronologique
       fetchedFuelTypes.sort((a, b) => {
         const timeA = a.createdAt?.seconds ?? 0;
         const timeB = b.createdAt?.seconds ?? 0;
@@ -165,6 +165,7 @@ export function PciCalculator() {
     fixData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
   const pcsValue = watch("pcs");
   const h2oValue = watch("h2o");
@@ -705,7 +706,3 @@ export function PciCalculator() {
     </div>
   );
 }
-
-    
-
-    
