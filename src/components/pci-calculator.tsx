@@ -145,16 +145,21 @@ export function PciCalculator() {
           getFuelSupplierMap()
       ]);
       
+      // Tri côté client robuste pour garantir l'ordre
+      fetchedFuelTypes.sort((a, b) => {
+        const timeA = a.createdAt?.seconds ?? 0;
+        const timeB = b.createdAt?.seconds ?? 0;
+        return timeB - timeA;
+      });
+
       setAllFuelTypes(fetchedFuelTypes);
       setAllFournisseurs(fetchedFournisseurs);
       setFuelSupplierMap(fetchedMap);
   };
 
   useEffect(() => {
-    // Run the fix function once on startup
     const fixData = async () => {
         await fixFuelTypesMissingCreatedAt();
-        // After fixing, fetch the data
         await fetchAndSetData();
     }
     fixData();
