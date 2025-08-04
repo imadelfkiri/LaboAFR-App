@@ -104,18 +104,27 @@ export function PciCalculator() {
 
   const { toast } = useToast();
 
+  const fetchAndSetData = async () => {
+    const [fetchedFuelTypes, fetchedFournisseurs, fetchedMap] = await Promise.all([
+        getFuelTypes(),
+        getFournisseurs(),
+        getFuelSupplierMap()
+    ]);
+
+    // Sort fuel types by createdAt timestamp in descending order
+    const sortedFuelTypes = fetchedFuelTypes.sort((a, b) => {
+        const timeA = a.createdAt?.seconds ?? 0;
+        const timeB = b.createdAt?.seconds ?? 0;
+        return timeB - timeA;
+    });
+    
+    setAllFuelTypes(sortedFuelTypes);
+    setAllFournisseurs(fetchedFournisseurs);
+    setFuelSupplierMap(fetchedMap);
+  };
+
   useEffect(() => {
-    async function fetchData() {
-        const [fetchedFuelTypes, fetchedFournisseurs, fetchedMap] = await Promise.all([
-            getFuelTypes(),
-            getFournisseurs(),
-            getFuelSupplierMap()
-        ]);
-        setAllFuelTypes(fetchedFuelTypes);
-        setAllFournisseurs(fetchedFournisseurs);
-        setFuelSupplierMap(fetchedMap);
-    }
-    fetchData();
+    fetchAndSetData();
   }, []);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -198,8 +207,7 @@ export function PciCalculator() {
 
         H_MAP[newFuel.name] = dataToSave.hValue;
         
-        const updatedTypes = await getFuelTypes();
-        setAllFuelTypes(updatedTypes);
+        await fetchAndSetData();
         
         setValue("type_combustible", newFuel.name, { shouldValidate: true });
 
