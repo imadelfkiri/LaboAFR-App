@@ -95,7 +95,7 @@ export const getFournisseurs = async (): Promise<string[]> => {
         });
         await batch.commit();
         console.log("Seeding complete.");
-        return fournisseurs.sort();
+        return fournisseurs;
     }
 
     querySnapshot.forEach((doc) => {
