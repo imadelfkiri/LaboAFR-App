@@ -107,7 +107,7 @@ export function PciCalculator() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      date_arrivage: new Date(),
+      date_arrivage: undefined,
       type_combustible: "",
       fournisseur: "",
       pcs: undefined,
@@ -124,7 +124,7 @@ export function PciCalculator() {
 
   const resetForm = () => {
     reset({
-        date_arrivage: new Date(),
+        date_arrivage: undefined,
         type_combustible: "",
         fournisseur: "",
         pcs: '' as any,
@@ -707,3 +707,5 @@ export function PciCalculator() {
     </div>
   );
 }
+
+    
