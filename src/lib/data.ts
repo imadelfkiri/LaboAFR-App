@@ -44,9 +44,10 @@ export const getFuelTypes = async (): Promise<FuelType[]> => {
     const fuelTypesCollectionRef = collection(db, "fuel_types");
     
     const orderedQuery = query(fuelTypesCollectionRef, orderBy("createdAt", "desc"));
-    const orderedSnapshot = await getDocs(orderedQuery);
     
-    if (orderedSnapshot.empty) {
+    const querySnapshot = await getDocs(orderedQuery);
+    
+    if (querySnapshot.empty) {
         console.log("Fuel types collection is empty, seeding with initial data...");
         const batch = writeBatch(db);
         
@@ -71,7 +72,7 @@ export const getFuelTypes = async (): Promise<FuelType[]> => {
     }
 
     const types: FuelType[] = [];
-    orderedSnapshot.forEach((doc) => {
+    querySnapshot.forEach((doc) => {
         const data = doc.data() as FuelType;
         types.push(data);
         if (data.hValue !== undefined) {
@@ -100,8 +101,6 @@ export const fixFuelTypesMissingCreatedAt = async () => {
     if (updatesMade) {
         await batch.commit();
         console.log("Mise à jour terminée : Tous les documents fuel_types ont maintenant un champ createdAt.");
-    } else {
-        console.log("Aucune mise à jour nécessaire : Tous les documents fuel_types ont déjà un champ createdAt.");
     }
 };
 
@@ -126,7 +125,7 @@ export const getFournisseurs = async (): Promise<string[]> => {
         });
         await batch.commit();
         console.log("Seeding complete.");
-        return fournisseurs.sort();
+        return fournisseurs;
     }
 
     querySnapshot.forEach((doc) => {
