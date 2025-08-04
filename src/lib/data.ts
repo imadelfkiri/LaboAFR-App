@@ -42,14 +42,14 @@ export const INITIAL_FUEL_TYPES: (FuelType & { hValue: number; createdAt: Timest
 
 export const getFuelTypes = async (): Promise<FuelType[]> => {
     const fuelTypesCollectionRef = collection(db, "fuel_types");
-    const q = query(fuelTypesCollectionRef, orderBy("name", "asc"));
+    const q = query(fuelTypesCollectionRef, orderBy("createdAt", "desc"));
     const querySnapshot = await getDocs(q);
     const types: FuelType[] = [];
 
     if (querySnapshot.empty) {
         console.log("Fuel types collection is empty, seeding with initial data...");
         const batch = writeBatch(db);
-        const sortedInitialData = [...INITIAL_FUEL_TYPES].sort((a,b) => a.name.localeCompare(b.name));
+        const sortedInitialData = [...INITIAL_FUEL_TYPES].sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
         
         sortedInitialData.forEach(fuelType => {
             const docRef = doc(fuelTypesCollectionRef, fuelType.name);
@@ -186,3 +186,5 @@ export const getSpecifications = async (): Promise<Specification[]> => {
     });
     return specifications;
 };
+
+    

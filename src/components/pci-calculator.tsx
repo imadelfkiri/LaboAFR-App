@@ -111,7 +111,6 @@ export function PciCalculator() {
             getFournisseurs(),
             getFuelSupplierMap()
         ]);
-        fetchedFuelTypes.sort((a, b) => a.name.localeCompare(b.name));
         setAllFuelTypes(fetchedFuelTypes);
         setAllFournisseurs(fetchedFournisseurs);
         setFuelSupplierMap(fetchedMap);
@@ -200,7 +199,6 @@ export function PciCalculator() {
         H_MAP[newFuel.name] = dataToSave.hValue;
         
         const updatedTypes = await getFuelTypes();
-        updatedTypes.sort((a, b) => a.name.localeCompare(b.name));
         setAllFuelTypes(updatedTypes);
         
         setValue("type_combustible", newFuel.name, { shouldValidate: true });
@@ -693,5 +691,7 @@ export function PciCalculator() {
     </div>
   );
 }
+
+    
 
     
