@@ -85,27 +85,6 @@ const newFournisseurSchema = z.object({
     name: z.string().nonempty({ message: "Le nom du fournisseur est requis."}).regex(/^[a-zA-Z0-9\s-]+$/, "Le nom ne doit contenir que des lettres, chiffres, espaces ou tirets."),
 });
 
-const RECENT_FOURNISSEURS_KEY = 'recentFournisseurs';
-const MAX_RECENT_ITEMS = 5;
-
-// Helper to get and update recent items from localStorage
-const getRecentItems = (key: string): string[] => {
-    if (typeof window === 'undefined') return [];
-    const items = localStorage.getItem(key);
-    return items ? JSON.parse(items) : [];
-};
-
-const addRecentItem = (key: string, item: string) => {
-    if (typeof window === 'undefined') return;
-    let recentItems = getRecentItems(key);
-    recentItems = [item, ...recentItems.filter(i => i !== item)];
-    if (recentItems.length > MAX_RECENT_ITEMS) {
-        recentItems.pop();
-    }
-    localStorage.setItem(key, JSON.stringify(recentItems));
-};
-
-
 export function PciCalculator() {
   const [pciResult, setPciResult] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -114,10 +93,7 @@ export function PciCalculator() {
   const [fuelSupplierMap, setFuelSupplierMap] = useState<Record<string, string[]>>({});
   
   const [filteredFournisseurs, setFilteredFournisseurs] = useState<string[]>([]);
-  const [sortedFournisseurs, setSortedFournisseurs] = useState<string[]>([]);
-  const [recentFournisseurs, setRecentFournisseurs] = useState<string[]>([]);
-
-
+  
   const [isFuelModalOpen, setIsFuelModalOpen] = useState(false);
   const [newFuelTypeName, setNewFuelTypeName] = useState("");
   const [newFuelTypeIcon, setNewFuelTypeIcon] = useState("");
@@ -135,22 +111,13 @@ export function PciCalculator() {
             getFournisseurs(),
             getFuelSupplierMap()
         ]);
+        fetchedFuelTypes.sort((a, b) => a.name.localeCompare(b.name));
         setAllFuelTypes(fetchedFuelTypes);
         setAllFournisseurs(fetchedFournisseurs);
         setFuelSupplierMap(fetchedMap);
-
-        const recentFours = getRecentItems(RECENT_FOURNISSEURS_KEY);
-        setRecentFournisseurs(recentFours);
     }
     fetchData();
   }, []);
-
-  const sortFournisseurs = (fournisseursToFilter: string[], recent: string[]) => {
-      const recentList = recent.filter(name => fournisseursToFilter.includes(name));
-      const otherList = fournisseursToFilter.filter(name => !recent.includes(name));
-      setSortedFournisseurs([...recentList, ...otherList]);
-  };
-
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -189,21 +156,12 @@ export function PciCalculator() {
     if (typeCombustibleValue && Object.keys(fuelSupplierMap).length > 0) {
         const relatedFournisseurs = fuelSupplierMap[typeCombustibleValue] || [];
         setFilteredFournisseurs(relatedFournisseurs.sort());
-        setValue('fournisseur', ''); // Reset fournisseur when combustible changes
+        setValue('fournisseur', '');
     } else {
         setFilteredFournisseurs([]);
     }
   }, [typeCombustibleValue, allFournisseurs, setValue, fuelSupplierMap]);
 
-  useEffect(() => {
-      if(filteredFournisseurs.length > 0) {
-        const recentFours = getRecentItems(RECENT_FOURNISSEURS_KEY);
-        setRecentFournisseurs(recentFours);
-        sortFournisseurs(filteredFournisseurs, recentFours);
-      } else {
-        setSortedFournisseurs([]);
-      }
-  }, [filteredFournisseurs]);
 
   const resetForm = () => {
     reset({
@@ -241,8 +199,8 @@ export function PciCalculator() {
 
         H_MAP[newFuel.name] = dataToSave.hValue;
         
-        // Refetch to get the new sorted list
         const updatedTypes = await getFuelTypes();
+        updatedTypes.sort((a, b) => a.name.localeCompare(b.name));
         setAllFuelTypes(updatedTypes);
         
         setValue("type_combustible", newFuel.name, { shouldValidate: true });
@@ -314,7 +272,6 @@ export function PciCalculator() {
         
         setFilteredFournisseurs(updatedMap[selectedFuelType].sort()); 
 
-        addRecentItem(RECENT_FOURNISSEURS_KEY, name);
         setValue("fournisseur", name, { shouldValidate: true });
 
         toast({
@@ -358,14 +315,6 @@ export function PciCalculator() {
           setIsSaving(false);
           return;
       }
-
-      addRecentItem(RECENT_FOURNISSEURS_KEY, values.fournisseur);
-
-      const recentFours = getRecentItems(RECENT_FOURNISSEURS_KEY);
-      setRecentFournisseurs(recentFours);
-      if (filteredFournisseurs.length > 0) {
-        sortFournisseurs(filteredFournisseurs, recentFours);
-      }
       
       const dataToSave = {
         ...values,
@@ -404,9 +353,6 @@ export function PciCalculator() {
     }
   }
 
-  const otherFournisseurs = sortedFournisseurs.filter(f => !recentFournisseurs.includes(f));
-  const recentFournisseursFromSorted = sortedFournisseurs.filter(f => recentFournisseurs.includes(f));
-  
   const isFournisseurDisabled = !typeCombustibleValue;
 
   return (
@@ -515,29 +461,14 @@ export function PciCalculator() {
                                             </SelectTrigger>
                                             </FormControl>
                                             <SelectContent side="bottom" avoidCollisions={false} className="z-50">
-                                                {sortedFournisseurs.length === 0 && typeCombustibleValue ? (
-                                                    <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">Aucun fournisseur disponible pour ce type.</div>
-                                                ) : null}
-                                                {recentFournisseursFromSorted.length > 0 && (
-                                                    <SelectGroup>
-                                                        <SelectLabel>Récents</SelectLabel>
-                                                        {recentFournisseursFromSorted.map((fournisseur) => (
-                                                          <SelectItem key={fournisseur} value={fournisseur}>
-                                                              {fournisseur}
-                                                          </SelectItem>
-                                                        ))}
-                                                    </SelectGroup>
-                                                )}
-                                                {(recentFournisseursFromSorted.length > 0 && otherFournisseurs.length > 0) && <SelectSeparator />}
-                                                {otherFournisseurs.length > 0 && (
-                                                    <SelectGroup>
-                                                        {recentFournisseursFromSorted.length > 0 && <SelectLabel>Autres</SelectLabel>}
-                                                        {otherFournisseurs.map((fournisseur) => (
-                                                            <SelectItem key={fournisseur} value={fournisseur}>
-                                                                {fournisseur}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectGroup>
+                                                {filteredFournisseurs.length === 0 && typeCombustibleValue ? (
+                                                    <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">Aucun fournisseur.</div>
+                                                ) : (
+                                                    filteredFournisseurs.map((fournisseur) => (
+                                                        <SelectItem key={fournisseur} value={fournisseur}>
+                                                            {fournisseur}
+                                                        </SelectItem>
+                                                    ))
                                                 )}
                                                 {typeCombustibleValue && (
                                                     <>
@@ -762,3 +693,5 @@ export function PciCalculator() {
     </div>
   );
 }
+
+    
