@@ -240,15 +240,31 @@ export function ResultsTable() {
         const subtitle = "Suivi des combustibles solides non dangereux";
         const filename = `${reportType}_AFR_Report_${format(reportDate, "yyyy-MM-dd")}.xlsx`;
 
-        const headersSimple = ["Date", "Type Combustible", "Fournisseur", "PCI", "% H2O", "% Cl-", "Remarques", "Alertes"];
-        const headersFull = ["Date", "Type Combustible", "Fournisseur", "PCS", "PCI", "% H2O", "% Cl-", "% Cendres", "Densité", "Granulométrie", "Remarques", "Alertes"];
-        const headers = isFullReport ? headersFull : headersSimple;
+        // Define headers based on report type
+        const simplifiedHeaders = ["Date", "Type Combustible", "Fournisseur", "PCI", "% H2O", "% Cl-", "Remarques", "Alertes"];
+        const fullHeaders = ["Date", "Type Combustible", "Fournisseur", "PCS", "PCI", "% H2O", "% Cl-", "% Cendres", "Densité", "Granulométrie", "Remarques", "Alertes"];
+        const headers = isFullReport ? fullHeaders : simplifiedHeaders;
+
+        // Cell styles
+        const titleStyle = { font: { bold: true, sz: 14 }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } };
+        const subtitleStyle = { font: { bold: true, sz: 12 }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } };
+        const headerStyle = { font: { bold: true, color: { rgb: "000000" } }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "CDE9D6" } }, border: { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } } };
+        const centerAlign = { alignment: { horizontal: "center", vertical: "center" } };
+        const leftAlign = { alignment: { horizontal: "left", vertical: "center" } };
+        const border = { border: { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } } };
         
+        // Colors for conditional formatting
+        const pciLowColor = "F8D7DA"; // Red light
+        const h2oHighColor = "FFF3CD"; // Orange light
+        const clHighColor = "FFF9C4"; // Yellow light
+        const alertTextStyle = { font: { bold: true, color: { rgb: "FF0000" } } };
+
+
         const ws_data: (string | number | { v: string|number; s: any })[][] = [
-            [{ v: title, s: { font: { bold: true, sz: 14 }, alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } } }],
-            [{ v: subtitle, s: { font: { sz: 12, bold: true }, alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } } }],
-            [], // Empty line
-            headers.map(h => ({ v: h, s: { font: { bold: true }, alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "CDE9D6" } } } }))
+            [{ v: title, s: titleStyle }],
+            [{ v: subtitle, s: subtitleStyle }],
+            [], 
+            headers.map(h => ({ v: h, s: headerStyle }))
         ];
 
         data.forEach(result => {
@@ -256,69 +272,72 @@ export function ResultsTable() {
             const spec = specMap[key] || {};
             const alerts: string[] = [];
             
-            const pciCell = { v: result.pci_brut, s: { alignment: { horizontal: "center" } } as any };
-            if (spec.pci_min && result.pci_brut < spec.pci_min) {
+            // Conditional formatting cells
+            const pciCell = { v: result.pci_brut, s: { ...centerAlign, ...border } as any };
+            const pciThreshold = spec.pci_min ?? 5000;
+            if (result.pci_brut < pciThreshold) {
                 alerts.push("⚠️ PCI bas");
-                pciCell.s.fill = { fgColor: { rgb: "FFCCCC" } }; // Red
-            } else if (result.pci_brut < 4000) {
-                pciCell.s.fill = { fgColor: { rgb: "FFE6CC" } }; // Orange
-            }
-
-            const h2oCell = { v: result.h2o, s: { alignment: { horizontal: "center" } } as any };
-            if ((spec.h2o && result.h2o > spec.h2o) || (!spec.h2o && result.h2o > 15)) {
-                alerts.push("⚠️ H2O élevé");
-                h2oCell.s.fill = { fgColor: { rgb: "FFE6CC" } }; // Orange
-            }
-
-            const chloreCell = { v: result.chlore, s: { alignment: { horizontal: "center" } } as any };
-            if ((spec.chlore && result.chlore > spec.chlore) || (!spec.chlore && result.chlore > 1.2)) {
-                alerts.push("⚠️ Cl- élevé");
-                chloreCell.s.fill = { fgColor: { rgb: "FFFFCC" } }; // Yellow
+                pciCell.s.fill = { fgColor: { rgb: pciLowColor } };
             }
             
-            const cendresCell = { v: result.cendres, s: { alignment: { horizontal: "center" } } as any };
-            if (spec.cendres && result.cendres > spec.cendres) {
-                 alerts.push("⚠️ Cendres élevées");
-                 cendresCell.s.fill = { fgColor: { rgb: "E0E0E0" } }; // Grey
+            const h2oCell = { v: result.h2o, s: { ...centerAlign, ...border } as any };
+            const h2oThreshold = spec.h2o ?? 15;
+            if (result.h2o > h2oThreshold) {
+                alerts.push("⚠️ H2O élevé");
+                h2oCell.s.fill = { fgColor: { rgb: h2oHighColor } };
+            }
+
+            const chloreCell = { v: result.chlore, s: { ...centerAlign, ...border } as any };
+            const chloreThreshold = spec.chlore ?? 0.6;
+            if (result.chlore > chloreThreshold) {
+                alerts.push("⚠️ Cl- élevé");
+                chloreCell.s.fill = { fgColor: { rgb: clHighColor } };
             }
 
             const alertText = alerts.join(', ');
-            const alertCellStyle = { font: { bold: alerts.length > 0, color: { rgb: "FF0000" } }, alignment: { horizontal: "left" } };
-            const alertCell = { v: alertText, s: alertCellStyle };
+            const alertCell = { v: alertText, s: { ...leftAlign, ...border } as any };
+            if (alerts.length > 1) {
+                alertCell.s.font = { bold: true, color: { rgb: "FF0000" } };
+            }
             
-            const row = isFullReport
-                ? [
-                    { v: formatDate(result.date_arrivage), s: { alignment: { horizontal: "center" } } },
-                    result.type_combustible,
-                    { v: result.fournisseur, s: { alignment: { horizontal: "left" } } },
-                    { v: result.pcs, s: { alignment: { horizontal: "center" } } },
+            let row;
+            if (isFullReport) {
+                const cendresCell = { v: result.cendres, s: { ...centerAlign, ...border } as any };
+                if (spec.cendres && result.cendres > spec.cendres) {
+                    alerts.push("⚠️ Cendres élevées");
+                    cendresCell.s.fill = { fgColor: { rgb: "E0E0E0" } }; // Grey
+                }
+                row = [
+                    { v: formatDate(result.date_arrivage), s: { ...centerAlign, ...border } },
+                    { v: result.type_combustible, s: { ...leftAlign, ...border } },
+                    { v: result.fournisseur, s: { ...leftAlign, ...border } },
+                    { v: result.pcs, s: { ...centerAlign, ...border } },
                     pciCell, h2oCell, chloreCell, cendresCell,
-                    { v: result.densite, s: { alignment: { horizontal: "center" } } },
-                    { v: result.granulometrie, s: { alignment: { horizontal: "center" } } },
-                    { v: result.remarques, s: { alignment: { horizontal: "left" } } },
+                    { v: result.densite, s: { ...centerAlign, ...border } },
+                    { v: result.granulometrie, s: { ...centerAlign, ...border } },
+                    { v: result.remarques || '', s: { ...leftAlign, ...border } },
                     alertCell
-                  ]
-                : [
-                    { v: formatDate(result.date_arrivage), s: { alignment: { horizontal: "center" } } },
-                    result.type_combustible,
-                    { v: result.fournisseur, s: { alignment: { horizontal: "left" } } },
+                ];
+            } else {
+                 row = [
+                    { v: formatDate(result.date_arrivage), s: { ...centerAlign, ...border } },
+                    { v: result.type_combustible, s: { ...leftAlign, ...border } },
+                    { v: result.fournisseur, s: { ...leftAlign, ...border } },
                     pciCell, h2oCell, chloreCell,
-                    { v: result.remarques, s: { alignment: { horizontal: "left" } } },
+                    { v: result.remarques || '', s: { ...leftAlign, ...border } },
                     alertCell
-                  ];
-            
-            ws_data.push(row.map(cell => {
-                const baseCell = (typeof cell === 'object' && cell !== null && 'v' in cell) ? cell : { v: cell, s: {} };
-                return { ...baseCell, s: { ...baseCell.s, border: { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } } } };
-            }));
+                ];
+            }
+            ws_data.push(row);
         });
         
         const ws = XLSX.utils.json_to_sheet(ws_data, { skipHeader: true });
 
         if (!ws['!merges']) ws['!merges'] = [];
-        ws['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } });
-        ws['!merges'].push({ s: { r: 1, c: 0 }, e: { r: 1, c: headers.length - 1 } });
-        
+        const mergeEndColumn = headers.length - 1;
+        ws['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: mergeEndColumn } });
+        ws['!merges'].push({ s: { r: 1, c: 0 }, e: { r: 1, c: mergeEndColumn } });
+
         const colWidths = headers.map((h, i) => ({
             wch: Math.max(
                 h.length,
@@ -335,6 +354,7 @@ export function ResultsTable() {
         XLSX.utils.book_append_sheet(wb, ws, "Rapport AFR");
         XLSX.writeFile(wb, filename);
     };
+
 
     const handleReportDownload = (period: 'daily' | 'weekly' | 'monthly' | 'filtered') => {
         let reportData: Result[];
@@ -571,3 +591,5 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
+
+    
