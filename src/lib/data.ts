@@ -42,9 +42,7 @@ export const INITIAL_FUEL_TYPES: Omit<FuelType, 'createdAt'>[] = [
 
 export const getFuelTypes = async (): Promise<FuelType[]> => {
     const fuelTypesCollectionRef = collection(db, "fuel_types");
-    let q = query(fuelTypesCollectionRef);
-    
-    const querySnapshot = await getDocs(q);
+    const querySnapshot = await getDocs(fuelTypesCollectionRef);
     
     if (querySnapshot.empty) {
         console.log("Fuel types collection is empty, seeding with initial data...");
@@ -57,22 +55,8 @@ export const getFuelTypes = async (): Promise<FuelType[]> => {
         });
         await batch.commit();
         console.log("Seeding complete.");
-
-        // Re-fetch with ordering after seeding
-        const seededQuery = query(fuelTypesCollectionRef, orderBy("createdAt", "desc"));
-        const seededSnapshot = await getDocs(seededQuery);
-        const types: FuelType[] = [];
-        seededSnapshot.forEach(doc => {
-            const data = doc.data() as FuelType;
-            types.push(data);
-            if (data.hValue !== undefined) {
-                H_MAP[data.name] = data.hValue;
-            }
-        });
-        return types;
     }
 
-    // If not empty, fetch with ordering
     const orderedQuery = query(fuelTypesCollectionRef, orderBy("createdAt", "desc"));
     const orderedSnapshot = await getDocs(orderedQuery);
     const types: FuelType[] = [];
@@ -200,5 +184,7 @@ export const getSpecifications = async (): Promise<Specification[]> => {
     });
     return specifications;
 };
+
+    
 
     

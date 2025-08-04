@@ -187,7 +187,7 @@ export function PciCalculator() {
         });
 
         const docRef = doc(db, "fuel_types", newFuel.name);
-        const dataToSave = { 
+        const dataToSave: FuelType = { 
             name: newFuel.name, 
             icon: newFuel.icon, 
             hValue: newFuel.hValue,
@@ -690,6 +690,8 @@ export function PciCalculator() {
     </div>
   );
 }
+
+    
 
     
 
