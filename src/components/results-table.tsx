@@ -231,42 +231,48 @@ export function ResultsTable() {
             toast({ variant: "destructive", title: "Aucune donnée", description: "Il n'y a aucune donnée à exporter." });
             return;
         }
-    
+
         const isFullReport = reportType === 'Mensuel' || reportType === 'Filtré';
         const reportDate = new Date();
         const formattedDate = format(reportDate, 'dd-MM-yyyy');
-    
-        const title = `Rapport ${reportType} du ${formattedDate} analyses des AF`;
-        const subtitle = "Suivi des combustibles solides non dangereux";
+
+        const titleText = `Rapport ${reportType} du ${formattedDate} analyses des AF`;
+        const subtitleText = "Suivi des combustibles solides non dangereux";
         const filename = `${reportType}_AFR_Report_${format(reportDate, "yyyy-MM-dd")}.xlsx`;
-    
+
         const simplifiedHeaders = ["Date", "Type Combustible", "Fournisseur", "PCI", "% H2O", "% Cl-", "Remarques", "Alertes"];
         const fullHeaders = ["Date", "Type Combustible", "Fournisseur", "PCS", "PCI", "% H2O", "% Cl-", "% Cendres", "Densité", "Granulométrie", "Remarques", "Alertes"];
         const headers = isFullReport ? fullHeaders : simplifiedHeaders;
-    
-        const titleStyle = { font: { bold: true, sz: 14, color: { rgb: "000000"} }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } };
-        const subtitleStyle = { font: { bold: true, sz: 12, color: { rgb: "000000"} }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } };
-        const headerStyle = { font: { bold: true, color: { rgb: "000000" } }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "CDE9D6" } }, border: { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } } };
-        const centerAlign = { alignment: { horizontal: "center", vertical: "center" }, border: { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } }};
-        const leftAlign = { alignment: { horizontal: "left", vertical: "center", wrapText: true }, border: { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } }};
+
+        // --- STYLES ---
+        const border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+        const titleStyle = { font: { bold: true, sz: 14 }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } };
+        const subtitleStyle = { font: { bold: true, sz: 12 }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } };
+        const headerStyle = { font: { bold: true, color: { rgb: "000000" } }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "CDE9D6" } }, border };
         
-        const pciLowColor = { fgColor: { rgb: "F8D7DA" }}; // light red
-        const h2oHighColor = { fgColor: { rgb: "FFF3CD" }}; // light orange/yellow
-        const clHighColor = { fgColor: { rgb: "FFF9C4" }}; // light yellow
-        const cendresHighColor = { fgColor: { rgb: "E2E3E5" }}; // light grey
-    
+        const baseCellStyle = { border };
+        const centerAlign = { ...baseCellStyle, alignment: { horizontal: "center", vertical: "center" } };
+        const leftAlign = { ...baseCellStyle, alignment: { horizontal: "left", vertical: "center", wrapText: true } };
+        
+        const pciLowColor = { fgColor: { rgb: "F8D7DA" } };
+        const h2oHighColor = { fgColor: { rgb: "FFF3CD" } };
+        const clHighColor = { fgColor: { rgb: "FFF9C4" } };
+        const cendresHighColor = { fgColor: { rgb: "E2E3E5" } };
+        const alertFont = { bold: true, color: { rgb: "FF0000" } };
+
         const ws_data: (any)[][] = [
-            [ { v: title, s: titleStyle } ],
-            [ { v: subtitle, s: subtitleStyle } ],
+            [ { v: titleText, s: titleStyle } ],
+            [ { v: subtitleText, s: subtitleStyle } ],
             [], 
             headers.map(h => ({ v: h, s: headerStyle }))
         ];
-    
+
         data.forEach(result => {
             const key = `${result.type_combustible}|${result.fournisseur}`;
             const spec = specMap[key] || {};
             const alerts: string[] = [];
             
+            // --- Cellules et MEC ---
             const pciCell = { v: result.pci_brut, s: { ...centerAlign } as any };
             if (spec.pci_min !== undefined && result.pci_brut < spec.pci_min) {
                 alerts.push("⚠️ PCI bas");
@@ -287,8 +293,8 @@ export function ResultsTable() {
 
             const alertText = alerts.join(', ');
             const alertCell = { v: alertText, s: { ...leftAlign } as any };
-            if (alerts.length > 0) { // Changed from > 1 to > 0 to apply style even for a single alert
-                alertCell.s.font = { bold: true, color: { rgb: "FF0000" } };
+            if (alerts.length > 0) {
+                alertCell.s.font = alertFont;
             }
             
             let row;
@@ -298,11 +304,10 @@ export function ResultsTable() {
                     alerts.push("⚠️ Cendres élevées"); 
                     cendresCell.s.fill = cendresHighColor;
                 }
-                 // regenerate alerts text to include Cendres
                  const fullAlertText = alerts.join(', ');
                  const fullAlertCell = { v: fullAlertText, s: { ...leftAlign } as any };
                  if (alerts.length > 0) {
-                    fullAlertCell.s.font = { bold: true, color: { rgb: "FF0000" } };
+                    fullAlertCell.s.font = alertFont;
                  }
 
                 row = [
@@ -341,14 +346,12 @@ export function ResultsTable() {
                 h.length,
                 ...ws_data.slice(4).map(row => {
                     const cell = row[i];
-                    // Handle both plain values and styled cell objects
                     const value = (cell && typeof cell === 'object' && 'v' in cell) ? cell.v : cell;
                     return value ? value.toString().length : 0;
                 })
-            ) + 5
+            ) + 2
         }));
         
-        // Specific widths for certain columns to avoid them being too wide or too narrow
         const remarksIndex = headers.indexOf('Remarques');
         if (remarksIndex > -1) colWidths[remarksIndex] = { wch: 30 };
         const alertsIndex = headers.indexOf('Alertes');
