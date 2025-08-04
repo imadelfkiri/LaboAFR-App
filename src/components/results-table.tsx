@@ -71,15 +71,6 @@ interface Result {
     remarques: string;
 }
 
-interface AggregatedResult {
-    type_combustible: string;
-    pci_brut: number;
-    h2o: number;
-    chlore: number;
-    cendres: number;
-    count: number;
-}
-
 const specMap: Record<string, { pci_min?: number, h2o?: number, chlore?: number, cendres?: number }> = {
   "CSR|Polluclean": { h2o: 16.5, chlore: 1.0, cendres: 15, pci_min: 4000 },
   "CSR|SMBRM": { h2o: 14, chlore: 0.6, cendres: 15, pci_min: 5000 },
@@ -97,7 +88,7 @@ const getPciColorClass = (value: number, combustible: string, fournisseur: strin
   const key = `${combustible}|${fournisseur}`;
   const spec = specMap[key];
   if (spec && spec.pci_min !== undefined && value < spec.pci_min) return "text-red-600 font-bold";
-  if (value < 4000) return "text-orange-600 font-bold";
+  if (value < 4000) return "text-orange-600";
   return "text-green-600";
 };
 
@@ -114,7 +105,7 @@ const getCustomColor = (
   if (param === 'h2o' && value > 15) return "text-red-600 font-bold";
   if (param === 'chlore' && value > 1.2) return "text-yellow-600 font-bold";
   
-  return "text-green-600";
+  return "";
 };
 
 const calculateAverage = (results: Result[], field: keyof Result): number | null => {
@@ -126,9 +117,7 @@ const calculateAverage = (results: Result[], field: keyof Result): number | null
 
 function formatDate(date: { seconds: number; nanoseconds: number } | string | Date): string {
     if (!date) return "Date inconnue";
-
     let parsedDate: Date;
-
     if (typeof date === "string") {
         parsedDate = parseISO(date);
     } else if (date && typeof (date as any).seconds === 'number') {
@@ -136,11 +125,7 @@ function formatDate(date: { seconds: number; nanoseconds: number } | string | Da
     } else {
         parsedDate = new Date(date);
     }
-
-    if (!isValid(parsedDate)) {
-        return "Date inconnue";
-    }
-
+    if (!isValid(parsedDate)) return "Date inconnue";
     return format(parsedDate, "dd/MM/yyyy");
 }
 
@@ -175,8 +160,7 @@ export function ResultsTable() {
       }
       fetchData();
 
-      let q = query(collection(db, "resultats"), orderBy("date_arrivage", "desc"));
-
+      const q = query(collection(db, "resultats"), orderBy("date_arrivage", "desc"));
       const unsubscribe = onSnapshot(q, (querySnapshot) => {
           const resultsData: Result[] = [];
           querySnapshot.forEach((doc) => {
@@ -215,7 +199,6 @@ export function ResultsTable() {
 
     const handleDelete = async () => {
         if (!resultToDelete) return;
-
         try {
             await deleteDoc(doc(db, "resultats", resultToDelete));
             toast({
@@ -234,130 +217,107 @@ export function ResultsTable() {
         }
     };
     
-    const formatNumber = (num: number | null | undefined, fractionDigits: number = 2) => {
+    const formatNumber = (num: number | null | undefined, fractionDigits: number = 0) => {
         if (num === null || num === undefined || isNaN(num)) return 'N/A';
-        const factor = Math.pow(10, fractionDigits);
-        const roundedNum = Math.round(num * factor) / factor;
-    
-        if (fractionDigits === 0) {
-            return roundedNum.toLocaleString('fr-FR', {useGrouping: true});
-        }
-        return roundedNum.toLocaleString('fr-FR', { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits, useGrouping: false });
+        return num.toLocaleString('fr-FR', {
+            minimumFractionDigits: fractionDigits,
+            maximumFractionDigits: fractionDigits,
+            useGrouping: true,
+        });
     }
 
     const exportToExcel = (data: Result[], reportType: 'Journalier' | 'Hebdomadaire' | 'Mensuel' | 'Filtré') => {
         if (!data || data.length === 0) {
-            toast({
-                variant: "destructive",
-                title: "Aucune donnée",
-                description: "Il n'y a aucune donnée à exporter.",
-            });
+            toast({ variant: "destructive", title: "Aucune donnée", description: "Il n'y a aucune donnée à exporter." });
             return;
         }
 
         const isFullReport = reportType === 'Mensuel' || reportType === 'Filtré';
-        
-        let title = `Rapport ${reportType} analyses des AF`;
-        let reportDate = new Date();
-        if (reportType === 'Journalier') {
-            const yesterday = subDays(new Date(), 1);
-            title = `Rapport Journalier du ${format(yesterday, 'dd-MM-yyyy')} analyses des AF`
-            reportDate = yesterday;
-        }
+        const reportDate = new Date();
+        const formattedDate = format(reportDate, 'dd-MM-yyyy');
 
-
+        const title = `Rapport ${reportType} du ${formattedDate} analyses des AF`;
         const subtitle = "Suivi des combustibles solides non dangereux";
         const filename = `${reportType}_AFR_Report_${format(reportDate, "yyyy-MM-dd")}.xlsx`;
 
-        const headersFull = ["Date", "Type Combustible", "Fournisseur", "PCS", "PCI", "% H2O", "% Cl-", "% Cendres", "Densité", "Granulométrie", "Remarques", "Alertes"];
         const headersSimple = ["Date", "Type Combustible", "Fournisseur", "PCI", "% H2O", "% Cl-", "Remarques", "Alertes"];
+        const headersFull = ["Date", "Type Combustible", "Fournisseur", "PCS", "PCI", "% H2O", "% Cl-", "% Cendres", "Densité", "Granulométrie", "Remarques", "Alertes"];
         const headers = isFullReport ? headersFull : headersSimple;
         
         const ws_data: (string | number | { v: string|number; s: any })[][] = [
             [{ v: title, s: { font: { bold: true, sz: 14 }, alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } } }],
-            [{ v: subtitle, s: { font: { sz: 12 }, alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } } }],
-            [],
-            headers.map(h => ({ v: h, s: { font: { bold: true }, alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "CDE9D6" } }, border: { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } } } }))
+            [{ v: subtitle, s: { font: { sz: 12, bold: true }, alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } } }],
+            [], // Empty line
+            headers.map(h => ({ v: h, s: { font: { bold: true }, alignment: { horizontal: "center" }, fill: { fgColor: { rgb: "CDE9D6" } } } }))
         ];
 
         data.forEach(result => {
             const key = `${result.type_combustible}|${result.fournisseur}`;
             const spec = specMap[key] || {};
-            const alerts = [];
-
-            const pciCell: { v: number, s?: any } = { v: result.pci_brut, s: { alignment: { horizontal: "center" } } };
+            const alerts: string[] = [];
+            
+            const pciCell = { v: result.pci_brut, s: { alignment: { horizontal: "center" } } as any };
             if (spec.pci_min && result.pci_brut < spec.pci_min) {
                 alerts.push("⚠️ PCI bas");
-                pciCell.s.fill = { fgColor: { rgb: "FFCCCC" } }; // Rouge clair
+                pciCell.s.fill = { fgColor: { rgb: "FFCCCC" } }; // Red
             } else if (result.pci_brut < 4000) {
-                 pciCell.s.fill = { fgColor: { rgb: "FFE6CC" } }; // Orange clair
+                pciCell.s.fill = { fgColor: { rgb: "FFE6CC" } }; // Orange
             }
 
-            const h2oCell: { v: number, s?: any } = { v: result.h2o, s: { alignment: { horizontal: "center" } } };
-            if ((spec.h2o && result.h2o > spec.h2o) || result.h2o > 15) {
+            const h2oCell = { v: result.h2o, s: { alignment: { horizontal: "center" } } as any };
+            if ((spec.h2o && result.h2o > spec.h2o) || (!spec.h2o && result.h2o > 15)) {
                 alerts.push("⚠️ H2O élevé");
-                h2oCell.s.fill = { fgColor: { rgb: "FFE6CC" } }; // Orange clair
+                h2oCell.s.fill = { fgColor: { rgb: "FFE6CC" } }; // Orange
             }
-            
-            const chloreCell: { v: number, s?: any } = { v: result.chlore, s: { alignment: { horizontal: "center" } } };
-            if ((spec.chlore && result.chlore > spec.chlore) || result.chlore > 1.2) {
+
+            const chloreCell = { v: result.chlore, s: { alignment: { horizontal: "center" } } as any };
+            if ((spec.chlore && result.chlore > spec.chlore) || (!spec.chlore && result.chlore > 1.2)) {
                 alerts.push("⚠️ Cl- élevé");
-                chloreCell.s.fill = { fgColor: { rgb: "FFFFCC" } }; // Jaune clair
+                chloreCell.s.fill = { fgColor: { rgb: "FFFFCC" } }; // Yellow
             }
             
-            const cendresCell: { v: number, s?: any } = { v: result.cendres, s: { alignment: { horizontal: "center" } } };
+            const cendresCell = { v: result.cendres, s: { alignment: { horizontal: "center" } } as any };
             if (spec.cendres && result.cendres > spec.cendres) {
                  alerts.push("⚠️ Cendres élevées");
-                 cendresCell.s.fill = { fgColor: { rgb: "E0E0E0" } }; // Gris clair
+                 cendresCell.s.fill = { fgColor: { rgb: "E0E0E0" } }; // Grey
             }
 
             const alertText = alerts.join(', ');
-            const alertCellStyle = alerts.length > 0 ? { font: { bold: true, color: { rgb: "FF0000" }}, alignment: { horizontal: "left" } } : { alignment: { horizontal: "left" } };
+            const alertCellStyle = { font: { bold: alerts.length > 0, color: { rgb: "FF0000" } }, alignment: { horizontal: "left" } };
             const alertCell = { v: alertText, s: alertCellStyle };
             
-            let row;
-            if (isFullReport) {
-                row = [
+            const row = isFullReport
+                ? [
                     { v: formatDate(result.date_arrivage), s: { alignment: { horizontal: "center" } } },
-                    { v: result.type_combustible, s: { alignment: { horizontal: "left" } } },
+                    result.type_combustible,
                     { v: result.fournisseur, s: { alignment: { horizontal: "left" } } },
                     { v: result.pcs, s: { alignment: { horizontal: "center" } } },
-                    pciCell,
-                    h2oCell,
-                    chloreCell,
-                    cendresCell,
+                    pciCell, h2oCell, chloreCell, cendresCell,
                     { v: result.densite, s: { alignment: { horizontal: "center" } } },
                     { v: result.granulometrie, s: { alignment: { horizontal: "center" } } },
                     { v: result.remarques, s: { alignment: { horizontal: "left" } } },
                     alertCell
-                ];
-            } else {
-                 row = [
+                  ]
+                : [
                     { v: formatDate(result.date_arrivage), s: { alignment: { horizontal: "center" } } },
-                    { v: result.type_combustible, s: { alignment: { horizontal: "left" } } },
+                    result.type_combustible,
                     { v: result.fournisseur, s: { alignment: { horizontal: "left" } } },
-                    pciCell,
-                    h2oCell,
-                    chloreCell,
+                    pciCell, h2oCell, chloreCell,
                     { v: result.remarques, s: { alignment: { horizontal: "left" } } },
                     alertCell
-                ];
-            }
-            // Add borders to all cells
-            const finalRow = row.map(cell => {
-                const cellObject = (typeof cell === 'object' && cell !== null && 'v' in cell) ? cell : { v: cell };
-                return { ...cellObject, s: { ...cellObject.s, border: { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } } } };
-            });
-
-            ws_data.push(finalRow);
+                  ];
+            
+            ws_data.push(row.map(cell => {
+                const baseCell = (typeof cell === 'object' && cell !== null && 'v' in cell) ? cell : { v: cell, s: {} };
+                return { ...baseCell, s: { ...baseCell.s, border: { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } } } };
+            }));
         });
         
-        const ws = XLSX.utils.aoa_to_sheet(ws_data);
+        const ws = XLSX.utils.json_to_sheet(ws_data, { skipHeader: true });
 
-        ws['!merges'] = [
-            { s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } },
-            { s: { r: 1, c: 0 }, e: { r: 1, c: headers.length - 1 } }
-        ];
+        if (!ws['!merges']) ws['!merges'] = [];
+        ws['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } });
+        ws['!merges'].push({ s: { r: 1, c: 0 }, e: { r: 1, c: headers.length - 1 } });
         
         const colWidths = headers.map((h, i) => ({
             wch: Math.max(
@@ -386,16 +346,10 @@ export function ResultsTable() {
         } else {
             const now = new Date();
             let startDate: Date;
-            let endDate: Date = endOfDay(now);
-        
-            if (!isValid(now)) {
-                toast({ variant: "destructive", title: "Date système invalide" });
-                return;
-            }
+            const endDate: Date = endOfDay(now);
         
             if (period === 'daily') {
                 startDate = startOfDay(subDays(now, 1));
-                endDate = endOfDay(startDate);
                 reportType = 'Journalier';
             } else if (period === 'weekly') {
                 startDate = startOfDay(subDays(now, 7));
@@ -617,5 +571,3 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
-
-    
