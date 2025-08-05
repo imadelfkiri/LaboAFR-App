@@ -73,14 +73,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                   </Link>
                 </Button>
             )}
-             {pathname === '/specifications' && (
-                <Button asChild>
-                  <Link href="/specifications#">
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Ajouter une spécification
-                  </Link>
-                </Button>
-            )}
+             {/* Le bouton pour les spécifications est maintenant géré dans la page elle-même */}
           </div>
         </header>
         {children}
