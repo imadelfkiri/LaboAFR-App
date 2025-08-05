@@ -13,14 +13,14 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import { Fuel, Plus } from 'lucide-react';
+import { Fuel, Plus, PlusCircle } from 'lucide-react';
 import { SidebarNav } from './sidebar-nav';
 
 const pageTitles: { [key: string]: string } = {
   '/calculateur': 'Calculateur PCI',
   '/resultats': 'Historique des Résultats',
   '/statistiques': 'Tableau de Bord des Statistiques',
-  '/specifications': 'Spécifications Techniques',
+  '/specifications': 'Spécifications AFR',
 };
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
@@ -70,6 +70,14 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                   <Link href="/calculateur">
                     <Plus className="mr-2 h-4 w-4" />
                     Ajouter un Résultat
+                  </Link>
+                </Button>
+            )}
+             {pathname === '/specifications' && (
+                <Button asChild>
+                  <Link href="/specifications#">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Ajouter une spécification
                   </Link>
                 </Button>
             )}
