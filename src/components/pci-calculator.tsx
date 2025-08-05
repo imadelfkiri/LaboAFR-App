@@ -87,6 +87,7 @@ const newFournisseurSchema = z.object({
 
 export function PciCalculator() {
   const [pciResult, setPciResult] = useState<number | null>(null);
+  const [hValue, setHValue] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [allFuelTypes, setAllFuelTypes] = useState<FuelType[]>([]);
   const [allFournisseurs, setAllFournisseurs] = useState<string[]>([]);
@@ -144,6 +145,7 @@ export function PciCalculator() {
   const fetchAndSetData = async () => {
       let fetchedFuelTypes = await getFuelTypes();
       
+      // Tri alphabétique
       fetchedFuelTypes.sort((a, b) => a.name.localeCompare(b.name));
       
       const [fetchedFournisseurs, fetchedMap] = await Promise.all([
@@ -173,6 +175,15 @@ export function PciCalculator() {
   const pcsValue = watch("pcs");
   const h2oValue = watch("h2o");
   const typeCombustibleValue = watch("type_combustible");
+
+  useEffect(() => {
+    if (typeCombustibleValue) {
+        const h = H_MAP[typeCombustibleValue];
+        setHValue(h ?? null);
+    } else {
+        setHValue(null);
+    }
+  }, [typeCombustibleValue]);
 
   useEffect(() => {
     const values = getValues();
@@ -567,6 +578,19 @@ export function PciCalculator() {
                                 </FormItem>
                                 )}
                             />
+                             <FormItem>
+                                <FormLabel>% H</FormLabel>
+                                <FormControl>
+                                <Input 
+                                    type="number" 
+                                    readOnly 
+                                    disabled 
+                                    value={hValue !== null ? hValue.toFixed(2) : ''} 
+                                    className="rounded-xl h-11 px-4 text-sm bg-gray-100" 
+                                    placeholder="-"
+                                />
+                                </FormControl>
+                            </FormItem>
                             <FormField
                                 control={form.control}
                                 name="chlore"
