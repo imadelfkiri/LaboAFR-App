@@ -61,9 +61,11 @@ export const getFuelTypes = async (): Promise<FuelType[]> => {
         const types: FuelType[] = [];
         newSnapshot.forEach((doc) => {
             const data = doc.data() as FuelType;
-            types.push(data);
-             if (data.hValue !== undefined) {
-                H_MAP[data.name] = data.hValue;
+            if (data.name !== "TEST") { // Filtre ici aussi au cas où
+                types.push(data);
+                 if (data.hValue !== undefined) {
+                    H_MAP[data.name] = data.hValue;
+                }
             }
         });
         
@@ -73,9 +75,11 @@ export const getFuelTypes = async (): Promise<FuelType[]> => {
     const types: FuelType[] = [];
     querySnapshot.forEach((doc) => {
         const data = doc.data() as FuelType;
-        types.push(data);
-        if (data.hValue !== undefined) {
-            H_MAP[data.name] = data.hValue;
+        if (data.name !== "TEST") { // Filtre pour exclure "TEST"
+            types.push(data);
+            if (data.hValue !== undefined) {
+                H_MAP[data.name] = data.hValue;
+            }
         }
     });
 
