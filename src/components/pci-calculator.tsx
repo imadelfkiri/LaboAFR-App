@@ -108,7 +108,7 @@ export function PciCalculator() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       date_arrivage: undefined,
-      type_combustible: "Plastiques",
+      type_combustible: "",
       fournisseur: "",
       pcs: undefined,
       h2o: undefined,
@@ -124,7 +124,7 @@ export function PciCalculator() {
   const resetForm = () => {
     reset({
         date_arrivage: undefined,
-        type_combustible: "Plastiques",
+        type_combustible: "",
         fournisseur: "",
         pcs: '' as any,
         h2o: '' as any,
@@ -141,7 +141,7 @@ export function PciCalculator() {
 
   const fetchAndSetData = async () => {
       await fixFuelTypesMissingCreatedAt(); // Ensure all documents have createdAt
-      let fetchedFuelTypes = await getFuelTypes();
+      const fetchedFuelTypes = await getFuelTypes();
       
       const [fetchedFournisseurs, fetchedMap] = await Promise.all([
           getFournisseurs(),
@@ -151,6 +151,10 @@ export function PciCalculator() {
       setAllFuelTypes(fetchedFuelTypes);
       setAllFournisseurs(fetchedFournisseurs);
       setFuelSupplierMap(fetchedMap);
+
+      if (fetchedFuelTypes.length > 0) {
+        setValue("type_combustible", fetchedFuelTypes[0].name);
+      }
   };
 
   useEffect(() => {

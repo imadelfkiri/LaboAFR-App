@@ -42,7 +42,7 @@ export const INITIAL_FUEL_TYPES: Omit<FuelType, 'createdAt'>[] = [
 export const getFuelTypes = async (): Promise<FuelType[]> => {
     const fuelTypesCollectionRef = collection(db, "fuel_types");
     
-    const q = query(fuelTypesCollectionRef, orderBy("name", "asc"));
+    const q = query(fuelTypesCollectionRef, orderBy("createdAt", "asc"));
     const querySnapshot = await getDocs(q);
     
     if (querySnapshot.empty) {
@@ -57,11 +57,11 @@ export const getFuelTypes = async (): Promise<FuelType[]> => {
         await batch.commit();
         console.log("Seeding complete.");
         
-        const newSnapshot = await getDocs(query(fuelTypesCollectionRef, orderBy("name", "asc")));
+        const newSnapshot = await getDocs(query(fuelTypesCollectionRef, orderBy("createdAt", "asc")));
         const types: FuelType[] = [];
         newSnapshot.forEach((doc) => {
             const data = doc.data() as FuelType;
-            if (data.name !== "TEST") { // Filtre ici aussi au cas où
+            if (data.name !== "TEST") {
                 types.push(data);
                  if (data.hValue !== undefined) {
                     H_MAP[data.name] = data.hValue;
@@ -75,7 +75,7 @@ export const getFuelTypes = async (): Promise<FuelType[]> => {
     const types: FuelType[] = [];
     querySnapshot.forEach((doc) => {
         const data = doc.data() as FuelType;
-        if (data.name !== "TEST") { // Filtre pour exclure "TEST"
+        if (data.name !== "TEST") {
             types.push(data);
             if (data.hValue !== undefined) {
                 H_MAP[data.name] = data.hValue;
@@ -115,7 +115,7 @@ const INITIAL_FOURNISSEURS = [
 
 export const getFournisseurs = async (): Promise<string[]> => {
     const fournisseursCollectionRef = collection(db, "fournisseurs");
-    const querySnapshot = await getDocs(fournisseursCollectionRef);
+    const querySnapshot = await getDocs(query(fournisseursCollectionRef, orderBy("name", "asc")));
     const fournisseurs: string[] = [];
 
     if (querySnapshot.empty) {
@@ -135,7 +135,7 @@ export const getFournisseurs = async (): Promise<string[]> => {
         fournisseurs.push(doc.data().name);
     });
 
-    return fournisseurs.sort();
+    return fournisseurs;
 };
 
 const INITIAL_FUEL_TYPE_SUPPLIERS_MAP: Record<string, string[]> = {
