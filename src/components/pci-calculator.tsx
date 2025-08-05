@@ -144,11 +144,7 @@ export function PciCalculator() {
   const fetchAndSetData = async () => {
       let fetchedFuelTypes = await getFuelTypes();
       
-      fetchedFuelTypes.sort((a, b) => {
-        const timeA = a.createdAt?.seconds ?? 0;
-        const timeB = b.createdAt?.seconds ?? 0;
-        return timeB - timeA;
-      });
+      fetchedFuelTypes.sort((a, b) => a.name.localeCompare(b.name));
       
       const [fetchedFournisseurs, fetchedMap] = await Promise.all([
           getFournisseurs(),
