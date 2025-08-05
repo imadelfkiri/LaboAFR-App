@@ -66,7 +66,6 @@ interface Result {
     cendres: number;
     chlore: number;
     densite: number;
-    granulometrie: number;
     pci_brut: number;
     remarques: string;
 }
@@ -236,7 +235,7 @@ export function ResultsTable() {
         const filename = `${reportType}_AFR_Report_${format(reportDate, "yyyy-MM-dd")}.xlsx`;
 
         const simplifiedHeaders = ["Date", "Type Combustible", "Fournisseur", "PCI", "% H2O", "% Cl-", "Remarques", "Alertes"];
-        const fullHeaders = ["Date", "Type Combustible", "Fournisseur", "PCS", "PCI", "% H2O", "% Cl-", "% Cendres", "Densité", "Granulométrie", "Remarques", "Alertes"];
+        const fullHeaders = ["Date", "Type Combustible", "Fournisseur", "PCS", "PCI", "% H2O", "% Cl-", "% Cendres", "Densité", "Remarques", "Alertes"];
         const headers = isFullReport ? fullHeaders : simplifiedHeaders;
 
         // --- STYLES ---
@@ -319,7 +318,6 @@ export function ResultsTable() {
                     { v: result.chlore, s: chloreCellStyle },
                     { v: result.cendres, s: cendresCellStyle },
                     { v: result.densite, s: centerAlignStyle },
-                    { v: result.granulometrie, s: centerAlignStyle },
                     { v: result.remarques || '', s: leftAlignStyle },
                     { v: fullAlertText, s: fullAlertCellStyle }
                 ];
@@ -516,7 +514,6 @@ export function ResultsTable() {
                                     <TableHead className="text-right px-4">% Cl-</TableHead>
                                     <TableHead className="text-right px-4">% Cendres</TableHead>
                                     <TableHead className="text-right px-4">Densité</TableHead>
-                                    <TableHead className="text-right px-4">Granulométrie</TableHead>
                                     <TableHead className="px-4">Remarques</TableHead>
                                     <TableHead className="w-[50px] text-right px-4 sticky right-0 bg-muted/50">Action</TableHead>
                                 </TableRow>
@@ -546,7 +543,6 @@ export function ResultsTable() {
                                                   {formatNumber(result.cendres, 1)}
                                                 </TableCell>
                                                 <TableCell className="text-right px-4">{formatNumber(result.densite, 2)}</TableCell>
-                                                <TableCell className="text-right px-4">{formatNumber(result.granulometrie, 1)}</TableCell>
                                                 <TableCell className="max-w-[150px] truncate text-muted-foreground px-4">
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
@@ -571,13 +567,12 @@ export function ResultsTable() {
                                             <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'chlore'), 2)}</TableCell>
                                             <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'cendres'), 1)}</TableCell>
                                             <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'densite'), 2)}</TableCell>
-                                            <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'granulometrie'), 1)}</TableCell>
                                             <TableCell colSpan={2} className='sticky right-0 bg-muted/40'/>
                                         </TableRow>
                                     </>
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={12} className="h-24 text-center text-muted-foreground">
+                                        <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
                                             Aucun résultat trouvé pour les filtres sélectionnés.
                                         </TableCell>
                                     </TableRow>
@@ -605,3 +600,5 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
+
+    

@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { CalendarIcon, Fuel, PlusCircle, ClipboardList, FlaskConical, MessageSquareText, Ruler } from 'lucide-react';
+import { CalendarIcon, Fuel, PlusCircle, ClipboardList, FlaskConical, MessageSquareText } from 'lucide-react';
 import { collection, addDoc, Timestamp, doc, setDoc, getDoc, updateDoc, arrayUnion, serverTimestamp } from "firebase/firestore";
 
 import { cn } from "@/lib/utils";
@@ -71,7 +71,6 @@ const formSchema = z.object({
   chlore: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le chlore ne peut être négatif." }).optional().or(z.literal('')),
   cendres: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le % de cendres ne peut être négatif." }).optional().or(z.literal('')),
   densite: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).positive({ message: "La densité doit être un nombre positif." }).optional().or(z.literal('')),
-  granulometrie: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).positive({ message: "La granulométrie doit être un nombre positif." }).optional().or(z.literal('')),
   remarques: z.string().optional(),
 });
 
@@ -116,7 +115,6 @@ export function PciCalculator() {
       chlore: '',
       cendres: '',
       densite: '',
-      granulometrie: '',
       remarques: "",
     },
   });
@@ -133,7 +131,6 @@ export function PciCalculator() {
         chlore: '' as any,
         cendres: '' as any,
         densite: '' as any,
-        granulometrie: '' as any,
         remarques: "",
     });
     const yesterday = new Date();
@@ -159,15 +156,11 @@ export function PciCalculator() {
   };
 
   useEffect(() => {
-    const fixData = async () => {
-        await fixFuelTypesMissingCreatedAt();
-        await fetchAndSetData();
-    }
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     setValue("date_arrivage", yesterday);
     
-    fixData();
+    fetchAndSetData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -351,7 +344,6 @@ export function PciCalculator() {
         chlore: Number(values.chlore) || 0,
         cendres: Number(values.cendres) || 0,
         densite: Number(values.densite) || 0,
-        granulometrie: Number(values.granulometrie) || 0,
         remarques: values.remarques || "",
         createdAt: serverTimestamp(),
       };
@@ -625,29 +617,6 @@ export function PciCalculator() {
                                     <FormLabel>Densité (t/m³)</FormLabel>
                                     <FormControl>
                                     <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className="rounded-xl h-11 px-4 text-sm"/>
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
-                             <FormField
-                                control={form.control}
-                                name="granulometrie"
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="flex items-center gap-1">
-                                      <Ruler className="w-4 h-4 text-muted-foreground" />
-                                      Granulométrie (mm)
-                                    </FormLabel>
-                                    <FormControl>
-                                    <Input
-                                        type="number"
-                                        step="0.1"
-                                        placeholder=" "
-                                        {...field}
-                                        value={field.value ?? ''}
-                                        className="rounded-xl h-11 px-4 text-sm"
-                                    />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>

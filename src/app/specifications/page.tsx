@@ -56,7 +56,6 @@ export default function SpecificationsPage() {
                 <TableHead>Chlorures</TableHead>
                 <TableHead>Cendres</TableHead>
                 <TableHead>Soufre</TableHead>
-                <TableHead>Granulométrie</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -70,7 +69,6 @@ export default function SpecificationsPage() {
                     <TableCell><Skeleton className="h-5 w-16" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-16" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-16" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-20" /></TableCell>
                   </TableRow>
                 ))
               ) : (
@@ -83,7 +81,6 @@ export default function SpecificationsPage() {
                     <TableCell>{spec.chlorures}</TableCell>
                     <TableCell>{spec.cendres}</TableCell>
                     <TableCell>{spec.soufre}</TableCell>
-                    <TableCell>{spec.granulometrie}</TableCell>
                   </TableRow>
                 ))
               )}
@@ -99,3 +96,5 @@ export default function SpecificationsPage() {
     </div>
   );
 }
+
+    

@@ -20,7 +20,6 @@ export interface Specification {
     chlorures: string;
     cendres: string;
     soufre: string;
-    granulometrie: string;
 }
 
 export const INITIAL_FUEL_TYPES: Omit<FuelType, 'createdAt'>[] = [
@@ -177,16 +176,16 @@ export const getFuelSupplierMap = async (): Promise<Record<string, string[]>> =>
 }
 
 const INITIAL_SPECIFICATIONS: Omit<Specification, 'id'>[] = [
-    {combustible: "Grignons d'olives", fournisseur: "Ain Seddeine", h2o: "<20%", pci: ">3700", chlorures: "<0.5%", cendres: "<5%", soufre: "/", granulometrie: "/"},
-    {combustible: "DMB", fournisseur: "MTR", h2o: "<15%", pci: ">4300", chlorures: "<0.6%", cendres: "<15%", soufre: "<0.5%", granulometrie: "<100 mm"},
-    {combustible: "Plastiques", fournisseur: "ValRecete", h2o: "<15%", pci: ">4300", chlorures: "<1%", cendres: "<15%", soufre: "<0.5%", granulometrie: "<100 mm"},
-    {combustible: "Plastiques", fournisseur: "Bichara", h2o: "<10%", pci: ">4200", chlorures: "<1%", cendres: "<15%", soufre: "/", granulometrie: "<70 mm"},
-    {combustible: "Plastiques", fournisseur: "Valtradec", h2o: "<10%", pci: ">6000", chlorures: "<1%", cendres: "<15%", soufre: "<0.5%", granulometrie: "<30 mm"},
-    {combustible: "Plastiques", fournisseur: "Ssardi", h2o: "<18%", pci: ">4200", chlorures: "<1%", cendres: "<15%", soufre: "/", granulometrie: "<25 mm"},
-    {combustible: "CSR", fournisseur: "Polluclean", h2o: "<16.5%", pci: ">4000", chlorures: "<1%", cendres: "<15%", soufre: "/", granulometrie: "<100 mm"},
-    {combustible: "CSR", fournisseur: "SMBRM", h2o: "<14%", pci: ">5000", chlorures: "<0.6%", cendres: "<%", soufre: "/", granulometrie: "< mm"},
-    {combustible: "Pneus", fournisseur: "RJL", h2o: "<1%", pci: ">6800", chlorures: "<0.3%", cendres: "<1%", soufre: "/", granulometrie: "<100 mm"},
-    {combustible: "Pneus", fournisseur: "Aliapur", h2o: "<1%", pci: ">6800", chlorures: "<0.3%", cendres: "<1%", soufre: "/", granulometrie: "<100 mm"}
+    {combustible: "Grignons d'olives", fournisseur: "Ain Seddeine", h2o: "<20%", pci: ">3700", chlorures: "<0.5%", cendres: "<5%", soufre: "/"},
+    {combustible: "DMB", fournisseur: "MTR", h2o: "<15%", pci: ">4300", chlorures: "<0.6%", cendres: "<15%", soufre: "<0.5%"},
+    {combustible: "Plastiques", fournisseur: "ValRecete", h2o: "<15%", pci: ">4300", chlorures: "<1%", cendres: "<15%", soufre: "<0.5%"},
+    {combustible: "Plastiques", fournisseur: "Bichara", h2o: "<10%", pci: ">4200", chlorures: "<1%", cendres: "<15%", soufre: "/"},
+    {combustible: "Plastiques", fournisseur: "Valtradec", h2o: "<10%", pci: ">6000", chlorures: "<1%", cendres: "<15%", soufre: "<0.5%"},
+    {combustible: "Plastiques", fournisseur: "Ssardi", h2o: "<18%", pci: ">4200", chlorures: "<1%", cendres: "<15%", soufre: "/"},
+    {combustible: "CSR", fournisseur: "Polluclean", h2o: "<16.5%", pci: ">4000", chlorures: "<1%", cendres: "<15%", soufre: "/"},
+    {combustible: "CSR", fournisseur: "SMBRM", h2o: "<14%", pci: ">5000", chlorures: "<0.6%", cendres: "<%", soufre: "/"},
+    {combustible: "Pneus", fournisseur: "RJL", h2o: "<1%", pci: ">6800", chlorures: "<0.3%", cendres: "<1%", soufre: "/"},
+    {combustible: "Pneus", fournisseur: "Aliapur", h2o: "<1%", pci: ">6800", chlorures: "<0.3%", cendres: "<1%", soufre: "/"}
 ];
 
 export const getSpecifications = async (): Promise<Specification[]> => {
@@ -216,3 +215,5 @@ export const getSpecifications = async (): Promise<Specification[]> => {
     });
     return specifications;
 };
+
+    
