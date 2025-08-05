@@ -108,7 +108,7 @@ export function PciCalculator() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       date_arrivage: undefined,
-      type_combustible: "",
+      type_combustible: "Plastiques",
       fournisseur: "",
       pcs: undefined,
       h2o: undefined,
@@ -125,7 +125,7 @@ export function PciCalculator() {
   const resetForm = () => {
     reset({
         date_arrivage: undefined,
-        type_combustible: "",
+        type_combustible: "Plastiques",
         fournisseur: "",
         pcs: '' as any,
         h2o: '' as any,
@@ -135,23 +135,26 @@ export function PciCalculator() {
         granulometrie: '' as any,
         remarques: "",
     });
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    setValue("date_arrivage", yesterday);
     setPciResult(null);
   };
 
   const fetchAndSetData = async () => {
       let fetchedFuelTypes = await getFuelTypes();
-      const [fetchedFournisseurs, fetchedMap] = await Promise.all([
-          getFournisseurs(),
-          getFuelSupplierMap()
-      ]);
       
-      // Solution Ultime: Tri côté client pour forcer l'ordre chronologique
       fetchedFuelTypes.sort((a, b) => {
         const timeA = a.createdAt?.seconds ?? 0;
         const timeB = b.createdAt?.seconds ?? 0;
         return timeB - timeA;
       });
-
+      
+      const [fetchedFournisseurs, fetchedMap] = await Promise.all([
+          getFournisseurs(),
+          getFuelSupplierMap()
+      ]);
+      
       setAllFuelTypes(fetchedFuelTypes);
       setAllFournisseurs(fetchedFournisseurs);
       setFuelSupplierMap(fetchedMap);
