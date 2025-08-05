@@ -1,5 +1,5 @@
 
-import { collection, getDocs, doc, writeBatch, query, setDoc, orderBy, serverTimestamp, getDoc } from "firebase/firestore";
+import { collection, getDocs, doc, writeBatch, query, setDoc, orderBy, serverTimestamp, getDoc, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { db } from "./firebase";
 
 export const H_MAP: Record<string, number> = {};
@@ -43,7 +43,7 @@ export const getFuelTypes = async (): Promise<FuelType[]> => {
     const fuelTypesCollectionRef = collection(db, "fuel_types");
     
     // orderBy("createdAt", "desc")
-    const q = query(fuelTypesCollectionRef);
+    const q = query(fuelTypesCollectionRef, orderBy("name", "asc"));
     const querySnapshot = await getDocs(q);
     
     if (querySnapshot.empty) {
@@ -67,6 +67,8 @@ export const getFuelTypes = async (): Promise<FuelType[]> => {
                 H_MAP[data.name] = data.hValue;
             }
         });
+        // Client-side sort as a fallback
+        types.sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
         return types;
     }
 
@@ -216,4 +218,19 @@ export const getSpecifications = async (): Promise<Specification[]> => {
     return specifications;
 };
 
-    
+type SpecificationData = Omit<Specification, "id">;
+
+export const addSpecification = async (data: SpecificationData) => {
+    const specificationsCollectionRef = collection(db, "specifications");
+    await addDoc(specificationsCollectionRef, data);
+};
+
+export const updateSpecification = async (id: string, data: SpecificationData) => {
+    const specDocRef = doc(db, "specifications", id);
+    await updateDoc(specDocRef, data);
+};
+
+export const deleteSpecification = async (id: string) => {
+    const specDocRef = doc(db, "specifications", id);
+    await deleteDoc(specDocRef);
+};
