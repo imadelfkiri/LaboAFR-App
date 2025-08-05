@@ -166,7 +166,8 @@ export default function SpecificationsPage() {
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-        <div className="flex justify-end">
+        <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold">Spécifications AFR</h2>
             <Button onClick={() => handleModalOpen()}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Ajouter une spécification
