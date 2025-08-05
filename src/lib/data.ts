@@ -48,28 +48,25 @@ export const getFuelTypes = async (): Promise<FuelType[]> => {
     if (querySnapshot.empty) {
         console.log("Fuel types collection is empty, seeding with initial data...");
         const batch = writeBatch(db);
+        const typesToReturn: FuelType[] = [];
         
         INITIAL_FUEL_TYPES.forEach((fuelType) => {
             const docRef = doc(fuelTypesCollectionRef, fuelType.name);
             const dataWithTimestamp = { ...fuelType, createdAt: serverTimestamp() };
             batch.set(docRef, dataWithTimestamp);
+            // We can't immediately use the serverTimestamp, so we create a placeholder date
+            typesToReturn.push({ ...fuelType, createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 } });
         });
         await batch.commit();
         console.log("Seeding complete.");
+
+        typesToReturn.sort((a, b) => (a.createdAt?.seconds ?? 0) - (b.createdAt?.seconds ?? 0));
         
-        const newSnapshot = await getDocs(query(fuelTypesCollectionRef, orderBy("createdAt", "asc")));
-        const types: FuelType[] = [];
-        newSnapshot.forEach((doc) => {
-            const data = doc.data() as FuelType;
-            if (data.name !== "TEST") {
-                types.push(data);
-                 if (data.hValue !== undefined) {
-                    H_MAP[data.name] = data.hValue;
-                }
-            }
+        typesToReturn.forEach(t => {
+            if (t.hValue !== undefined) H_MAP[t.name] = t.hValue;
         });
-        
-        return types;
+
+        return typesToReturn;
     }
 
     const types: FuelType[] = [];
@@ -102,8 +99,12 @@ export const fixFuelTypesMissingCreatedAt = async () => {
     });
 
     if (updatesMade) {
-        await batch.commit();
-        console.log("Mise à jour terminée : Tous les documents fuel_types ont maintenant un champ createdAt.");
+        try {
+            await batch.commit();
+            console.log("Mise à jour terminée : Tous les documents fuel_types ont maintenant un champ createdAt.");
+        } catch(error) {
+            console.error("Erreur lors de la mise à jour des createdAt", error);
+        }
     }
 };
 

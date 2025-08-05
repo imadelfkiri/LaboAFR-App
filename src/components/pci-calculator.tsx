@@ -140,7 +140,7 @@ export function PciCalculator() {
   };
 
   const fetchAndSetData = async () => {
-      await fixFuelTypesMissingCreatedAt(); // Ensure all documents have createdAt
+      await fixFuelTypesMissingCreatedAt(); 
       const fetchedFuelTypes = await getFuelTypes();
       
       const [fetchedFournisseurs, fetchedMap] = await Promise.all([
