@@ -42,7 +42,6 @@ export const INITIAL_FUEL_TYPES: Omit<FuelType, 'createdAt'>[] = [
 export const getFuelTypes = async (): Promise<FuelType[]> => {
     const fuelTypesCollectionRef = collection(db, "fuel_types");
     
-    // orderBy("createdAt", "desc")
     const q = query(fuelTypesCollectionRef, orderBy("name", "asc"));
     const querySnapshot = await getDocs(q);
     
@@ -58,7 +57,7 @@ export const getFuelTypes = async (): Promise<FuelType[]> => {
         await batch.commit();
         console.log("Seeding complete.");
         
-        const newSnapshot = await getDocs(query(fuelTypesCollectionRef, orderBy("createdAt", "desc")));
+        const newSnapshot = await getDocs(query(fuelTypesCollectionRef, orderBy("name", "asc")));
         const types: FuelType[] = [];
         newSnapshot.forEach((doc) => {
             const data = doc.data() as FuelType;
@@ -67,8 +66,7 @@ export const getFuelTypes = async (): Promise<FuelType[]> => {
                 H_MAP[data.name] = data.hValue;
             }
         });
-        // Client-side sort as a fallback
-        types.sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
+        
         return types;
     }
 
@@ -126,14 +124,14 @@ export const getFournisseurs = async (): Promise<string[]> => {
         });
         await batch.commit();
         console.log("Seeding complete.");
-        return fournisseurs;
+        return fournisseurs.sort();
     }
 
     querySnapshot.forEach((doc) => {
         fournisseurs.push(doc.data().name);
     });
 
-    return fournisseurs;
+    return fournisseurs.sort();
 };
 
 const INITIAL_FUEL_TYPE_SUPPLIERS_MAP: Record<string, string[]> = {

@@ -140,10 +140,8 @@ export function PciCalculator() {
   };
 
   const fetchAndSetData = async () => {
+      await fixFuelTypesMissingCreatedAt(); // Ensure all documents have createdAt
       let fetchedFuelTypes = await getFuelTypes();
-      
-      // Tri alphabétique
-      fetchedFuelTypes.sort((a, b) => a.name.localeCompare(b.name));
       
       const [fetchedFournisseurs, fetchedMap] = await Promise.all([
           getFournisseurs(),
@@ -702,5 +700,3 @@ export function PciCalculator() {
     </div>
   );
 }
-
-    
