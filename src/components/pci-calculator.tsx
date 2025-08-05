@@ -139,8 +139,8 @@ export function PciCalculator() {
   };
 
   const fetchAndSetData = async () => {
-      const [fetchedFuelTypes, fetchedFournisseurs, fetchedMap] = await Promise.all([
-          getFuelTypes(),
+      let fetchedFuelTypes = await getFuelTypes();
+      const [fetchedFournisseurs, fetchedMap] = await Promise.all([
           getFournisseurs(),
           getFuelSupplierMap()
       ]);
@@ -162,6 +162,10 @@ export function PciCalculator() {
         await fixFuelTypesMissingCreatedAt();
         await fetchAndSetData();
     }
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    setValue("date_arrivage", yesterday);
+    
     fixData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -706,3 +710,5 @@ export function PciCalculator() {
     </div>
   );
 }
+
+    
