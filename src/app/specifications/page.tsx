@@ -167,8 +167,7 @@ export default function SpecificationsPage() {
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
         <div className="flex justify-between items-center">
-            {/* Le titre est géré dans le layout principal */}
-            <div></div>
+            <h2 className="text-3xl font-bold tracking-tight">Spécifications des AF</h2>
             <Button onClick={() => handleModalOpen()}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Ajouter une spécification

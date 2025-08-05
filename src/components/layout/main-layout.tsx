@@ -20,7 +20,7 @@ const pageTitles: { [key: string]: string } = {
   '/calculateur': 'Calculateur PCI',
   '/resultats': 'Historique des Résultats',
   '/statistiques': 'Tableau de Bord des Statistiques',
-  '/specifications': 'Spécifications des AF',
+  '/specifications': '', // Le titre est maintenant géré dans la page
 };
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
@@ -62,7 +62,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
             <SidebarTrigger />
           </div>
           <div className="flex-1 text-center">
-            <h1 className="text-xl font-bold tracking-tight">{title}</h1>
+            {title && <h1 className="text-xl font-bold tracking-tight">{title}</h1>}
           </div>
           <div className="flex items-center justify-end" style={{ minWidth: '160px' }}>
              {pathname === '/resultats' && (
@@ -73,7 +73,6 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                   </Link>
                 </Button>
             )}
-             {/* Le bouton pour les spécifications est maintenant géré dans la page elle-même */}
           </div>
         </header>
         {children}
