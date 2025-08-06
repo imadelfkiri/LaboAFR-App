@@ -235,7 +235,7 @@ export function ResultsTable() {
         const filename = `${reportType}_AFR_Report_${format(reportDate, "yyyy-MM-dd")}.xlsx`;
 
         const simplifiedHeaders = ["Date", "Type Combustible", "Fournisseur", "PCI", "% H2O", "% Cl-", "Remarques", "Alertes"];
-        const fullHeaders = ["Date", "Type Combustible", "Fournisseur", "PCS", "PCI", "% H2O", "% Cl-", "% Cendres", "Densité", "Remarques", "Alertes"];
+        const fullHeaders = ["Date", "Type Combustible", "Fournisseur", "PCI", "% H2O", "% Cl-", "% Cendres", "Densité", "Remarques", "Alertes"];
         const headers = isFullReport ? fullHeaders : simplifiedHeaders;
 
         // --- STYLES ---
@@ -312,7 +312,6 @@ export function ResultsTable() {
                     { v: formatDate(result.date_arrivage), s: centerAlignStyle },
                     { v: result.type_combustible, s: leftAlignStyle },
                     { v: result.fournisseur, s: leftAlignStyle },
-                    { v: result.pcs, s: centerAlignStyle },
                     { v: result.pci_brut, s: pciCellStyle },
                     { v: result.h2o, s: h2oCellStyle },
                     { v: result.chlore, s: chloreCellStyle },
@@ -508,7 +507,6 @@ export function ResultsTable() {
                                     <TableHead className="w-[120px] px-4 sticky left-0 bg-muted/50">Date Arrivage</TableHead>
                                     <TableHead className="px-4 sticky left-[120px] bg-muted/50">Type Combustible</TableHead>
                                     <TableHead className="px-4">Fournisseur</TableHead>
-                                    <TableHead className="text-right px-4">PCS</TableHead>
                                     <TableHead className="text-right text-primary font-bold px-4">PCI sur Brut</TableHead>
                                     <TableHead className="text-right px-4">% H2O</TableHead>
                                     <TableHead className="text-right px-4">% Cl-</TableHead>
@@ -531,7 +529,6 @@ export function ResultsTable() {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="px-4">{result.fournisseur}</TableCell>
-                                                <TableCell className="text-right px-4">{formatNumber(result.pcs, 0)}</TableCell>
                                                 <TableCell className={cn("font-bold text-right px-4", getPciColorClass(result.pci_brut, result.type_combustible, result.fournisseur))}>{formatNumber(result.pci_brut, 0)}</TableCell>
                                                 <TableCell className={cn("text-right px-4", getCustomColor(result.h2o, result.type_combustible, result.fournisseur, "h2o"))}>
                                                   {formatNumber(result.h2o, 1)}
@@ -561,7 +558,7 @@ export function ResultsTable() {
                                             </TableRow>
                                         ))}
                                         <TableRow className="bg-muted/40 font-semibold">
-                                            <TableCell colSpan={4} className="px-4 sticky left-0 bg-muted/40">Moyenne de la sélection</TableCell>
+                                            <TableCell colSpan={3} className="px-4 sticky left-0 bg-muted/40">Moyenne de la sélection</TableCell>
                                             <TableCell className="text-right text-primary px-4">{formatNumber(calculateAverage(filteredResults, 'pci_brut'), 0)}</TableCell>
                                             <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'h2o'), 1)}</TableCell>
                                             <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'chlore'), 2)}</TableCell>
@@ -572,7 +569,7 @@ export function ResultsTable() {
                                     </>
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
+                                        <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
                                             Aucun résultat trouvé pour les filtres sélectionnés.
                                         </TableCell>
                                     </TableRow>
@@ -600,5 +597,3 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
-
-    
