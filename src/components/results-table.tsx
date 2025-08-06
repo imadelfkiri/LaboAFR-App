@@ -117,32 +117,12 @@ export function ResultsTable() {
         });
         return map;
     }, [specifications]);
-    
-    const generateAlerts = (result: Result, spec: Specification | undefined) => {
-        if (!spec) return [];
-
-        const alerts: string[] = [];
-        
-        if (typeof spec.pci === 'number' && result.pci_brut < spec.pci) {
-            alerts.push("🔥 PCI trop faible");
-        }
-        if (typeof spec.h2o === 'number' && result.h2o > spec.h2o) {
-            alerts.push("💧 Humidité élevée");
-        }
-        if (typeof spec.chlorures === 'number' && result.chlore > spec.chlorures) {
-            alerts.push("🧪 Chlorures élevés");
-        }
-        if (typeof spec.cendres === 'number' && result.cendres > spec.cendres) {
-            alerts.push("⚱️ Cendres élevées");
-        }
-
-        return alerts;
-    };
 
     useEffect(() => {
       if (!isClient) return;
       
       let isMounted = true;
+      setLoading(true);
       
       const fetchInitialData = async () => {
         try {
@@ -258,7 +238,7 @@ export function ResultsTable() {
         const subtitleText = "Suivi des combustibles solides non dangereux";
         const filename = `${reportType}_AFR_Report_${format(reportDate, "yyyy-MM-dd")}.xlsx`;
 
-        const headers = ["Date", "Type Combustible", "Fournisseur", "PCI sur Brut", "% H2O", "% Cl-", "% Cendres", "Densité", "Alertes", "Remarques"];
+        const headers = ["Date", "Type Combustible", "Fournisseur", "PCI sur Brut", "% H2O", "% Cl-", "% Cendres", "Densité", "Remarques"];
         
         const border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
         const titleStyle = { font: { bold: true, sz: 14 }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } };
@@ -270,7 +250,6 @@ export function ResultsTable() {
         const leftAlignStyle = { ...baseCellStyle, alignment: { ...baseCellStyle.alignment, horizontal: "left", wrapText: true } };
         
         const alertFont = { color: { rgb: "FF0000" } };
-        const alertCellStyle = { ...leftAlignStyle, font: alertFont };
 
         const ws_data: (any)[][] = [
             [ { v: titleText, s: titleStyle } ],
@@ -285,19 +264,21 @@ export function ResultsTable() {
 
         data.forEach(result => {
             const spec = specMap.get(`${result.type_combustible}|${result.fournisseur}`);
-            const alerts = generateAlerts(result, spec);
-            const alertText = alerts.length > 0 ? alerts.join(', ') : '✅ Conforme';
+            
+            const isPciAlert = spec && typeof spec.pci === 'number' && result.pci_brut < spec.pci;
+            const isH2oAlert = spec && typeof spec.h2o === 'number' && result.h2o > spec.h2o;
+            const isChloreAlert = spec && typeof spec.chlorures === 'number' && result.chlore > spec.chlorures;
+            const isCendresAlert = spec && typeof spec.cendres === 'number' && result.cendres > spec.cendres;
 
             const row = [
                 { v: formatDate(result.date_arrivage), s: centerAlignStyle },
                 { v: result.type_combustible, s: leftAlignStyle },
                 { v: result.fournisseur, s: leftAlignStyle },
-                { v: result.pci_brut, s: centerAlignStyle },
-                { v: result.h2o, s: centerAlignStyle },
-                { v: result.chlore, s: centerAlignStyle },
-                { v: result.cendres, s: centerAlignStyle },
+                { v: result.pci_brut, s: { ...centerAlignStyle, font: isPciAlert ? alertFont : undefined } },
+                { v: result.h2o, s: { ...centerAlignStyle, font: isH2oAlert ? alertFont : undefined } },
+                { v: result.chlore, s: { ...centerAlignStyle, font: isChloreAlert ? alertFont : undefined } },
+                { v: result.cendres, s: { ...centerAlignStyle, font: isCendresAlert ? alertFont : undefined } },
                 { v: result.densite, s: centerAlignStyle },
-                { v: alertText, s: alerts.length > 0 ? alertCellStyle : leftAlignStyle },
                 { v: result.remarques || '', s: leftAlignStyle },
             ];
             ws_data.push(row);
@@ -323,9 +304,7 @@ export function ResultsTable() {
         });
 
         const remarksIndex = headers.indexOf('Remarques');
-        if (remarksIndex > -1) colWidths[remarksIndex] = { wch: 30 };
-        const alertsIndex = headers.indexOf('Alertes');
-        if (alertsIndex > -1) colWidths[alertsIndex] = { wch: 40 };
+        if (remarksIndex > -1) colWidths[remarksIndex] = { wch: 40 };
 
         ws['!cols'] = colWidths;
         
@@ -480,7 +459,6 @@ export function ResultsTable() {
                                     <TableHead className="text-right px-4">% Cl-</TableHead>
                                     <TableHead className="text-right px-4">% Cendres</TableHead>
                                     <TableHead className="text-right px-4">Densité</TableHead>
-                                    <TableHead className="px-4 text-center">Alertes</TableHead>
                                     <TableHead className="px-4">Remarques</TableHead>
                                     <TableHead className="w-[50px] text-right px-4 sticky right-0 bg-muted/50">Action</TableHead>
                                 </TableRow>
@@ -490,7 +468,6 @@ export function ResultsTable() {
                                     <>
                                         {filteredResults.map((result) => {
                                             const spec = specMap.get(`${result.type_combustible}|${result.fournisseur}`);
-                                            const alerts = generateAlerts(result, spec);
                                             return (
                                             <TableRow key={result.id}>
                                                 <TableCell className="font-medium px-4 sticky left-0 bg-background">{formatDate(result.date_arrivage)}</TableCell>
@@ -515,13 +492,7 @@ export function ResultsTable() {
                                                   {formatNumber(result.cendres, 1)}
                                                 </TableCell>
                                                 <TableCell className="text-right px-4">{formatNumber(result.densite, 2)}</TableCell>
-                                                <TableCell className={cn(
-                                                    "text-center font-bold px-4", 
-                                                    alerts.length > 0 ? "text-destructive" : "text-green-600"
-                                                )}>
-                                                    {spec ? (alerts.length > 0 ? alerts.join(', ') : '✅ Conforme') : ''}
-                                                </TableCell>
-                                                <TableCell className="max-w-[150px] truncate text-muted-foreground px-4">
+                                                <TableCell className="max-w-[200px] truncate text-muted-foreground px-4">
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
                                                             <span>{result.remarques}</span>
@@ -545,12 +516,12 @@ export function ResultsTable() {
                                             <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'chlore'), 2)}</TableCell>
                                             <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'cendres'), 1)}</TableCell>
                                             <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'densite'), 2)}</TableCell>
-                                            <TableCell colSpan={3} className='sticky right-0 bg-muted/40'/>
+                                            <TableCell colSpan={2} className='sticky right-0 bg-muted/40'/>
                                         </TableRow>
                                     </>
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
+                                        <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
                                             Aucun résultat trouvé pour les filtres sélectionnés.
                                         </TableCell>
                                     </TableRow>
@@ -579,3 +550,5 @@ export function ResultsTable() {
     );
 }
 
+
+    

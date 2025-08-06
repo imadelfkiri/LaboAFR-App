@@ -25,7 +25,6 @@ interface Result {
     id: string;
     date_arrivage: { seconds: number; nanoseconds: number };
     type_combustible: string;
-    pcs: number;
     h2o: number;
     chlore: number;
     pci_brut: number;
@@ -186,3 +185,5 @@ export function StatisticsDashboard() {
     </div>
   );
 }
+
+    
