@@ -265,10 +265,10 @@ export function ResultsTable() {
         data.forEach(result => {
             const spec = specMap.get(`${result.type_combustible}|${result.fournisseur}`);
             
-            const isPciAlert = spec && typeof spec.pci === 'number' && result.pci_brut < spec.pci;
-            const isH2oAlert = spec && typeof spec.h2o === 'number' && result.h2o > spec.h2o;
-            const isChloreAlert = spec && typeof spec.chlorures === 'number' && result.chlore > spec.chlorures;
-            const isCendresAlert = spec && typeof spec.cendres === 'number' && result.cendres > spec.cendres;
+            const isPciAlert = spec && typeof spec.pci === 'number' && typeof result.pci_brut === 'number' && result.pci_brut < spec.pci;
+            const isH2oAlert = spec && typeof spec.h2o === 'number' && typeof result.h2o === 'number' && result.h2o > spec.h2o;
+            const isChloreAlert = spec && typeof spec.chlorures === 'number' && typeof result.chlore === 'number' && result.chlore > spec.chlorures;
+            const isCendresAlert = spec && typeof spec.cendres === 'number' && typeof result.cendres === 'number' && result.cendres > spec.cendres;
 
             const row = [
                 { v: formatDate(result.date_arrivage), s: centerAlignStyle },
@@ -469,10 +469,10 @@ export function ResultsTable() {
                                         {filteredResults.map((result) => {
                                             const spec = specMap.get(`${result.type_combustible}|${result.fournisseur}`);
                                             
-                                            const pciStyle = spec && typeof spec.pci === 'number' && result.pci_brut < spec.pci ? "text-destructive" : "";
-                                            const h2oStyle = spec && typeof spec.h2o === 'number' && result.h2o > spec.h2o ? "text-destructive" : "";
-                                            const chloruresStyle = spec && typeof spec.chlorures === 'number' && result.chlore > spec.chlorures ? "text-destructive" : "";
-                                            const cendresStyle = spec && typeof spec.cendres === 'number' && result.cendres > spec.cendres ? "text-destructive" : "";
+                                            const pciStyle = spec && typeof spec.pci === 'number' && typeof result.pci_brut === 'number' && result.pci_brut < spec.pci ? "text-destructive" : "";
+                                            const h2oStyle = spec && typeof spec.h2o === 'number' && typeof result.h2o === 'number' && result.h2o > spec.h2o ? "text-destructive" : "";
+                                            const chloruresStyle = spec && typeof spec.chlorures === 'number' && typeof result.chlore === 'number' && result.chlore > spec.chlorures ? "text-destructive" : "";
+                                            const cendresStyle = spec && typeof spec.cendres === 'number' && typeof result.cendres === 'number' && result.cendres > spec.cendres ? "text-destructive" : "";
                                             
                                             return (
                                             <TableRow key={result.id}>
