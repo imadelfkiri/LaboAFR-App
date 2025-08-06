@@ -31,7 +31,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, XCircle, Trash2, Download, ChevronDown, FileOutput } from "lucide-react";
-import { getFuelTypes, type FuelType, getFournisseurs } from "@/lib/data";
+import { getFuelTypes, type FuelType, getFournisseurs, getSpecifications, type Specification } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
 import {
@@ -43,7 +43,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
@@ -70,38 +69,6 @@ interface Result {
     remarques: string;
 }
 
-const specMap: Record<string, { pci_min?: number, h2o?: number, chlore?: number, cendres?: number }> = {
-  "CSR|Polluclean": { h2o: 16.5, chlore: 1.0, cendres: 15, pci_min: 4000 },
-  "CSR|SMBRM": { h2o: 14, chlore: 0.6, cendres: 15, pci_min: 5000 },
-  "DMB|MTR": { h2o: 15, chlore: 0.6, cendres: 15, pci_min: 4300 },
-  "Grignons|Ain Seddeine": { h2o: 20, chlore: 0.5, cendres: 5, pci_min: 3700 },
-  "Plastiques|ValRecete": { h2o: 15, chlore: 1.0, cendres: 15, pci_min: 4300 },
-  "Plastiques|Bichara": { h2o: 10, chlore: 1.0, cendres: 15, pci_min: 4200 },
-  "Plastiques|Valtradec": { h2o: 10, chlore: 1.0, cendres: 15, pci_min: 6000 },
-  "Plastiques|Ssardi": { h2o: 18, chlore: 1.0, cendres: 15, pci_min: 4200 },
-  "Pneus|RJL": { h2o: 1.0, chlore: 0.3, cendres: 18, pci_min: 6800 },
-  "Pneus|Aliapur": { h2o: 1.0, chlore: 0.3, cendres: 18, pci_min: 6800 },
-};
-
-const getPciColorClass = (value: number, combustible: string, fournisseur: string) => {
-  const key = `${combustible}|${fournisseur}`;
-  const spec = specMap[key];
-  if (spec && spec.pci_min !== undefined && value < spec.pci_min) return "text-red-600 font-bold";
-  return "";
-};
-
-const getCustomColor = (
-  value: number,
-  combustible: string,
-  fournisseur: string,
-  param: "h2o" | "chlore" | "cendres"
-) => {
-  const key = `${combustible}|${fournisseur}`;
-  const spec = specMap[key];
-  if (spec && spec[param] !== undefined && value > (spec[param] ?? Infinity)) return "text-red-600 font-bold";
-  return "";
-};
-
 const calculateAverage = (results: Result[], field: keyof Result): number | null => {
   const validValues = results.map(r => r[field]).filter(v => typeof v === 'number') as number[];
   if (!validValues.length) return null;
@@ -123,9 +90,9 @@ function formatDate(date: { seconds: number; nanoseconds: number } | string | Da
     return format(parsedDate, "dd/MM/yyyy");
 }
 
-
 export function ResultsTable() {
     const [results, setResults] = useState<Result[]>([]);
+    const [specifications, setSpecifications] = useState<Specification[]>([]);
     const [loading, setLoading] = useState(true);
     const [typeFilter, setTypeFilter] = useState<string>("");
     const [fournisseurFilter, setFournisseurFilter] = useState<string>("");
@@ -141,15 +108,62 @@ export function ResultsTable() {
         setIsClient(true)
     }, [])
 
+    const specMap = useMemo(() => {
+        const map = new Map<string, Specification>();
+        specifications.forEach(spec => {
+            const key = `${spec.combustible}|${spec.fournisseur}`;
+            map.set(key, spec);
+        });
+        return map;
+    }, [specifications]);
+
+    const generateAlerts = (result: Result) => {
+        const key = `${result.type_combustible}|${result.fournisseur}`;
+        const spec = specMap.get(key);
+        if (!spec) return [];
+
+        const alerts: string[] = [];
+
+        // Lower is worse
+        if (spec.pci != null && result.pci_brut < spec.pci) {
+            const diff = (spec.pci - result.pci_brut) / spec.pci;
+            if (diff > 0.1) alerts.push("⛔ PCI très faible");
+            else alerts.push("⚠️ PCI faible");
+        }
+
+        // Higher is worse
+        if (spec.h2o != null && result.h2o > spec.h2o) {
+            const diff = (result.h2o - spec.h2o) / spec.h2o;
+            if (diff > 0.2) alerts.push("⛔ Humidité excessive");
+            else alerts.push("⚠️ Humidité élevée");
+        }
+
+        if (spec.chlorures != null && result.chlore > spec.chlorures) {
+            const diff = (result.chlore - spec.chlorures) / spec.chlorures;
+            if (diff > 0.2) alerts.push("⛔ %Chlorures trop élevé");
+            else alerts.push("⚠️ %Chlorures élevé");
+        }
+        
+        if (spec.cendres != null && result.cendres > spec.cendres) {
+            const diff = (result.cendres - spec.cendres) / spec.cendres;
+            if (diff > 0.2) alerts.push("⛔ Cendres hors tolérance");
+            else alerts.push("⚠️ Cendres élevées");
+        }
+
+        return alerts;
+    };
+
     useEffect(() => {
       if (!isClient) return;
       async function fetchData() {
-          const [fetchedFuelTypes, fetchedFournisseurs] = await Promise.all([
+          const [fetchedFuelTypes, fetchedFournisseurs, fetchedSpecs] = await Promise.all([
               getFuelTypes(),
-              getFournisseurs()
+              getFournisseurs(),
+              getSpecifications()
           ]);
           setFuelTypes(fetchedFuelTypes);
           setFournisseurs(fetchedFournisseurs);
+          setSpecifications(fetchedSpecs);
           setFuelTypeMap(new Map(fetchedFuelTypes.map(fuel => [fuel.name, fuel.icon])));
       }
       fetchData();
@@ -226,7 +240,6 @@ export function ResultsTable() {
             return;
         }
 
-        const isFullReport = reportType === 'Mensuel' || reportType === 'Filtré';
         const reportDate = new Date();
         const formattedDate = format(reportDate, 'dd-MM-yyyy');
 
@@ -234,11 +247,8 @@ export function ResultsTable() {
         const subtitleText = "Suivi des combustibles solides non dangereux";
         const filename = `${reportType}_AFR_Report_${format(reportDate, "yyyy-MM-dd")}.xlsx`;
 
-        const simplifiedHeaders = ["Date", "Type Combustible", "Fournisseur", "PCI", "% H2O", "% Cl-", "Remarques", "Alertes"];
-        const fullHeaders = ["Date", "Type Combustible", "Fournisseur", "PCI", "% H2O", "% Cl-", "% Cendres", "Densité", "Remarques", "Alertes"];
-        const headers = isFullReport ? fullHeaders : simplifiedHeaders;
-
-        // --- STYLES ---
+        const headers = ["Date", "Type Combustible", "Fournisseur", "PCI", "% H2O", "% Cl-", "% Cendres", "Densité", "Alertes", "Remarques"];
+        
         const border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
         const titleStyle = { font: { bold: true, sz: 14 }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } };
         const subtitleStyle = { font: { bold: true, sz: 12 }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } };
@@ -248,11 +258,8 @@ export function ResultsTable() {
         const centerAlignStyle = { ...baseCellStyle, alignment: { ...baseCellStyle.alignment, horizontal: "center" } };
         const leftAlignStyle = { ...baseCellStyle, alignment: { ...baseCellStyle.alignment, horizontal: "left", wrapText: true } };
         
-        const pciLowColor = { fgColor: { rgb: "F8D7DA" } }; // rouge
-        const h2oHighColor = { fgColor: { rgb: "FFF3CD" } }; // orange
-        const clHighColor = { fgColor: { rgb: "FFF9C4" } }; // jaune
-        const cendresHighColor = { fgColor: { rgb: "E2E3E5" } }; // gris
-        const alertFont = { bold: true, color: { rgb: "FF0000" } };
+        const alertFont = { color: { rgb: "FF0000" } };
+        const alertCellStyle = { ...leftAlignStyle, font: alertFont };
 
         const ws_data: (any)[][] = [
             [ { v: titleText, s: titleStyle } ],
@@ -261,77 +268,26 @@ export function ResultsTable() {
             headers.map(h => ({ v: h, s: headerStyle }))
         ];
         
-        // Add empty row for title style to work
         ws_data[0] = [...ws_data[0], ...Array(headers.length - 1).fill({v: "", s: titleStyle})];
         ws_data[1] = [...ws_data[1], ...Array(headers.length - 1).fill({v: "", s: subtitleStyle})];
 
 
         data.forEach(result => {
-            const key = `${result.type_combustible}|${result.fournisseur}`;
-            const spec = specMap[key] || {};
-            const alerts: string[] = [];
-            
-            const pciCellStyle = { ...centerAlignStyle } as any;
-            if (spec.pci_min !== undefined && result.pci_brut < spec.pci_min) {
-                alerts.push("⚠️ PCI bas");
-                pciCellStyle.fill = pciLowColor;
-            }
-            
-            const h2oCellStyle = { ...centerAlignStyle } as any;
-            if (spec.h2o !== undefined && result.h2o > spec.h2o) {
-                alerts.push("⚠️ H2O élevé");
-                h2oCellStyle.fill = h2oHighColor;
-            }
-    
-            const chloreCellStyle = { ...centerAlignStyle } as any;
-            if (spec.chlore !== undefined && result.chlore > spec.chlore) {
-                alerts.push("⚠️ Cl- élevé");
-                chloreCellStyle.fill = clHighColor;
-            }
-
+            const alerts = generateAlerts(result);
             const alertText = alerts.join(', ');
-            const alertCellStyle = { ...leftAlignStyle } as any;
-            if (alerts.length > 1) {
-                alertCellStyle.font = alertFont;
-            }
-            
-            let row;
-            if (isFullReport) {
-                const cendresCellStyle = { ...centerAlignStyle } as any;
-                if (spec.cendres !== undefined && result.cendres > spec.cendres) {
-                    alerts.push("⚠️ Cendres élevées"); 
-                    cendresCellStyle.fill = cendresHighColor;
-                }
-                 const fullAlertText = alerts.join(', ');
-                 const fullAlertCellStyle = { ...leftAlignStyle } as any;
-                 if (alerts.length > 1) {
-                    fullAlertCellStyle.font = alertFont;
-                 }
 
-                row = [
-                    { v: formatDate(result.date_arrivage), s: centerAlignStyle },
-                    { v: result.type_combustible, s: leftAlignStyle },
-                    { v: result.fournisseur, s: leftAlignStyle },
-                    { v: result.pci_brut, s: pciCellStyle },
-                    { v: result.h2o, s: h2oCellStyle },
-                    { v: result.chlore, s: chloreCellStyle },
-                    { v: result.cendres, s: cendresCellStyle },
-                    { v: result.densite, s: centerAlignStyle },
-                    { v: result.remarques || '', s: leftAlignStyle },
-                    { v: fullAlertText, s: fullAlertCellStyle }
-                ];
-            } else {
-                 row = [
-                    { v: formatDate(result.date_arrivage), s: centerAlignStyle },
-                    { v: result.type_combustible, s: leftAlignStyle },
-                    { v: result.fournisseur, s: leftAlignStyle },
-                    { v: result.pci_brut, s: pciCellStyle },
-                    { v: result.h2o, s: h2oCellStyle },
-                    { v: result.chlore, s: chloreCellStyle },
-                    { v: result.remarques || '', s: leftAlignStyle },
-                    { v: alertText, s: alertCellStyle }
-                ];
-            }
+            const row = [
+                { v: formatDate(result.date_arrivage), s: centerAlignStyle },
+                { v: result.type_combustible, s: leftAlignStyle },
+                { v: result.fournisseur, s: leftAlignStyle },
+                { v: result.pci_brut, s: centerAlignStyle },
+                { v: result.h2o, s: centerAlignStyle },
+                { v: result.chlore, s: centerAlignStyle },
+                { v: result.cendres, s: centerAlignStyle },
+                { v: result.densite, s: centerAlignStyle },
+                { v: alertText, s: alertText ? alertCellStyle : leftAlignStyle },
+                { v: result.remarques || '', s: leftAlignStyle },
+            ];
             ws_data.push(row);
         });
         
@@ -512,6 +468,7 @@ export function ResultsTable() {
                                     <TableHead className="text-right px-4">% Cl-</TableHead>
                                     <TableHead className="text-right px-4">% Cendres</TableHead>
                                     <TableHead className="text-right px-4">Densité</TableHead>
+                                    <TableHead className="px-4">Alertes</TableHead>
                                     <TableHead className="px-4">Remarques</TableHead>
                                     <TableHead className="w-[50px] text-right px-4 sticky right-0 bg-muted/50">Action</TableHead>
                                 </TableRow>
@@ -519,7 +476,9 @@ export function ResultsTable() {
                             <TableBody>
                                 {filteredResults.length > 0 ? (
                                     <>
-                                        {filteredResults.map((result) => (
+                                        {filteredResults.map((result) => {
+                                            const alerts = generateAlerts(result);
+                                            return (
                                             <TableRow key={result.id}>
                                                 <TableCell className="font-medium px-4 sticky left-0 bg-background">{formatDate(result.date_arrivage)}</TableCell>
                                                 <TableCell className="px-4 sticky left-[120px] bg-background">
@@ -529,17 +488,20 @@ export function ResultsTable() {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="px-4">{result.fournisseur}</TableCell>
-                                                <TableCell className={cn("font-bold text-right px-4", getPciColorClass(result.pci_brut, result.type_combustible, result.fournisseur))}>{formatNumber(result.pci_brut, 0)}</TableCell>
-                                                <TableCell className={cn("text-right px-4", getCustomColor(result.h2o, result.type_combustible, result.fournisseur, "h2o"))}>
+                                                <TableCell className={cn("font-bold text-right px-4", alerts.some(a => a.includes("PCI")) && "text-destructive")}>{formatNumber(result.pci_brut, 0)}</TableCell>
+                                                <TableCell className={cn("text-right px-4", alerts.some(a => a.includes("Humidité")) && "text-destructive")}>
                                                   {formatNumber(result.h2o, 1)}
                                                 </TableCell>
-                                                <TableCell className={cn("text-right px-4", getCustomColor(result.chlore, result.type_combustible, result.fournisseur, "chlore"))}>
+                                                <TableCell className={cn("text-right px-4", alerts.some(a => a.includes("Chlorures")) && "text-destructive")}>
                                                   {formatNumber(result.chlore, 2)}
                                                 </TableCell>
-                                                <TableCell className={cn("text-right px-4", getCustomColor(result.cendres, result.type_combustible, result.fournisseur, "cendres"))}>
+                                                <TableCell className={cn("text-right px-4", alerts.some(a => a.includes("Cendres")) && "text-destructive")}>
                                                   {formatNumber(result.cendres, 1)}
                                                 </TableCell>
                                                 <TableCell className="text-right px-4">{formatNumber(result.densite, 2)}</TableCell>
+                                                <TableCell className={cn("max-w-[200px] px-4", alerts.length > 0 ? "text-destructive font-medium" : "text-green-600")}>
+                                                    {alerts.length > 0 ? alerts.join(', ') : '✅ Conforme'}
+                                                </TableCell>
                                                 <TableCell className="max-w-[150px] truncate text-muted-foreground px-4">
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
@@ -556,7 +518,7 @@ export function ResultsTable() {
                                                     </AlertDialogTrigger>
                                                 </TableCell>
                                             </TableRow>
-                                        ))}
+                                        )})}
                                         <TableRow className="bg-muted/40 font-semibold">
                                             <TableCell colSpan={3} className="px-4 sticky left-0 bg-muted/40">Moyenne de la sélection</TableCell>
                                             <TableCell className="text-right text-primary px-4">{formatNumber(calculateAverage(filteredResults, 'pci_brut'), 0)}</TableCell>
@@ -564,12 +526,12 @@ export function ResultsTable() {
                                             <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'chlore'), 2)}</TableCell>
                                             <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'cendres'), 1)}</TableCell>
                                             <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'densite'), 2)}</TableCell>
-                                            <TableCell colSpan={2} className='sticky right-0 bg-muted/40'/>
+                                            <TableCell colSpan={3} className='sticky right-0 bg-muted/40'/>
                                         </TableRow>
                                     </>
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
+                                        <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
                                             Aucun résultat trouvé pour les filtres sélectionnés.
                                         </TableCell>
                                     </TableRow>

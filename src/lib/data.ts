@@ -15,11 +15,11 @@ export interface Specification {
     id: string;
     combustible: string;
     fournisseur: string;
-    h2o: string;
-    pci: string;
-    chlorures: string;
-    cendres: string;
-    soufre: string;
+    h2o: number | null;
+    pci: number | null;
+    chlorures: number | null;
+    cendres: number | null;
+    soufre: number | null;
 }
 
 export const INITIAL_FUEL_TYPES: Omit<FuelType, 'createdAt'>[] = [
@@ -54,7 +54,6 @@ export const getFuelTypes = async (): Promise<FuelType[]> => {
             const docRef = doc(fuelTypesCollectionRef, fuelType.name);
             const dataWithTimestamp = { ...fuelType, createdAt: serverTimestamp() };
             batch.set(docRef, dataWithTimestamp);
-            // We can't immediately use the serverTimestamp, so we create a placeholder date
             typesToReturn.push({ ...fuelType, createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 } });
         });
         await batch.commit();
@@ -181,16 +180,16 @@ export const getFuelSupplierMap = async (): Promise<Record<string, string[]>> =>
 }
 
 const INITIAL_SPECIFICATIONS: Omit<Specification, 'id'>[] = [
-    {combustible: "Grignons d'olives", fournisseur: "Ain Seddeine", h2o: "<20%", pci: ">3700", chlorures: "<0.5%", cendres: "<5%", soufre: "/"},
-    {combustible: "DMB", fournisseur: "MTR", h2o: "<15%", pci: ">4300", chlorures: "<0.6%", cendres: "<15%", soufre: "<0.5%"},
-    {combustible: "Plastiques", fournisseur: "ValRecete", h2o: "<15%", pci: ">4300", chlorures: "<1%", cendres: "<15%", soufre: "<0.5%"},
-    {combustible: "Plastiques", fournisseur: "Bichara", h2o: "<10%", pci: ">4200", chlorures: "<1%", cendres: "<15%", soufre: "/"},
-    {combustible: "Plastiques", fournisseur: "Valtradec", h2o: "<10%", pci: ">6000", chlorures: "<1%", cendres: "<15%", soufre: "<0.5%"},
-    {combustible: "Plastiques", fournisseur: "Ssardi", h2o: "<18%", pci: ">4200", chlorures: "<1%", cendres: "<15%", soufre: "/"},
-    {combustible: "CSR", fournisseur: "Polluclean", h2o: "<16.5%", pci: ">4000", chlorures: "<1%", cendres: "<15%", soufre: "/"},
-    {combustible: "CSR", fournisseur: "SMBRM", h2o: "<14%", pci: ">5000", chlorures: "<0.6%", cendres: "<%", soufre: "/"},
-    {combustible: "Pneus", fournisseur: "RJL", h2o: "<1%", pci: ">6800", chlorures: "<0.3%", cendres: "<1%", soufre: "/"},
-    {combustible: "Pneus", fournisseur: "Aliapur", h2o: "<1%", pci: ">6800", chlorures: "<0.3%", cendres: "<1%", soufre: "/"}
+    {combustible: "Grignons", fournisseur: "Ain Seddeine", h2o: 20, pci: 3700, chlorures: 0.5, cendres: 5, soufre: null},
+    {combustible: "DMB", fournisseur: "MTR", h2o: 15, pci: 4300, chlorures: 0.6, cendres: 15, soufre: 0.5},
+    {combustible: "Plastiques", fournisseur: "ValRecete", h2o: 15, pci: 4300, chlorures: 1, cendres: 15, soufre: 0.5},
+    {combustible: "Plastiques", fournisseur: "Bichara", h2o: 10, pci: 4200, chlorures: 1, cendres: 15, soufre: null},
+    {combustible: "Plastiques", fournisseur: "Valtradec", h2o: 10, pci: 6000, chlorures: 1, cendres: 15, soufre: 0.5},
+    {combustible: "Plastiques", fournisseur: "Ssardi", h2o: 18, pci: 4200, chlorures: 1, cendres: 15, soufre: null},
+    {combustible: "CSR", fournisseur: "Polluclean", h2o: 16.5, pci: 4000, chlorures: 1, cendres: 15, soufre: null},
+    {combustible: "CSR", fournisseur: "SMBRM", h2o: 14, pci: 5000, chlorures: 0.6, cendres: 15, soufre: null},
+    {combustible: "Pneus", fournisseur: "RJL", h2o: 1, pci: 6800, chlorures: 0.3, cendres: 18, soufre: null},
+    {combustible: "Pneus", fournisseur: "Aliapur", h2o: 1, pci: 6800, chlorures: 0.3, cendres: 18, soufre: null}
 ];
 
 export const getSpecifications = async (): Promise<Specification[]> => {
@@ -228,7 +227,7 @@ export const addSpecification = async (data: SpecificationData) => {
     await addDoc(specificationsCollectionRef, data);
 };
 
-export const updateSpecification = async (id: string, data: SpecificationData) => {
+export const updateSpecification = async (id: string, data: Partial<SpecificationData>) => {
     const specDocRef = doc(db, "specifications", id);
     await updateDoc(specDocRef, data);
 };

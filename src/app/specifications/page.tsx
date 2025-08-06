@@ -59,11 +59,11 @@ import { useToast } from "@/hooks/use-toast";
 const specSchema = z.object({
   combustible: z.string().nonempty({ message: "Le combustible est requis." }),
   fournisseur: z.string().nonempty({ message: "Le fournisseur est requis." }),
-  h2o: z.string().nonempty({ message: "H2O est requis." }),
-  pci: z.string().nonempty({ message: "PCI est requis." }),
-  chlorures: z.string().nonempty({ message: "Chlorures est requis." }),
-  cendres: z.string().nonempty({ message: "Cendres est requis." }),
-  soufre: z.string().nonempty({ message: "Soufre est requis." }),
+  h2o: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).optional(),
+  pci: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).optional(),
+  chlorures: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).optional(),
+  cendres: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).optional(),
+  soufre: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).optional(),
 });
 
 type SpecFormData = z.infer<typeof specSchema>;
@@ -83,11 +83,11 @@ export default function SpecificationsPage() {
     defaultValues: {
       combustible: "",
       fournisseur: "",
-      h2o: "",
-      pci: "",
-      chlorures: "",
-      cendres: "",
-      soufre: "",
+      h2o: undefined,
+      pci: undefined,
+      chlorures: undefined,
+      cendres: undefined,
+      soufre: undefined,
     },
   });
 
@@ -112,16 +112,24 @@ export default function SpecificationsPage() {
   const handleModalOpen = (spec: Specification | null = null) => {
     setEditingSpec(spec);
     if (spec) {
-      form.reset(spec);
+       const defaultValues = {
+            ...spec,
+            h2o: spec.h2o ?? undefined,
+            pci: spec.pci ?? undefined,
+            chlorures: spec.chlorures ?? undefined,
+            cendres: spec.cendres ?? undefined,
+            soufre: spec.soufre ?? undefined,
+        };
+      form.reset(defaultValues);
     } else {
       form.reset({
         combustible: "",
         fournisseur: "",
-        h2o: "",
-        pci: "",
-        chlorures: "",
-        cendres: "",
-        soufre: "",
+        h2o: undefined,
+        pci: undefined,
+        chlorures: undefined,
+        cendres: undefined,
+        soufre: undefined,
       });
     }
     setIsModalOpen(true);
@@ -134,12 +142,20 @@ export default function SpecificationsPage() {
   };
 
   const onSubmit = async (formData: SpecFormData) => {
+    const dataToSave = {
+      ...formData,
+      h2o: formData.h2o ?? null,
+      pci: formData.pci ?? null,
+      chlorures: formData.chlorures ?? null,
+      cendres: formData.cendres ?? null,
+      soufre: formData.soufre ?? null,
+    };
     try {
       if (editingSpec) {
-        await updateSpecification(editingSpec.id, formData);
+        await updateSpecification(editingSpec.id, dataToSave);
         toast({ title: "Succès", description: "Spécification mise à jour." });
       } else {
-        await addSpecification(formData);
+        await addSpecification(dataToSave);
         toast({ title: "Succès", description: "Spécification ajoutée." });
       }
       fetchData();
@@ -163,6 +179,8 @@ export default function SpecificationsPage() {
         setDeletingSpecId(null);
     }
   };
+  
+  const formatValue = (value: number | null | undefined) => value ?? 'N/A';
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -180,11 +198,11 @@ export default function SpecificationsPage() {
               <TableRow>
                 <TableHead>Combustible</TableHead>
                 <TableHead>Fournisseur</TableHead>
-                <TableHead>H₂O</TableHead>
-                <TableHead>PCI (kcal/kg)</TableHead>
-                <TableHead>Chlorures</TableHead>
-                <TableHead>Cendres</TableHead>
-                <TableHead>Soufre</TableHead>
+                <TableHead>H₂O (&lt;= %)</TableHead>
+                <TableHead>PCI (&gt;= kcal/kg)</TableHead>
+                <TableHead>Chlorures (&lt;= %)</TableHead>
+                <TableHead>Cendres (&lt;= %)</TableHead>
+                <TableHead>Soufre (&lt;= %)</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -202,11 +220,11 @@ export default function SpecificationsPage() {
                   <TableRow key={spec.id}>
                     <TableCell className="font-medium">{spec.combustible}</TableCell>
                     <TableCell>{spec.fournisseur}</TableCell>
-                    <TableCell>{spec.h2o}</TableCell>
-                    <TableCell>{spec.pci}</TableCell>
-                    <TableCell>{spec.chlorures}</TableCell>
-                    <TableCell>{spec.cendres}</TableCell>
-                    <TableCell>{spec.soufre}</TableCell>
+                    <TableCell>{formatValue(spec.h2o)}</TableCell>
+                    <TableCell>{formatValue(spec.pci)}</TableCell>
+                    <TableCell>{formatValue(spec.chlorures)}</TableCell>
+                    <TableCell>{formatValue(spec.cendres)}</TableCell>
+                    <TableCell>{formatValue(spec.soufre)}</TableCell>
                     <TableCell className="text-right">
                         <Button variant="ghost" size="icon" onClick={() => handleModalOpen(spec)}>
                             <Edit className="h-4 w-4" />
@@ -303,35 +321,35 @@ export default function SpecificationsPage() {
                 control={form.control}
                 name="h2o"
                 render={({ field }) => (
-                  <FormItem><FormLabel>H₂O</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>H₂O</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                 )}
               />
               <FormField
                 control={form.control}
                 name="pci"
                 render={({ field }) => (
-                  <FormItem><FormLabel>PCI (kcal/kg)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>PCI (kcal/kg)</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                 )}
               />
               <FormField
                 control={form.control}
                 name="chlorures"
                 render={({ field }) => (
-                  <FormItem><FormLabel>Chlorures</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Chlorures</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                 )}
               />
               <FormField
                 control={form.control}
                 name="cendres"
                 render={({ field }) => (
-                  <FormItem><FormLabel>Cendres</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Cendres</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                 )}
               />
               <FormField
                 control={form.control}
                 name="soufre"
                 render={({ field }) => (
-                  <FormItem><FormLabel>Soufre</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Soufre</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                 )}
               />
               <DialogFooter>
