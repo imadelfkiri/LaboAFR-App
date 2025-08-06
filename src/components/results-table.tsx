@@ -117,9 +117,7 @@ export function ResultsTable() {
         return map;
     }, [specifications]);
 
-    const generateAlerts = (result: Result) => {
-        const key = `${result.type_combustible}|${result.fournisseur}`;
-        const spec = specMap.get(key);
+    const generateAlerts = (result: Result, spec: Specification | undefined) => {
         if (!spec) return [];
 
         const alerts: string[] = [];
@@ -263,7 +261,8 @@ export function ResultsTable() {
 
 
         data.forEach(result => {
-            const alerts = generateAlerts(result);
+            const spec = specMap.get(`${result.type_combustible}|${result.fournisseur}`);
+            const alerts = generateAlerts(result, spec);
             const alertText = alerts.length > 0 ? alerts.join(', ') : '✅ Conforme';
 
             const row = [
@@ -458,7 +457,7 @@ export function ResultsTable() {
                                     <TableHead className="text-right px-4">% Cl-</TableHead>
                                     <TableHead className="text-right px-4">% Cendres</TableHead>
                                     <TableHead className="text-right px-4">Densité</TableHead>
-                                    <TableHead className="px-4">Alertes</TableHead>
+                                    <TableHead className="px-4 text-center">Alertes</TableHead>
                                     <TableHead className="px-4">Remarques</TableHead>
                                     <TableHead className="w-[50px] text-right px-4 sticky right-0 bg-muted/50">Action</TableHead>
                                 </TableRow>
@@ -467,8 +466,8 @@ export function ResultsTable() {
                                 {filteredResults.length > 0 ? (
                                     <>
                                         {filteredResults.map((result) => {
-                                            const alerts = generateAlerts(result);
                                             const spec = specMap.get(`${result.type_combustible}|${result.fournisseur}`);
+                                            const alerts = generateAlerts(result, spec);
                                             return (
                                             <TableRow key={result.id}>
                                                 <TableCell className="font-medium px-4 sticky left-0 bg-background">{formatDate(result.date_arrivage)}</TableCell>
@@ -493,7 +492,10 @@ export function ResultsTable() {
                                                   {formatNumber(result.cendres, 1)}
                                                 </TableCell>
                                                 <TableCell className="text-right px-4">{formatNumber(result.densite, 2)}</TableCell>
-                                                <TableCell className={cn("text-center", alerts.length > 0 ? "text-destructive font-bold" : "text-green-600")}>
+                                                <TableCell className={cn(
+                                                    "text-center", 
+                                                    alerts.length > 0 ? "text-destructive font-bold" : "text-green-600"
+                                                )}>
                                                     {spec ? (alerts.length > 0 ? alerts.join(', ') : '✅ Conforme') : ''}
                                                 </TableCell>
                                                 <TableCell className="max-w-[150px] truncate text-muted-foreground px-4">
@@ -553,5 +555,3 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
-
-    

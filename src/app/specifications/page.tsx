@@ -365,5 +365,3 @@ export default function SpecificationsPage() {
     </div>
   );
 }
-
-    
