@@ -96,13 +96,13 @@ export function ResultsTable() {
         return map;
     }, [specifications]);
     
-    const generateAlerts = (result: Result): string[] => {
+    const generateAlerts = (result: Result): string => {
         const key = `${result.type_combustible}|${result.fournisseur}`;
         const spec = specMap.get(key);
         const alerts: string[] = [];
 
         if (!spec) {
-            return alerts;
+            return "✅ Conforme";
         }
     
         if (typeof spec.pci === 'number' && typeof result.pci_brut === 'number' && result.pci_brut < spec.pci) {
@@ -115,11 +115,15 @@ export function ResultsTable() {
              alerts.push("🧪 Chlorures élevé");
         }
         if (typeof spec.cendres === 'number' && typeof result.cendres === 'number' && result.cendres > spec.cendres) {
-            alerts.push("🔥 Cendres hors spec");
+            alerts.push("🔥 Cendres élevé");
         }
-        return alerts;
-    };
 
+        if (alerts.length === 0) {
+            return "✅ Conforme";
+        }
+
+        return alerts.join(' • ');
+    };
 
     useEffect(() => {
       if (!isClient) return;
@@ -290,8 +294,8 @@ export function ResultsTable() {
             const key = `${result.type_combustible}|${result.fournisseur}`;
             const spec = specMap.get(key);
             
-            const alerts = generateAlerts(result);
-            const alertsText = alerts.join(' • ');
+            const alertsText = generateAlerts(result);
+            const isAlert = !alertsText.includes("✅");
 
             const isPciAlert = spec && typeof spec.pci === 'number' && typeof result.pci_brut === 'number' && result.pci_brut < spec.pci;
             const isH2oAlert = spec && typeof spec.h2o === 'number' && typeof result.h2o === 'number' && result.h2o > spec.h2o;
@@ -307,7 +311,7 @@ export function ResultsTable() {
                 { v: result.chlore, s: { ...centerAlignStyle, font: isChloreAlert ? alertFont : undefined } },
                 { v: result.cendres, s: { ...centerAlignStyle, font: isCendresAlert ? alertFont : undefined } },
                 { v: result.densite, s: centerAlignStyle },
-                { v: alertsText, s: { ...leftAlignStyle, font: alerts.length > 0 ? alertFont : undefined } },
+                { v: alertsText, s: { ...leftAlignStyle, font: isAlert ? alertFont : undefined } },
                 { v: result.remarques || '', s: leftAlignStyle },
             ];
             ws_data.push(row);
@@ -499,9 +503,11 @@ export function ResultsTable() {
                                 {filteredResults.length > 0 ? (
                                     <>
                                         {filteredResults.map((result) => {
+                                            const alerts = generateAlerts(result);
+                                            const isAlert = !alerts.includes("✅");
+
                                             const key = `${result.type_combustible}|${result.fournisseur}`;
                                             const spec = specMap.get(key);
-                                            const alerts = generateAlerts(result);
                                             
                                             const pciStyle = spec && typeof spec.pci === 'number' && typeof result.pci_brut === 'number' && result.pci_brut < spec.pci ? "text-destructive" : "";
                                             const h2oStyle = spec && typeof spec.h2o === 'number' && typeof result.h2o === 'number' && result.h2o > spec.h2o ? "text-destructive" : "";
@@ -532,12 +538,8 @@ export function ResultsTable() {
                                                   {formatNumber(result.cendres, 1)}
                                                 </TableCell>
                                                 <TableCell className="text-right px-4">{formatNumber(result.densite, 2)}</TableCell>
-                                                <TableCell className="px-4 max-w-[250px]">
-                                                    {alerts.length > 0 ? (
-                                                        <span className="text-destructive font-medium whitespace-normal">{alerts.join(' • ')}</span>
-                                                    ) : (
-                                                        <span className="text-green-600">✅ Conforme</span>
-                                                    )}
+                                                <TableCell className={cn("px-4 max-w-[250px] whitespace-normal", isAlert ? "text-destructive font-medium" : "text-green-600")}>
+                                                    {alerts}
                                                 </TableCell>
                                                 <TableCell className="max-w-[200px] truncate text-muted-foreground px-4">
                                                     <Tooltip>
@@ -596,6 +598,3 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
-
-
-    
