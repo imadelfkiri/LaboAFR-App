@@ -143,13 +143,15 @@ export default function SpecificationsPage() {
 
   const onSubmit = async (formData: SpecFormData) => {
     const dataToSave = {
-      ...formData,
-      h2o: formData.h2o ?? null,
-      pci: formData.pci ?? null,
-      chlorures: formData.chlorures ?? null,
-      cendres: formData.cendres ?? null,
-      soufre: formData.soufre ?? null,
+      combustible: formData.combustible,
+      fournisseur: formData.fournisseur,
+      h2o: formData.h2o === undefined || isNaN(formData.h2o) ? null : formData.h2o,
+      pci: formData.pci === undefined || isNaN(formData.pci) ? null : formData.pci,
+      chlorures: formData.chlorures === undefined || isNaN(formData.chlorures) ? null : formData.chlorures,
+      cendres: formData.cendres === undefined || isNaN(formData.cendres) ? null : formData.cendres,
+      soufre: formData.soufre === undefined || isNaN(formData.soufre) ? null : formData.soufre,
     };
+
     try {
       if (editingSpec) {
         await updateSpecification(editingSpec.id, dataToSave);
