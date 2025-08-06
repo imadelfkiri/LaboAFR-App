@@ -165,7 +165,10 @@ export function ResultsTable() {
       const unsubscribe = onSnapshot(q, (querySnapshot) => {
           const resultsData: Result[] = [];
           querySnapshot.forEach((doc) => {
-              resultsData.push({ id: doc.id, ...doc.data() } as Result);
+              const data = doc.data();
+               if(data.type_combustible !== 'TEST'){
+                resultsData.push({ id: doc.id, ...data } as Result);
+              }
           });
           setResults(resultsData);
           setLoading(false);
@@ -240,7 +243,7 @@ export function ResultsTable() {
         const subtitleText = "Suivi des combustibles solides non dangereux";
         const filename = `${reportType}_AFR_Report_${format(reportDate, "yyyy-MM-dd")}.xlsx`;
 
-        const headers = ["Date", "Type Combustible", "Fournisseur", "PCI", "% H2O", "% Cl-", "% Cendres", "Densité", "Alertes", "Remarques"];
+        const headers = ["Date", "Type Combustible", "Fournisseur", "PCI sur Brut", "% H2O", "% Cl-", "% Cendres", "Densité", "Alertes", "Remarques"];
         
         const border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
         const titleStyle = { font: { bold: true, sz: 14 }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } };
@@ -483,14 +486,16 @@ export function ResultsTable() {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="px-4">{result.fournisseur}</TableCell>
-                                                <TableCell className={cn("font-bold text-right px-4", alerts.some(a => a.includes("PCI")) && "text-destructive")}>{formatNumber(result.pci_brut, 0)}</TableCell>
-                                                <TableCell className={cn("text-right px-4", alerts.some(a => a.includes("Humidité")) && "text-destructive")}>
+                                                <TableCell className={cn("font-bold text-right px-4", spec && spec.pci != null && result.pci_brut < spec.pci && "text-destructive")}>
+                                                    {formatNumber(result.pci_brut, 0)}
+                                                </TableCell>
+                                                <TableCell className={cn("text-right px-4", spec && spec.h2o != null && result.h2o > spec.h2o && "text-destructive")}>
                                                   {formatNumber(result.h2o, 1)}
                                                 </TableCell>
-                                                <TableCell className={cn("text-right px-4", alerts.some(a => a.includes("Chlorures")) && "text-destructive")}>
+                                                <TableCell className={cn("text-right px-4", spec && spec.chlorures != null && result.chlore > spec.chlorures && "text-destructive")}>
                                                   {formatNumber(result.chlore, 2)}
                                                 </TableCell>
-                                                <TableCell className={cn("text-right px-4", alerts.some(a => a.includes("Cendres")) && "text-destructive")}>
+                                                <TableCell className={cn("text-right px-4", spec && spec.cendres != null && result.cendres > spec.cendres && "text-destructive")}>
                                                   {formatNumber(result.cendres, 1)}
                                                 </TableCell>
                                                 <TableCell className="text-right px-4">{formatNumber(result.densite, 2)}</TableCell>
