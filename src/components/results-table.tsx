@@ -140,17 +140,28 @@ export function ResultsTable() {
 
     useEffect(() => {
       if (!isClient) return;
+      
+      let isMounted = true;
+      
       async function fetchData() {
-          const [fetchedFuelTypes, fetchedFournisseurs, fetchedSpecs] = await Promise.all([
-              getFuelTypes(),
-              getFournisseurs(),
-              getSpecifications()
-          ]);
-          setFuelTypes(fetchedFuelTypes);
-          setFournisseurs(fetchedFournisseurs);
-          setSpecifications(fetchedSpecs);
-          setFuelTypeMap(new Map(fetchedFuelTypes.map(fuel => [fuel.name, fuel.icon])));
+          try {
+              const [fetchedFuelTypes, fetchedFournisseurs, fetchedSpecs] = await Promise.all([
+                  getFuelTypes(),
+                  getFournisseurs(),
+                  getSpecifications()
+              ]);
+              if (isMounted) {
+                  setFuelTypes(fetchedFuelTypes);
+                  setFournisseurs(fetchedFournisseurs);
+                  setSpecifications(fetchedSpecs);
+                  setFuelTypeMap(new Map(fetchedFuelTypes.map(fuel => [fuel.name, fuel.icon])));
+              }
+          } catch(error) {
+              console.error("Erreur lors de la récupération des données de base :", error);
+              if (isMounted) setLoading(false);
+          }
       }
+      
       fetchData();
 
       const q = query(collection(db, "resultats"), orderBy("date_arrivage", "desc"));
@@ -162,14 +173,19 @@ export function ResultsTable() {
                 resultsData.push({ id: doc.id, ...data } as Result);
               }
           });
-          setResults(resultsData);
-          setLoading(false);
+          if (isMounted) {
+              setResults(resultsData);
+              setLoading(false);
+          }
       }, (error) => {
           console.error("Erreur de lecture Firestore:", error);
-          setLoading(false);
+          if (isMounted) setLoading(false);
       });
 
-      return () => unsubscribe();
+      return () => {
+        isMounted = false;
+        unsubscribe();
+      };
     }, [isClient]);
 
     const filteredResults = useMemo(() => {
@@ -555,3 +571,5 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
+
+    
