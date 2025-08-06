@@ -43,6 +43,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
@@ -481,6 +482,7 @@ export function ResultsTable() {
                                             return (
                                             <TableRow key={result.id}>
                                                 <TableCell className="font-medium px-4 sticky left-0 bg-background">{formatDate(result.date_arrivage)}</TableCell>
+
                                                 <TableCell className="px-4 sticky left-[120px] bg-background">
                                                     <div className="flex items-center gap-2">
                                                         <span>{fuelTypeMap.get(result.type_combustible) ?? '❓'}</span>
