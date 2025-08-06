@@ -97,9 +97,13 @@ export function ResultsTable() {
     }, [specifications]);
     
     const generateAlerts = (result: Result): string[] => {
-        const spec = specMap.get(`${result.type_combustible}|${result.fournisseur}`);
+        const key = `${result.type_combustible}|${result.fournisseur}`;
+        const spec = specMap.get(key);
         const alerts: string[] = [];
-        if (!spec) return alerts;
+
+        if (!spec) {
+            return alerts;
+        }
     
         if (typeof spec.pci === 'number' && typeof result.pci_brut === 'number' && result.pci_brut < spec.pci) {
             alerts.push("⚠️ PCI trop faible");
@@ -283,7 +287,8 @@ export function ResultsTable() {
 
 
         data.forEach(result => {
-            const spec = specMap.get(`${result.type_combustible}|${result.fournisseur}`);
+            const key = `${result.type_combustible}|${result.fournisseur}`;
+            const spec = specMap.get(key);
             
             const alerts = generateAlerts(result);
             const alertsText = alerts.join(' • ');
@@ -494,7 +499,8 @@ export function ResultsTable() {
                                 {filteredResults.length > 0 ? (
                                     <>
                                         {filteredResults.map((result) => {
-                                            const spec = specMap.get(`${result.type_combustible}|${result.fournisseur}`);
+                                            const key = `${result.type_combustible}|${result.fournisseur}`;
+                                            const spec = specMap.get(key);
                                             const alerts = generateAlerts(result);
                                             
                                             const pciStyle = spec && typeof spec.pci === 'number' && typeof result.pci_brut === 'number' && result.pci_brut < spec.pci ? "text-destructive" : "";
@@ -590,5 +596,6 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
+
 
     
