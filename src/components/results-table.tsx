@@ -69,26 +69,6 @@ interface Result {
     remarques: string;
 }
 
-const generateAlerts = (result: Result, spec?: Specification): string[] => {
-    const alerts: string[] = [];
-    if (!spec) return alerts;
-
-    if (typeof spec.pci === 'number' && typeof result.pci_brut === 'number' && result.pci_brut < spec.pci) {
-        alerts.push("⚠️ PCI trop faible");
-    }
-    if (typeof spec.h2o === 'number' && typeof result.h2o === 'number' && result.h2o > spec.h2o) {
-        alerts.push("💧 H2O élevé");
-    }
-    if (typeof spec.chlorures === 'number' && typeof result.chlore === 'number' && result.chlore > spec.chlorures) {
-         alerts.push("🧪 Chlorures élevé");
-    }
-    if (typeof spec.cendres === 'number' && typeof result.cendres === 'number' && result.cendres > spec.cendres) {
-        alerts.push("🔥 Cendres hors spec");
-    }
-    return alerts;
-};
-
-
 export function ResultsTable() {
     const [results, setResults] = useState<Result[]>([]);
     const [specifications, setSpecifications] = useState<Specification[]>([]);
@@ -115,6 +95,27 @@ export function ResultsTable() {
         });
         return map;
     }, [specifications]);
+    
+    const generateAlerts = (result: Result): string[] => {
+        const spec = specMap.get(`${result.type_combustible}|${result.fournisseur}`);
+        const alerts: string[] = [];
+        if (!spec) return alerts;
+    
+        if (typeof spec.pci === 'number' && typeof result.pci_brut === 'number' && result.pci_brut < spec.pci) {
+            alerts.push("⚠️ PCI trop faible");
+        }
+        if (typeof spec.h2o === 'number' && typeof result.h2o === 'number' && result.h2o > spec.h2o) {
+            alerts.push("💧 H2O élevé");
+        }
+        if (typeof spec.chlorures === 'number' && typeof result.chlore === 'number' && result.chlore > spec.chlorures) {
+             alerts.push("🧪 Chlorures élevé");
+        }
+        if (typeof spec.cendres === 'number' && typeof result.cendres === 'number' && result.cendres > spec.cendres) {
+            alerts.push("🔥 Cendres hors spec");
+        }
+        return alerts;
+    };
+
 
     useEffect(() => {
       if (!isClient) return;
@@ -284,12 +285,13 @@ export function ResultsTable() {
         data.forEach(result => {
             const spec = specMap.get(`${result.type_combustible}|${result.fournisseur}`);
             
+            const alerts = generateAlerts(result);
+            const alertsText = alerts.join(' • ');
+
             const isPciAlert = spec && typeof spec.pci === 'number' && typeof result.pci_brut === 'number' && result.pci_brut < spec.pci;
             const isH2oAlert = spec && typeof spec.h2o === 'number' && typeof result.h2o === 'number' && result.h2o > spec.h2o;
             const isChloreAlert = spec && typeof spec.chlorures === 'number' && typeof result.chlore === 'number' && result.chlore > spec.chlorures;
             const isCendresAlert = spec && typeof spec.cendres === 'number' && typeof result.cendres === 'number' && result.cendres > spec.cendres;
-            
-            const alerts = generateAlerts(result, spec).join(' • ');
 
             const row = [
                 { v: formatDate(result.date_arrivage), s: centerAlignStyle },
@@ -300,7 +302,7 @@ export function ResultsTable() {
                 { v: result.chlore, s: { ...centerAlignStyle, font: isChloreAlert ? alertFont : undefined } },
                 { v: result.cendres, s: { ...centerAlignStyle, font: isCendresAlert ? alertFont : undefined } },
                 { v: result.densite, s: centerAlignStyle },
-                { v: alerts, s: { ...leftAlignStyle, font: alerts ? alertFont : undefined } },
+                { v: alertsText, s: { ...leftAlignStyle, font: alerts.length > 0 ? alertFont : undefined } },
                 { v: result.remarques || '', s: leftAlignStyle },
             ];
             ws_data.push(row);
@@ -493,7 +495,7 @@ export function ResultsTable() {
                                     <>
                                         {filteredResults.map((result) => {
                                             const spec = specMap.get(`${result.type_combustible}|${result.fournisseur}`);
-                                            const alerts = generateAlerts(result, spec);
+                                            const alerts = generateAlerts(result);
                                             
                                             const pciStyle = spec && typeof spec.pci === 'number' && typeof result.pci_brut === 'number' && result.pci_brut < spec.pci ? "text-destructive" : "";
                                             const h2oStyle = spec && typeof spec.h2o === 'number' && typeof result.h2o === 'number' && result.h2o > spec.h2o ? "text-destructive" : "";
@@ -588,3 +590,5 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
+
+    
