@@ -94,16 +94,16 @@ const generateAlerts = (result: Result, spec?: Specification): string[] => {
     const alerts: string[] = [];
     if (!spec) return alerts;
 
-    if (spec.pci !== null && typeof result.pci_brut === 'number' && result.pci_brut < spec.pci) {
+    if (typeof spec.pci === 'number' && typeof result.pci_brut === 'number' && result.pci_brut < spec.pci) {
         alerts.push("⚠️ PCI trop faible");
     }
-    if (spec.h2o !== null && typeof result.h2o === 'number' && result.h2o > spec.h2o) {
+    if (typeof spec.h2o === 'number' && typeof result.h2o === 'number' && result.h2o > spec.h2o) {
         alerts.push("💧 H2O élevé");
     }
-    if (spec.chlorures !== null && typeof result.chlore === 'number' && result.chlore > spec.chlorures) {
+    if (typeof spec.chlorures === 'number' && typeof result.chlore === 'number' && result.chlore > spec.chlorures) {
          alerts.push("🧪 % Chlorures élevé");
     }
-    if (spec.cendres !== null && typeof result.cendres === 'number' && result.cendres > spec.cendres) {
+    if (typeof spec.cendres === 'number' && typeof result.cendres === 'number' && result.cendres > spec.cendres) {
         alerts.push("🔥 % Cendres hors spécifications");
     }
     return alerts;
