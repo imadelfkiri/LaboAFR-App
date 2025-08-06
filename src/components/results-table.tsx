@@ -335,7 +335,7 @@ export function ResultsTable() {
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Rapport AFR");
         XLSX.writeFile(wb, filename);
-    };
+    }
 
 
     const handleReportDownload = (period: 'daily' | 'weekly' | 'monthly' | 'filtered') => {
@@ -576,7 +576,7 @@ export function ResultsTable() {
                         <AlertDialogDescription>
                             Cette action est irréversible. Le résultat sera définitivement supprimé
                             de la base de données.
-                        </Description>
+                        </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                         <AlertDialogCancel>Annuler</AlertDialogCancel>
@@ -588,3 +588,5 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
+
+    
