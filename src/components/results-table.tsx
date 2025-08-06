@@ -143,26 +143,29 @@ export function ResultsTable() {
       
       let isMounted = true;
       
-      async function fetchData() {
-          try {
-              const [fetchedFuelTypes, fetchedFournisseurs, fetchedSpecs] = await Promise.all([
-                  getFuelTypes(),
-                  getFournisseurs(),
-                  getSpecifications()
-              ]);
-              if (isMounted) {
-                  setFuelTypes(fetchedFuelTypes);
-                  setFournisseurs(fetchedFournisseurs);
-                  setSpecifications(fetchedSpecs);
-                  setFuelTypeMap(new Map(fetchedFuelTypes.map(fuel => [fuel.name, fuel.icon])));
-              }
-          } catch(error) {
-              console.error("Erreur lors de la récupération des données de base :", error);
-              if (isMounted) setLoading(false);
-          }
-      }
+      const fetchInitialData = async () => {
+        try {
+            const [fetchedFuelTypes, fetchedFournisseurs, fetchedSpecs] = await Promise.all([
+                getFuelTypes(),
+                getFournisseurs(),
+                getSpecifications()
+            ]);
+
+            if (isMounted) {
+                setFuelTypes(fetchedFuelTypes);
+                setFournisseurs(fetchedFournisseurs);
+                setSpecifications(fetchedSpecs);
+                setFuelTypeMap(new Map(fetchedFuelTypes.map(fuel => [fuel.name, fuel.icon])));
+            }
+        } catch (error) {
+            console.error("Erreur lors de la récupération des données de base :", error);
+            if (isMounted) {
+                toast({ variant: "destructive", title: "Erreur de données", description: "Impossible de charger les données de configuration." });
+            }
+        }
+      };
       
-      fetchData();
+      fetchInitialData();
 
       const q = query(collection(db, "resultats"), orderBy("date_arrivage", "desc"));
       const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -179,14 +182,17 @@ export function ResultsTable() {
           }
       }, (error) => {
           console.error("Erreur de lecture Firestore:", error);
-          if (isMounted) setLoading(false);
+          if (isMounted) {
+            toast({ variant: "destructive", title: "Erreur de chargement", description: "Impossible de charger l'historique des résultats." });
+            setLoading(false);
+          }
       });
 
       return () => {
         isMounted = false;
         unsubscribe();
       };
-    }, [isClient]);
+    }, [isClient, toast]);
 
     const filteredResults = useMemo(() => {
         return results.filter(result => {
@@ -495,16 +501,16 @@ export function ResultsTable() {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="px-4">{result.fournisseur}</TableCell>
-                                                <TableCell className={cn("font-bold text-right px-4", spec && spec.pci != null && result.pci_brut < spec.pci ? "text-destructive" : "")}>
+                                                <TableCell className={cn("font-bold text-right px-4", spec?.pci != null && result.pci_brut < spec.pci ? "text-destructive" : "")}>
                                                     {formatNumber(result.pci_brut, 0)}
                                                 </TableCell>
-                                                <TableCell className={cn("text-right px-4", spec && spec.h2o != null && result.h2o > spec.h2o ? "text-destructive" : "")}>
+                                                <TableCell className={cn("text-right px-4", spec?.h2o != null && result.h2o > spec.h2o ? "text-destructive" : "")}>
                                                   {formatNumber(result.h2o, 1)}
                                                 </TableCell>
-                                                <TableCell className={cn("text-right px-4", spec && spec.chlorures != null && result.chlore > spec.chlorures ? "text-destructive" : "")}>
+                                                <TableCell className={cn("text-right px-4", spec?.chlorures != null && result.chlore > spec.chlorures ? "text-destructive" : "")}>
                                                   {formatNumber(result.chlore, 2)}
                                                 </TableCell>
-                                                <TableCell className={cn("text-right px-4", spec && spec.cendres != null && result.cendres > spec.cendres ? "text-destructive" : "")}>
+                                                <TableCell className={cn("text-right px-4", spec?.cendres != null && result.cendres > spec.cendres ? "text-destructive" : "")}>
                                                   {formatNumber(result.cendres, 1)}
                                                 </TableCell>
                                                 <TableCell className="text-right px-4">{formatNumber(result.densite, 2)}</TableCell>
