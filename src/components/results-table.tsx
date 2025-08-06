@@ -110,13 +110,14 @@ export function ResultsTable() {
 
     const specMap = useMemo(() => {
         const map = new Map<string, Specification>();
+        if (!specifications) return map;
         specifications.forEach(spec => {
             const key = `${spec.combustible}|${spec.fournisseur}`;
             map.set(key, spec);
         });
         return map;
     }, [specifications]);
-
+    
     const generateAlerts = (result: Result, spec: Specification | undefined) => {
         if (!spec) return [];
 
@@ -501,21 +502,21 @@ export function ResultsTable() {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="px-4">{result.fournisseur}</TableCell>
-                                                <TableCell className={cn("font-bold text-right px-4", spec?.pci != null && result.pci_brut < spec.pci ? "text-destructive" : "")}>
+                                                <TableCell className={cn("font-bold text-right px-4", (spec?.pci != null && result.pci_brut < spec.pci) ? "text-destructive" : "")}>
                                                     {formatNumber(result.pci_brut, 0)}
                                                 </TableCell>
-                                                <TableCell className={cn("text-right px-4", spec?.h2o != null && result.h2o > spec.h2o ? "text-destructive" : "")}>
+                                                <TableCell className={cn("text-right px-4", (spec?.h2o != null && result.h2o > spec.h2o) ? "text-destructive" : "")}>
                                                   {formatNumber(result.h2o, 1)}
                                                 </TableCell>
-                                                <TableCell className={cn("text-right px-4", spec?.chlorures != null && result.chlore > spec.chlorures ? "text-destructive" : "")}>
+                                                <TableCell className={cn("text-right px-4", (spec?.chlorures != null && result.chlore > spec.chlorures) ? "text-destructive" : "")}>
                                                   {formatNumber(result.chlore, 2)}
                                                 </TableCell>
-                                                <TableCell className={cn("text-right px-4", spec?.cendres != null && result.cendres > spec.cendres ? "text-destructive" : "")}>
+                                                <TableCell className={cn("text-right px-4", (spec?.cendres != null && result.cendres > spec.cendres) ? "text-destructive" : "")}>
                                                   {formatNumber(result.cendres, 1)}
                                                 </TableCell>
                                                 <TableCell className="text-right px-4">{formatNumber(result.densite, 2)}</TableCell>
                                                 <TableCell className={cn(
-                                                    "text-center font-bold", 
+                                                    "text-center font-bold px-4", 
                                                     alerts.length > 0 ? "text-destructive" : "text-green-600"
                                                 )}>
                                                     {spec ? (alerts.length > 0 ? alerts.join(', ') : '✅ Conforme') : ''}
