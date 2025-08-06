@@ -125,20 +125,15 @@ export function ResultsTable() {
 
         const alerts: string[] = [];
         
-        // Lower is worse
         if (spec.pci != null && result.pci_brut < spec.pci) {
             alerts.push("🔥 PCI trop faible");
         }
-
-        // Higher is worse
         if (spec.h2o != null && result.h2o > spec.h2o) {
             alerts.push("💧 Humidité élevée");
         }
-
         if (spec.chlorures != null && result.chlore > spec.chlorures) {
             alerts.push("🧪 Chlorures élevés");
         }
-        
         if (spec.cendres != null && result.cendres > spec.cendres) {
             alerts.push("⚱️ Cendres élevées");
         }
