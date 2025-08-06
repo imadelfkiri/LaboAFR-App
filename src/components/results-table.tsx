@@ -61,7 +61,6 @@ interface Result {
     date_arrivage: { seconds: number, nanoseconds: number };
     type_combustible: string;
     fournisseur: string;
-    pcs: number;
     h2o: number;
     cendres: number;
     chlore: number;
