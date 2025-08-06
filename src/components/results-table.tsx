@@ -43,7 +43,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
@@ -89,6 +88,26 @@ function formatDate(date: { seconds: number; nanoseconds: number } | string | Da
     if (!isValid(parsedDate)) return "Date inconnue";
     return format(parsedDate, "dd/MM/yyyy");
 }
+
+const generateAlerts = (result: Result, spec?: Specification): string[] => {
+    const alerts: string[] = [];
+    if (!spec) return alerts;
+
+    if (spec.pci !== null && typeof result.pci_brut === 'number' && result.pci_brut < spec.pci) {
+        alerts.push("⚠️ PCI trop faible");
+    }
+    if (spec.h2o !== null && typeof result.h2o === 'number' && result.h2o > spec.h2o) {
+        alerts.push("💧 H2O élevé");
+    }
+    if (spec.chlorures !== null && typeof result.chlore === 'number' && result.chlore > spec.chlorures) {
+         alerts.push("🧪 % Chlorures élevé");
+    }
+    if (spec.cendres !== null && typeof result.cendres === 'number' && result.cendres > spec.cendres) {
+        alerts.push("🔥 % Cendres hors spécifications");
+    }
+    return alerts;
+};
+
 
 export function ResultsTable() {
     const [results, setResults] = useState<Result[]>([]);
@@ -238,7 +257,7 @@ export function ResultsTable() {
         const subtitleText = "Suivi des combustibles solides non dangereux";
         const filename = `${reportType}_AFR_Report_${format(reportDate, "yyyy-MM-dd")}.xlsx`;
 
-        const headers = ["Date", "Type Combustible", "Fournisseur", "PCI sur Brut", "% H2O", "% Cl-", "% Cendres", "Densité", "Remarques"];
+        const headers = ["Date", "Type Combustible", "Fournisseur", "PCI sur Brut", "% H2O", "% Cl-", "% Cendres", "Densité", "Alertes", "Remarques"];
         
         const border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
         const titleStyle = { font: { bold: true, sz: 14 }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } };
@@ -269,6 +288,8 @@ export function ResultsTable() {
             const isH2oAlert = spec && typeof spec.h2o === 'number' && typeof result.h2o === 'number' && result.h2o > spec.h2o;
             const isChloreAlert = spec && typeof spec.chlorures === 'number' && typeof result.chlore === 'number' && result.chlore > spec.chlorures;
             const isCendresAlert = spec && typeof spec.cendres === 'number' && typeof result.cendres === 'number' && result.cendres > spec.cendres;
+            
+            const alerts = generateAlerts(result, spec).join(' • ');
 
             const row = [
                 { v: formatDate(result.date_arrivage), s: centerAlignStyle },
@@ -279,6 +300,7 @@ export function ResultsTable() {
                 { v: result.chlore, s: { ...centerAlignStyle, font: isChloreAlert ? alertFont : undefined } },
                 { v: result.cendres, s: { ...centerAlignStyle, font: isCendresAlert ? alertFont : undefined } },
                 { v: result.densite, s: centerAlignStyle },
+                { v: alerts, s: { ...leftAlignStyle, font: alerts ? alertFont : undefined } },
                 { v: result.remarques || '', s: leftAlignStyle },
             ];
             ws_data.push(row);
@@ -305,6 +327,8 @@ export function ResultsTable() {
 
         const remarksIndex = headers.indexOf('Remarques');
         if (remarksIndex > -1) colWidths[remarksIndex] = { wch: 40 };
+        const alertsIndex = headers.indexOf('Alertes');
+        if (alertsIndex > -1) colWidths[alertsIndex] = { wch: 40 };
 
         ws['!cols'] = colWidths;
         
@@ -459,6 +483,7 @@ export function ResultsTable() {
                                     <TableHead className="text-right px-4">% Cl-</TableHead>
                                     <TableHead className="text-right px-4">% Cendres</TableHead>
                                     <TableHead className="text-right px-4">Densité</TableHead>
+                                    <TableHead className="px-4">Alertes</TableHead>
                                     <TableHead className="px-4">Remarques</TableHead>
                                     <TableHead className="w-[50px] text-right px-4 sticky right-0 bg-muted/50">Action</TableHead>
                                 </TableRow>
@@ -468,6 +493,7 @@ export function ResultsTable() {
                                     <>
                                         {filteredResults.map((result) => {
                                             const spec = specMap.get(`${result.type_combustible}|${result.fournisseur}`);
+                                            const alerts = generateAlerts(result, spec);
                                             
                                             const pciStyle = spec && typeof spec.pci === 'number' && typeof result.pci_brut === 'number' && result.pci_brut < spec.pci ? "text-destructive" : "";
                                             const h2oStyle = spec && typeof spec.h2o === 'number' && typeof result.h2o === 'number' && result.h2o > spec.h2o ? "text-destructive" : "";
@@ -498,6 +524,13 @@ export function ResultsTable() {
                                                   {formatNumber(result.cendres, 1)}
                                                 </TableCell>
                                                 <TableCell className="text-right px-4">{formatNumber(result.densite, 2)}</TableCell>
+                                                <TableCell className="px-4 max-w-[250px]">
+                                                  {alerts.length > 0 ? (
+                                                      <span className="text-destructive font-medium whitespace-normal">{alerts.join(' • ')}</span>
+                                                  ) : (
+                                                      <span className="text-green-600">✅ Conforme</span>
+                                                  )}
+                                                </TableCell>
                                                 <TableCell className="max-w-[200px] truncate text-muted-foreground px-4">
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
@@ -522,12 +555,12 @@ export function ResultsTable() {
                                             <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'chlore'), 2)}</TableCell>
                                             <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'cendres'), 1)}</TableCell>
                                             <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'densite'), 2)}</TableCell>
-                                            <TableCell colSpan={2} className='sticky right-0 bg-muted/40'/>
+                                            <TableCell colSpan={3} className='sticky right-0 bg-muted/40'/>
                                         </TableRow>
                                     </>
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
+                                        <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
                                             Aucun résultat trouvé pour les filtres sélectionnés.
                                         </TableCell>
                                     </TableRow>
@@ -543,7 +576,7 @@ export function ResultsTable() {
                         <AlertDialogDescription>
                             Cette action est irréversible. Le résultat sera définitivement supprimé
                             de la base de données.
-                        </AlertDialogDescription>
+                        </Description>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                         <AlertDialogCancel>Annuler</AlertDialogCancel>
