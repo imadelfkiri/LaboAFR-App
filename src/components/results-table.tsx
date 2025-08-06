@@ -124,31 +124,23 @@ export function ResultsTable() {
         if (!spec) return [];
 
         const alerts: string[] = [];
-
+        
         // Lower is worse
         if (spec.pci != null && result.pci_brut < spec.pci) {
-            const diff = (spec.pci - result.pci_brut) / spec.pci;
-            if (diff > 0.1) alerts.push("⛔ PCI très faible");
-            else alerts.push("⚠️ PCI faible");
+            alerts.push("🔥 PCI trop faible");
         }
 
         // Higher is worse
         if (spec.h2o != null && result.h2o > spec.h2o) {
-            const diff = (result.h2o - spec.h2o) / spec.h2o;
-            if (diff > 0.2) alerts.push("⛔ Humidité excessive");
-            else alerts.push("⚠️ Humidité élevée");
+            alerts.push("💧 Humidité élevée");
         }
 
         if (spec.chlorures != null && result.chlore > spec.chlorures) {
-            const diff = (result.chlore - spec.chlorures) / spec.chlorures;
-            if (diff > 0.2) alerts.push("⛔ %Chlorures trop élevé");
-            else alerts.push("⚠️ %Chlorures élevé");
+            alerts.push("🧪 Chlorures élevés");
         }
         
         if (spec.cendres != null && result.cendres > spec.cendres) {
-            const diff = (result.cendres - spec.cendres) / spec.cendres;
-            if (diff > 0.2) alerts.push("⛔ Cendres hors tolérance");
-            else alerts.push("⚠️ Cendres élevées");
+            alerts.push("⚱️ Cendres élevées");
         }
 
         return alerts;
@@ -275,7 +267,7 @@ export function ResultsTable() {
 
         data.forEach(result => {
             const alerts = generateAlerts(result);
-            const alertText = alerts.join(', ');
+            const alertText = alerts.length > 0 ? alerts.join(', ') : '✅ Conforme';
 
             const row = [
                 { v: formatDate(result.date_arrivage), s: centerAlignStyle },
@@ -286,7 +278,7 @@ export function ResultsTable() {
                 { v: result.chlore, s: centerAlignStyle },
                 { v: result.cendres, s: centerAlignStyle },
                 { v: result.densite, s: centerAlignStyle },
-                { v: alertText, s: alertText ? alertCellStyle : leftAlignStyle },
+                { v: alertText, s: alerts.length > 0 ? alertCellStyle : leftAlignStyle },
                 { v: result.remarques || '', s: leftAlignStyle },
             ];
             ws_data.push(row);
@@ -479,6 +471,7 @@ export function ResultsTable() {
                                     <>
                                         {filteredResults.map((result) => {
                                             const alerts = generateAlerts(result);
+                                            const spec = specMap.get(`${result.type_combustible}|${result.fournisseur}`);
                                             return (
                                             <TableRow key={result.id}>
                                                 <TableCell className="font-medium px-4 sticky left-0 bg-background">{formatDate(result.date_arrivage)}</TableCell>
@@ -501,8 +494,8 @@ export function ResultsTable() {
                                                   {formatNumber(result.cendres, 1)}
                                                 </TableCell>
                                                 <TableCell className="text-right px-4">{formatNumber(result.densite, 2)}</TableCell>
-                                                <TableCell className={cn("max-w-[200px] px-4", alerts.length > 0 ? "text-destructive font-medium" : "text-green-600")}>
-                                                    {alerts.length > 0 ? alerts.join(', ') : '✅ Conforme'}
+                                                <TableCell className={cn("text-center", alerts.length > 0 ? "text-destructive font-bold" : "text-green-600")}>
+                                                    {spec ? (alerts.length > 0 ? alerts.join(', ') : '✅ Conforme') : ''}
                                                 </TableCell>
                                                 <TableCell className="max-w-[150px] truncate text-muted-foreground px-4">
                                                     <Tooltip>
