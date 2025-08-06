@@ -480,16 +480,16 @@ export function ResultsTable() {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="px-4">{result.fournisseur}</TableCell>
-                                                <TableCell className={cn("font-bold text-right px-4", spec && spec.pci != null && result.pci_brut < spec.pci && "text-destructive")}>
+                                                <TableCell className={cn("font-bold text-right px-4", spec && spec.pci != null && result.pci_brut < spec.pci ? "text-destructive" : "")}>
                                                     {formatNumber(result.pci_brut, 0)}
                                                 </TableCell>
-                                                <TableCell className={cn("text-right px-4", spec && spec.h2o != null && result.h2o > spec.h2o && "text-destructive")}>
+                                                <TableCell className={cn("text-right px-4", spec && spec.h2o != null && result.h2o > spec.h2o ? "text-destructive" : "")}>
                                                   {formatNumber(result.h2o, 1)}
                                                 </TableCell>
-                                                <TableCell className={cn("text-right px-4", spec && spec.chlorures != null && result.chlore > spec.chlorures && "text-destructive")}>
+                                                <TableCell className={cn("text-right px-4", spec && spec.chlorures != null && result.chlore > spec.chlorures ? "text-destructive" : "")}>
                                                   {formatNumber(result.chlore, 2)}
                                                 </TableCell>
-                                                <TableCell className={cn("text-right px-4", spec && spec.cendres != null && result.cendres > spec.cendres && "text-destructive")}>
+                                                <TableCell className={cn("text-right px-4", spec && spec.cendres != null && result.cendres > spec.cendres ? "text-destructive" : "")}>
                                                   {formatNumber(result.cendres, 1)}
                                                 </TableCell>
                                                 <TableCell className="text-right px-4">{formatNumber(result.densite, 2)}</TableCell>
@@ -553,3 +553,5 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
+
+    
