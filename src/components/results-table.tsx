@@ -468,6 +468,12 @@ export function ResultsTable() {
                                     <>
                                         {filteredResults.map((result) => {
                                             const spec = specMap.get(`${result.type_combustible}|${result.fournisseur}`);
+                                            
+                                            const pciStyle = spec && typeof spec.pci === 'number' && result.pci_brut < spec.pci ? "text-destructive" : "";
+                                            const h2oStyle = spec && typeof spec.h2o === 'number' && result.h2o > spec.h2o ? "text-destructive" : "";
+                                            const chloruresStyle = spec && typeof spec.chlorures === 'number' && result.chlore > spec.chlorures ? "text-destructive" : "";
+                                            const cendresStyle = spec && typeof spec.cendres === 'number' && result.cendres > spec.cendres ? "text-destructive" : "";
+                                            
                                             return (
                                             <TableRow key={result.id}>
                                                 <TableCell className="font-medium px-4 sticky left-0 bg-background">{formatDate(result.date_arrivage)}</TableCell>
@@ -479,16 +485,16 @@ export function ResultsTable() {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="px-4">{result.fournisseur}</TableCell>
-                                                <TableCell className={cn("font-bold text-right px-4", (spec && typeof spec.pci === 'number' && result.pci_brut < spec.pci) ? "text-destructive" : "")}>
+                                                <TableCell className={cn("font-bold text-right px-4", pciStyle)}>
                                                     {formatNumber(result.pci_brut, 0)}
                                                 </TableCell>
-                                                <TableCell className={cn("text-right px-4", (spec && typeof spec.h2o === 'number' && result.h2o > spec.h2o) ? "text-destructive" : "")}>
+                                                <TableCell className={cn("text-right px-4", h2oStyle)}>
                                                   {formatNumber(result.h2o, 1)}
                                                 </TableCell>
-                                                <TableCell className={cn("text-right px-4", (spec && typeof spec.chlorures === 'number' && result.chlore > spec.chlorures) ? "text-destructive" : "")}>
+                                                <TableCell className={cn("text-right px-4", chloruresStyle)}>
                                                   {formatNumber(result.chlore, 2)}
                                                 </TableCell>
-                                                <TableCell className={cn("text-right px-4", (spec && typeof spec.cendres === 'number' && result.cendres > spec.cendres) ? "text-destructive" : "")}>
+                                                <TableCell className={cn("text-right px-4", cendresStyle)}>
                                                   {formatNumber(result.cendres, 1)}
                                                 </TableCell>
                                                 <TableCell className="text-right px-4">{formatNumber(result.densite, 2)}</TableCell>
@@ -549,6 +555,3 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
-
-
-    
