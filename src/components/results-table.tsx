@@ -493,8 +493,8 @@ export function ResultsTable() {
                                                 </TableCell>
                                                 <TableCell className="text-right px-4">{formatNumber(result.densite, 2)}</TableCell>
                                                 <TableCell className={cn(
-                                                    "text-center", 
-                                                    alerts.length > 0 ? "text-destructive font-bold" : "text-green-600"
+                                                    "text-center font-bold", 
+                                                    alerts.length > 0 ? "text-destructive" : "text-green-600"
                                                 )}>
                                                     {spec ? (alerts.length > 0 ? alerts.join(', ') : '✅ Conforme') : ''}
                                                 </TableCell>
