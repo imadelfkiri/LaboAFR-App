@@ -69,27 +69,6 @@ interface Result {
     remarques: string;
 }
 
-const calculateAverage = (results: Result[], field: keyof Result): number | null => {
-  const validValues = results.map(r => r[field]).filter(v => typeof v === 'number') as number[];
-  if (!validValues.length) return null;
-  const sum = validValues.reduce((acc, val) => acc + val, 0);
-  return sum / validValues.length;
-};
-
-function formatDate(date: { seconds: number; nanoseconds: number } | string | Date): string {
-    if (!date) return "Date inconnue";
-    let parsedDate: Date;
-    if (typeof date === "string") {
-        parsedDate = parseISO(date);
-    } else if (date && typeof (date as any).seconds === 'number') {
-        parsedDate = new Date((date as { seconds: number }).seconds * 1000);
-    } else {
-        parsedDate = new Date(date);
-    }
-    if (!isValid(parsedDate)) return "Date inconnue";
-    return format(parsedDate, "dd/MM/yyyy");
-}
-
 const generateAlerts = (result: Result, spec?: Specification): string[] => {
     const alerts: string[] = [];
     if (!spec) return alerts;
@@ -101,10 +80,10 @@ const generateAlerts = (result: Result, spec?: Specification): string[] => {
         alerts.push("💧 H2O élevé");
     }
     if (typeof spec.chlorures === 'number' && typeof result.chlore === 'number' && result.chlore > spec.chlorures) {
-         alerts.push("🧪 % Chlorures élevé");
+         alerts.push("🧪 Chlorures élevé");
     }
     if (typeof spec.cendres === 'number' && typeof result.cendres === 'number' && result.cendres > spec.cendres) {
-        alerts.push("🔥 % Cendres hors spécifications");
+        alerts.push("🔥 Cendres hors spec");
     }
     return alerts;
 };
@@ -130,7 +109,6 @@ export function ResultsTable() {
 
     const specMap = useMemo(() => {
         const map = new Map<string, Specification>();
-        if (!specifications) return map;
         specifications.forEach(spec => {
             const key = `${spec.combustible}|${spec.fournisseur}`;
             map.set(key, spec);
@@ -209,6 +187,27 @@ export function ResultsTable() {
             return typeMatch && fournisseurMatch && dateMatch;
         });
     }, [results, typeFilter, fournisseurFilter, dateFilter]);
+
+    const calculateAverage = (results: Result[], field: keyof Result): number | null => {
+        const validValues = results.map(r => r[field]).filter(v => typeof v === 'number') as number[];
+        if (!validValues.length) return null;
+        const sum = validValues.reduce((acc, val) => acc + val, 0);
+        return sum / validValues.length;
+    };
+    
+    function formatDate(date: { seconds: number; nanoseconds: number } | string | Date): string {
+        if (!date) return "Date inconnue";
+        let parsedDate: Date;
+        if (typeof date === "string") {
+            parsedDate = parseISO(date);
+        } else if (date && typeof (date as any).seconds === 'number') {
+            parsedDate = new Date((date as { seconds: number }).seconds * 1000);
+        } else {
+            parsedDate = new Date(date);
+        }
+        if (!isValid(parsedDate)) return "Date inconnue";
+        return format(parsedDate, "dd/MM/yyyy");
+    }
 
     const resetFilters = () => {
         setTypeFilter("");
@@ -526,11 +525,11 @@ export function ResultsTable() {
                                                 </TableCell>
                                                 <TableCell className="text-right px-4">{formatNumber(result.densite, 2)}</TableCell>
                                                 <TableCell className="px-4 max-w-[250px]">
-                                                  {alerts.length > 0 ? (
-                                                      <span className="text-destructive font-medium whitespace-normal">{alerts.join(' • ')}</span>
-                                                  ) : (
-                                                      <span className="text-green-600">✅ Conforme</span>
-                                                  )}
+                                                    {alerts.length > 0 ? (
+                                                        <span className="text-destructive font-medium whitespace-normal">{alerts.join(' • ')}</span>
+                                                    ) : (
+                                                        <span className="text-green-600">✅ Conforme</span>
+                                                    )}
                                                 </TableCell>
                                                 <TableCell className="max-w-[200px] truncate text-muted-foreground px-4">
                                                     <Tooltip>
