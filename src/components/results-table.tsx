@@ -123,16 +123,16 @@ export function ResultsTable() {
 
         const alerts: string[] = [];
         
-        if (spec.pci != null && result.pci_brut < spec.pci) {
+        if (typeof spec.pci === 'number' && result.pci_brut < spec.pci) {
             alerts.push("🔥 PCI trop faible");
         }
-        if (spec.h2o != null && result.h2o > spec.h2o) {
+        if (typeof spec.h2o === 'number' && result.h2o > spec.h2o) {
             alerts.push("💧 Humidité élevée");
         }
-        if (spec.chlorures != null && result.chlore > spec.chlorures) {
+        if (typeof spec.chlorures === 'number' && result.chlore > spec.chlorures) {
             alerts.push("🧪 Chlorures élevés");
         }
-        if (spec.cendres != null && result.cendres > spec.cendres) {
+        if (typeof spec.cendres === 'number' && result.cendres > spec.cendres) {
             alerts.push("⚱️ Cendres élevées");
         }
 
@@ -502,16 +502,16 @@ export function ResultsTable() {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="px-4">{result.fournisseur}</TableCell>
-                                                <TableCell className={cn("font-bold text-right px-4", (spec?.pci != null && result.pci_brut < spec.pci) ? "text-destructive" : "")}>
+                                                <TableCell className={cn("font-bold text-right px-4", (spec && typeof spec.pci === 'number' && result.pci_brut < spec.pci) ? "text-destructive" : "")}>
                                                     {formatNumber(result.pci_brut, 0)}
                                                 </TableCell>
-                                                <TableCell className={cn("text-right px-4", (spec?.h2o != null && result.h2o > spec.h2o) ? "text-destructive" : "")}>
+                                                <TableCell className={cn("text-right px-4", (spec && typeof spec.h2o === 'number' && result.h2o > spec.h2o) ? "text-destructive" : "")}>
                                                   {formatNumber(result.h2o, 1)}
                                                 </TableCell>
-                                                <TableCell className={cn("text-right px-4", (spec?.chlorures != null && result.chlore > spec.chlorures) ? "text-destructive" : "")}>
+                                                <TableCell className={cn("text-right px-4", (spec && typeof spec.chlorures === 'number' && result.chlore > spec.chlorures) ? "text-destructive" : "")}>
                                                   {formatNumber(result.chlore, 2)}
                                                 </TableCell>
-                                                <TableCell className={cn("text-right px-4", (spec?.cendres != null && result.cendres > spec.cendres) ? "text-destructive" : "")}>
+                                                <TableCell className={cn("text-right px-4", (spec && typeof spec.cendres === 'number' && result.cendres > spec.cendres) ? "text-destructive" : "")}>
                                                   {formatNumber(result.cendres, 1)}
                                                 </TableCell>
                                                 <TableCell className="text-right px-4">{formatNumber(result.densite, 2)}</TableCell>
@@ -579,4 +579,3 @@ export function ResultsTable() {
     );
 }
 
-    
