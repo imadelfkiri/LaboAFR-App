@@ -80,22 +80,16 @@ export function ResultsTable() {
     const [fournisseurs, setFournisseurs] = useState<string[]>([]);
     const { toast } = useToast();
 
-    const fetchInitialData = useCallback(async () => {
-        setLoading(true);
+    const fetchInitialData = useCallback(() => {
         try {
-            // getSpecifications also populates the SPEC_MAP which is needed for coloring
-            await getSpecifications(); 
-            
+            getSpecifications(); // Populates SPEC_MAP
             const fetchedFuelTypes = getFuelTypes();
             const fetchedFournisseurs = getFournisseurs();
             setFuelTypes(fetchedFuelTypes);
             setFournisseurs(fetchedFournisseurs);
-
         } catch (error) {
             console.error("Erreur lors de la récupération des données de base :", error);
             toast({ variant: "destructive", title: "Erreur de données", description: "Impossible de charger les données de configuration." });
-        } finally {
-            // Delay setting loading to false to allow onSnapshot to fetch results
         }
     }, [toast]);
 
@@ -117,7 +111,7 @@ export function ResultsTable() {
             setLoading(false);
         }, (error) => {
             console.error("Erreur de lecture Firestore:", error);
-            toast({ variant: "destructive", title: "Erreur de chargement", description: "Impossible de charger l'historique des résultats." });
+            toast({ variant: "destructive", title: "Erreur de chargement", description: "Impossible de charger l'historique des résultats. Vérifiez la configuration App Check." });
             setLoading(false);
         });
 

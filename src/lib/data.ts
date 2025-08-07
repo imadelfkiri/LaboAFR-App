@@ -57,31 +57,10 @@ const INITIAL_SPECIFICATIONS_DATA: Omit<Specification, 'id'>[] = [
     { type_combustible: 'Pneus', fournisseur: 'RJL', H2O_max: 1, PCI_min: 6800, Cl_max: 0.3, Cendres_max: 1, Soufre_max: null },
 ];
 
-let seedPromise: Promise<void> | null = null;
-export async function seedDatabase() {
-  if (seedPromise) {
-    return seedPromise;
-  }
-  const flagRef = doc(db, 'internal', 'seeded');
-  
-  seedPromise = (async () => {
-    const flagDoc = await getDoc(flagRef);
-    if (!flagDoc.exists()) {
-      console.log("Database not seeded. Seeding now...");
-      const batch = writeBatch(db);
-      INITIAL_SPECIFICATIONS_DATA.forEach(spec => {
-        const docRef = doc(collection(db, 'specifications'));
-        batch.set(docRef, spec);
-      });
-      batch.set(flagRef, { done: true });
-      await batch.commit();
-      console.log("Seeding complete.");
-    }
-  })();
-  
-  await seedPromise;
-  seedPromise = null;
-}
+let specifications: Specification[] = INITIAL_SPECIFICATIONS_DATA.map((spec, index) => ({
+    id: `spec_${index}`,
+    ...spec
+}));
 
 // Populate H_MAP from the constant
 INITIAL_FUEL_TYPES.forEach(ft => {
@@ -97,40 +76,36 @@ export function getFournisseurs(): string[] {
     return INITIAL_FOURNISSEURS;
 };
 
-// This function needs to be async as it fetches from Firestore
-export const getSpecifications = async (): Promise<Specification[]> => {
-    await seedDatabase();
-    const specsRef = collection(db, "specifications");
-    const q = query(specsRef);
-    const snapshot = await getDocs(q);
-    const specs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Specification));
-    
+// This function now returns local data
+export const getSpecifications = (): Specification[] => {
     SPEC_MAP.clear();
-    specs.forEach(spec => {
+    specifications.forEach(spec => {
         SPEC_MAP.set(`${spec.type_combustible}|${spec.fournisseur}`, spec);
     });
-
-    return specs;
+    return specifications;
 };
 
-export const addSpecification = async (spec: Omit<Specification, 'id'>) => {
-    const specsRef = collection(db, "specifications");
-    const q = query(specsRef, where("type_combustible", "==", spec.type_combustible), where("fournisseur", "==", spec.fournisseur));
-    const snapshot = await getDocs(q);
-
-    if (!snapshot.empty) {
+export const addSpecification = (spec: Omit<Specification, 'id'>) => {
+    const exists = specifications.some(s => s.type_combustible === spec.type_combustible && s.fournisseur === spec.fournisseur);
+    if (exists) {
         throw new Error("Une spécification pour ce combustible et ce fournisseur existe déjà.");
     }
-    
-    await addDoc(specsRef, spec);
+    const newSpec = { ...spec, id: `spec_${Date.now()}` };
+    specifications.push(newSpec);
 };
 
-export const updateSpecification = async (id: string, spec: Partial<Specification>) => {
-    const docRef = doc(db, 'specifications', id);
-    await updateDoc(docRef, spec);
+export const updateSpecification = (id: string, specUpdate: Partial<Specification>) => {
+    const specIndex = specifications.findIndex(s => s.id === id);
+    if (specIndex > -1) {
+        specifications[specIndex] = { ...specifications[specIndex], ...specUpdate };
+    }
 };
 
-export const deleteSpecification = async (id: string) => {
-    const docRef = doc(db, 'specifications', id);
-    await deleteDoc(docRef);
+export const deleteSpecification = (id: string) => {
+    specifications = specifications.filter(s => s.id !== id);
 };
+
+// This function is kept for potential future use but won't be called by default
+export async function seedDatabase() {
+    console.log("Seeding is now managed locally.");
+}

@@ -137,12 +137,12 @@ export function PciCalculator() {
     setPciResult(null);
   };
 
-  const fetchAndSetData = useCallback(async () => {
+  const fetchAndSetData = useCallback(() => {
       setLoading(true);
       try {
         const fetchedFuelTypes = getFuelTypes();
         const fetchedFournisseurs = getFournisseurs();
-        const specs = await getSpecifications();
+        const specs = getSpecifications();
 
         const map: Record<string, string[]> = {};
         specs.forEach(spec => {
@@ -214,7 +214,7 @@ export function PciCalculator() {
 
   const handleAddFuelType = async () => {
       try {
-        const newFuel = newFuelTypeSchema.parse({ 
+        newFuelTypeSchema.parse({ 
             name: newFuelTypeName, 
         });
 
@@ -242,7 +242,7 @@ export function PciCalculator() {
     }
   };
 
-  const handleAddFournisseur = async () => {
+  const handleAddFournisseur = () => {
     const selectedFuelType = getValues("type_combustible");
     if (!selectedFuelType) return;
 
@@ -250,12 +250,12 @@ export function PciCalculator() {
         const newFournisseur = newFournisseurSchema.parse({ name: newFournisseurName });
         const name = newFournisseur.name.trim();
 
-        await addSpecification({
+        addSpecification({
             type_combustible: selectedFuelType,
             fournisseur: name
         });
         
-        await fetchAndSetData();
+        fetchAndSetData();
         
         setValue("fournisseur", name, { shouldValidate: true });
 

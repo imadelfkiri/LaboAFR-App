@@ -12,7 +12,6 @@ import {
     deleteSpecification,
     getFuelTypes,
     getFournisseurs,
-    seedDatabase, // Import seedDatabase
     type Specification,
     type FuelType
 } from "@/lib/data";
@@ -90,10 +89,10 @@ export default function SpecificationsPage() {
         defaultValues: {},
     });
 
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(() => {
         setLoading(true);
         try {
-            const specs = await getSpecifications();
+            const specs = getSpecifications();
             const fTypes = getFuelTypes();
             const founisseursList = getFournisseurs();
             
@@ -109,7 +108,7 @@ export default function SpecificationsPage() {
 
         } catch (error) {
             console.error("Failed to fetch data:", error);
-            toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données. Veuillez vérifier la configuration d'App Check dans votre console Firebase." });
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données." });
         } finally {
             setLoading(false);
         }
@@ -140,17 +139,17 @@ export default function SpecificationsPage() {
         setIsDialogOpen(true);
     };
 
-    const onSubmit = async (data: SpecFormData) => {
+    const onSubmit = (data: SpecFormData) => {
         try {
             const dataToSave = Object.fromEntries(
                 Object.entries(data).map(([key, value]) => [key, value === '' ? undefined : value])
             );
 
             if (currentSpec?.id) {
-                await updateSpecification(currentSpec.id, dataToSave as Partial<Specification>);
+                updateSpecification(currentSpec.id, dataToSave as Partial<Specification>);
                 toast({ title: "Succès", description: "Spécification mise à jour." });
             } else {
-                await addSpecification(dataToSave as Omit<Specification, 'id'>);
+                addSpecification(dataToSave as Omit<Specification, 'id'>);
                 toast({ title: "Succès", description: "Spécification ajoutée." });
             }
             setIsDialogOpen(false);
@@ -162,10 +161,10 @@ export default function SpecificationsPage() {
         }
     };
 
-    const handleDeleteConfirm = async () => {
+    const handleDeleteConfirm = () => {
         if (!specToDelete) return;
         try {
-            await deleteSpecification(specToDelete);
+            deleteSpecification(specToDelete);
             toast({ title: "Succès", description: "Spécification supprimée." });
             setSpecToDelete(null);
             fetchData();
