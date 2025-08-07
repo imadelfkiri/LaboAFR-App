@@ -1,5 +1,3 @@
-
-
 // src/lib/data.ts
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc } from 'firebase/firestore';
 import { db } from './firebase';
@@ -69,28 +67,35 @@ populateHMap();
 
 // Seeding logic
 let isSeeding = false;
-export async function seedDatabase() {
-    if (isSeeding) return;
-    isSeeding = true;
-    try {
-        const specsCollection = collection(db, 'specifications');
-        const snapshot = await getDocs(query(specsCollection));
-        if (snapshot.empty) {
-            console.log("Seeding database...");
-            const batch = writeBatch(db);
-            INITIAL_SPECIFICATIONS_DATA.forEach(spec => {
-                const docRef = doc(collection(db, 'specifications'));
-                batch.set(docRef, spec);
-            });
-            await batch.commit();
-            console.log("Database seeded successfully.");
-        }
-    } catch (error) {
-        console.error("Error seeding database:", error);
-    } finally {
-        isSeeding = false;
+let seedingPromise: Promise<void> | null = null;
+export function seedDatabase() {
+    if (!seedingPromise) {
+        seedingPromise = (async () => {
+            if (isSeeding) return;
+            isSeeding = true;
+            try {
+                const specsCollection = collection(db, 'specifications');
+                const snapshot = await getDocs(query(specsCollection));
+                if (snapshot.empty) {
+                    console.log("Seeding database...");
+                    const batch = writeBatch(db);
+                    INITIAL_SPECIFICATIONS_DATA.forEach(spec => {
+                        const docRef = doc(collection(db, 'specifications'));
+                        batch.set(docRef, spec);
+                    });
+                    await batch.commit();
+                    console.log("Database seeded successfully.");
+                }
+            } catch (error) {
+                console.error("Error seeding database:", error);
+            } finally {
+                isSeeding = false;
+            }
+        })();
     }
+    return seedingPromise;
 }
+
 
 export function getFuelTypes(): FuelType[] {
     return [...INITIAL_FUEL_TYPES];
