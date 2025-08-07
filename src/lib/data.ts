@@ -1,5 +1,4 @@
 
-
 import { collection, getDocs, doc, writeBatch, query, setDoc, orderBy, serverTimestamp, getDoc, addDoc, updateDoc, deleteDoc, where } from "firebase/firestore";
 import { db } from "./firebase";
 
@@ -23,7 +22,7 @@ export interface Specification {
 
 export const SPEC_MAP = new Map<string, Specification>();
 
-const INITIAL_FUEL_TYPES: Omit<FuelType, 'createdAt'>[] = [
+const INITIAL_FUEL_TYPES: FuelType[] = [
     { name: "Textile", hValue: 6.0 },
     { name: "RDF", hValue: 6.0 },
     { name: "Pneus", hValue: 6.5 },
@@ -60,7 +59,9 @@ const INITIAL_SPECIFICATIONS_DATA: Omit<Specification, 'id'>[] = [
 
 export async function seedDatabase() {
     const specsRef = collection(db, 'specifications');
-    const snapshot = await getDocs(query(specsRef));
+    const q = query(specsRef);
+    const snapshot = await getDocs(q);
+    
     if (snapshot.empty) {
         console.log("Database is empty, seeding specifications...");
         const batch = writeBatch(db);
@@ -69,21 +70,27 @@ export async function seedDatabase() {
             batch.set(docRef, spec);
         });
         await batch.commit();
+        console.log("Seeding complete.");
+    } else {
+        console.log("Database already contains specifications, skipping seed.");
     }
 }
 
+// Populate H_MAP from the constant
 INITIAL_FUEL_TYPES.forEach(ft => {
-    if (ft.hValue !== undefined) H_MAP[ft.name] = ft.hValue;
+    H_MAP[ft.name] = ft.hValue;
 });
 
-export const getFuelTypes = async (): Promise<FuelType[]> => {
+// These functions return constants, so they are synchronous
+export function getFuelTypes(): FuelType[] {
     return INITIAL_FUEL_TYPES;
 };
 
-export const getFournisseurs = async (): Promise<string[]> => {
+export function getFournisseurs(): string[] {
     return INITIAL_FOURNISSEURS;
 };
 
+// This function needs to be async as it fetches from Firestore
 export const getSpecifications = async (): Promise<Specification[]> => {
     const specsRef = collection(db, "specifications");
     const q = query(specsRef, orderBy("type_combustible"), orderBy("fournisseur"));

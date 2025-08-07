@@ -13,8 +13,7 @@ import {
     getFuelTypes,
     getFournisseurs,
     type Specification,
-    type FuelType,
-    seedDatabase
+    type FuelType
 } from "@/lib/data";
 import {
   Table,
@@ -93,12 +92,11 @@ export default function SpecificationsPage() {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            await seedDatabase(); // Ensure DB is seeded
-            const [fTypes, founisseursList, specs] = await Promise.all([
-                getFuelTypes(),
-                getFournisseurs(),
-                getSpecifications()
-            ]);
+            // Data is now synchronous
+            const fTypes = getFuelTypes();
+            const founisseursList = getFournisseurs();
+            // Only specifications are fetched asynchronously
+            const specs = await getSpecifications();
             
             setFuelTypes(fTypes);
             setFournisseurs(founisseursList);
@@ -144,7 +142,7 @@ export default function SpecificationsPage() {
             );
 
             if (currentSpec?.id) {
-                await updateSpecification(currentSpec.id, dataToSave as Specification);
+                await updateSpecification(currentSpec.id, dataToSave as Partial<Specification>);
                 toast({ title: "Succès", description: "Spécification mise à jour." });
             } else {
                 await addSpecification(dataToSave as Omit<Specification, 'id'>);
