@@ -7,7 +7,6 @@ export const H_MAP: Record<string, number> = {};
 
 export interface FuelType {
     name: string;
-    icon: string;
     hValue: number;
     createdAt?: { seconds: number; nanoseconds: number; };
 }
@@ -28,19 +27,19 @@ export const SPEC_MAP = new Map<string, Specification>();
 
 
 export const INITIAL_FUEL_TYPES: Omit<FuelType, 'createdAt'>[] = [
-    { name: "Textile", icon: "👗", hValue: 6.0 },
-    { name: "RDF", icon: "🔁", hValue: 6.0 },
-    { name: "Pneus", icon: "🚗", hValue: 6.5 },
-    { name: "Plastiques", icon: "🧴", hValue: 7.0 },
-    { name: "Pet Coke", icon: "🔥", hValue: 3.5 },
-    { name: "Mélange", icon: "⚗️", hValue: 6.0 },
-    { name: "Grignons d'olives", icon: "🌿", hValue: 6.0 },
-    { name: "DMB", icon: "🧱", hValue: 6.5 },
-    { name: "Charbon", icon: "🪨", hValue: 4.5 },
-    { name: "Caoutchouc", icon: "🛞", hValue: 6.8 },
-    { name: "CSR", icon: "♻️", hValue: 6.0 },
-    { name: "Boues", icon: "💧", hValue: 5.5 },
-    { name: "Bois", icon: "🌲", hValue: 6.0 },
+    { name: "Textile", hValue: 6.0 },
+    { name: "RDF", hValue: 6.0 },
+    { name: "Pneus", hValue: 6.5 },
+    { name: "Plastiques", hValue: 7.0 },
+    { name: "Pet Coke", hValue: 3.5 },
+    { name: "Mélange", hValue: 6.0 },
+    { name: "Grignons d'olives", hValue: 6.0 },
+    { name: "DMB", hValue: 6.5 },
+    { name: "Charbon", hValue: 4.5 },
+    { name: "Caoutchouc", hValue: 6.8 },
+    { name: "CSR", hValue: 6.0 },
+    { name: "Boues", hValue: 5.5 },
+    { name: "Bois", hValue: 6.0 },
 ];
 
 const INITIAL_FOURNISSEURS = [
@@ -51,7 +50,7 @@ const INITIAL_FOURNISSEURS = [
 
 const INITIAL_SPECIFICATIONS_DATA: Omit<Specification, 'id'>[] = [
     { type_combustible: 'CSR', fournisseur: 'Polluclean', H2O_max: 16.5, PCI_min: 4000, Cl_max: 1, Cendres_max: 15, Soufre_max: null },
-    { type_combustible: 'CSR', fournisseur: 'SMBRM', H2O_max: 14, PCI_min: 5000, Cl_max: 0.6, Cendres_max: null, Soufre_max: null },
+    { type_combustible: 'CSR', fournisseur: 'SMBRM', H2O_max: 14, PCI_min: 5000, Cl_max: 0.6, Cendres_max: 15, Soufre_max: null },
     { type_combustible: 'DMB', fournisseur: 'MTR', H2O_max: 15, PCI_min: 4300, Cl_max: 0.6, Cendres_max: 15, Soufre_max: 0.5 },
     { type_combustible: "Grignons d'olives", fournisseur: 'Ain Seddeine', H2O_max: 20, PCI_min: 3700, Cl_max: 0.5, Cendres_max: 5, Soufre_max: null },
     { type_combustible: 'Plastiques', fournisseur: 'Bichara', H2O_max: 10, PCI_min: 4200, Cl_max: 1, Cendres_max: 15, Soufre_max: null },

@@ -78,7 +78,6 @@ export function ResultsTable() {
     const [resultToDelete, setResultToDelete] = useState<string | null>(null);
     const [fuelTypes, setFuelTypes] = useState<FuelType[]>([]);
     const [fournisseurs, setFournisseurs] = useState<string[]>([]);
-    const [fuelTypeMap, setFuelTypeMap] = useState<Map<string, string>>(new Map());
     const { toast } = useToast();
     const [isClient, setIsClient] = useState(false)
 
@@ -92,7 +91,7 @@ export function ResultsTable() {
       let isMounted = true;
       setLoading(true);
       
-      const fetchInitialData = async () => {
+      const fetchInitialData = () => {
         try {
             const fetchedFuelTypes = getFuelTypes();
             const fetchedFournisseurs = getFournisseurs();
@@ -101,7 +100,6 @@ export function ResultsTable() {
             if (isMounted) {
                 setFuelTypes(fetchedFuelTypes);
                 setFournisseurs(fetchedFournisseurs);
-                setFuelTypeMap(new Map(fetchedFuelTypes.map(fuel => [fuel.name, fuel.icon])));
             }
         } catch (error) {
             console.error("Erreur lors de la récupération des données de base :", error);
@@ -484,10 +482,7 @@ export function ResultsTable() {
                                                 <TableCell className="font-medium px-4 sticky left-0 bg-background">{formatDate(result.date_arrivage)}</TableCell>
 
                                                 <TableCell className="px-4 sticky left-[120px] bg-background">
-                                                    <div className="flex items-center gap-2">
-                                                        <span>{fuelTypeMap.get(result.type_combustible) ?? '❓'}</span>
-                                                        <span>{result.type_combustible}</span>
-                                                    </div>
+                                                    {result.type_combustible}
                                                 </TableCell>
                                                 <TableCell className="px-4">{result.fournisseur}</TableCell>
                                                 <TableCell className="font-bold text-right px-4">

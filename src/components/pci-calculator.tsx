@@ -74,7 +74,6 @@ const formSchema = z.object({
 
 const newFuelTypeSchema = z.object({
     name: z.string().nonempty({ message: "Le nom du combustible est requis."}),
-    icon: z.string().nonempty({ message: "L'icône est requise." }),
     hValue: z.coerce.number({ required_error: "La valeur H est requise."}).min(0, { message: "La valeur H doit être positive." }),
 });
 
@@ -94,7 +93,6 @@ export function PciCalculator() {
   
   const [isFuelModalOpen, setIsFuelModalOpen] = useState(false);
   const [newFuelTypeName, setNewFuelTypeName] = useState("");
-  const [newFuelTypeIcon, setNewFuelTypeIcon] = useState("");
   const [newFuelTypeHValue, setNewFuelTypeHValue] = useState<number | string>("");
 
   const [isFournisseurModalOpen, setIsFournisseurModalOpen] = useState(false);
@@ -212,7 +210,6 @@ export function PciCalculator() {
       try {
         const newFuel = newFuelTypeSchema.parse({ 
             name: newFuelTypeName, 
-            icon: newFuelTypeIcon, 
             hValue: newFuelTypeHValue,
         });
 
@@ -410,7 +407,7 @@ export function PciCalculator() {
                                             <SelectContent side="bottom" avoidCollisions={false} className="z-50">
                                                 {allFuelTypes.map((fuel) => (
                                                     <SelectItem key={fuel.name} value={fuel.name}>
-                                                        {fuel.icon} {fuel.name}
+                                                        {fuel.name}
                                                     </SelectItem>
                                                 ))}
                                                 <Separator className="my-1" />
@@ -619,10 +616,6 @@ export function PciCalculator() {
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="name" className="text-right">Nom</Label>
                         <Input id="name" value={newFuelTypeName} onChange={(e) => setNewFuelTypeName(e.target.value)} className="col-span-3" />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="icon" className="text-right">Icône (emoji)</Label>
-                        <Input id="icon" value={newFuelTypeIcon} onChange={(e) => setNewFuelTypeIcon(e.target.value)} className="col-span-3" />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="hValue" className="text-right">Valeur H</Label>
