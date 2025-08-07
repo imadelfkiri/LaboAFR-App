@@ -1,5 +1,5 @@
 
-import { collection, getDocs, doc, writeBatch, query, setDoc, getDoc, addDoc, updateDoc, deleteDoc, where } from "firebase/firestore";
+import { collection, getDocs, doc, writeBatch, query, setDoc, getDoc, addDoc, updateDoc, deleteDoc, where, orderBy } from "firebase/firestore";
 import { db } from "./firebase";
 
 export const H_MAP: Record<string, number> = {};
@@ -21,6 +21,9 @@ export interface Specification {
 }
 
 export const SPEC_MAP = new Map<string, Specification>();
+
+let isSeeding = false;
+let isInitialized = false;
 
 const INITIAL_FUEL_TYPES: FuelType[] = [
     { name: "Textile", hValue: 6.0 },
@@ -57,29 +60,10 @@ const INITIAL_SPECIFICATIONS_DATA: Omit<Specification, 'id'>[] = [
     { type_combustible: 'Pneus', fournisseur: 'RJL', H2O_max: 1, PCI_min: 6800, Cl_max: 0.3, Cendres_max: 1, Soufre_max: null },
 ];
 
-const LOCAL_STORAGE_KEY = 'fueltrack_specifications';
-
-function initializeLocalStorage() {
-    if (typeof window !== 'undefined') {
-        const storedSpecs = localStorage.getItem(LOCAL_STORAGE_KEY);
-        if (!storedSpecs) {
-            const initialData = INITIAL_SPECIFICATIONS_DATA.map((spec, index) => ({
-                id: `spec_${index}_${Date.now()}`,
-                ...spec
-            }));
-            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(initialData));
-        }
-    }
-}
-
-initializeLocalStorage();
-
-// Populate H_MAP from the constant
 INITIAL_FUEL_TYPES.forEach(ft => {
     H_MAP[ft.name] = ft.hValue;
 });
 
-// These functions return constants, so they are synchronous
 export function getFuelTypes(): FuelType[] {
     return INITIAL_FUEL_TYPES;
 };
@@ -88,48 +72,65 @@ export function getFournisseurs(): string[] {
     return INITIAL_FOURNISSEURS;
 };
 
-// This function now returns local data
-export const getSpecifications = (): Specification[] => {
-    if (typeof window === 'undefined') {
-        return [];
-    }
-    const storedSpecs = localStorage.getItem(LOCAL_STORAGE_KEY);
-    const specifications = storedSpecs ? JSON.parse(storedSpecs) : [];
-    
+export async function getSpecifications(): Promise<Specification[]> {
+    await seedDatabase();
+    const q = query(collection(db, "specifications"));
+    const querySnapshot = await getDocs(q);
+    const specifications: Specification[] = [];
+    querySnapshot.forEach((doc) => {
+        specifications.push({ id: doc.id, ...doc.data() } as Specification);
+    });
+
     SPEC_MAP.clear();
     specifications.forEach((spec: Specification) => {
         SPEC_MAP.set(`${spec.type_combustible}|${spec.fournisseur}`, spec);
     });
+
     return specifications;
 };
 
-export const addSpecification = (spec: Omit<Specification, 'id'>) => {
-    const specifications = getSpecifications();
-    const exists = specifications.some(s => s.type_combustible === spec.type_combustible && s.fournisseur === spec.fournisseur);
-    if (exists) {
+export async function addSpecification(spec: Omit<Specification, 'id'>) {
+    const q = query(collection(db, "specifications"), where("type_combustible", "==", spec.type_combustible), where("fournisseur", "==", spec.fournisseur));
+    const existing = await getDocs(q);
+    if (!existing.empty) {
         throw new Error("Une spécification pour ce combustible et ce fournisseur existe déjà.");
     }
-    const newSpec = { ...spec, id: `spec_${Date.now()}` };
-    const updatedSpecs = [...specifications, newSpec];
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedSpecs));
+    await addDoc(collection(db, "specifications"), spec);
 };
 
-export const updateSpecification = (id: string, specUpdate: Partial<Specification>) => {
-    let specifications = getSpecifications();
-    const specIndex = specifications.findIndex(s => s.id === id);
-    if (specIndex > -1) {
-        specifications[specIndex] = { ...specifications[specIndex], ...specUpdate };
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(specifications));
-    }
+export async function updateSpecification(id: string, specUpdate: Partial<Omit<Specification, 'id'>>) {
+    const specRef = doc(db, "specifications", id);
+    await updateDoc(specRef, specUpdate);
 };
 
-export const deleteSpecification = (id: string) => {
-    let specifications = getSpecifications();
-    const updatedSpecs = specifications.filter(s => s.id !== id);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedSpecs));
+export async function deleteSpecification(id: string) {
+    await deleteDoc(doc(db, "specifications", id));
 };
 
-// This function is kept for potential future use but won't be called by default
 export async function seedDatabase() {
-    console.log("Seeding is now managed locally via localStorage.");
+    if (isInitialized || isSeeding) return;
+    isSeeding = true;
+    
+    try {
+        const flagRef = doc(db, "meta", "initialized");
+        const flagDoc = await getDoc(flagRef);
+
+        if (!flagDoc.exists()) {
+            console.log("Seeding database with initial specifications...");
+            const batch = writeBatch(db);
+            INITIAL_SPECIFICATIONS_DATA.forEach(spec => {
+                const docRef = doc(collection(db, "specifications"));
+                batch.set(docRef, spec);
+            });
+            batch.set(flagRef, { seeded: true });
+            await batch.commit();
+            console.log("Database seeded successfully.");
+        }
+        isInitialized = true;
+    } catch (error) {
+        console.error("Error seeding database: ", error);
+        // Do not re-throw, to allow app to function with local data if seeding fails
+    } finally {
+        isSeeding = false;
+    }
 }

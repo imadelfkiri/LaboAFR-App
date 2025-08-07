@@ -13,7 +13,8 @@ import {
     getFuelTypes,
     getFournisseurs,
     type Specification,
-    type FuelType
+    type FuelType,
+    seedDatabase
 } from "@/lib/data";
 import {
   Table,
@@ -89,13 +90,15 @@ export default function SpecificationsPage() {
         defaultValues: {},
     });
 
-    const fetchData = useCallback(() => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            // All functions now read from local constants or localStorage, so they are sync
-            const specs = getSpecifications();
-            const fTypes = getFuelTypes();
-            const founisseursList = getFournisseurs();
+            await seedDatabase();
+            const [specs, fTypes, founisseursList] = await Promise.all([
+                getSpecifications(),
+                getFuelTypes(),
+                getFournisseurs()
+            ]);
             
             setFuelTypes(fTypes);
             setFournisseurs(founisseursList);
@@ -109,7 +112,7 @@ export default function SpecificationsPage() {
 
         } catch (error) {
             console.error("Failed to fetch data:", error);
-            toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données." });
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données. Vérifiez la configuration App Check de Firestore." });
         } finally {
             setLoading(false);
         }
@@ -140,17 +143,17 @@ export default function SpecificationsPage() {
         setIsDialogOpen(true);
     };
 
-    const onSubmit = (data: SpecFormData) => {
+    const onSubmit = async (data: SpecFormData) => {
         try {
             const dataToSave = Object.fromEntries(
                 Object.entries(data).map(([key, value]) => [key, value === '' ? undefined : value])
             );
 
             if (currentSpec?.id) {
-                updateSpecification(currentSpec.id, dataToSave as Partial<Specification>);
+                await updateSpecification(currentSpec.id, dataToSave as Partial<Specification>);
                 toast({ title: "Succès", description: "Spécification mise à jour." });
             } else {
-                addSpecification(dataToSave as Omit<Specification, 'id'>);
+                await addSpecification(dataToSave as Omit<Specification, 'id'>);
                 toast({ title: "Succès", description: "Spécification ajoutée." });
             }
             setIsDialogOpen(false);
@@ -162,10 +165,10 @@ export default function SpecificationsPage() {
         }
     };
 
-    const handleDeleteConfirm = () => {
+    const handleDeleteConfirm = async () => {
         if (!specToDelete) return;
         try {
-            deleteSpecification(specToDelete);
+            await deleteSpecification(specToDelete);
             toast({ title: "Succès", description: "Spécification supprimée." });
             setSpecToDelete(null);
             fetchData();
