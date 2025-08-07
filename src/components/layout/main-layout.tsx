@@ -20,7 +20,7 @@ const pageTitles: { [key: string]: string } = {
   '/calculateur': 'Calculateur PCI',
   '/resultats': 'Historique des Résultats',
   '/statistiques': 'Tableau de Bord des Statistiques',
-  '/specifications': '', // Le titre est maintenant géré dans la page
+  '/specifications': 'Spécifications des AF',
 };
 
 export function MainLayout({ children }: { children: React.ReactNode }) {

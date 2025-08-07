@@ -125,10 +125,11 @@ export function ResultsTable() {
       
       const fetchInitialData = async () => {
         try {
-            const [fetchedFuelTypes, fetchedFournisseurs, fetchedSpecs] = await Promise.all([
+            // On s'assure que les specs sont chargées en premier pour peupler la SPEC_MAP
+            await getSpecifications(); 
+            const [fetchedFuelTypes, fetchedFournisseurs] = await Promise.all([
                 getFuelTypes(),
                 getFournisseurs(),
-                getSpecifications()
             ]);
 
             if (isMounted) {
@@ -141,35 +142,40 @@ export function ResultsTable() {
             if (isMounted) {
                 toast({ variant: "destructive", title: "Erreur de données", description: "Impossible de charger les données de configuration." });
             }
+        } finally {
+            if(isMounted) {
+                 const q = query(collection(db, "resultats"), orderBy("date_arrivage", "desc"));
+                const unsubscribe = onSnapshot(q, (querySnapshot) => {
+                    const resultsData: Result[] = [];
+                    querySnapshot.forEach((doc) => {
+                        const data = doc.data();
+                        if(data.type_combustible !== 'TEST'){
+                            resultsData.push({ id: doc.id, ...data } as Result);
+                        }
+                    });
+                    if (isMounted) {
+                        setResults(resultsData);
+                        setLoading(false);
+                    }
+                }, (error) => {
+                    console.error("Erreur de lecture Firestore:", error);
+                    if (isMounted) {
+                        toast({ variant: "destructive", title: "Erreur de chargement", description: "Impossible de charger l'historique des résultats." });
+                        setLoading(false);
+                    }
+                });
+                return () => {
+                    isMounted = false;
+                    unsubscribe();
+                };
+            }
         }
       };
       
       fetchInitialData();
 
-      const q = query(collection(db, "resultats"), orderBy("date_arrivage", "desc"));
-      const unsubscribe = onSnapshot(q, (querySnapshot) => {
-          const resultsData: Result[] = [];
-          querySnapshot.forEach((doc) => {
-              const data = doc.data();
-               if(data.type_combustible !== 'TEST'){
-                resultsData.push({ id: doc.id, ...data } as Result);
-              }
-          });
-          if (isMounted) {
-              setResults(resultsData);
-              setLoading(false);
-          }
-      }, (error) => {
-          console.error("Erreur de lecture Firestore:", error);
-          if (isMounted) {
-            toast({ variant: "destructive", title: "Erreur de chargement", description: "Impossible de charger l'historique des résultats." });
-            setLoading(false);
-          }
-      });
-
       return () => {
         isMounted = false;
-        unsubscribe();
       };
     }, [isClient, toast]);
 
