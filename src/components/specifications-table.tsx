@@ -306,7 +306,7 @@ export function SpecificationsTable() {
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Fournisseur</FormLabel>
-                                             <Select onValuechange={field.onChange} defaultValue={field.value}>
+                                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                 <FormControl>
                                                     <SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger>
                                                 </FormControl>
@@ -354,3 +354,5 @@ export function SpecificationsTable() {
         </div>
     );
 }
+
+    
