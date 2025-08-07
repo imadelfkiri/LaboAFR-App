@@ -299,9 +299,9 @@ export function PciCalculator() {
       const dataToSave = {
         ...values,
         pci_brut,
-        chlore: Number(values.chlore) || null,
-        cendres: Number(values.cendres) || null,
-        densite: Number(values.densite) || null,
+        chlore: values.chlore ? Number(values.chlore) : null,
+        cendres: values.cendres ? Number(values.cendres) : null,
+        densite: values.densite ? Number(values.densite) : null,
         remarques: values.remarques || "",
         date_creation: serverTimestamp(),
       };
@@ -659,5 +659,3 @@ export function PciCalculator() {
     </div>
   );
 }
-
-    
