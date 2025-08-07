@@ -82,7 +82,7 @@ export function ResultsTable() {
         setLoading(true);
         try {
             await firebaseAppPromise;
-            await getSpecifications(); // Populates SPEC_MAP
+            await getSpecifications(); 
 
             const q = query(collection(db, "resultats"), orderBy("date_creation", "desc"));
             const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -97,7 +97,7 @@ export function ResultsTable() {
                 toast({ variant: "destructive", title: "Erreur de lecture", description: "Impossible de charger l'historique des résultats." });
                 setLoading(false);
             });
-            return unsubscribe; // Return the unsubscribe function to be called on component unmount
+            return unsubscribe; 
 
         } catch (error) {
             console.error("Erreur lors de la récupération des données de base :", error);
@@ -107,13 +107,16 @@ export function ResultsTable() {
     }, [toast]);
 
     useEffect(() => {
-        const unsubscribe = fetchInitialData();
+        let unsubscribe: (() => void) | undefined;
+        fetchInitialData().then(unsub => {
+            if (unsub) {
+                unsubscribe = unsub;
+            }
+        });
         return () => {
-            unsubscribe.then(unsub => {
-                if(unsub) {
-                    unsub();
-                }
-            });
+            if (unsubscribe) {
+                unsubscribe();
+            }
         };
     }, [fetchInitialData]);
     
