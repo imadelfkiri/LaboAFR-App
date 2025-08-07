@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { collection, query, onSnapshot, orderBy, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
@@ -31,7 +31,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, XCircle, Trash2, Download, ChevronDown, FileOutput } from "lucide-react";
-import { getFuelTypes, type FuelType, getFournisseurs, getSpecifications, SPEC_MAP, Specification } from "@/lib/data";
+import { getFuelTypes, type FuelType, getFournisseurs, getSpecifications, SPEC_MAP, Specification, seedDatabase } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
 import {
@@ -43,6 +43,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
@@ -54,7 +55,6 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import * as XLSX from 'xlsx';
-import { AlertDialogTrigger } from './ui/alert-dialog';
 
 interface Result {
     id: string;
@@ -85,62 +85,50 @@ export function ResultsTable() {
         setIsClient(true)
     }, [])
 
-    useEffect(() => {
-      if (!isClient) return;
-      
-      let isMounted = true;
-      setLoading(true);
-      
-      const fetchInitialData = () => {
+    const fetchInitialData = useCallback(async () => {
+        if (!isClient) return;
+        setLoading(true);
         try {
-            const fetchedFuelTypes = getFuelTypes();
-            const fetchedFournisseurs = getFournisseurs();
-            getSpecifications(); // To ensure SPEC_MAP is populated
+            await seedDatabase();
+            const [fetchedFuelTypes, fetchedFournisseurs] = await Promise.all([
+                getFuelTypes(),
+                getFournisseurs(),
+                getSpecifications(), // To ensure SPEC_MAP is populated
+            ]);
+            setFuelTypes(fetchedFuelTypes);
+            setFournisseurs(fetchedFournisseurs);
 
-            if (isMounted) {
-                setFuelTypes(fetchedFuelTypes);
-                setFournisseurs(fetchedFournisseurs);
-            }
         } catch (error) {
             console.error("Erreur lors de la récupération des données de base :", error);
-            if (isMounted) {
-                toast({ variant: "destructive", title: "Erreur de données", description: "Impossible de charger les données de configuration." });
-            }
-        } finally {
-            if(isMounted) {
-                 const q = query(collection(db, "resultats"), orderBy("date_arrivage", "desc"));
-                const unsubscribe = onSnapshot(q, (querySnapshot) => {
-                    const resultsData: Result[] = [];
-                    querySnapshot.forEach((doc) => {
-                        const data = doc.data();
-                        if(data.type_combustible !== 'TEST'){
-                            resultsData.push({ id: doc.id, ...data } as Result);
-                        }
-                    });
-                    if (isMounted) {
-                        setResults(resultsData);
-                        setLoading(false);
-                    }
-                }, (error) => {
-                    console.error("Erreur de lecture Firestore:", error);
-                    if (isMounted) {
-                        toast({ variant: "destructive", title: "Erreur de chargement", description: "Impossible de charger l'historique des résultats." });
-                        setLoading(false);
-                    }
-                });
-                return () => {
-                    isMounted = false;
-                    unsubscribe();
-                };
-            }
+            toast({ variant: "destructive", title: "Erreur de données", description: "Impossible de charger les données de configuration." });
         }
-      };
-      
-      fetchInitialData();
+    }, [isClient, toast]);
 
-      return () => {
-        isMounted = false;
-      };
+    useEffect(() => {
+        fetchInitialData();
+    }, [fetchInitialData]);
+
+    useEffect(() => {
+        if (!isClient) return;
+
+        const q = query(collection(db, "resultats"), orderBy("date_arrivage", "desc"));
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            const resultsData: Result[] = [];
+            querySnapshot.forEach((doc) => {
+                const data = doc.data();
+                if(data.type_combustible !== 'TEST'){
+                    resultsData.push({ id: doc.id, ...data } as Result);
+                }
+            });
+            setResults(resultsData);
+            setLoading(false);
+        }, (error) => {
+            console.error("Erreur de lecture Firestore:", error);
+            toast({ variant: "destructive", title: "Erreur de chargement", description: "Impossible de charger l'historique des résultats." });
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
     }, [isClient, toast]);
 
     const filteredResults = useMemo(() => {
