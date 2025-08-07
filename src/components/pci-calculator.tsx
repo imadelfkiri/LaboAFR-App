@@ -56,7 +56,7 @@ import {
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator";
 import { calculerPCI } from '@/lib/pci';
-import { getFuelTypes, type FuelType, H_MAP, getFournisseurs, getFuelSupplierMap, fixFuelTypesMissingCreatedAt } from '@/lib/data';
+import { getFuelTypes, type FuelType, H_MAP, getFournisseurs, getFuelSupplierMap } from '@/lib/data';
 import { db } from '@/lib/firebase';
 import { useToast } from "@/hooks/use-toast";
 
@@ -140,8 +140,7 @@ export function PciCalculator() {
   };
 
   const fetchAndSetData = async () => {
-      await fixFuelTypesMissingCreatedAt(); 
-      const fetchedFuelTypes = await getFuelTypes();
+      const fetchedFuelTypes = getFuelTypes();
       
       const [fetchedFournisseurs, fetchedMap] = await Promise.all([
           getFournisseurs(),
