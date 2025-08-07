@@ -109,7 +109,6 @@ export function SpecificationsTable() {
         try {
             await firebaseAppPromise;
             
-            // This is the key change: ensure data exists before fetching.
             await seedSpecifications();
 
             const [fetchedSpecs, fetchedFuelTypes, fetchedFournisseurs] = await Promise.all([
@@ -131,6 +130,19 @@ export function SpecificationsTable() {
     useEffect(() => {
         fetchAllData();
     }, [fetchAllData]);
+
+    const uniqueFuelTypes = useMemo(() => {
+        const seen = new Set();
+        return fuelTypes.filter(ft => {
+            const duplicate = seen.has(ft.name);
+            seen.add(ft.name);
+            return !duplicate;
+        });
+    }, [fuelTypes]);
+
+    const uniqueFournisseurs = useMemo(() => {
+        return [...new Set(fournisseurs)];
+    }, [fournisseurs]);
 
     const handleModalOpen = (spec: Specification | null = null) => {
         setEditingSpec(spec);
@@ -281,7 +293,7 @@ export function SpecificationsTable() {
                                                     <SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
-                                                    {fuelTypes.map(ft => <SelectItem key={ft.name} value={ft.name}>{ft.name}</SelectItem>)}
+                                                    {uniqueFuelTypes.map(ft => <SelectItem key={ft.name} value={ft.name}>{ft.name}</SelectItem>)}
                                                 </SelectContent>
                                             </Select>
                                             <FormMessage />
@@ -294,12 +306,12 @@ export function SpecificationsTable() {
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Fournisseur</FormLabel>
-                                             <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                             <Select onValuechange={field.onChange} defaultValue={field.value}>
                                                 <FormControl>
                                                     <SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
-                                                    {fournisseurs.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                                                    {uniqueFournisseurs.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
                                                 </SelectContent>
                                             </Select>
                                             <FormMessage />
@@ -342,5 +354,3 @@ export function SpecificationsTable() {
         </div>
     );
 }
-
-    
