@@ -79,17 +79,18 @@ export async function seedDatabase() {
     isSeeding = true;
     seedPromise = (async () => {
         try {
-            const specsRef = collection(db, 'specifications');
-            const q = query(specsRef);
-            const snapshot = await getDocs(q);
+            const flagRef = doc(db, 'internal', 'seeded');
+            const flagDoc = await getDoc(flagRef);
             
-            if (snapshot.empty) {
-                console.log("Database is empty, seeding specifications...");
+            if (!flagDoc.exists()) {
+                console.log("Database not seeded. Seeding now...");
                 const batch = writeBatch(db);
                 INITIAL_SPECIFICATIONS_DATA.forEach(spec => {
                     const docRef = doc(collection(db, 'specifications'));
                     batch.set(docRef, spec);
                 });
+
+                batch.set(flagRef, { done: true });
                 await batch.commit();
                 console.log("Seeding complete.");
             }
@@ -117,6 +118,7 @@ export function getFournisseurs(): string[] {
 
 // This function needs to be async as it fetches from Firestore
 export const getSpecifications = async (): Promise<Specification[]> => {
+    await seedDatabase();
     const specsRef = collection(db, "specifications");
     const q = query(specsRef);
     const snapshot = await getDocs(q);

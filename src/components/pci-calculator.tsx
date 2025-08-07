@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -59,6 +59,7 @@ import { Separator } from "@/components/ui/separator";
 import { calculerPCI } from '@/lib/pci';
 import { getFuelTypes, type FuelType, H_MAP, getFournisseurs, addSpecification, getSpecifications } from '@/lib/data';
 import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from './ui/skeleton';
 
 const formSchema = z.object({
   date_arrivage: z.date({
@@ -86,6 +87,7 @@ export function PciCalculator() {
   const [pciResult, setPciResult] = useState<number | null>(null);
   const [hValue, setHValue] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [allFuelTypes, setAllFuelTypes] = useState<FuelType[]>([]);
   const [allFournisseurs, setAllFournisseurs] = useState<string[]>([]);
   const [fuelSupplierMap, setFuelSupplierMap] = useState<Record<string, string[]>>({});
@@ -135,25 +137,33 @@ export function PciCalculator() {
     setPciResult(null);
   };
 
-  const fetchAndSetData = async () => {
-      const fetchedFuelTypes = getFuelTypes();
-      const fetchedFournisseurs = getFournisseurs();
-      const specs = await getSpecifications();
+  const fetchAndSetData = useCallback(async () => {
+      setLoading(true);
+      try {
+        const fetchedFuelTypes = getFuelTypes();
+        const fetchedFournisseurs = getFournisseurs();
+        const specs = await getSpecifications();
 
-      const map: Record<string, string[]> = {};
-      specs.forEach(spec => {
-          if (!map[spec.type_combustible]) {
-              map[spec.type_combustible] = [];
-          }
-          if (!map[spec.type_combustible].includes(spec.fournisseur)) {
-              map[spec.type_combustible].push(spec.fournisseur);
-          }
-      });
-      
-      setAllFuelTypes(fetchedFuelTypes);
-      setAllFournisseurs(fetchedFournisseurs);
-      setFuelSupplierMap(map);
-  };
+        const map: Record<string, string[]> = {};
+        specs.forEach(spec => {
+            if (!map[spec.type_combustible]) {
+                map[spec.type_combustible] = [];
+            }
+            if (!map[spec.type_combustible].includes(spec.fournisseur)) {
+                map[spec.type_combustible].push(spec.fournisseur);
+            }
+        });
+        
+        setAllFuelTypes(fetchedFuelTypes);
+        setAllFournisseurs(fetchedFournisseurs);
+        setFuelSupplierMap(map);
+      } catch (e) {
+          console.error(e);
+          toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données de configuration." });
+      } finally {
+          setLoading(false);
+      }
+  }, [toast]);
 
   useEffect(() => {
     const yesterday = new Date();
@@ -323,6 +333,17 @@ export function PciCalculator() {
   }
 
   const isFournisseurDisabled = !typeCombustibleValue;
+
+  if (loading) {
+      return (
+          <div className="w-full max-w-4xl space-y-6 pb-24 p-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Skeleton className="h-[480px] w-full" />
+                <Skeleton className="h-[480px] w-full" />
+              </div>
+          </div>
+      )
+  }
 
   return (
     <div className="w-full max-w-4xl space-y-4 pb-24">

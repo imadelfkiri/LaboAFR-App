@@ -80,7 +80,6 @@ export default function SpecificationsPage() {
     const [fuelTypes, setFuelTypes] = useState<FuelType[]>([]);
     const [fournisseurs, setFournisseurs] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
-    const [isInitialized, setIsInitialized] = useState(false); // State to track initialization
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [currentSpec, setCurrentSpec] = useState<Specification | null>(null);
     const [specToDelete, setSpecToDelete] = useState<string | null>(null);
@@ -91,30 +90,17 @@ export default function SpecificationsPage() {
         defaultValues: {},
     });
 
-    // Initialize DB first
-    useEffect(() => {
-        const initialize = async () => {
-            try {
-                await seedDatabase();
-                setIsInitialized(true);
-            } catch (error) {
-                 console.error("Failed to initialize database:", error);
-                 toast({ variant: "destructive", title: "Erreur Critique", description: "Impossible d'initialiser la base de données." });
-                 setLoading(false);
-            }
-        };
-        initialize();
-    }, [toast]);
-
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
+            // seedDatabase is now called inside getSpecifications, so it's always initialized
             const specs = await getSpecifications();
             const fTypes = getFuelTypes();
             const founisseursList = getFournisseurs();
             
             setFuelTypes(fTypes);
             setFournisseurs(founisseursList);
+
             const sortedSpecs = specs.sort((a, b) => {
                 const typeComparison = a.type_combustible.localeCompare(b.type_combustible);
                 if (typeComparison !== 0) return typeComparison;
@@ -130,12 +116,9 @@ export default function SpecificationsPage() {
         }
     }, [toast]);
 
-    // Fetch data only after initialization is complete
     useEffect(() => {
-        if (isInitialized) {
-            fetchData();
-        }
-    }, [isInitialized, fetchData]);
+        fetchData();
+    }, [fetchData]);
 
     const handleDialogOpen = (spec: Specification | null = null) => {
         setCurrentSpec(spec);

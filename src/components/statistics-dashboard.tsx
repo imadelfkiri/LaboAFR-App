@@ -42,10 +42,9 @@ const formatNumber = (num: number, fractionDigits: number = 0) => {
 export function StatisticsDashboard() {
   const [results, setResults] = useState<Result[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    setIsClient(true);
+    setLoading(true);
     const q = query(collection(db, "resultats"));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -107,7 +106,7 @@ export function StatisticsDashboard() {
     }));
   }, [results]);
 
-  if (loading || !isClient) {
+  if (loading) {
     return (
       <div className="space-y-4">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -191,5 +190,3 @@ export function StatisticsDashboard() {
     </div>
   );
 }
-
-    

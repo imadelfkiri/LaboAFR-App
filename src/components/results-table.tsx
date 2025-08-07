@@ -79,36 +79,31 @@ export function ResultsTable() {
     const [fuelTypes, setFuelTypes] = useState<FuelType[]>([]);
     const [fournisseurs, setFournisseurs] = useState<string[]>([]);
     const { toast } = useToast();
-    const [isClient, setIsClient] = useState(false)
-
-    useEffect(() => {
-        setIsClient(true)
-    }, [])
 
     const fetchInitialData = useCallback(async () => {
-        if (!isClient) return;
         setLoading(true);
         try {
+            // getSpecifications also populates the SPEC_MAP which is needed for coloring
+            await getSpecifications(); 
+            
             const fetchedFuelTypes = getFuelTypes();
             const fetchedFournisseurs = getFournisseurs();
-            await getSpecifications(); // To ensure SPEC_MAP is populated
-            
             setFuelTypes(fetchedFuelTypes);
             setFournisseurs(fetchedFournisseurs);
 
         } catch (error) {
             console.error("Erreur lors de la récupération des données de base :", error);
             toast({ variant: "destructive", title: "Erreur de données", description: "Impossible de charger les données de configuration." });
+        } finally {
+            // Delay setting loading to false to allow onSnapshot to fetch results
         }
-    }, [isClient, toast]);
+    }, [toast]);
 
     useEffect(() => {
         fetchInitialData();
     }, [fetchInitialData]);
 
     useEffect(() => {
-        if (!isClient) return;
-
         const q = query(collection(db, "resultats"), orderBy("date_arrivage", "desc"));
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             const resultsData: Result[] = [];
@@ -127,7 +122,7 @@ export function ResultsTable() {
         });
 
         return () => unsubscribe();
-    }, [isClient, toast]);
+    }, [toast]);
 
     const filteredResults = useMemo(() => {
         return results.filter(result => {
@@ -366,7 +361,7 @@ export function ResultsTable() {
         return { text: alerts.join(' / '), color: "text-red-600" };
     };
 
-    if (loading || !isClient) {
+    if (loading) {
         return (
              <div className="space-y-2 p-4 lg:p-6">
                 <Skeleton className="h-10 w-full" />
@@ -570,5 +565,3 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
-
-    
