@@ -31,7 +31,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, XCircle, Trash2, Download, ChevronDown, FileOutput } from "lucide-react";
-import { getFuelTypes, type FuelType, getFournisseurs } from "@/lib/data";
+import { getFuelTypes, type FuelType, getFournisseurs, getSpecifications, SPEC_MAP } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
 import {
@@ -43,7 +43,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
@@ -94,6 +93,9 @@ export function ResultsTable() {
       
       const fetchInitialData = async () => {
         try {
+            // Fetch specifications first to populate SPEC_MAP
+            await getSpecifications();
+
             const [fetchedFuelTypes, fetchedFournisseurs] = await Promise.all([
                 getFuelTypes(),
                 getFournisseurs(),
@@ -329,6 +331,34 @@ export function ResultsTable() {
         exportToExcel(reportData, reportType);
     };
 
+    const generateAlerts = (result: Result) => {
+        const spec = SPEC_MAP.get(`${result.type_combustible}|${result.fournisseur}`);
+        if (!spec) {
+            return { text: "N/A", color: "text-muted-foreground" };
+        }
+
+        const alerts: string[] = [];
+
+        if (typeof spec.PCI_min === 'number' && result.pci_brut < spec.PCI_min) {
+            alerts.push("⚠️ PCI trop faible");
+        }
+        if (typeof spec.H2O_max === 'number' && result.h2o > spec.H2O_max) {
+            alerts.push("💧 H2O élevé");
+        }
+        if (typeof spec.Cl_max === 'number' && result.chlore > spec.Cl_max) {
+            alerts.push("🧪 Chlore élevé");
+        }
+        if (typeof spec.Cendres_max === 'number' && result.cendres > spec.Cendres_max) {
+            alerts.push("🔥 Cendres élevé");
+        }
+
+        if (alerts.length === 0) {
+            return { text: "✅ Conforme", color: "text-green-600" };
+        }
+
+        return { text: alerts.join(' • '), color: "text-red-600" };
+    };
+
     if (loading || !isClient) {
         return (
              <div className="space-y-2 p-4 lg:p-6">
@@ -443,13 +473,16 @@ export function ResultsTable() {
                                     <TableHead className="text-right px-4">% Cendres</TableHead>
                                     <TableHead className="text-right px-4">Densité</TableHead>
                                     <TableHead className="px-4">Remarques</TableHead>
+                                    <TableHead className="px-4 font-bold">Alertes</TableHead>
                                     <TableHead className="w-[50px] text-right px-4 sticky right-0 bg-muted/50">Action</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {filteredResults.length > 0 ? (
                                     <>
-                                        {filteredResults.map((result) => (
+                                        {filteredResults.map((result) => {
+                                            const alert = generateAlerts(result);
+                                            return (
                                             <TableRow key={result.id}>
                                                 <TableCell className="font-medium px-4 sticky left-0 bg-background">{formatDate(result.date_arrivage)}</TableCell>
 
@@ -481,6 +514,9 @@ export function ResultsTable() {
                                                         {result.remarques && <TooltipContent>{result.remarques}</TooltipContent>}
                                                     </Tooltip>
                                                 </TableCell>
+                                                <TableCell className={cn("px-4 font-semibold", alert.color)}>
+                                                    {alert.text}
+                                                </TableCell>
                                                 <TableCell className="text-right px-4 sticky right-0 bg-background">
                                                     <AlertDialogTrigger asChild>
                                                         <Button variant="ghost" size="icon" onClick={() => setResultToDelete(result.id)}>
@@ -489,7 +525,7 @@ export function ResultsTable() {
                                                     </AlertDialogTrigger>
                                                 </TableCell>
                                             </TableRow>
-                                        ))}
+                                        )})}
                                         <TableRow className="bg-muted/40 font-semibold">
                                             <TableCell colSpan={3} className="px-4 sticky left-0 bg-muted/40">Moyenne de la sélection</TableCell>
                                             <TableCell className="text-right text-primary px-4">{formatNumber(calculateAverage(filteredResults, 'pci_brut'), 0)}</TableCell>
@@ -497,12 +533,12 @@ export function ResultsTable() {
                                             <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'chlore'), 2)}</TableCell>
                                             <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'cendres'), 1)}</TableCell>
                                             <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'densite'), 2)}</TableCell>
-                                            <TableCell colSpan={2} className='sticky right-0 bg-muted/40'/>
+                                            <TableCell colSpan={3} className='sticky right-0 bg-muted/40'/>
                                         </TableRow>
                                     </>
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
+                                        <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
                                             Aucun résultat trouvé pour les filtres sélectionnés.
                                         </TableCell>
                                     </TableRow>

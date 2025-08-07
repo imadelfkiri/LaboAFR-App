@@ -203,6 +203,7 @@ const INITIAL_SPECIFICATIONS: Omit<Specification, 'id'>[] = [
 ];
 
 export const getSpecifications = async (): Promise<Specification[]> => {
+    SPEC_MAP.clear(); // Clear the map to avoid stale data on re-fetch
     const specsCollectionRef = collection(db, "specifications");
     const q = query(specsCollectionRef, orderBy("type_combustible"), orderBy("fournisseur"));
     const querySnapshot = await getDocs(q);
@@ -219,6 +220,7 @@ export const getSpecifications = async (): Promise<Specification[]> => {
             SPEC_MAP.set(`${newSpec.type_combustible}|${newSpec.fournisseur}`, newSpec);
         });
         await batch.commit();
+        console.log("Seeding complete. SPEC_MAP populated.");
         return specs;
     }
 
@@ -227,7 +229,7 @@ export const getSpecifications = async (): Promise<Specification[]> => {
         specs.push(data);
         SPEC_MAP.set(`${data.type_combustible}|${data.fournisseur}`, data);
     });
-
+    console.log("SPEC_MAP populated from existing Firestore data.");
     return specs;
 };
 
