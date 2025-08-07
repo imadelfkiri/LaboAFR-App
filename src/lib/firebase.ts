@@ -2,7 +2,7 @@
 // src/lib/firebase.ts
 import { initializeApp, getApp, type FirebaseApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
-import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
+import { initializeAppCheck, ReCaptchaV3Provider, AppCheck } from "firebase/app-check";
 
 const firebaseConfig = {
   "projectId": "fueltrack-afr",
@@ -16,30 +16,21 @@ const firebaseConfig = {
 
 // Initialize Firebase
 let app: FirebaseApp;
+let appCheck: AppCheck | null = null;
+
 try {
   app = getApp();
 } catch (e) {
   app = initializeApp(firebaseConfig);
 }
 
-const db = getFirestore(app);
-
-// Initialize App Check
-let appCheckInitialized: Promise<void> | null = null;
 if (typeof window !== 'undefined') {
-    appCheckInitialized = new Promise<void>((resolve) => {
-        try {
-            initializeAppCheck(app, {
-                provider: new ReCaptchaV3Provider('6Ld-sQ8qAAAAAGn4584i9GoV60ERb7aCU65_D2rO'),
-                isTokenAutoRefreshEnabled: true,
-            });
-            console.log("App Check initialized");
-        } catch (error) {
-            console.error("Error initializing App Check", error);
-        } finally {
-            resolve();
-        }
+    appCheck = initializeAppCheck(app, {
+        provider: new ReCaptchaV3Provider('6Ld-sQ8qAAAAAGn4584i9GoV60ERb7aCU65_D2rO'),
+        isTokenAutoRefreshEnabled: true,
     });
 }
 
-export { db, appCheckInitialized };
+const db = getFirestore(app);
+
+export { db, appCheck };

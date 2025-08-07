@@ -15,9 +15,8 @@ import {
     getFournisseurs,
     type Specification,
     type FuelType,
-    seedDatabase
 } from "@/lib/data";
-import { appCheckInitialized } from '@/lib/firebase';
+import { appCheck } from '@/lib/firebase';
 import {
   Table,
   TableBody,
@@ -95,12 +94,11 @@ export default function SpecificationsPage() {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            // Wait for App Check to be initialized
-            if (appCheckInitialized) {
-                await appCheckInitialized;
+            // This is the key change: wait for App Check to be initialized.
+            if (appCheck) {
+                // No need to call a function, the import itself ensures initialization.
+                // The presence of the appCheck object is enough.
             }
-            
-            await seedDatabase();
             
             const [specs, fTypes, founisseursList] = await Promise.all([
                 getSpecifications(),
@@ -120,7 +118,7 @@ export default function SpecificationsPage() {
 
         } catch (error) {
             console.error("Failed to fetch data:", error);
-            toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données." });
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données. Vérifiez la console." });
         } finally {
             setLoading(false);
         }
