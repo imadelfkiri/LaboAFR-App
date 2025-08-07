@@ -1,6 +1,7 @@
+
 // src/lib/data.ts
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, firebaseAppPromise } from './firebase';
 
 export const H_MAP: Record<string, number> = {};
 
@@ -73,6 +74,7 @@ export async function seedDatabase() {
         if (isSeeding) return;
         isSeeding = true;
         try {
+            await firebaseAppPromise;
             const seedCheckDoc = doc(db, 'internal', 'seed_check');
             const docSnap = await getDoc(seedCheckDoc);
             if (docSnap.exists()) {
@@ -113,6 +115,7 @@ export async function seedDatabase() {
 
 
 export async function getFuelTypes(): Promise<FuelType[]> {
+    await firebaseAppPromise;
     const fuelTypesCollection = collection(db, 'fuel_types');
     const snapshot = await getDocs(fuelTypesCollection);
     const fuelTypes = snapshot.docs.map(doc => doc.data() as FuelType);
@@ -126,6 +129,7 @@ export async function getFuelTypes(): Promise<FuelType[]> {
 };
 
 export async function getFournisseurs(): Promise<string[]> {
+    await firebaseAppPromise;
     const fournisseursCollection = collection(db, 'fournisseurs');
     const snapshot = await getDocs(fournisseursCollection);
     return snapshot.docs.map(doc => doc.data().name as string);
@@ -140,6 +144,7 @@ async function updateSpecMap() {
 }
 
 export async function getSpecifications(): Promise<Specification[]> {
+    await firebaseAppPromise;
     const specsCollection = collection(db, 'specifications');
     const snapshot = await getDocs(specsCollection);
     const specs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Specification));
@@ -153,6 +158,7 @@ export async function getSpecifications(): Promise<Specification[]> {
 };
 
 export async function addSpecification(spec: Omit<Specification, 'id'>) {
+    await firebaseAppPromise;
     const q = query(collection(db, "specifications"), where("type_combustible", "==", spec.type_combustible), where("fournisseur", "==", spec.fournisseur));
     const existing = await getDocs(q);
 if (!existing.empty) {
@@ -171,12 +177,14 @@ if (!existing.empty) {
 };
 
 export async function updateSpecification(id: string, specUpdate: Partial<Omit<Specification, 'id'>>) {
+    await firebaseAppPromise;
     const specRef = doc(db, 'specifications', id);
     await updateDoc(specRef, specUpdate);
     await updateSpecMap();
 };
 
 export async function deleteSpecification(id: string) {
+    await firebaseAppPromise;
     const specRef = doc(db, 'specifications', id);
     await deleteDoc(specRef);
     await updateSpecMap();

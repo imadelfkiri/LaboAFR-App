@@ -16,7 +16,6 @@ import {
     type Specification,
     type FuelType,
 } from "@/lib/data";
-import { firebaseAppPromise } from '@/lib/firebase';
 import {
   Table,
   TableBody,
@@ -94,8 +93,6 @@ export default function SpecificationsPage() {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            await firebaseAppPromise;
-            
             const [specs, fTypes, founisseursList] = await Promise.all([
                 getSpecifications(),
                 getFuelTypes(),
