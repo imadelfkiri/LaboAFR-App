@@ -12,6 +12,7 @@ import {
     deleteSpecification,
     getFuelTypes,
     getFournisseurs,
+    seedDatabase, // Import seedDatabase
     type Specification,
     type FuelType
 } from "@/lib/data";
@@ -79,6 +80,7 @@ export default function SpecificationsPage() {
     const [fuelTypes, setFuelTypes] = useState<FuelType[]>([]);
     const [fournisseurs, setFournisseurs] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isInitialized, setIsInitialized] = useState(false); // State to track initialization
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [currentSpec, setCurrentSpec] = useState<Specification | null>(null);
     const [specToDelete, setSpecToDelete] = useState<string | null>(null);
@@ -89,18 +91,30 @@ export default function SpecificationsPage() {
         defaultValues: {},
     });
 
+    // Initialize DB first
+    useEffect(() => {
+        const initialize = async () => {
+            try {
+                await seedDatabase();
+                setIsInitialized(true);
+            } catch (error) {
+                 console.error("Failed to initialize database:", error);
+                 toast({ variant: "destructive", title: "Erreur Critique", description: "Impossible d'initialiser la base de données." });
+                 setLoading(false);
+            }
+        };
+        initialize();
+    }, [toast]);
+
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const [specs] = await Promise.all([
-                getSpecifications(),
-            ]);
+            const specs = await getSpecifications();
             const fTypes = getFuelTypes();
             const founisseursList = getFournisseurs();
             
             setFuelTypes(fTypes);
             setFournisseurs(founisseursList);
-             // Sort specifications client-side
             const sortedSpecs = specs.sort((a, b) => {
                 const typeComparison = a.type_combustible.localeCompare(b.type_combustible);
                 if (typeComparison !== 0) return typeComparison;
@@ -116,9 +130,12 @@ export default function SpecificationsPage() {
         }
     }, [toast]);
 
+    // Fetch data only after initialization is complete
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        if (isInitialized) {
+            fetchData();
+        }
+    }, [isInitialized, fetchData]);
 
     const handleDialogOpen = (spec: Specification | null = null) => {
         setCurrentSpec(spec);
@@ -155,7 +172,7 @@ export default function SpecificationsPage() {
                 toast({ title: "Succès", description: "Spécification ajoutée." });
             }
             setIsDialogOpen(false);
-            fetchData(); // Refetch data to show changes
+            fetchData(); 
         } catch (error) {
             console.error("Failed to save specification:", error);
             const errorMessage = error instanceof Error ? error.message : "Impossible d'enregistrer la spécification.";
@@ -278,6 +295,7 @@ export default function SpecificationsPage() {
                                 </Select>
                             )}
                         />
+                         {form.formState.errors.type_combustible && <p className="text-sm font-medium text-destructive">{form.formState.errors.type_combustible.message}</p>}
                         <Controller
                             name="fournisseur"
                             control={form.control}
@@ -290,6 +308,7 @@ export default function SpecificationsPage() {
                                 </Select>
                             )}
                         />
+                        {form.formState.errors.fournisseur && <p className="text-sm font-medium text-destructive">{form.formState.errors.fournisseur.message}</p>}
                         <Input type="number" step="any" placeholder="PCI (min)" {...form.register("PCI_min")} />
                         <Input type="number" step="any" placeholder="H₂O (max %)" {...form.register("H2O_max")} />
                         <Input type="number" step="any" placeholder="Chlore (max %)" {...form.register("Cl_max")} />

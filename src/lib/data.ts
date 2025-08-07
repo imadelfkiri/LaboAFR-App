@@ -1,5 +1,5 @@
 
-import { collection, getDocs, doc, writeBatch, query, setDoc, orderBy, serverTimestamp, getDoc, addDoc, updateDoc, deleteDoc, where } from "firebase/firestore";
+import { collection, getDocs, doc, writeBatch, query, setDoc, getDoc, addDoc, updateDoc, deleteDoc, where } from "firebase/firestore";
 import { db } from "./firebase";
 
 export const H_MAP: Record<string, number> = {};
@@ -57,21 +57,48 @@ const INITIAL_SPECIFICATIONS_DATA: Omit<Specification, 'id'>[] = [
     { type_combustible: 'Pneus', fournisseur: 'RJL', H2O_max: 1, PCI_min: 6800, Cl_max: 0.3, Cendres_max: 1, Soufre_max: null },
 ];
 
+let isSeeding = false;
+let seedPromise: Promise<void> | null = null;
+
 export async function seedDatabase() {
-    const specsRef = collection(db, 'specifications');
-    const q = query(specsRef);
-    const snapshot = await getDocs(q);
-    
-    if (snapshot.empty) {
-        console.log("Database is empty, seeding specifications...");
-        const batch = writeBatch(db);
-        INITIAL_SPECIFICATIONS_DATA.forEach(spec => {
-            const docRef = doc(collection(db, 'specifications'));
-            batch.set(docRef, spec);
-        });
-        await batch.commit();
-        console.log("Seeding complete.");
+    if (seedPromise) {
+        return seedPromise;
     }
+    if (isSeeding) {
+        // Wait for the ongoing seeding to complete
+        return new Promise<void>((resolve) => {
+            const interval = setInterval(() => {
+                if (!isSeeding) {
+                    clearInterval(interval);
+                    resolve();
+                }
+            }, 100);
+        });
+    }
+
+    isSeeding = true;
+    seedPromise = (async () => {
+        try {
+            const specsRef = collection(db, 'specifications');
+            const q = query(specsRef);
+            const snapshot = await getDocs(q);
+            
+            if (snapshot.empty) {
+                console.log("Database is empty, seeding specifications...");
+                const batch = writeBatch(db);
+                INITIAL_SPECIFICATIONS_DATA.forEach(spec => {
+                    const docRef = doc(collection(db, 'specifications'));
+                    batch.set(docRef, spec);
+                });
+                await batch.commit();
+                console.log("Seeding complete.");
+            }
+        } finally {
+            isSeeding = false;
+            seedPromise = null;
+        }
+    })();
+    return seedPromise;
 }
 
 // Populate H_MAP from the constant

@@ -1,12 +1,10 @@
 
 "use client";
 
-import { useEffect } from 'react';
 import type {Metadata} from 'next';
 import { Toaster } from "@/components/ui/toaster"
 import './globals.css';
 import { MainLayout } from '@/components/layout/main-layout';
-import { seedDatabase } from '@/lib/data';
 
 // This is a client component, so metadata should be exported from page.tsx files if needed statically.
 // export const metadata: Metadata = {
@@ -19,19 +17,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-
-  useEffect(() => {
-    // Seed the database on initial app load
-    const initializeDatabase = async () => {
-      try {
-        await seedDatabase();
-        console.log("Database initialized successfully.");
-      } catch (error) {
-        console.error("Failed to initialize database:", error);
-      }
-    };
-    initializeDatabase();
-  }, []);
 
   return (
     <html lang="fr">
