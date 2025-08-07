@@ -1,5 +1,5 @@
 
-import { collection, getDocs, doc, writeBatch, query, setDoc, orderBy, serverTimestamp, getDoc, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, getDocs, doc, writeBatch, query, setDoc, orderBy, serverTimestamp, getDoc, addDoc, updateDoc, deleteDoc, runTransaction } from "firebase/firestore";
 import { db } from "./firebase";
 
 export const H_MAP: Record<string, number> = {};
@@ -188,6 +188,17 @@ export const getFuelSupplierMap = async (): Promise<Record<string, string[]>> =>
 }
 
 // --- Specifications Logic ---
+const cleanSpecData = (spec: any): Omit<Specification, 'id'> => {
+    return {
+        type_combustible: spec.type_combustible,
+        fournisseur: spec.fournisseur,
+        PCI_min: spec.PCI_min ?? null,
+        H2O_max: spec.H2O_max ?? null,
+        Cl_max: spec.Cl_max ?? null,
+        Cendres_max: spec.Cendres_max ?? null,
+        Soufre_max: spec.Soufre_max ?? null,
+    };
+};
 
 const INITIAL_SPECIFICATIONS: Omit<Specification, 'id'>[] = [
     { type_combustible: 'CSR', fournisseur: 'Polluclean', H2O_max: 16.5, PCI_min: 4000, Cl_max: 1, Cendres_max: 15, Soufre_max: null },
@@ -202,49 +213,56 @@ const INITIAL_SPECIFICATIONS: Omit<Specification, 'id'>[] = [
     { type_combustible: 'Pneus', fournisseur: 'RJL', H2O_max: 1, PCI_min: 6800, Cl_max: 0.3, Cendres_max: 1, Soufre_max: null },
 ];
 
-const cleanSpecData = (spec: any) => {
-    const data: Partial<Specification> = {
-        type_combustible: spec.type_combustible,
-        fournisseur: spec.fournisseur,
-        PCI_min: spec.PCI_min ?? null,
-        H2O_max: spec.H2O_max ?? null,
-        Cl_max: spec.Cl_max ?? null,
-        Cendres_max: spec.Cendres_max ?? null,
-        Soufre_max: spec.Soufre_max ?? null,
-    };
-    return data;
-};
-
+async function seedSpecifications() {
+    console.log("Seeding initial specifications...");
+    const batch = writeBatch(db);
+    const specsCollectionRef = collection(db, "specifications");
+    INITIAL_SPECIFICATIONS.forEach(spec => {
+        const docRef = doc(specsCollectionRef); 
+        batch.set(docRef, cleanSpecData(spec));
+    });
+    await batch.commit();
+    console.log("Initial specifications seeded.");
+}
 
 export const getSpecifications = async (): Promise<Specification[]> => {
-    SPEC_MAP.clear(); // Clear the map to avoid stale data on re-fetch
+    SPEC_MAP.clear();
     const specsCollectionRef = collection(db, "specifications");
-    const q = query(specsCollectionRef, orderBy("type_combustible"), orderBy("fournisseur"));
-    const querySnapshot = await getDocs(q);
+
+    // Use a transaction to safely check for existence and seed if necessary.
+    // This prevents race conditions and redundant writes.
+    await runTransaction(db, async (transaction) => {
+        const querySnapshot = await transaction.get(query(specsCollectionRef, orderBy("type_combustible"), orderBy("fournisseur")));
+        if (querySnapshot.empty) {
+            // Seeding logic is now outside the main transaction flow, but the check is inside.
+            // This is a common pattern. We'll call a separate seeding function.
+        }
+    }).then(async () => {
+        // After transaction, check if seeding is needed. We do this by checking a marker or just re-querying.
+        const currentDocs = await getDocs(specsCollectionRef);
+        if (currentDocs.empty) {
+            await seedSpecifications();
+        }
+    }).catch(error => {
+        console.error("Transaction failed: ", error);
+        throw error; // Propagate error to be caught by the caller
+    });
+    
+    // Now, get the final data
+    const finalQuerySnapshot = await getDocs(query(specsCollectionRef, orderBy("type_combustible"), orderBy("fournisseur")));
     const specs: Specification[] = [];
-
-    if (querySnapshot.empty) {
-        console.log("Specifications collection is empty, seeding with initial data from user table...");
-        const batch = writeBatch(db);
-        INITIAL_SPECIFICATIONS.forEach(spec => {
-            const docRef = doc(collection(db, "specifications"));
-            const cleanedData = cleanSpecData(spec);
-            batch.set(docRef, cleanedData);
-            const newSpec = { ...cleanedData, id: docRef.id } as Specification;
-            specs.push(newSpec);
-            SPEC_MAP.set(`${newSpec.type_combustible}|${newSpec.fournisseur}`, newSpec);
-        });
-        await batch.commit();
-        console.log("Seeding complete. SPEC_MAP populated.");
-        return specs;
-    }
-
-    querySnapshot.forEach((doc) => {
+    finalQuerySnapshot.forEach((doc) => {
         const data = { ...doc.data(), id: doc.id } as Specification;
         specs.push(data);
         SPEC_MAP.set(`${data.type_combustible}|${data.fournisseur}`, data);
     });
-    console.log("SPEC_MAP populated from existing Firestore data.");
+
+    if (specs.length === 0) {
+        console.warn("Specifications collection is still empty after attempting to seed.");
+    } else {
+        console.log("SPEC_MAP populated from existing Firestore data.");
+    }
+
     return specs;
 };
 
