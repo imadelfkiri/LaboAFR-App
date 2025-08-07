@@ -4,12 +4,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
-import { Flame, Database, BarChart3 } from 'lucide-react';
+import { Flame, Database, BarChart3, ClipboardCheck } from 'lucide-react';
 
 const links = [
   { href: '/calculateur', label: 'Calculateur PCI', icon: Flame },
   { href: '/resultats', label: 'Résultats', icon: Database },
   { href: '/statistiques', label: 'Statistiques', icon: BarChart3 },
+  { href: '/specifications', label: 'Spécifications', icon: ClipboardCheck },
 ];
 
 export function SidebarNav() {
@@ -21,7 +22,7 @@ export function SidebarNav() {
         <SidebarMenuItem key={link.href}>
           <SidebarMenuButton
             asChild
-            isActive={pathname === link.href}
+            isActive={pathname.startsWith(link.href)}
             tooltip={link.label}
           >
             <Link href={link.href}>

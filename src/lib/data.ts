@@ -11,6 +11,21 @@ export interface FuelType {
     createdAt?: { seconds: number; nanoseconds: number; };
 }
 
+export interface Specification {
+    id: string;
+    type_combustible: string;
+    fournisseur: string;
+    PCI_min?: number;
+    H2O_max?: number;
+    Cl_max?: number;
+    Cendres_max?: number;
+    Soufre_max?: number;
+}
+
+// Map to hold specifications for easy lookup. Key: "fuelType|fournisseur"
+export const SPEC_MAP = new Map<string, Specification>();
+
+
 export const INITIAL_FUEL_TYPES: Omit<FuelType, 'createdAt'>[] = [
     { name: "Textile", icon: "👗", hValue: 6.0 },
     { name: "RDF", icon: "🔁", hValue: 6.0 },
@@ -171,3 +186,61 @@ export const getFuelSupplierMap = async (): Promise<Record<string, string[]>> =>
 
     return map;
 }
+
+// --- Specifications Logic ---
+
+const INITIAL_SPECIFICATIONS: Omit<Specification, 'id'>[] = [
+    { type_combustible: 'CSR', fournisseur: 'Polluclean', H2O_max: 16.5, PCI_min: 4000, Cl_max: 1, Cendres_max: 15 },
+    { type_combustible: 'CSR', fournisseur: 'SMBRM', H2O_max: 14, PCI_min: 5000, Cl_max: 0.6 },
+    { type_combustible: 'DMB', fournisseur: 'MTR', H2O_max: 15, PCI_min: 4300, Cl_max: 0.6, Cendres_max: 15, Soufre_max: 0.5 },
+    { type_combustible: "Grignons d'olives", fournisseur: 'Ain Seddeine', H2O_max: 20, PCI_min: 3700, Cl_max: 0.5, Cendres_max: 5 },
+    { type_combustible: 'Plastiques', fournisseur: 'Bichara', H2O_max: 10, PCI_min: 4200, Cl_max: 1, Cendres_max: 15 },
+    { type_combustible: 'Plastiques', fournisseur: 'Ssardi', H2O_max: 18, PCI_min: 4200, Cl_max: 1, Cendres_max: 15 },
+    { type_combustible: 'Plastiques', fournisseur: 'ValRecete', H2O_max: 15, PCI_min: 4300, Cl_max: 1, Cendres_max: 15, Soufre_max: 0.5 },
+    { type_combustible: 'Plastiques', fournisseur: 'Valtradec', H2O_max: 10, PCI_min: 6000, Cl_max: 1, Cendres_max: 15, Soufre_max: 0.5 },
+    { type_combustible: 'Pneus', fournisseur: 'Aliapur', H2O_max: 1, PCI_min: 6800, Cl_max: 0.3, Cendres_max: 1 },
+    { type_combustible: 'Pneus', fournisseur: 'RJL', H2O_max: 1, PCI_min: 6800, Cl_max: 0.3, Cendres_max: 1 },
+];
+
+export const getSpecifications = async (): Promise<Specification[]> => {
+    const specsCollectionRef = collection(db, "specifications");
+    const q = query(specsCollectionRef, orderBy("type_combustible"), orderBy("fournisseur"));
+    const querySnapshot = await getDocs(q);
+    const specs: Specification[] = [];
+
+    if (querySnapshot.empty) {
+        console.log("Specifications collection is empty, seeding with initial data...");
+        const batch = writeBatch(db);
+        INITIAL_SPECIFICATIONS.forEach(spec => {
+            const docRef = doc(specsCollectionRef);
+            batch.set(docRef, spec);
+            const newSpec = { ...spec, id: docRef.id };
+            specs.push(newSpec);
+            SPEC_MAP.set(`${newSpec.type_combustible}|${newSpec.fournisseur}`, newSpec);
+        });
+        await batch.commit();
+        return specs;
+    }
+
+    querySnapshot.forEach((doc) => {
+        const data = { ...doc.data(), id: doc.id } as Specification;
+        specs.push(data);
+        SPEC_MAP.set(`${data.type_combustible}|${data.fournisseur}`, data);
+    });
+
+    return specs;
+};
+
+export const addSpecification = async (spec: Omit<Specification, 'id'>) => {
+    await addDoc(collection(db, "specifications"), spec);
+};
+
+export const updateSpecification = async (id: string, spec: Partial<Specification>) => {
+    const specDocRef = doc(db, "specifications", id);
+    await updateDoc(specDocRef, spec);
+};
+
+export const deleteSpecification = async (id: string) => {
+    const specDocRef = doc(db, "specifications", id);
+    await deleteDoc(specDocRef);
+};
