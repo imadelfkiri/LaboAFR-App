@@ -8,6 +8,8 @@ import * as z from "zod";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { CalendarIcon, Fuel, PlusCircle, ClipboardList, FlaskConical, MessageSquareText } from 'lucide-react';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -296,13 +298,14 @@ export function PciCalculator() {
         cendres: Number(values.cendres) || null,
         densite: Number(values.densite) || null,
         remarques: values.remarques || "",
+        date_creation: serverTimestamp(),
       };
 
-      console.log("Data to save:", dataToSave);
+      await addDoc(collection(db, 'resultats'), dataToSave);
       
       toast({
-          title: "Succès (Simulation)",
-          description: "Les résultats ont été enregistrés localement. L'intégration DB est nécessaire.",
+          title: "Succès",
+          description: "Les résultats ont été enregistrés avec succès.",
       });
       
       resetForm();
@@ -312,7 +315,7 @@ export function PciCalculator() {
         toast({
             variant: "destructive",
             title: "Erreur de soumission",
-            description: "Impossible de traiter le formulaire.",
+            description: "Impossible d'enregistrer les données. Veuillez vérifier votre connexion ou réessayer.",
         });
     } finally {
         setIsSaving(false);
