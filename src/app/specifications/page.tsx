@@ -15,7 +15,6 @@ import {
     type Specification,
     type FuelType
 } from "@/lib/data";
-import { db } from "@/lib/firebase";
 import {
   Table,
   TableBody,
@@ -58,9 +57,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { PlusCircle, Edit, Trash2, ShieldCheck, ShieldAlert } from "lucide-react";
+import { PlusCircle, Edit, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -82,9 +80,8 @@ export default function SpecificationsPage() {
     const [fournisseurs, setFournisseurs] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
-    const [isAlertOpen, setIsAlertOpen] = useState(false);
     const [currentSpec, setCurrentSpec] = useState<Specification | null>(null);
-    const [specToDelete, setSpecToDelete] = useState<Specification | null>(null);
+    const [specToDelete, setSpecToDelete] = useState<string | null>(null);
     const { toast } = useToast();
 
     const form = useForm<SpecFormData>({
@@ -158,9 +155,9 @@ export default function SpecificationsPage() {
     };
 
     const handleDeleteConfirm = async () => {
-        if (!specToDelete?.id) return;
+        if (!specToDelete) return;
         try {
-            await deleteSpecification(specToDelete.id);
+            await deleteSpecification(specToDelete);
             toast({ title: "Succès", description: "Spécification supprimée." });
             setSpecToDelete(null);
             fetchData();
@@ -180,63 +177,79 @@ export default function SpecificationsPage() {
 
     return (
         <div className="flex flex-1 flex-col gap-4 p-4 lg:p-6 h-full">
-            <Card>
-                <CardHeader>
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <CardTitle>Spécifications Techniques des AF</CardTitle>
-                            <CardDescription>
-                                Définir les seuils contractuels pour chaque combustible et fournisseur.
-                            </CardDescription>
+            <AlertDialog onOpenChange={(open) => !open && setSpecToDelete(null)}>
+                <Card>
+                    <CardHeader>
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <CardTitle>Spécifications Techniques des AF</CardTitle>
+                                <CardDescription>
+                                    Définir les seuils contractuels pour chaque combustible et fournisseur.
+                                </CardDescription>
+                            </div>
+                            <Button onClick={() => handleDialogOpen()}>
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                                Ajouter une Spécification
+                            </Button>
                         </div>
-                        <Button onClick={() => handleDialogOpen()}>
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            Ajouter une Spécification
-                        </Button>
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Type Combustible</TableHead>
-                                <TableHead>Fournisseur</TableHead>
-                                <TableHead className="text-right">PCI (min)</TableHead>
-                                <TableHead className="text-right">H₂O (max %)</TableHead>
-                                <TableHead className="text-right">Chlore (max %)</TableHead>
-                                <TableHead className="text-right">Cendres (max %)</TableHead>
-                                <TableHead className="text-right">Soufre (max %)</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {specifications.map((spec) => (
-                                <TableRow key={spec.id}>
-                                    <TableCell className="font-medium">{spec.type_combustible}</TableCell>
-                                    <TableCell>{spec.fournisseur}</TableCell>
-                                    <TableCell className="text-right">{renderCell(spec.PCI_min)}</TableCell>
-                                    <TableCell className="text-right">{renderCell(spec.H2O_max)}</TableCell>
-                                    <TableCell className="text-right">{renderCell(spec.Cl_max)}</TableCell>
-                                    <TableCell className="text-right">{renderCell(spec.Cendres_max)}</TableCell>
-                                    <TableCell className="text-right">{renderCell(spec.Soufre_max)}</TableCell>
-                                    <TableCell className="text-right">
-                                        <div className="flex items-center justify-end gap-2">
-                                            <Button variant="ghost" size="icon" onClick={() => handleDialogOpen(spec)}>
-                                                <Edit className="h-4 w-4" />
-                                            </Button>
-                                            <AlertDialogTrigger asChild>
-                                                <Button variant="ghost" size="icon" onClick={() => setSpecToDelete(spec)}>
-                                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                                </Button>
-                                            </AlertDialogTrigger>
-                                        </div>
-                                    </TableCell>
+                    </CardHeader>
+                    <CardContent>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Type Combustible</TableHead>
+                                    <TableHead>Fournisseur</TableHead>
+                                    <TableHead className="text-right">PCI (min)</TableHead>
+                                    <TableHead className="text-right">H₂O (max %)</TableHead>
+                                    <TableHead className="text-right">Chlore (max %)</TableHead>
+                                    <TableHead className="text-right">Cendres (max %)</TableHead>
+                                    <TableHead className="text-right">Soufre (max %)</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+                            </TableHeader>
+                            <TableBody>
+                                {specifications.map((spec) => (
+                                    <TableRow key={spec.id}>
+                                        <TableCell className="font-medium">{spec.type_combustible}</TableCell>
+                                        <TableCell>{spec.fournisseur}</TableCell>
+                                        <TableCell className="text-right">{renderCell(spec.PCI_min)}</TableCell>
+                                        <TableCell className="text-right">{renderCell(spec.H2O_max)}</TableCell>
+                                        <TableCell className="text-right">{renderCell(spec.Cl_max)}</TableCell>
+                                        <TableCell className="text-right">{renderCell(spec.Cendres_max)}</TableCell>
+                                        <TableCell className="text-right">{renderCell(spec.Soufre_max)}</TableCell>
+                                        <TableCell className="text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <Button variant="ghost" size="icon" onClick={() => handleDialogOpen(spec)}>
+                                                    <Edit className="h-4 w-4" />
+                                                </Button>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button variant="ghost" size="icon" onClick={() => setSpecToDelete(spec.id)}>
+                                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+                
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                    <AlertDialogTitle>Êtes-vous absolument sûr ?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Cette action est irréversible. La spécification sera définitivement supprimée.
+                    </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                    <AlertDialogCancel>Annuler</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive hover:bg-destructive/90">Supprimer</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
 
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogContent>
@@ -280,21 +293,8 @@ export default function SpecificationsPage() {
                     </form>
                 </DialogContent>
             </Dialog>
-            
-            <AlertDialog open={!!specToDelete} onOpenChange={(open) => !open && setSpecToDelete(null)}>
-                 <AlertDialogContent>
-                    <AlertDialogHeader>
-                    <AlertDialogTitle>Êtes-vous absolument sûr ?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        Cette action est irréversible. La spécification sera définitivement supprimée.
-                    </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                    <AlertDialogCancel>Annuler</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive hover:bg-destructive/90">Supprimer</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
         </div>
     );
 }
+
+    

@@ -195,7 +195,7 @@ const cleanSpecData = (spec: any): Omit<Specification, 'id'> => {
     };
     const fields: (keyof Omit<Specification, 'id' | 'type_combustible' | 'fournisseur'>)[] = ['PCI_min', 'H2O_max', 'Cl_max', 'Cendres_max', 'Soufre_max'];
     fields.forEach(field => {
-        cleaned[field] = spec[field] === undefined ? null : spec[field];
+        cleaned[field] = spec[field] === undefined || spec[field] === '' ? null : spec[field];
     });
     return cleaned;
 };
@@ -215,12 +215,14 @@ const INITIAL_SPECIFICATIONS: Omit<Specification, 'id'>[] = [
 
 async function seedSpecifications() {
     console.log("Seeding initial specifications...");
-    const batch = writeBatch(db);
     const specsCollectionRef = collection(db, "specifications");
+    const batch = writeBatch(db);
+    
     INITIAL_SPECIFICATIONS.forEach(spec => {
         const docRef = doc(specsCollectionRef); 
         batch.set(docRef, cleanSpecData(spec));
     });
+
     try {
         await batch.commit();
         console.log("Initial specifications seeded successfully.");
@@ -233,7 +235,9 @@ export const getSpecifications = async (): Promise<Specification[]> => {
     const specsCollectionRef = collection(db, "specifications");
     let querySnapshot = await getDocs(query(specsCollectionRef, orderBy("type_combustible"), orderBy("fournisseur")));
 
+    // If the collection is empty, seed it with initial data.
     if (querySnapshot.empty) {
+        console.log("Specifications collection is empty. Seeding data...");
         await seedSpecifications();
         // Re-fetch the data after seeding
         querySnapshot = await getDocs(query(specsCollectionRef, orderBy("type_combustible"), orderBy("fournisseur")));
@@ -243,7 +247,7 @@ export const getSpecifications = async (): Promise<Specification[]> => {
     SPEC_MAP.clear(); // Clear the map before populating
 
     querySnapshot.forEach((doc) => {
-        const data = { ...doc.data(), id: doc.id } as Specification;
+        const data = { id: doc.id, ...doc.data() } as Specification;
         specs.push(data);
         SPEC_MAP.set(`${data.type_combustible}|${data.fournisseur}`, data);
     });
@@ -265,3 +269,5 @@ export const deleteSpecification = async (id: string) => {
     const specDocRef = doc(db, "specifications", id);
     await deleteDoc(specDocRef);
 };
+
+    
