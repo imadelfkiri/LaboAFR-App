@@ -98,8 +98,8 @@ export default function SpecificationsPage() {
             await seedDatabase();
             const [specs, fTypes, founisseursList] = await Promise.all([
                 getSpecifications(),
-                Promise.resolve(getFuelTypes()),
-                Promise.resolve(getFournisseurs())
+                getFuelTypes(),
+                getFournisseurs()
             ]);
             
             setFuelTypes(fTypes);
