@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, query, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
   Card,
@@ -46,13 +46,15 @@ export function StatisticsDashboard() {
 
   useEffect(() => {
     setIsClient(true);
-    const q = query(collection(db, "resultats"), orderBy("date_arrivage", "asc"));
+    const q = query(collection(db, "resultats"));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const resultsData: Result[] = [];
       querySnapshot.forEach((doc) => {
         resultsData.push({ id: doc.id, ...doc.data() } as Result);
       });
+      // Sort results by date client-side
+      resultsData.sort((a, b) => a.date_arrivage.seconds - b.date_arrivage.seconds);
       setResults(resultsData);
       setLoading(false);
     }, (error) => {
@@ -67,9 +69,9 @@ export function StatisticsDashboard() {
     if (results.length === 0) {
       return { pciMoyen: 0, h2oMoyen: 0, chloreMoyen: 0, granulometrieMoyenne: 0 };
     }
-    const totalPci = results.reduce((acc, curr) => acc + curr.pci_brut, 0);
-    const totalH2o = results.reduce((acc, curr) => acc + curr.h2o, 0);
-    const totalChlore = results.reduce((acc, curr) => acc + curr.chlore, 0);
+    const totalPci = results.reduce((acc, curr) => acc + (curr.pci_brut || 0), 0);
+    const totalH2o = results.reduce((acc, curr) => acc + (curr.h2o || 0), 0);
+    const totalChlore = results.reduce((acc, curr) => acc + (curr.chlore || 0), 0);
 
     return {
       pciMoyen: totalPci / results.length,
@@ -81,11 +83,13 @@ export function StatisticsDashboard() {
   const pciByFuelType = useMemo(() => {
     const dataByFuel: { [key: string]: { totalPci: number; count: number } } = {};
     results.forEach(result => {
-      if (!dataByFuel[result.type_combustible]) {
-        dataByFuel[result.type_combustible] = { totalPci: 0, count: 0 };
+      if(result.type_combustible && result.pci_brut) {
+        if (!dataByFuel[result.type_combustible]) {
+          dataByFuel[result.type_combustible] = { totalPci: 0, count: 0 };
+        }
+        dataByFuel[result.type_combustible].totalPci += result.pci_brut;
+        dataByFuel[result.type_combustible].count++;
       }
-      dataByFuel[result.type_combustible].totalPci += result.pci_brut;
-      dataByFuel[result.type_combustible].count++;
     });
 
     return Object.entries(dataByFuel).map(([name, data]) => ({
@@ -95,7 +99,9 @@ export function StatisticsDashboard() {
   }, [results]);
   
   const pciOverTime = useMemo(() => {
-    return results.map(result => ({
+    return results
+    .filter(result => result.date_arrivage?.seconds)
+    .map(result => ({
       date: format(new Date(result.date_arrivage.seconds * 1000), 'dd/MM/yy'),
       pci_brut: result.pci_brut,
     }));
