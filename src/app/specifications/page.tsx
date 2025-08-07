@@ -92,17 +92,19 @@ export default function SpecificationsPage() {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const [specs, fTypes, founisseursList] = await Promise.all([
-                getSpecifications(),
-                getFuelTypes(),
-                getFournisseurs(),
-            ]);
-            setSpecifications(specs);
+            // Fetch dependencies first
+            const fTypes = await getFuelTypes();
+            const founisseursList = await getFournisseurs();
             setFuelTypes(fTypes);
             setFournisseurs(founisseursList);
+
+            // Then fetch specifications
+            const specs = await getSpecifications();
+            setSpecifications(specs);
+
         } catch (error) {
             console.error("Failed to fetch data:", error);
-            toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données." });
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données. Veuillez actualiser la page." });
         } finally {
             setLoading(false);
         }
@@ -296,5 +298,3 @@ export default function SpecificationsPage() {
         </div>
     );
 }
-
-    
