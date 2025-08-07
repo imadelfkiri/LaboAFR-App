@@ -133,14 +133,14 @@ export default function SpecificationsPage() {
         setIsDialogOpen(true);
     };
 
-    const onSubmit = async (data: SpecFormData) => {
+    const onSubmit = (data: SpecFormData) => {
         try {
             const dataToSave = Object.fromEntries(
-                Object.entries(data).map(([key, value]) => [key, value === '' ? null : value])
+                Object.entries(data).map(([key, value]) => [key, value === '' ? undefined : value])
             );
 
             if (currentSpec?.id) {
-                updateSpecification(currentSpec.id, dataToSave as Specification);
+                updateSpecification(currentSpec.id, { ...currentSpec, ...dataToSave });
                 toast({ title: "Succès", description: "Spécification mise à jour." });
             } else {
                 addSpecification(dataToSave as Omit<Specification, 'id'>);
@@ -154,7 +154,7 @@ export default function SpecificationsPage() {
         }
     };
 
-    const handleDeleteConfirm = async () => {
+    const handleDeleteConfirm = () => {
         if (!specToDelete) return;
         try {
             deleteSpecification(specToDelete);

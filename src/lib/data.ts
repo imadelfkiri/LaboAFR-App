@@ -1,4 +1,5 @@
 
+
 import { collection, getDocs, doc, writeBatch, query, setDoc, orderBy, serverTimestamp, getDoc, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { db } from "./firebase";
 
@@ -42,6 +43,12 @@ export const INITIAL_FUEL_TYPES: Omit<FuelType, 'createdAt'>[] = [
     { name: "Bois", icon: "🌲", hValue: 6.0 },
 ];
 
+const INITIAL_FOURNISSEURS = [
+    "Ain Seddeine", "Aliapur", "Bichara", "Géocycle", "MTR", "ONEE",
+    "NAJD", "Polluclean", "SMBRM", "Sotraforest", "Ssardi", "RJL", "CNAPP",
+    "ValRecete", "Valtradec"
+];
+
 const INITIAL_SPECIFICATIONS_DATA: Omit<Specification, 'id'>[] = [
     { type_combustible: 'CSR', fournisseur: 'Polluclean', H2O_max: 16.5, PCI_min: 4000, Cl_max: 1, Cendres_max: 15, Soufre_max: null },
     { type_combustible: 'CSR', fournisseur: 'SMBRM', H2O_max: 14, PCI_min: 5000, Cl_max: 0.6, Cendres_max: null, Soufre_max: null },
@@ -55,200 +62,67 @@ const INITIAL_SPECIFICATIONS_DATA: Omit<Specification, 'id'>[] = [
     { type_combustible: 'Pneus', fournisseur: 'RJL', H2O_max: 1, PCI_min: 6800, Cl_max: 0.3, Cendres_max: 1, Soufre_max: null },
 ];
 
-async function seedInitialData() {
-    const batch = writeBatch(db);
+INITIAL_FUEL_TYPES.forEach(ft => {
+    if (ft.hValue !== undefined) H_MAP[ft.name] = ft.hValue;
+});
 
-    // Seed Fuel Types
-    const fuelTypesCollectionRef = collection(db, "fuel_types");
-    INITIAL_FUEL_TYPES.forEach((fuelType) => {
-        const docRef = doc(fuelTypesCollectionRef, fuelType.name);
-        batch.set(docRef, { ...fuelType, createdAt: serverTimestamp() });
+// Populate SPEC_MAP from initial data
+if (SPEC_MAP.size === 0) {
+    INITIAL_SPECIFICATIONS_DATA.forEach((spec, index) => {
+        const id = `spec-${index}`;
+        const fullSpec: Specification = { id, ...spec };
+        SPEC_MAP.set(`${fullSpec.type_combustible}|${fullSpec.fournisseur}`, fullSpec);
     });
-
-    // Seed Fournisseurs
-    const fournisseursCollectionRef = collection(db, "fournisseurs");
-    const uniqueFournisseurs = [...new Set(INITIAL_SPECIFICATIONS_DATA.map(s => s.fournisseur))];
-    uniqueFournisseurs.forEach(name => {
-        if(name) {
-            const docRef = doc(fournisseursCollectionRef, name);
-            batch.set(docRef, { name });
-        }
-    });
-
-    // Seed Specifications
-    const specsCollectionRef = collection(db, "specifications");
-    INITIAL_SPECIFICATIONS_DATA.forEach(spec => {
-        const docRef = doc(specsCollectionRef);
-        batch.set(docRef, cleanSpecData(spec));
-    });
-
-    try {
-        await batch.commit();
-        console.log("Initial data seeded successfully.");
-    } catch (error) {
-        console.error("Error seeding initial data:", error);
-        throw error; // Re-throw the error to be caught by the caller
-    }
 }
 
 
-export const getFuelTypes = async (): Promise<FuelType[]> => {
-    const fuelTypesCollectionRef = collection(db, "fuel_types");
-    const q = query(fuelTypesCollectionRef, orderBy("createdAt", "asc"));
-    const querySnapshot = await getDocs(q);
-
-    const types: FuelType[] = [];
-    querySnapshot.forEach((doc) => {
-        const data = doc.data() as FuelType;
-        if (data.name !== "TEST") {
-            types.push(data);
-            if (data.hValue !== undefined) {
-                H_MAP[data.name] = data.hValue;
-            }
-        }
-    });
-    
-    types.forEach(t => {
-        if (t.hValue !== undefined) H_MAP[t.name] = t.hValue;
-    });
-
-    return types;
+export const getFuelTypes = (): FuelType[] => {
+    return INITIAL_FUEL_TYPES.map(ft => ({...ft}));
 };
 
+export const getFournisseurs = (): string[] => {
+    return [...INITIAL_FOURNISSEURS];
+};
 
-export const fixFuelTypesMissingCreatedAt = async () => {
-    const ref = collection(db, "fuel_types");
-    const snapshot = await getDocs(ref);
-    const batch = writeBatch(db);
-    let updatesMade = false;
+export const getSpecifications = (): Specification[] => {
+    return Array.from(SPEC_MAP.values()).sort((a,b) => 
+        a.type_combustible.localeCompare(b.type_combustible) || a.fournisseur.localeCompare(b.fournisseur)
+    );
+};
 
-    snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        if (!data.createdAt) {
-            updatesMade = true;
-            const docRef = doc(ref, docSnap.id);
-            batch.update(docRef, { createdAt: serverTimestamp() });
+export const addSpecification = (spec: Omit<Specification, 'id'>) => {
+    const id = `spec-${Date.now()}`;
+    const newSpec: Specification = {id, ...spec};
+    const key = `${newSpec.type_combustible}|${newSpec.fournisseur}`;
+    
+    // Check for duplicates
+    for (const s of SPEC_MAP.values()) {
+        if (s.type_combustible === newSpec.type_combustible && s.fournisseur === newSpec.fournisseur) {
+            throw new Error("Une spécification pour ce combustible et ce fournisseur existe déjà.");
         }
-    });
+    }
+    
+    SPEC_MAP.set(key, newSpec);
+};
 
-    if (updatesMade) {
-        try {
-            await batch.commit();
-            console.log("Mise à jour terminée : Tous les documents fuel_types ont maintenant un champ createdAt.");
-        } catch(error) {
-            console.error("Erreur lors de la mise à jour des createdAt", error);
+export const updateSpecification = (id: string, spec: Specification) => {
+     const key = `${spec.type_combustible}|${spec.fournisseur}`;
+     
+     // Find old key to delete if it's different
+     for(let [k, v] of SPEC_MAP.entries()){
+         if(v.id === id && k !== key){
+             SPEC_MAP.delete(k);
+         }
+     }
+
+     SPEC_MAP.set(key, spec);
+};
+
+export const deleteSpecification = (id: string) => {
+    for (const [key, value] of SPEC_MAP.entries()) {
+        if (value.id === id) {
+            SPEC_MAP.delete(key);
+            break;
         }
     }
 };
-
-const INITIAL_FOURNISSEURS = [
-    "Ain Seddeine", "Aliapur", "Bichara", "Géocycle", "MTR", "ONEE",
-    "NAJD", "Polluclean", "SMBRM", "Sotraforest", "Ssardi", "RJL", "CNAPP",
-    "ValRecete", "Valtradec"
-];
-
-export const getFournisseurs = async (): Promise<string[]> => {
-    const fournisseursCollectionRef = collection(db, "fournisseurs");
-    const querySnapshot = await getDocs(query(fournisseursCollectionRef, orderBy("name", "asc")));
-    const fournisseurs: string[] = [];
-    querySnapshot.forEach((doc) => {
-        fournisseurs.push(doc.data().name);
-    });
-
-    return fournisseurs;
-};
-
-const INITIAL_FUEL_TYPE_SUPPLIERS_MAP: Record<string, string[]> = {
-    "Bois": ["Sotraforest", "CNAPP", "SMBRM"],
-    "Boues": ["ONEE"],
-    "CSR": ["SMBRM", "Polluclean"],
-    "Caoutchouc": ["Bichara", "SMBRM"],
-    "Charbon": [],
-    "DMB": ["MTR"],
-    "Grignons d'olives": ["Ain Seddeine"],
-    "Mélange": ["SMBRM"],
-    "Pet Coke": [],
-    "Plastiques": ["Bichara", "ValRecete", "Ssardi", "Valtradec", "NAJD"],
-    "Pneus": ["Aliapur", "RJL", "SMBRM"],
-    "RDF": ["Géocycle"],
-    "Textile": ["SMBRM"]
-};
-
-export const getFuelSupplierMap = async (): Promise<Record<string, string[]>> => {
-    const mapCollectionRef = collection(db, "fuel_supplier_map");
-    const querySnapshot = await getDocs(mapCollectionRef);
-    const map: Record<string, string[]> = {};
-
-    if (querySnapshot.empty) {
-        console.log("Fuel supplier map is empty, seeding with initial data...");
-        const batch = writeBatch(db);
-        Object.entries(INITIAL_FUEL_TYPE_SUPPLIERS_MAP).forEach(([fuel, suppliers]) => {
-            const docRef = doc(mapCollectionRef, fuel);
-            batch.set(docRef, { suppliers });
-        });
-        await batch.commit();
-        console.log("Seeding complete for fuel supplier map.");
-    }
-    
-    const existingSnapshot = await getDocs(mapCollectionRef);
-    existingSnapshot.forEach((doc) => {
-        map[doc.id] = doc.data().suppliers;
-    });
-
-    return map;
-}
-
-// --- Specifications Logic ---
-const cleanSpecData = (spec: any): Omit<Specification, 'id'> => {
-    const cleaned: any = {
-        type_combustible: spec.type_combustible,
-        fournisseur: spec.fournisseur,
-    };
-    const fields: (keyof Omit<Specification, 'id' | 'type_combustible' | 'fournisseur'>)[] = ['PCI_min', 'H2O_max', 'Cl_max', 'Cendres_max', 'Soufre_max'];
-    fields.forEach(field => {
-        const value = spec[field];
-        cleaned[field] = value === undefined || value === '' || value === null ? null : Number(value);
-    });
-    return cleaned;
-};
-
-
-export const getSpecifications = async (): Promise<Specification[]> => {
-    const specsCollectionRef = collection(db, "specifications");
-    let querySnapshot = await getDocs(specsCollectionRef);
-
-    if (querySnapshot.empty) {
-        console.log("Specifications collection is empty. Seeding data...");
-        await seedInitialData();
-        // Re-fetch after seeding
-        querySnapshot = await getDocs(query(specsCollectionRef, orderBy("type_combustible"), orderBy("fournisseur")));
-    }
-    
-    const specs: Specification[] = [];
-    SPEC_MAP.clear();
-
-    querySnapshot.forEach((doc) => {
-        const data = { id: doc.id, ...doc.data() } as Specification;
-        specs.push(data);
-        SPEC_MAP.set(`${data.type_combustible}|${data.fournisseur}`, data);
-    });
-
-    return specs;
-};
-
-
-export const addSpecification = async (spec: Omit<Specification, 'id'>) => {
-    await addDoc(collection(db, "specifications"), cleanSpecData(spec));
-};
-
-export const updateSpecification = async (id: string, spec: Partial<Specification>) => {
-    const specDocRef = doc(db, "specifications", id);
-    await updateDoc(specDocRef, cleanSpecData(spec));
-};
-
-export const deleteSpecification = async (id: string) => {
-    const specDocRef = doc(db, "specifications", id);
-    await deleteDoc(specDocRef);
-};
-
-    
