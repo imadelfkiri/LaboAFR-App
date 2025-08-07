@@ -20,7 +20,6 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
-    DialogDescription,
     DialogFooter,
     DialogClose,
 } from "@/components/ui/dialog";
@@ -59,11 +58,11 @@ import { useToast } from "@/hooks/use-toast";
 const specSchema = z.object({
   combustible: z.string().nonempty({ message: "Le combustible est requis." }),
   fournisseur: z.string().nonempty({ message: "Le fournisseur est requis." }),
-  h2o: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).optional(),
-  pci: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).optional(),
-  chlorures: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).optional(),
-  cendres: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).optional(),
-  soufre: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).optional(),
+  H2O_max: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).optional(),
+  PCI_min: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).optional(),
+  Cl_max: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).optional(),
+  Cendres_max: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).optional(),
+  Soufre_max: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).optional(),
 });
 
 type SpecFormData = z.infer<typeof specSchema>;
@@ -83,11 +82,11 @@ export default function SpecificationsPage() {
     defaultValues: {
       combustible: "",
       fournisseur: "",
-      h2o: undefined,
-      pci: undefined,
-      chlorures: undefined,
-      cendres: undefined,
-      soufre: undefined,
+      H2O_max: undefined,
+      PCI_min: undefined,
+      Cl_max: undefined,
+      Cendres_max: undefined,
+      Soufre_max: undefined,
     },
   });
 
@@ -114,22 +113,22 @@ export default function SpecificationsPage() {
     if (spec) {
        const defaultValues = {
             ...spec,
-            h2o: spec.h2o ?? undefined,
-            pci: spec.pci ?? undefined,
-            chlorures: spec.chlorures ?? undefined,
-            cendres: spec.cendres ?? undefined,
-            soufre: spec.soufre ?? undefined,
+            H2O_max: spec.H2O_max ?? undefined,
+            PCI_min: spec.PCI_min ?? undefined,
+            Cl_max: spec.Cl_max ?? undefined,
+            Cendres_max: spec.Cendres_max ?? undefined,
+            Soufre_max: spec.Soufre_max ?? undefined,
         };
       form.reset(defaultValues);
     } else {
       form.reset({
         combustible: "",
         fournisseur: "",
-        h2o: undefined,
-        pci: undefined,
-        chlorures: undefined,
-        cendres: undefined,
-        soufre: undefined,
+        H2O_max: undefined,
+        PCI_min: undefined,
+        Cl_max: undefined,
+        Cendres_max: undefined,
+        Soufre_max: undefined,
       });
     }
     setIsModalOpen(true);
@@ -145,11 +144,11 @@ export default function SpecificationsPage() {
     const dataToSave = {
       combustible: formData.combustible,
       fournisseur: formData.fournisseur,
-      h2o: formData.h2o === undefined || isNaN(formData.h2o) ? null : formData.h2o,
-      pci: formData.pci === undefined || isNaN(formData.pci) ? null : formData.pci,
-      chlorures: formData.chlorures === undefined || isNaN(formData.chlorures) ? null : formData.chlorures,
-      cendres: formData.cendres === undefined || isNaN(formData.cendres) ? null : formData.cendres,
-      soufre: formData.soufre === undefined || isNaN(formData.soufre) ? null : formData.soufre,
+      H2O_max: formData.H2O_max === undefined || isNaN(formData.H2O_max) ? null : formData.H2O_max,
+      PCI_min: formData.PCI_min === undefined || isNaN(formData.PCI_min) ? null : formData.PCI_min,
+      Cl_max: formData.Cl_max === undefined || isNaN(formData.Cl_max) ? null : formData.Cl_max,
+      Cendres_max: formData.Cendres_max === undefined || isNaN(formData.Cendres_max) ? null : formData.Cendres_max,
+      Soufre_max: formData.Soufre_max === undefined || isNaN(formData.Soufre_max) ? null : formData.Soufre_max,
     };
 
     try {
@@ -187,7 +186,7 @@ export default function SpecificationsPage() {
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
         <div className="flex justify-between items-center">
-            <div></div>
+            <h1 className="text-2xl font-bold">Spécifications des AF</h1>
             <Button onClick={() => handleModalOpen()}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Ajouter une spécification
@@ -200,11 +199,11 @@ export default function SpecificationsPage() {
               <TableRow>
                 <TableHead>Combustible</TableHead>
                 <TableHead>Fournisseur</TableHead>
-                <TableHead>H₂O (&lt;= %)</TableHead>
-                <TableHead>PCI (&gt;= kcal/kg)</TableHead>
-                <TableHead>Chlorures (&lt;= %)</TableHead>
-                <TableHead>Cendres (&lt;= %)</TableHead>
-                <TableHead>Soufre (&lt;= %)</TableHead>
+                <TableHead>H₂O (max %)</TableHead>
+                <TableHead>PCI (min kcal/kg)</TableHead>
+                <TableHead>Chlorures (max %)</TableHead>
+                <TableHead>Cendres (max %)</TableHead>
+                <TableHead>Soufre (max %)</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -222,11 +221,11 @@ export default function SpecificationsPage() {
                   <TableRow key={spec.id}>
                     <TableCell className="font-medium">{spec.combustible}</TableCell>
                     <TableCell>{spec.fournisseur}</TableCell>
-                    <TableCell>{formatValue(spec.h2o)}</TableCell>
-                    <TableCell>{formatValue(spec.pci)}</TableCell>
-                    <TableCell>{formatValue(spec.chlorures)}</TableCell>
-                    <TableCell>{formatValue(spec.cendres)}</TableCell>
-                    <TableCell>{formatValue(spec.soufre)}</TableCell>
+                    <TableCell>{formatValue(spec.H2O_max)}</TableCell>
+                    <TableCell>{formatValue(spec.PCI_min)}</TableCell>
+                    <TableCell>{formatValue(spec.Cl_max)}</TableCell>
+                    <TableCell>{formatValue(spec.Cendres_max)}</TableCell>
+                    <TableCell>{formatValue(spec.Soufre_max)}</TableCell>
                     <TableCell className="text-right">
                         <Button variant="ghost" size="icon" onClick={() => handleModalOpen(spec)}>
                             <Edit className="h-4 w-4" />
@@ -321,37 +320,37 @@ export default function SpecificationsPage() {
               />
               <FormField
                 control={form.control}
-                name="h2o"
+                name="H2O_max"
                 render={({ field }) => (
-                  <FormItem><FormLabel>H₂O</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>H₂O (max %)</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                 )}
               />
               <FormField
                 control={form.control}
-                name="pci"
+                name="PCI_min"
                 render={({ field }) => (
-                  <FormItem><FormLabel>PCI (kcal/kg)</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>PCI (min kcal/kg)</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                 )}
               />
               <FormField
                 control={form.control}
-                name="chlorures"
+                name="Cl_max"
                 render={({ field }) => (
-                  <FormItem><FormLabel>Chlorures</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Chlorures (max %)</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                 )}
               />
               <FormField
                 control={form.control}
-                name="cendres"
+                name="Cendres_max"
                 render={({ field }) => (
-                  <FormItem><FormLabel>Cendres</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Cendres (max %)</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                 )}
               />
               <FormField
                 control={form.control}
-                name="soufre"
+                name="Soufre_max"
                 render={({ field }) => (
-                  <FormItem><FormLabel>Soufre</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Soufre (max %)</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                 )}
               />
               <DialogFooter>

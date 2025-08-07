@@ -16,11 +16,11 @@ export interface Specification {
     id: string;
     combustible: string;
     fournisseur: string;
-    h2o: number | null;
-    pci: number | null;
-    chlorures: number | null;
-    cendres: number | null;
-    soufre: number | null;
+    H2O_max: number | null;
+    PCI_min: number | null;
+    Cl_max: number | null;
+    Cendres_max: number | null;
+    Soufre_max: number | null;
 }
 
 export const INITIAL_FUEL_TYPES: Omit<FuelType, 'createdAt'>[] = [
@@ -30,7 +30,7 @@ export const INITIAL_FUEL_TYPES: Omit<FuelType, 'createdAt'>[] = [
     { name: "Plastiques", icon: "🧴", hValue: 7.0 },
     { name: "Pet Coke", icon: "🔥", hValue: 3.5 },
     { name: "Mélange", icon: "🧪", hValue: 6.0 },
-    { name: "Grignons", icon: "🫒", hValue: 6.0 },
+    { name: "Grignons d'olives", icon: "🫒", hValue: 6.0 },
     { name: "DMB", icon: "🧱", hValue: 6.5 },
     { name: "Charbon", icon: "🪨", hValue: 4.5 },
     { name: "Caoutchouc", icon: "🛞", hValue: 6.8 },
@@ -146,7 +146,7 @@ const INITIAL_FUEL_TYPE_SUPPLIERS_MAP: Record<string, string[]> = {
     "Caoutchouc": ["Bichara", "SMBRM"],
     "Charbon": [],
     "DMB": ["MTR"],
-    "Grignons": ["Ain Seddeine"],
+    "Grignons d'olives": ["Ain Seddeine"],
     "Mélange": ["SMBRM"],
     "Pet Coke": [],
     "Plastiques": ["Bichara", "ValRecete", "Ssardi", "Valtradec", "NAJD"],
@@ -181,26 +181,38 @@ export const getFuelSupplierMap = async (): Promise<Record<string, string[]>> =>
 }
 
 const INITIAL_SPECIFICATIONS: Omit<Specification, 'id'>[] = [
-    {combustible: "Grignons", fournisseur: "Ain Seddeine", h2o: 20, pci: 3700, chlorures: 0.5, cendres: 5, soufre: null},
-    {combustible: "DMB", fournisseur: "MTR", h2o: 15, pci: 4300, chlorures: 0.6, cendres: 15, soufre: 0.5},
-    {combustible: "Plastiques", fournisseur: "ValRecete", h2o: 15, pci: 4300, chlorures: 1, cendres: 15, soufre: 0.5},
-    {combustible: "Plastiques", fournisseur: "Bichara", h2o: 10, pci: 4200, chlorures: 1, cendres: 15, soufre: null},
-    {combustible: "Plastiques", fournisseur: "Valtradec", h2o: 10, pci: 6000, chlorures: 1, cendres: 15, soufre: 0.5},
-    {combustible: "Plastiques", fournisseur: "Ssardi", h2o: 18, pci: 4200, chlorures: 1, cendres: 15, soufre: null},
-    {combustible: "CSR", fournisseur: "Polluclean", h2o: 16.5, pci: 4000, chlorures: 1, cendres: 15, soufre: null},
-    {combustible: "CSR", fournisseur: "SMBRM", h2o: 14, pci: 5000, chlorures: 0.6, cendres: 15, soufre: null},
-    {combustible: "Pneus", fournisseur: "RJL", h2o: 1, pci: 6800, chlorures: 0.3, cendres: 18, soufre: null},
-    {combustible: "Pneus", fournisseur: "Aliapur", h2o: 1, pci: 6800, chlorures: 0.3, cendres: 18, soufre: null}
+    {combustible: "CSR", fournisseur: "Polluclean", H2O_max: 16.5, PCI_min: 4000, Cl_max: 1, Cendres_max: 15, Soufre_max: null},
+    {combustible: "CSR", fournisseur: "SMBRM", H2O_max: 14, PCI_min: 5000, Cl_max: 0.6, Cendres_max: 15, Soufre_max: null},
+    {combustible: "DMB", fournisseur: "MTR", H2O_max: 15, PCI_min: 4300, Cl_max: 0.6, Cendres_max: 15, Soufre_max: 0.5},
+    {combustible: "Grignons d'olives", fournisseur: "Ain Seddeine", H2O_max: 20, PCI_min: 3700, Cl_max: 0.5, Cendres_max: 5, Soufre_max: null},
+    {combustible: "Plastiques", fournisseur: "Bichara", H2O_max: 10, PCI_min: 4200, Cl_max: 1, Cendres_max: 15, Soufre_max: null},
+    {combustible: "Plastiques", fournisseur: "Ssardi", H2O_max: 18, PCI_min: 4200, Cl_max: 1, Cendres_max: 15, Soufre_max: null},
+    {combustible: "Plastiques", fournisseur: "ValRecete", H2O_max: 15, PCI_min: 4300, Cl_max: 1, Cendres_max: 15, Soufre_max: 0.5},
+    {combustible: "Plastiques", fournisseur: "Valtradec", H2O_max: 10, PCI_min: 6000, Cl_max: 1, Cendres_max: 15, Soufre_max: 0.5},
+    {combustible: "Pneus", fournisseur: "Aliapur", H2O_max: 1, PCI_min: 6800, Cl_max: 0.3, Cendres_max: 18, Soufre_max: null},
+    {combustible: "Pneus", fournisseur: "RJL", H2O_max: 1, PCI_min: 6800, Cl_max: 0.3, Cendres_max: 18, Soufre_max: null}
 ];
 
 export const getSpecifications = async (): Promise<Specification[]> => {
     const specificationsCollectionRef = collection(db, "specifications");
     const querySnapshot = await getDocs(specificationsCollectionRef);
     const specifications: Specification[] = [];
+    
+    // Clear the map before populating it
     SPEC_MAP.clear();
 
     const processDoc = (doc: any) => {
-        const spec = { id: doc.id, ...doc.data() } as Specification;
+        const data = doc.data();
+        const spec: Specification = {
+            id: doc.id,
+            combustible: data.combustible,
+            fournisseur: data.fournisseur,
+            H2O_max: data.H2O_max ?? null,
+            PCI_min: data.PCI_min ?? null,
+            Cl_max: data.Cl_max ?? null,
+            Cendres_max: data.Cendres_max ?? null,
+            Soufre_max: data.Soufre_max ?? null
+        };
         specifications.push(spec);
         const key = `${spec.combustible}|${spec.fournisseur}`;
         SPEC_MAP.set(key, spec);

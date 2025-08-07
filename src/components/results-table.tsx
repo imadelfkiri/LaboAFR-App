@@ -79,16 +79,16 @@ const generateAlerts = (result: Result): string => {
 
     const alerts: string[] = [];
 
-    if (typeof spec.pci === 'number' && typeof result.pci_brut === 'number' && result.pci_brut < spec.pci) {
+    if (typeof spec.PCI_min === 'number' && typeof result.pci_brut === 'number' && result.pci_brut < spec.PCI_min) {
         alerts.push("⚠️ PCI trop faible");
     }
-    if (typeof spec.h2o === 'number' && typeof result.h2o === 'number' && result.h2o > spec.h2o) {
+    if (typeof spec.H2O_max === 'number' && typeof result.h2o === 'number' && result.h2o > spec.H2O_max) {
         alerts.push("💧 H2O élevé");
     }
-    if (typeof spec.chlorures === 'number' && typeof result.chlore === 'number' && result.chlore > spec.chlorures) {
+    if (typeof spec.Cl_max === 'number' && typeof result.chlore === 'number' && result.chlore > spec.Cl_max) {
          alerts.push("🧪 Chlorures élevé");
     }
-    if (typeof spec.cendres === 'number' && typeof result.cendres === 'number' && result.cendres > spec.cendres) {
+    if (typeof spec.Cendres_max === 'number' && typeof result.cendres === 'number' && result.cendres > spec.Cendres_max) {
         alerts.push("🔥 Cendres élevé");
     }
 
@@ -125,7 +125,6 @@ export function ResultsTable() {
       
       const fetchInitialData = async () => {
         try {
-            // On s'assure que les specs sont chargées en premier pour peupler la SPEC_MAP
             await getSpecifications(); 
             const [fetchedFuelTypes, fetchedFournisseurs] = await Promise.all([
                 getFuelTypes(),
@@ -295,10 +294,10 @@ export function ResultsTable() {
             const alertsText = generateAlerts(result);
             const isAlert = !alertsText.includes("✅");
 
-            const isPciAlert = spec && typeof spec.pci === 'number' && typeof result.pci_brut === 'number' && result.pci_brut < spec.pci;
-            const isH2oAlert = spec && typeof spec.h2o === 'number' && typeof result.h2o === 'number' && result.h2o > spec.h2o;
-            const isChloreAlert = spec && typeof spec.chlorures === 'number' && typeof result.chlore === 'number' && result.chlore > spec.chlorures;
-            const isCendresAlert = spec && typeof spec.cendres === 'number' && typeof result.cendres === 'number' && result.cendres > spec.cendres;
+            const isPciAlert = spec && typeof spec.PCI_min === 'number' && typeof result.pci_brut === 'number' && result.pci_brut < spec.PCI_min;
+            const isH2oAlert = spec && typeof spec.H2O_max === 'number' && typeof result.h2o === 'number' && result.h2o > spec.H2O_max;
+            const isChloreAlert = spec && typeof spec.Cl_max === 'number' && typeof result.chlore === 'number' && result.chlore > spec.Cl_max;
+            const isCendresAlert = spec && typeof spec.Cendres_max === 'number' && typeof result.cendres === 'number' && result.cendres > spec.Cendres_max;
 
             const row = [
                 { v: formatDate(result.date_arrivage), s: centerAlignStyle },
@@ -507,10 +506,10 @@ export function ResultsTable() {
                                             const key = `${result.type_combustible}|${result.fournisseur}`;
                                             const spec = SPEC_MAP.get(key);
                                             
-                                            const pciStyle = spec && typeof spec.pci === 'number' && typeof result.pci_brut === 'number' && result.pci_brut < spec.pci ? "text-destructive" : "";
-                                            const h2oStyle = spec && typeof spec.h2o === 'number' && typeof result.h2o === 'number' && result.h2o > spec.h2o ? "text-destructive" : "";
-                                            const chloruresStyle = spec && typeof spec.chlorures === 'number' && typeof result.chlore === 'number' && result.chlore > spec.chlorures ? "text-destructive" : "";
-                                            const cendresStyle = spec && typeof spec.cendres === 'number' && typeof result.cendres === 'number' && result.cendres > spec.cendres ? "text-destructive" : "";
+                                            const pciStyle = spec && typeof spec.PCI_min === 'number' && typeof result.pci_brut === 'number' && result.pci_brut < spec.PCI_min ? "text-destructive" : "";
+                                            const h2oStyle = spec && typeof spec.H2O_max === 'number' && typeof result.h2o === 'number' && result.h2o > spec.H2O_max ? "text-destructive" : "";
+                                            const chloruresStyle = spec && typeof spec.Cl_max === 'number' && typeof result.chlore === 'number' && result.chlore > spec.Cl_max ? "text-destructive" : "";
+                                            const cendresStyle = spec && typeof spec.Cendres_max === 'number' && typeof result.cendres === 'number' && result.cendres > spec.Cendres_max ? "text-destructive" : "";
                                             
                                             return (
                                             <TableRow key={result.id}>
