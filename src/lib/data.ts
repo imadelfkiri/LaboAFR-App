@@ -189,15 +189,15 @@ export const getFuelSupplierMap = async (): Promise<Record<string, string[]>> =>
 
 // --- Specifications Logic ---
 const cleanSpecData = (spec: any): Omit<Specification, 'id'> => {
-    return {
+    const cleaned: any = {
         type_combustible: spec.type_combustible,
         fournisseur: spec.fournisseur,
-        PCI_min: spec.PCI_min ?? null,
-        H2O_max: spec.H2O_max ?? null,
-        Cl_max: spec.Cl_max ?? null,
-        Cendres_max: spec.Cendres_max ?? null,
-        Soufre_max: spec.Soufre_max ?? null,
     };
+    const fields: (keyof Omit<Specification, 'id' | 'type_combustible' | 'fournisseur'>)[] = ['PCI_min', 'H2O_max', 'Cl_max', 'Cendres_max', 'Soufre_max'];
+    fields.forEach(field => {
+        cleaned[field] = spec[field] === undefined ? null : spec[field];
+    });
+    return cleaned;
 };
 
 const INITIAL_SPECIFICATIONS: Omit<Specification, 'id'>[] = [
@@ -221,50 +221,36 @@ async function seedSpecifications() {
         const docRef = doc(specsCollectionRef); 
         batch.set(docRef, cleanSpecData(spec));
     });
-    await batch.commit();
-    console.log("Initial specifications seeded.");
+    try {
+        await batch.commit();
+        console.log("Initial specifications seeded successfully.");
+    } catch(error) {
+        console.error("Error seeding specifications:", error);
+    }
 }
 
 export const getSpecifications = async (): Promise<Specification[]> => {
-    SPEC_MAP.clear();
     const specsCollectionRef = collection(db, "specifications");
+    let querySnapshot = await getDocs(query(specsCollectionRef, orderBy("type_combustible"), orderBy("fournisseur")));
 
-    // Use a transaction to safely check for existence and seed if necessary.
-    // This prevents race conditions and redundant writes.
-    await runTransaction(db, async (transaction) => {
-        const querySnapshot = await transaction.get(query(specsCollectionRef, orderBy("type_combustible"), orderBy("fournisseur")));
-        if (querySnapshot.empty) {
-            // Seeding logic is now outside the main transaction flow, but the check is inside.
-            // This is a common pattern. We'll call a separate seeding function.
-        }
-    }).then(async () => {
-        // After transaction, check if seeding is needed. We do this by checking a marker or just re-querying.
-        const currentDocs = await getDocs(specsCollectionRef);
-        if (currentDocs.empty) {
-            await seedSpecifications();
-        }
-    }).catch(error => {
-        console.error("Transaction failed: ", error);
-        throw error; // Propagate error to be caught by the caller
-    });
+    if (querySnapshot.empty) {
+        await seedSpecifications();
+        // Re-fetch the data after seeding
+        querySnapshot = await getDocs(query(specsCollectionRef, orderBy("type_combustible"), orderBy("fournisseur")));
+    }
     
-    // Now, get the final data
-    const finalQuerySnapshot = await getDocs(query(specsCollectionRef, orderBy("type_combustible"), orderBy("fournisseur")));
     const specs: Specification[] = [];
-    finalQuerySnapshot.forEach((doc) => {
+    SPEC_MAP.clear(); // Clear the map before populating
+
+    querySnapshot.forEach((doc) => {
         const data = { ...doc.data(), id: doc.id } as Specification;
         specs.push(data);
         SPEC_MAP.set(`${data.type_combustible}|${data.fournisseur}`, data);
     });
 
-    if (specs.length === 0) {
-        console.warn("Specifications collection is still empty after attempting to seed.");
-    } else {
-        console.log("SPEC_MAP populated from existing Firestore data.");
-    }
-
     return specs;
 };
+
 
 export const addSpecification = async (spec: Omit<Specification, 'id'>) => {
     await addDoc(collection(db, "specifications"), cleanSpecData(spec));
