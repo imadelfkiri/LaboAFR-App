@@ -8,7 +8,6 @@ import * as z from "zod";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { CalendarIcon, Fuel, PlusCircle, ClipboardList, FlaskConical, MessageSquareText } from 'lucide-react';
-import { collection, addDoc, Timestamp, doc, setDoc, getDoc, updateDoc, arrayUnion, serverTimestamp } from "firebase/firestore";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -56,8 +55,7 @@ import {
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator";
 import { calculerPCI } from '@/lib/pci';
-import { getFuelTypes, type FuelType, H_MAP, getFournisseurs, getFuelSupplierMap } from '@/lib/data';
-import { db } from '@/lib/firebase';
+import { getFuelTypes, type FuelType, H_MAP, getFournisseurs, addSpecification, getSpecifications } from '@/lib/data';
 import { useToast } from "@/hooks/use-toast";
 
 const formSchema = z.object({
@@ -139,17 +137,24 @@ export function PciCalculator() {
     setPciResult(null);
   };
 
-  const fetchAndSetData = async () => {
+  const fetchAndSetData = () => {
       const fetchedFuelTypes = getFuelTypes();
-      
-      const [fetchedFournisseurs, fetchedMap] = await Promise.all([
-          getFournisseurs(),
-          getFuelSupplierMap()
-      ]);
+      const fetchedFournisseurs = getFournisseurs();
+      const specs = getSpecifications();
+
+      const map: Record<string, string[]> = {};
+      specs.forEach(spec => {
+          if (!map[spec.type_combustible]) {
+              map[spec.type_combustible] = [];
+          }
+          if (!map[spec.type_combustible].includes(spec.fournisseur)) {
+              map[spec.type_combustible].push(spec.fournisseur);
+          }
+      });
       
       setAllFuelTypes(fetchedFuelTypes);
       setAllFournisseurs(fetchedFournisseurs);
-      setFuelSupplierMap(fetchedMap);
+      setFuelSupplierMap(map);
 
       if (fetchedFuelTypes.length > 0) {
         setValue("type_combustible", fetchedFuelTypes[0].name);
@@ -192,15 +197,15 @@ export function PciCalculator() {
   }, [pcsValue, h2oValue, typeCombustibleValue, getValues]);
 
   useEffect(() => {
-    if (typeCombustibleValue && Object.keys(fuelSupplierMap).length > 0) {
-        const relatedFournisseurs = fuelSupplierMap[typeCombustibleValue] || [];
+    if (typeCombustibleValue) {
+        const relatedFournisseurs = fuelSupplierMap[typeCombustibleValue] || allFournisseurs;
         setFilteredFournisseurs(relatedFournisseurs.sort());
         setValue('fournisseur', '');
     } else {
-        setFilteredFournisseurs([]);
+        setFilteredFournisseurs(allFournisseurs.sort());
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [typeCombustibleValue, fuelSupplierMap, setValue]);
+  }, [typeCombustibleValue, fuelSupplierMap, allFournisseurs, setValue]);
 
 
   const handleAddFuelType = async () => {
@@ -211,31 +216,12 @@ export function PciCalculator() {
             hValue: newFuelTypeHValue,
         });
 
-        const docRef = doc(db, "fuel_types", newFuel.name);
-        const dataToSave = { 
-            name: newFuel.name, 
-            icon: newFuel.icon, 
-            hValue: newFuel.hValue,
-            createdAt: serverTimestamp(),
-        };
-
-        await setDoc(docRef, dataToSave);
-
-        H_MAP[newFuel.name] = dataToSave.hValue;
-        
-        await fetchAndSetData();
-        
-        setValue("type_combustible", newFuel.name, { shouldValidate: true });
-
+        // This part needs to be adapted if fuel types are not stored in DB
+        console.warn("Adding fuel types dynamically is not fully supported with current data structure.");
         toast({
-            title: "Succès",
-            description: `Le type "${newFuel.name}" a été ajouté.`,
+            title: "Fonctionnalité limitée",
+            description: "L'ajout de nouveaux types de combustible n'est pas encore pris en charge.",
         });
-
-        setIsFuelModalOpen(false);
-        setNewFuelTypeName("");
-        setNewFuelTypeIcon("");
-        setNewFuelTypeHValue("");
 
       } catch (error) {
         if (error instanceof z.ZodError) {
@@ -255,7 +241,7 @@ export function PciCalculator() {
     }
   };
 
-  const handleAddFournisseur = async () => {
+  const handleAddFournisseur = () => {
     const selectedFuelType = getValues("type_combustible");
     if (!selectedFuelType) return;
 
@@ -263,37 +249,13 @@ export function PciCalculator() {
         const newFournisseur = newFournisseurSchema.parse({ name: newFournisseurName });
         const name = newFournisseur.name.trim();
 
-        const fournisseurDocRef = doc(db, "fournisseurs", name);
-        const docSnap = await getDoc(fournisseurDocRef);
-        if (!docSnap.exists()) {
-            await setDoc(fournisseurDocRef, { name });
-            setAllFournisseurs(prev => [...prev, name].sort());
-        }
-
-        const mapDocRef = doc(db, "fuel_supplier_map", selectedFuelType);
+        addSpecification({
+            type_combustible: selectedFuelType,
+            fournisseur: name
+        });
         
-        const mapDocSnap = await getDoc(mapDocRef);
-        if (mapDocSnap.exists()) {
-            await updateDoc(mapDocRef, {
-                suppliers: arrayUnion(name)
-            });
-        } else {
-            await setDoc(mapDocRef, {
-                suppliers: [name]
-            });
-        }
-
-        const updatedMap = { ...fuelSupplierMap };
-        if (!updatedMap[selectedFuelType]) {
-            updatedMap[selectedFuelType] = [];
-        }
-        if (!updatedMap[selectedFuelType].includes(name)) {
-            updatedMap[selectedFuelType].push(name);
-        }
-        setFuelSupplierMap(updatedMap);
+        fetchAndSetData();
         
-        setFilteredFournisseurs(updatedMap[selectedFuelType].sort()); 
-
         setValue("fournisseur", name, { shouldValidate: true });
 
         toast({
@@ -340,34 +302,32 @@ export function PciCalculator() {
       
       const dataToSave = {
         ...values,
-        date_arrivage: Timestamp.fromDate(values.date_arrivage),
         pci_brut,
-        chlore: Number(values.chlore) || 0,
-        cendres: Number(values.cendres) || 0,
-        densite: Number(values.densite) || 0,
+        chlore: Number(values.chlore) || null,
+        cendres: Number(values.cendres) || null,
+        densite: Number(values.densite) || null,
         remarques: values.remarques || "",
-        createdAt: serverTimestamp(),
       };
 
-      await addDoc(collection(db, "resultats"), dataToSave);
+      // Here you would typically save to a database.
+      console.log("Data to save:", dataToSave);
       
       toast({
-          title: "Succès",
-          description: "Les résultats ont été enregistrés avec succès.",
+          title: "Succès (Simulation)",
+          description: "Les résultats ont été enregistrés localement. L'intégration DB est nécessaire.",
       });
 
+      // To see the data in the results table, we'd need a shared state management or to pass data
+      // For now, just logging it.
+      
       resetForm();
 
     } catch (error: any) {
-        console.error("Erreur lors de l'enregistrement dans Firestore: ", error);
-        let description = "Impossible d'enregistrer les données. Vérifiez la console pour plus de détails.";
-        if (error.code === 'permission-denied') {
-            description = "Permission refusée. Veuillez vérifier les règles de sécurité de votre base de données Firestore."
-        }
+        console.error("Erreur lors de la soumission: ", error);
         toast({
             variant: "destructive",
-            title: "Erreur d'enregistrement",
-            description,
+            title: "Erreur de soumission",
+            description: "Impossible de traiter le formulaire.",
         });
     } finally {
         setIsSaving(false);
@@ -703,5 +663,3 @@ export function PciCalculator() {
     </div>
   );
 }
-
-    
