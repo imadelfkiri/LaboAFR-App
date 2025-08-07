@@ -1,9 +1,10 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, query, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+// import { collection, query, onSnapshot } from 'firebase/firestore';
+// import { db } from '@/lib/firebase';
 import {
   Card,
   CardContent,
@@ -18,17 +19,27 @@ import {
   ChartLegendContent,
 } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, ResponsiveContainer, Tooltip } from 'recharts';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns';
 import { Skeleton } from './ui/skeleton';
 
 interface Result {
     id: string;
-    date_arrivage: { seconds: number; nanoseconds: number };
+    date_arrivage: string; // Changed from { seconds, nanoseconds } to string
     type_combustible: string;
     h2o: number;
     chlore: number;
     pci_brut: number;
 }
+
+// Dummy function to get results from session storage
+async function getResults(): Promise<Result[]> {
+    if (typeof window !== 'undefined') {
+        const localData = sessionStorage.getItem('results');
+        return localData ? JSON.parse(localData) : [];
+    }
+    return [];
+}
+
 
 const formatNumber = (num: number, fractionDigits: number = 0) => {
     if (isNaN(num)) return '0';
@@ -45,23 +56,20 @@ export function StatisticsDashboard() {
 
   useEffect(() => {
     setLoading(true);
-    const q = query(collection(db, "resultats"));
-
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const resultsData: Result[] = [];
-      querySnapshot.forEach((doc) => {
-        resultsData.push({ id: doc.id, ...doc.data() } as Result);
-      });
-      // Sort results by date client-side
-      resultsData.sort((a, b) => a.date_arrivage.seconds - b.date_arrivage.seconds);
-      setResults(resultsData);
-      setLoading(false);
-    }, (error) => {
-      console.error("Erreur de lecture Firestore:", error);
-      setLoading(false);
+    getResults().then(resultsData => {
+        // Sort results by date client-side
+        resultsData.sort((a, b) => {
+            const dateA = parseISO(a.date_arrivage);
+            const dateB = parseISO(b.date_arrivage);
+            if (!isValid(dateA) || !isValid(dateB)) return 0;
+            return dateA.getTime() - dateB.getTime();
+        });
+        setResults(resultsData);
+        setLoading(false);
+    }).catch(error => {
+        console.error("Erreur de lecture des données locales:", error);
+        setLoading(false);
     });
-
-    return () => unsubscribe();
   }, []);
 
   const summaryStats = useMemo(() => {
@@ -99,9 +107,9 @@ export function StatisticsDashboard() {
   
   const pciOverTime = useMemo(() => {
     return results
-    .filter(result => result.date_arrivage?.seconds)
+    .filter(result => result.date_arrivage && isValid(parseISO(result.date_arrivage)))
     .map(result => ({
-      date: format(new Date(result.date_arrivage.seconds * 1000), 'dd/MM/yy'),
+      date: format(parseISO(result.date_arrivage), 'dd/MM/yy'),
       pci_brut: result.pci_brut,
     }));
   }, [results]);

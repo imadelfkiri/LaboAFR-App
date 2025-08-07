@@ -93,11 +93,12 @@ export default function SpecificationsPage() {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            await seedDatabase();
+            // seedDatabase is now a local, synchronous function
+            await seedDatabase(); 
             const [specs, fTypes, founisseursList] = await Promise.all([
                 getSpecifications(),
-                getFuelTypes(),
-                getFournisseurs()
+                Promise.resolve(getFuelTypes()),
+                Promise.resolve(getFournisseurs())
             ]);
             
             setFuelTypes(fTypes);
@@ -112,7 +113,7 @@ export default function SpecificationsPage() {
 
         } catch (error) {
             console.error("Failed to fetch data:", error);
-            toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données. Vérifiez la configuration App Check de Firestore." });
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données." });
         } finally {
             setLoading(false);
         }

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -8,8 +9,8 @@ import * as z from "zod";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { CalendarIcon, Fuel, PlusCircle, ClipboardList, FlaskConical, MessageSquareText } from 'lucide-react';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+// import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+// import { db } from '@/lib/firebase';
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -83,6 +84,20 @@ const newFournisseurSchema = z.object({
     name: z.string().nonempty({ message: "Le nom du fournisseur est requis."}).regex(/^[a-zA-Z0-9\s-]+$/, "Le nom ne doit contenir que des lettres, chiffres, espaces ou tirets."),
 });
 
+// Dummy function to simulate adding data
+async function addResult(data: any) {
+    console.log("Simulating data save:", data);
+    // In a real scenario with a backend, this would be an API call.
+    // We can store results in-memory for the session if needed.
+    if (typeof window !== 'undefined') {
+        let results = JSON.parse(sessionStorage.getItem('results') || '[]');
+        results.push({ id: Date.now().toString(), ...data });
+        sessionStorage.setItem('results', JSON.stringify(results));
+    }
+    return Promise.resolve();
+}
+
+
 export function PciCalculator() {
   const [pciResult, setPciResult] = useState<number | null>(null);
   const [hValue, setHValue] = useState<number | null>(null);
@@ -138,8 +153,8 @@ export function PciCalculator() {
       setLoading(true);
       try {
         const [fetchedFuelTypes, fetchedFournisseurs, specs] = await Promise.all([
-          getFuelTypes(),
-          getFournisseurs(),
+          Promise.resolve(getFuelTypes()),
+          Promise.resolve(getFournisseurs()),
           getSpecifications()
         ]);
         
@@ -303,10 +318,10 @@ export function PciCalculator() {
         cendres: values.cendres ? Number(values.cendres) : null,
         densite: values.densite ? Number(values.densite) : null,
         remarques: values.remarques || "",
-        date_creation: serverTimestamp(),
+        date_creation: new Date().toISOString(), // Using ISO string for local data
       };
 
-      await addDoc(collection(db, 'resultats'), dataToSave);
+      await addResult(dataToSave);
       
       toast({
           title: "Succès",

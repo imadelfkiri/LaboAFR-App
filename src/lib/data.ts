@@ -1,6 +1,8 @@
 
-import { collection, getDocs, doc, writeBatch, query, setDoc, getDoc, addDoc, updateDoc, deleteDoc, where, orderBy } from "firebase/firestore";
-import { db } from "./firebase";
+
+// NOTE: This file has been modified to use in-memory data instead of Firebase
+// to work around the persistent App Check configuration issue.
+// All data will reset on page reload.
 
 export const H_MAP: Record<string, number> = {};
 
@@ -20,10 +22,12 @@ export interface Specification {
     Soufre_max?: number | null;
 }
 
-export const SPEC_MAP = new Map<string, Specification>();
-
-let isSeeding = false;
+// In-memory store
+let specifications: Specification[] = [];
 let isInitialized = false;
+
+// Using a Map for quick lookups
+export const SPEC_MAP = new Map<string, Specification>();
 
 const INITIAL_FUEL_TYPES: FuelType[] = [
     { name: "Textile", hValue: 6.0 },
@@ -60,76 +64,80 @@ const INITIAL_SPECIFICATIONS_DATA: Omit<Specification, 'id'>[] = [
     { type_combustible: 'Pneus', fournisseur: 'RJL', H2O_max: 1, PCI_min: 6800, Cl_max: 0.3, Cendres_max: 1, Soufre_max: null },
 ];
 
-INITIAL_FUEL_TYPES.forEach(ft => {
-    H_MAP[ft.name] = ft.hValue;
-});
+function initializeData() {
+    if (isInitialized) return;
+
+    // Populate H_MAP
+    INITIAL_FUEL_TYPES.forEach(ft => {
+        H_MAP[ft.name] = ft.hValue;
+    });
+
+    // Populate specifications and SPEC_MAP
+    specifications = INITIAL_SPECIFICATIONS_DATA.map((spec, index) => ({
+        id: (index + 1).toString(),
+        ...spec
+    }));
+    
+    updateSpecMap();
+    isInitialized = true;
+}
+
+function updateSpecMap() {
+    SPEC_MAP.clear();
+    specifications.forEach(spec => {
+        SPEC_MAP.set(`${spec.type_combustible}|${spec.fournisseur}`, spec);
+    });
+}
+
+// Ensure data is initialized on first import
+initializeData();
+
+export async function seedDatabase() {
+    // This function now does nothing, as data is handled in-memory.
+    // It's kept for compatibility with components that call it.
+    initializeData();
+    return Promise.resolve();
+}
+
 
 export function getFuelTypes(): FuelType[] {
-    return INITIAL_FUEL_TYPES;
+    return [...INITIAL_FUEL_TYPES];
 };
 
 export function getFournisseurs(): string[] {
-    return INITIAL_FOURNISSEURS;
+    return [...INITIAL_FOURNISSEURS];
 };
 
 export async function getSpecifications(): Promise<Specification[]> {
-    const q = query(collection(db, "specifications"));
-    const querySnapshot = await getDocs(q);
-    const specifications: Specification[] = [];
-    querySnapshot.forEach((doc) => {
-        specifications.push({ id: doc.id, ...doc.data() } as Specification);
-    });
-
-    SPEC_MAP.clear();
-    specifications.forEach((spec: Specification) => {
-        SPEC_MAP.set(`${spec.type_combustible}|${spec.fournisseur}`, spec);
-    });
-
-    return specifications;
+    return Promise.resolve([...specifications]);
 };
 
 export async function addSpecification(spec: Omit<Specification, 'id'>) {
-    const q = query(collection(db, "specifications"), where("type_combustible", "==", spec.type_combustible), where("fournisseur", "==", spec.fournisseur));
-    const existing = await getDocs(q);
-    if (!existing.empty) {
+    const existing = specifications.find(s => s.type_combustible === spec.type_combustible && s.fournisseur === spec.fournisseur);
+    if (existing) {
         throw new Error("Une spécification pour ce combustible et ce fournisseur existe déjà.");
     }
-    await addDoc(collection(db, "specifications"), spec);
+    const newSpec = {
+        id: (Date.now() + Math.random()).toString(),
+        ...spec
+    };
+    specifications.push(newSpec);
+    updateSpecMap();
+    return Promise.resolve();
 };
 
 export async function updateSpecification(id: string, specUpdate: Partial<Omit<Specification, 'id'>>) {
-    const specRef = doc(db, "specifications", id);
-    await updateDoc(specRef, specUpdate);
+    const index = specifications.findIndex(s => s.id === id);
+    if (index === -1) {
+        throw new Error("Specification not found.");
+    }
+    specifications[index] = { ...specifications[index], ...specUpdate };
+    updateSpecMap();
+    return Promise.resolve();
 };
 
 export async function deleteSpecification(id: string) {
-    await deleteDoc(doc(db, "specifications", id));
+    specifications = specifications.filter(s => s.id !== id);
+    updateSpecMap();
+    return Promise.resolve();
 };
-
-export async function seedDatabase() {
-    if (isInitialized || isSeeding) return;
-    isSeeding = true;
-    
-    try {
-        const flagRef = doc(db, "meta", "initialized");
-        const flagDoc = await getDoc(flagRef);
-
-        if (!flagDoc.exists()) {
-            console.log("Seeding database with initial specifications...");
-            const batch = writeBatch(db);
-            INITIAL_SPECIFICATIONS_DATA.forEach(spec => {
-                const docRef = doc(collection(db, "specifications"));
-                batch.set(docRef, spec);
-            });
-            batch.set(flagRef, { seeded: true });
-            await batch.commit();
-            console.log("Database seeded successfully.");
-        }
-        isInitialized = true;
-    } catch (error) {
-        console.error("Error seeding database: ", error);
-        // Do not re-throw, to allow app to function with local data if seeding fails
-    } finally {
-        isSeeding = false;
-    }
-}
