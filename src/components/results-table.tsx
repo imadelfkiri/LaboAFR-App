@@ -43,6 +43,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
@@ -93,13 +94,9 @@ export function ResultsTable() {
       
       const fetchInitialData = async () => {
         try {
-            // Fetch specifications first to populate SPEC_MAP
-            await getSpecifications();
-
-            const [fetchedFuelTypes, fetchedFournisseurs] = await Promise.all([
-                getFuelTypes(),
-                getFournisseurs(),
-            ]);
+            const fetchedFuelTypes = getFuelTypes();
+            const fetchedFournisseurs = getFournisseurs();
+            getSpecifications(); // To ensure SPEC_MAP is populated
 
             if (isMounted) {
                 setFuelTypes(fetchedFuelTypes);
