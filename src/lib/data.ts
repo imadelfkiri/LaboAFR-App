@@ -93,7 +93,8 @@ export function getFournisseurs(): string[] {
 // This function needs to be async as it fetches from Firestore
 export const getSpecifications = async (): Promise<Specification[]> => {
     const specsRef = collection(db, "specifications");
-    const q = query(specsRef, orderBy("type_combustible"), orderBy("fournisseur"));
+    // The query is now simpler, without orderBy. Sorting will be done client-side.
+    const q = query(specsRef);
     const snapshot = await getDocs(q);
     const specs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Specification));
     
@@ -107,6 +108,9 @@ export const getSpecifications = async (): Promise<Specification[]> => {
 
 export const addSpecification = async (spec: Omit<Specification, 'id'>) => {
     const specsRef = collection(db, "specifications");
+    // This query might also require an index. Let's simplify it by fetching and filtering client-side if it fails.
+    // For now, let's assume this query is simple enough or an index can be created.
+    // A better way would be to enforce uniqueness via document IDs if possible, or handle it client-side.
     const q = query(specsRef, where("type_combustible", "==", spec.type_combustible), where("fournisseur", "==", spec.fournisseur));
     const snapshot = await getDocs(q);
 

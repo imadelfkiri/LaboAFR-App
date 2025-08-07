@@ -100,7 +100,13 @@ export default function SpecificationsPage() {
             
             setFuelTypes(fTypes);
             setFournisseurs(founisseursList);
-            setSpecifications(specs);
+             // Sort specifications client-side
+            const sortedSpecs = specs.sort((a, b) => {
+                const typeComparison = a.type_combustible.localeCompare(b.type_combustible);
+                if (typeComparison !== 0) return typeComparison;
+                return a.fournisseur.localeCompare(b.fournisseur);
+            });
+            setSpecifications(sortedSpecs);
 
         } catch (error) {
             console.error("Failed to fetch data:", error);
