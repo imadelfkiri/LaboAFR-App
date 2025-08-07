@@ -203,14 +203,15 @@ const INITIAL_SPECIFICATIONS: Omit<Specification, 'id'>[] = [
 ];
 
 const cleanSpecData = (spec: any) => {
-    const data: any = {};
-    for (const key in spec) {
-        if (spec[key] !== undefined) {
-            data[key] = spec[key];
-        } else {
-            data[key] = null;
-        }
-    }
+    const data: Partial<Specification> = {
+        type_combustible: spec.type_combustible,
+        fournisseur: spec.fournisseur,
+        PCI_min: spec.PCI_min ?? null,
+        H2O_max: spec.H2O_max ?? null,
+        Cl_max: spec.Cl_max ?? null,
+        Cendres_max: spec.Cendres_max ?? null,
+        Soufre_max: spec.Soufre_max ?? null,
+    };
     return data;
 };
 
@@ -223,12 +224,13 @@ export const getSpecifications = async (): Promise<Specification[]> => {
     const specs: Specification[] = [];
 
     if (querySnapshot.empty) {
-        console.log("Specifications collection is empty, seeding with initial data...");
+        console.log("Specifications collection is empty, seeding with initial data from user table...");
         const batch = writeBatch(db);
         INITIAL_SPECIFICATIONS.forEach(spec => {
             const docRef = doc(collection(db, "specifications"));
-            batch.set(docRef, cleanSpecData(spec));
-            const newSpec = { ...spec, id: docRef.id };
+            const cleanedData = cleanSpecData(spec);
+            batch.set(docRef, cleanedData);
+            const newSpec = { ...cleanedData, id: docRef.id } as Specification;
             specs.push(newSpec);
             SPEC_MAP.set(`${newSpec.type_combustible}|${newSpec.fournisseur}`, newSpec);
         });
