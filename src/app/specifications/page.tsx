@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -92,9 +93,8 @@ export default function SpecificationsPage() {
     });
 
     const fetchData = useCallback(async () => {
-        setLoading(true);
         try {
-            await firebaseAppPromise;
+            await firebaseAppPromise; // This ensures Firebase and App Check are initialized
             await seedDatabase();
             
             const [specs, fTypes, founisseursList] = await Promise.all([
@@ -122,6 +122,7 @@ export default function SpecificationsPage() {
     }, [toast]);
 
     useEffect(() => {
+        setLoading(true);
         fetchData();
     }, [fetchData]);
 
