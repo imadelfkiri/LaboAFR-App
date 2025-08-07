@@ -3,24 +3,12 @@ import { collection, getDocs, doc, writeBatch, query, setDoc, orderBy, serverTim
 import { db } from "./firebase";
 
 export const H_MAP: Record<string, number> = {};
-export const SPEC_MAP = new Map<string, Specification>();
 
 export interface FuelType {
     name: string;
     icon: string;
     hValue: number;
     createdAt?: { seconds: number; nanoseconds: number; };
-}
-
-export interface Specification {
-    id: string;
-    combustible: string;
-    fournisseur: string;
-    H2O_max: number | null;
-    PCI_min: number | null;
-    Cl_max: number | null;
-    Cendres_max: number | null;
-    Soufre_max: number | null;
 }
 
 export const INITIAL_FUEL_TYPES: Omit<FuelType, 'createdAt'>[] = [
@@ -78,6 +66,10 @@ export const getFuelTypes = async (): Promise<FuelType[]> => {
                 H_MAP[data.name] = data.hValue;
             }
         }
+    });
+    
+    types.forEach(t => {
+        if (t.hValue !== undefined) H_MAP[t.name] = t.hValue;
     });
 
     return types;
@@ -179,78 +171,3 @@ export const getFuelSupplierMap = async (): Promise<Record<string, string[]>> =>
 
     return map;
 }
-
-const INITIAL_SPECIFICATIONS: Omit<Specification, 'id'>[] = [
-    {combustible: "CSR", fournisseur: "Polluclean", H2O_max: 16.5, PCI_min: 4000, Cl_max: 1, Cendres_max: 15, Soufre_max: null},
-    {combustible: "CSR", fournisseur: "SMBRM", H2O_max: 14, PCI_min: 5000, Cl_max: 0.6, Cendres_max: 15, Soufre_max: null},
-    {combustible: "DMB", fournisseur: "MTR", H2O_max: 15, PCI_min: 4300, Cl_max: 0.6, Cendres_max: 15, Soufre_max: 0.5},
-    {combustible: "Grignons d'olives", fournisseur: "Ain Seddeine", H2O_max: 20, PCI_min: 3700, Cl_max: 0.5, Cendres_max: 5, Soufre_max: null},
-    {combustible: "Plastiques", fournisseur: "Bichara", H2O_max: 10, PCI_min: 4200, Cl_max: 1, Cendres_max: 15, Soufre_max: null},
-    {combustible: "Plastiques", fournisseur: "Ssardi", H2O_max: 18, PCI_min: 4200, Cl_max: 1, Cendres_max: 15, Soufre_max: null},
-    {combustible: "Plastiques", fournisseur: "ValRecete", H2O_max: 15, PCI_min: 4300, Cl_max: 1, Cendres_max: 15, Soufre_max: 0.5},
-    {combustible: "Plastiques", fournisseur: "Valtradec", H2O_max: 10, PCI_min: 6000, Cl_max: 1, Cendres_max: 15, Soufre_max: 0.5},
-    {combustible: "Pneus", fournisseur: "Aliapur", H2O_max: 1, PCI_min: 6800, Cl_max: 0.3, Cendres_max: 18, Soufre_max: null},
-    {combustible: "Pneus", fournisseur: "RJL", H2O_max: 1, PCI_min: 6800, Cl_max: 0.3, Cendres_max: 18, Soufre_max: null}
-];
-
-export const getSpecifications = async (): Promise<Specification[]> => {
-    const specificationsCollectionRef = collection(db, "specifications");
-    const querySnapshot = await getDocs(specificationsCollectionRef);
-    const specifications: Specification[] = [];
-    
-    // Clear the map before populating it
-    SPEC_MAP.clear();
-
-    const processDoc = (doc: any) => {
-        const data = doc.data();
-        const spec: Specification = {
-            id: doc.id,
-            combustible: data.combustible,
-            fournisseur: data.fournisseur,
-            H2O_max: data.H2O_max ?? null,
-            PCI_min: data.PCI_min ?? null,
-            Cl_max: data.Cl_max ?? null,
-            Cendres_max: data.Cendres_max ?? null,
-            Soufre_max: data.Soufre_max ?? null
-        };
-        specifications.push(spec);
-        const key = `${spec.combustible}|${spec.fournisseur}`;
-        SPEC_MAP.set(key, spec);
-    };
-
-    if (querySnapshot.empty) {
-        console.log("Specifications collection is empty, seeding with initial data...");
-        const batch = writeBatch(db);
-        INITIAL_SPECIFICATIONS.forEach(spec => {
-            const docRef = doc(collection(db, "specifications"));
-            batch.set(docRef, spec);
-        });
-        await batch.commit();
-        console.log("Specifications seeding complete.");
-        
-        const seededSnapshot = await getDocs(specificationsCollectionRef);
-        seededSnapshot.forEach(processDoc);
-        return specifications;
-    }
-
-    querySnapshot.forEach(processDoc);
-    return specifications;
-};
-
-
-type SpecificationData = Omit<Specification, "id">;
-
-export const addSpecification = async (data: SpecificationData) => {
-    const specificationsCollectionRef = collection(db, "specifications");
-    await addDoc(specificationsCollectionRef, data);
-};
-
-export const updateSpecification = async (id: string, data: Partial<SpecificationData>) => {
-    const specDocRef = doc(db, "specifications", id);
-    await updateDoc(specDocRef, data);
-};
-
-export const deleteSpecification = async (id: string) => {
-    const specDocRef = doc(db, "specifications", id);
-    await deleteDoc(specDocRef);
-};

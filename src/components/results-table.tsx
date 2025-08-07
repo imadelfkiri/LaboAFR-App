@@ -31,7 +31,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, XCircle, Trash2, Download, ChevronDown, FileOutput } from "lucide-react";
-import { getFuelTypes, type FuelType, getFournisseurs, getSpecifications, type Specification, SPEC_MAP } from "@/lib/data";
+import { getFuelTypes, type FuelType, getFournisseurs } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
 import {
@@ -69,37 +69,6 @@ interface Result {
     remarques: string;
 }
 
-const generateAlerts = (result: Result): string => {
-    const key = `${result.type_combustible}|${result.fournisseur}`;
-    const spec = SPEC_MAP.get(key);
-    
-    if (!spec) {
-        return "✅ Conforme";
-    }
-
-    const alerts: string[] = [];
-
-    if (typeof spec.PCI_min === 'number' && typeof result.pci_brut === 'number' && result.pci_brut < spec.PCI_min) {
-        alerts.push("⚠️ PCI trop faible");
-    }
-    if (typeof spec.H2O_max === 'number' && typeof result.h2o === 'number' && result.h2o > spec.H2O_max) {
-        alerts.push("💧 H2O élevé");
-    }
-    if (typeof spec.Cl_max === 'number' && typeof result.chlore === 'number' && result.chlore > spec.Cl_max) {
-         alerts.push("🧪 Chlorures élevé");
-    }
-    if (typeof spec.Cendres_max === 'number' && typeof result.cendres === 'number' && result.cendres > spec.Cendres_max) {
-        alerts.push("🔥 Cendres élevé");
-    }
-
-    if (alerts.length === 0) {
-        return "✅ Conforme";
-    }
-
-    return alerts.join(' • ');
-};
-
-
 export function ResultsTable() {
     const [results, setResults] = useState<Result[]>([]);
     const [loading, setLoading] = useState(true);
@@ -125,7 +94,6 @@ export function ResultsTable() {
       
       const fetchInitialData = async () => {
         try {
-            await getSpecifications(); 
             const [fetchedFuelTypes, fetchedFournisseurs] = await Promise.all([
                 getFuelTypes(),
                 getFournisseurs(),
@@ -263,7 +231,7 @@ export function ResultsTable() {
         const subtitleText = "Suivi des combustibles solides non dangereux";
         const filename = `${reportType}_AFR_Report_${format(reportDate, "yyyy-MM-dd")}.xlsx`;
 
-        const headers = ["Date", "Type Combustible", "Fournisseur", "PCI sur Brut", "% H2O", "% Cl-", "% Cendres", "Densité", "Alertes", "Remarques"];
+        const headers = ["Date", "Type Combustible", "Fournisseur", "PCI sur Brut", "% H2O", "% Cl-", "% Cendres", "Densité", "Remarques"];
         
         const border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
         const titleStyle = { font: { bold: true, sz: 14 }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } };
@@ -274,8 +242,6 @@ export function ResultsTable() {
         const centerAlignStyle = { ...baseCellStyle, alignment: { ...baseCellStyle.alignment, horizontal: "center" } };
         const leftAlignStyle = { ...baseCellStyle, alignment: { ...baseCellStyle.alignment, horizontal: "left", wrapText: true } };
         
-        const alertFont = { color: { rgb: "FF0000" } };
-
         const ws_data: (any)[][] = [
             [ { v: titleText, s: titleStyle } ],
             [ { v: subtitleText, s: subtitleStyle } ],
@@ -288,27 +254,15 @@ export function ResultsTable() {
 
 
         data.forEach(result => {
-            const key = `${result.type_combustible}|${result.fournisseur}`;
-            const spec = SPEC_MAP.get(key);
-            
-            const alertsText = generateAlerts(result);
-            const isAlert = !alertsText.includes("✅");
-
-            const isPciAlert = spec && typeof spec.PCI_min === 'number' && typeof result.pci_brut === 'number' && result.pci_brut < spec.PCI_min;
-            const isH2oAlert = spec && typeof spec.H2O_max === 'number' && typeof result.h2o === 'number' && result.h2o > spec.H2O_max;
-            const isChloreAlert = spec && typeof spec.Cl_max === 'number' && typeof result.chlore === 'number' && result.chlore > spec.Cl_max;
-            const isCendresAlert = spec && typeof spec.Cendres_max === 'number' && typeof result.cendres === 'number' && result.cendres > spec.Cendres_max;
-
             const row = [
                 { v: formatDate(result.date_arrivage), s: centerAlignStyle },
                 { v: result.type_combustible, s: leftAlignStyle },
                 { v: result.fournisseur, s: leftAlignStyle },
-                { v: result.pci_brut, s: { ...centerAlignStyle, font: isPciAlert ? alertFont : undefined } },
-                { v: result.h2o, s: { ...centerAlignStyle, font: isH2oAlert ? alertFont : undefined } },
-                { v: result.chlore, s: { ...centerAlignStyle, font: isChloreAlert ? alertFont : undefined } },
-                { v: result.cendres, s: { ...centerAlignStyle, font: isCendresAlert ? alertFont : undefined } },
+                { v: result.pci_brut, s: centerAlignStyle },
+                { v: result.h2o, s: centerAlignStyle },
+                { v: result.chlore, s: centerAlignStyle },
+                { v: result.cendres, s: centerAlignStyle },
                 { v: result.densite, s: centerAlignStyle },
-                { v: alertsText, s: { ...leftAlignStyle, font: isAlert ? alertFont : undefined } },
                 { v: result.remarques || '', s: leftAlignStyle },
             ];
             ws_data.push(row);
@@ -335,8 +289,6 @@ export function ResultsTable() {
 
         const remarksIndex = headers.indexOf('Remarques');
         if (remarksIndex > -1) colWidths[remarksIndex] = { wch: 40 };
-        const alertsIndex = headers.indexOf('Alertes');
-        if (alertsIndex > -1) colWidths[alertsIndex] = { wch: 40 };
 
         ws['!cols'] = colWidths;
         
@@ -344,7 +296,6 @@ export function ResultsTable() {
         XLSX.utils.book_append_sheet(wb, ws, "Rapport AFR");
         XLSX.writeFile(wb, filename);
     };
-
 
     const handleReportDownload = (period: 'daily' | 'weekly' | 'monthly' | 'filtered') => {
         let reportData: Result[];
@@ -491,7 +442,6 @@ export function ResultsTable() {
                                     <TableHead className="text-right px-4">% Cl-</TableHead>
                                     <TableHead className="text-right px-4">% Cendres</TableHead>
                                     <TableHead className="text-right px-4">Densité</TableHead>
-                                    <TableHead className="px-4">Alertes</TableHead>
                                     <TableHead className="px-4">Remarques</TableHead>
                                     <TableHead className="w-[50px] text-right px-4 sticky right-0 bg-muted/50">Action</TableHead>
                                 </TableRow>
@@ -499,19 +449,7 @@ export function ResultsTable() {
                             <TableBody>
                                 {filteredResults.length > 0 ? (
                                     <>
-                                        {filteredResults.map((result) => {
-                                            const alerts = generateAlerts(result);
-                                            const isAlert = !alerts.includes("✅");
-
-                                            const key = `${result.type_combustible}|${result.fournisseur}`;
-                                            const spec = SPEC_MAP.get(key);
-                                            
-                                            const pciStyle = spec && typeof spec.PCI_min === 'number' && typeof result.pci_brut === 'number' && result.pci_brut < spec.PCI_min ? "text-destructive" : "";
-                                            const h2oStyle = spec && typeof spec.H2O_max === 'number' && typeof result.h2o === 'number' && result.h2o > spec.H2O_max ? "text-destructive" : "";
-                                            const chloruresStyle = spec && typeof spec.Cl_max === 'number' && typeof result.chlore === 'number' && result.chlore > spec.Cl_max ? "text-destructive" : "";
-                                            const cendresStyle = spec && typeof spec.Cendres_max === 'number' && typeof result.cendres === 'number' && result.cendres > spec.Cendres_max ? "text-destructive" : "";
-                                            
-                                            return (
+                                        {filteredResults.map((result) => (
                                             <TableRow key={result.id}>
                                                 <TableCell className="font-medium px-4 sticky left-0 bg-background">{formatDate(result.date_arrivage)}</TableCell>
 
@@ -522,22 +460,19 @@ export function ResultsTable() {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="px-4">{result.fournisseur}</TableCell>
-                                                <TableCell className={cn("font-bold text-right px-4", pciStyle)}>
+                                                <TableCell className="font-bold text-right px-4">
                                                     {formatNumber(result.pci_brut, 0)}
                                                 </TableCell>
-                                                <TableCell className={cn("text-right px-4", h2oStyle)}>
+                                                <TableCell className="text-right px-4">
                                                   {formatNumber(result.h2o, 1)}
                                                 </TableCell>
-                                                <TableCell className={cn("text-right px-4", chloruresStyle)}>
+                                                <TableCell className="text-right px-4">
                                                   {formatNumber(result.chlore, 2)}
                                                 </TableCell>
-                                                <TableCell className={cn("text-right px-4", cendresStyle)}>
+                                                <TableCell className="text-right px-4">
                                                   {formatNumber(result.cendres, 1)}
                                                 </TableCell>
                                                 <TableCell className="text-right px-4">{formatNumber(result.densite, 2)}</TableCell>
-                                                <TableCell className={cn("px-4 max-w-[250px] whitespace-normal", isAlert ? "text-destructive font-medium" : "text-green-600")}>
-                                                    {alerts}
-                                                </TableCell>
                                                 <TableCell className="max-w-[200px] truncate text-muted-foreground px-4">
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
@@ -554,7 +489,7 @@ export function ResultsTable() {
                                                     </AlertDialogTrigger>
                                                 </TableCell>
                                             </TableRow>
-                                        )})}
+                                        ))}
                                         <TableRow className="bg-muted/40 font-semibold">
                                             <TableCell colSpan={3} className="px-4 sticky left-0 bg-muted/40">Moyenne de la sélection</TableCell>
                                             <TableCell className="text-right text-primary px-4">{formatNumber(calculateAverage(filteredResults, 'pci_brut'), 0)}</TableCell>
@@ -562,12 +497,12 @@ export function ResultsTable() {
                                             <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'chlore'), 2)}</TableCell>
                                             <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'cendres'), 1)}</TableCell>
                                             <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'densite'), 2)}</TableCell>
-                                            <TableCell colSpan={3} className='sticky right-0 bg-muted/40'/>
+                                            <TableCell colSpan={2} className='sticky right-0 bg-muted/40'/>
                                         </TableRow>
                                     </>
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
+                                        <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
                                             Aucun résultat trouvé pour les filtres sélectionnés.
                                         </TableCell>
                                     </TableRow>
