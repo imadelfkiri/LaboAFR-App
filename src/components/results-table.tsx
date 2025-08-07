@@ -72,11 +72,12 @@ interface Result {
 const generateAlerts = (result: Result): string => {
     const key = `${result.type_combustible}|${result.fournisseur}`;
     const spec = SPEC_MAP.get(key);
-    const alerts: string[] = [];
-
+    
     if (!spec) {
         return "✅ Conforme";
     }
+
+    const alerts: string[] = [];
 
     if (typeof spec.pci === 'number' && typeof result.pci_brut === 'number' && result.pci_brut < spec.pci) {
         alerts.push("⚠️ PCI trop faible");
@@ -174,6 +175,7 @@ export function ResultsTable() {
 
     const filteredResults = useMemo(() => {
         return results.filter(result => {
+            if (!result.date_arrivage) return false;
             const dateArrivage = new Date(result.date_arrivage.seconds * 1000);
             
             const typeMatch = !typeFilter || result.type_combustible === typeFilter;
@@ -576,7 +578,7 @@ export function ResultsTable() {
                         <AlertDialogDescription>
                             Cette action est irréversible. Le résultat sera définitivement supprimé
                             de la base de données.
-                        </Description>
+                        </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                         <AlertDialogCancel>Annuler</AlertDialogCancel>
@@ -588,5 +590,3 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
-
-    
