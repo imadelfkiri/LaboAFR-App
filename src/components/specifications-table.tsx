@@ -14,7 +14,7 @@ import {
     deleteSpecification,
     getFuelTypes,
     getFournisseurs,
-    seedDatabase, // Import the seeding function
+    seedSpecifications, // Import the new seeding function
     type Specification,
     type FuelType
 } from '@/lib/data';
@@ -108,7 +108,10 @@ export function SpecificationsTable() {
         setLoading(true);
         try {
             await firebaseAppPromise;
-            await seedDatabase(); // Ensure the database is seeded
+            
+            // This is the key change: ensure data exists before fetching.
+            await seedSpecifications();
+
             const [fetchedSpecs, fetchedFuelTypes, fetchedFournisseurs] = await Promise.all([
                 getSpecifications(),
                 getFuelTypes(),
@@ -339,3 +342,5 @@ export function SpecificationsTable() {
         </div>
     );
 }
+
+    

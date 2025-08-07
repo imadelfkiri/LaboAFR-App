@@ -64,54 +64,24 @@ function populateHMap() {
 
 populateHMap();
 
-let isSeeding = false;
-let seedingPromise: Promise<void> | null = null;
-export async function seedDatabase() {
-    if (isSeeding) return seedingPromise;
-    seedingPromise = (async () => {
-        if (isSeeding) return;
-        isSeeding = true;
-        try {
-            await firebaseAppPromise;
-            const seedCheckDoc = doc(db, 'internal', 'seed_check');
-            const docSnap = await getDoc(seedCheckDoc);
-            if (docSnap.exists()) {
-                console.log("Database already seeded.");
-                return;
-            }
+// This function will now be called from the component to ensure it runs.
+export async function seedSpecifications() {
+    await firebaseAppPromise;
+    const specsCollection = collection(db, 'specifications');
+    const snapshot = await getDocs(specsCollection);
 
-            console.log("Seeding database with initial data...");
-            const batch = writeBatch(db);
-            
-            const uniqueFuelTypes = [...new Map(INITIAL_FUEL_TYPES.map(item => [item['name'], item])).values()];
-            uniqueFuelTypes.forEach(fuelType => {
-                const docRef = doc(collection(db, 'fuel_types'));
-                batch.set(docRef, fuelType);
-            });
-            
-            const uniqueFournisseurs = [...new Set(INITIAL_FOURNISSEURS)];
-            uniqueFournisseurs.forEach(fournisseur => {
-                const docRef = doc(collection(db, 'fournisseurs'));
-                batch.set(docRef, { name: fournisseur });
-            });
-            
-            const uniqueSpecifications = [...new Map(INITIAL_SPECIFICATIONS_DATA.map(item => [`${item.type_combustible}-${item.fournisseur}`, item])).values()];
-            uniqueSpecifications.forEach(spec => {
-                const docRef = doc(collection(db, 'specifications'));
-                batch.set(docRef, spec);
-            });
-
-            batch.set(seedCheckDoc, { seeded: true, timestamp: new Date() });
-
-            await batch.commit();
-            console.log("Database seeded successfully.");
-        } catch (error) {
-            console.error("Error seeding database:", error);
-        } finally {
-            isSeeding = false;
-        }
-    })();
-    return seedingPromise;
+    if (snapshot.empty) {
+        console.log("Specifications collection is empty. Seeding now...");
+        const batch = writeBatch(db);
+        INITIAL_SPECIFICATIONS_DATA.forEach(spec => {
+            const docRef = doc(collection(db, 'specifications'));
+            batch.set(docRef, spec);
+        });
+        await batch.commit();
+        console.log("Specifications seeded successfully.");
+    } else {
+        console.log("Specifications collection already exists.");
+    }
 }
 
 
@@ -120,7 +90,6 @@ export async function getFuelTypes(): Promise<FuelType[]> {
     const fuelTypesCollection = collection(db, 'fuel_types');
     const snapshot = await getDocs(fuelTypesCollection);
     
-    // This is a fallback to initial data if the collection is empty, but the seeding should prevent this.
     if (snapshot.empty) {
         console.log("No fuel types found, returning initial data for display.");
         return INITIAL_FUEL_TYPES;
@@ -141,7 +110,6 @@ export async function getFournisseurs(): Promise<string[]> {
     const fournisseursCollection = collection(db, 'fournisseurs');
     const snapshot = await getDocs(fournisseursCollection);
     
-    // Fallback
     if (snapshot.empty) {
         console.log("No fournisseurs found, returning initial data for display.");
         return INITIAL_FOURNISSEURS;
@@ -163,15 +131,6 @@ export async function getSpecifications(forceDbRead = false): Promise<Specificat
     await firebaseAppPromise;
     const specsCollection = collection(db, 'specifications');
     const snapshot = await getDocs(specsCollection);
-
-    if (snapshot.empty && !forceDbRead) {
-        console.log("No specifications found in DB, returning initial data for display.");
-        return INITIAL_SPECIFICATIONS_DATA.map((spec, index) => ({ id: `initial-${index}`, ...spec }));
-    }
-    
-    if(snapshot.empty && forceDbRead) {
-        return [];
-    }
 
     const specs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Specification));
     
@@ -216,3 +175,5 @@ export async function deleteSpecification(id: string) {
     await deleteDoc(specRef);
     await updateSpecMap();
 };
+
+    
