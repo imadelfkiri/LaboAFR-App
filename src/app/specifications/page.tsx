@@ -92,11 +92,11 @@ export default function SpecificationsPage() {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            // Data is now synchronous for fueltypes and fournisseurs
+            const [specs] = await Promise.all([
+                getSpecifications(),
+            ]);
             const fTypes = getFuelTypes();
             const founisseursList = getFournisseurs();
-            // Only specifications are fetched asynchronously
-            const specs = await getSpecifications();
             
             setFuelTypes(fTypes);
             setFournisseurs(founisseursList);

@@ -31,7 +31,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, XCircle, Trash2, Download, ChevronDown, FileOutput } from "lucide-react";
-import { getFuelTypes, type FuelType, getFournisseurs, getSpecifications, SPEC_MAP, Specification, seedDatabase } from "@/lib/data";
+import { getFuelTypes, type FuelType, getFournisseurs, getSpecifications, SPEC_MAP, Specification } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
 import {
@@ -89,12 +89,10 @@ export function ResultsTable() {
         if (!isClient) return;
         setLoading(true);
         try {
-            await seedDatabase();
-            const [fetchedFuelTypes, fetchedFournisseurs] = await Promise.all([
-                getFuelTypes(),
-                getFournisseurs(),
-                getSpecifications(), // To ensure SPEC_MAP is populated
-            ]);
+            const fetchedFuelTypes = getFuelTypes();
+            const fetchedFournisseurs = getFournisseurs();
+            await getSpecifications(); // To ensure SPEC_MAP is populated
+            
             setFuelTypes(fetchedFuelTypes);
             setFournisseurs(fetchedFournisseurs);
 
@@ -349,23 +347,23 @@ export function ResultsTable() {
         const alerts: string[] = [];
 
         if (typeof spec.PCI_min === 'number' && result.pci_brut < spec.PCI_min) {
-            alerts.push("⚠️ PCI");
+            alerts.push("PCI");
         }
         if (typeof spec.H2O_max === 'number' && result.h2o > spec.H2O_max) {
-            alerts.push("💧 H2O");
+            alerts.push("H2O");
         }
         if (typeof spec.Cl_max === 'number' && result.chlore > spec.Cl_max) {
-            alerts.push("🧪 Chlore");
+            alerts.push("Chlore");
         }
         if (typeof spec.Cendres_max === 'number' && result.cendres > spec.Cendres_max) {
-            alerts.push("🔥 Cendres");
+            alerts.push("Cendres");
         }
 
         if (alerts.length === 0) {
-            return { text: "✅ Conforme", color: "text-green-600" };
+            return { text: "Conforme", color: "text-green-600" };
         }
 
-        return { text: alerts.join(' • '), color: "text-red-600" };
+        return { text: alerts.join(' / '), color: "text-red-600" };
     };
 
     if (loading || !isClient) {

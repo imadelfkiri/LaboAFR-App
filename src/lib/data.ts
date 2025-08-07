@@ -71,8 +71,6 @@ export async function seedDatabase() {
         });
         await batch.commit();
         console.log("Seeding complete.");
-    } else {
-        console.log("Database already contains specifications, skipping seed.");
     }
 }
 
