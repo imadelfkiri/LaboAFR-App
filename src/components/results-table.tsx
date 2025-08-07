@@ -97,7 +97,7 @@ export function ResultsTable() {
                 toast({ variant: "destructive", title: "Erreur de lecture", description: "Impossible de charger l'historique des résultats." });
                 setLoading(false);
             });
-            return () => unsubscribe();
+            return unsubscribe; // Return the unsubscribe function to be called on component unmount
 
         } catch (error) {
             console.error("Erreur lors de la récupération des données de base :", error);
@@ -107,7 +107,14 @@ export function ResultsTable() {
     }, [toast]);
 
     useEffect(() => {
-        fetchInitialData();
+        const unsubscribe = fetchInitialData();
+        return () => {
+            unsubscribe.then(unsub => {
+                if(unsub) {
+                    unsub();
+                }
+            });
+        };
     }, [fetchInitialData]);
     
     const normalizeDate = (date: { seconds: number; nanoseconds: number } | string): Date | null => {
