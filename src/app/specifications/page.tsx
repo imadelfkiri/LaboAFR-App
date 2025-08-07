@@ -95,7 +95,6 @@ export default function SpecificationsPage() {
         setLoading(true);
         try {
             await firebaseAppPromise;
-            // On s'assure que la base de données est initialisée si besoin
             await seedDatabase();
             
             const [specs, fTypes, founisseursList] = await Promise.all([

@@ -86,8 +86,10 @@ export function ResultsTable() {
         try {
             await firebaseAppPromise;
             await getSpecifications(); // Populates SPEC_MAP
-            const fetchedFuelTypes = getFuelTypes();
-            const fetchedFournisseurs = getFournisseurs();
+            const [fetchedFuelTypes, fetchedFournisseurs] = await Promise.all([
+                getFuelTypes(),
+                getFournisseurs()
+            ]);
             setFuelTypes(fetchedFuelTypes);
             setFournisseurs(fetchedFournisseurs);
 

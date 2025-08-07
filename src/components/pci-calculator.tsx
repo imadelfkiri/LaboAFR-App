@@ -140,8 +140,8 @@ export function PciCalculator() {
       try {
         await firebaseAppPromise; // Wait for firebase to be initialized
         const [fetchedFuelTypes, fetchedFournisseurs, specs] = await Promise.all([
-          Promise.resolve(getFuelTypes()),
-          Promise.resolve(getFournisseurs()),
+          getFuelTypes(),
+          getFournisseurs(),
           getSpecifications()
         ]);
         

@@ -65,44 +65,70 @@ function populateHMap() {
 
 populateHMap();
 
-// Seeding logic
 let isSeeding = false;
 let seedingPromise: Promise<void> | null = null;
-export function seedDatabase() {
-    if (!seedingPromise) {
-        seedingPromise = (async () => {
-            if (isSeeding) return;
-            isSeeding = true;
-            try {
-                const specsCollection = collection(db, 'specifications');
-                const snapshot = await getDocs(query(specsCollection));
-                if (snapshot.empty) {
-                    console.log("Seeding database...");
-                    const batch = writeBatch(db);
-                    INITIAL_SPECIFICATIONS_DATA.forEach(spec => {
-                        const docRef = doc(collection(db, 'specifications'));
-                        batch.set(docRef, spec);
-                    });
-                    await batch.commit();
-                    console.log("Database seeded successfully.");
-                }
-            } catch (error) {
-                console.error("Error seeding database:", error);
-            } finally {
-                isSeeding = false;
+export async function seedDatabase() {
+    if (isSeeding) return seedingPromise;
+    seedingPromise = (async () => {
+        if (isSeeding) return;
+        isSeeding = true;
+        try {
+            const seedCheckDoc = doc(db, 'internal', 'seed_check');
+            const docSnap = await getDoc(seedCheckDoc);
+            if (docSnap.exists()) {
+                console.log("Database already seeded.");
+                return;
             }
-        })();
-    }
+
+            console.log("Seeding database with initial data...");
+            const batch = writeBatch(db);
+
+            INITIAL_FUEL_TYPES.forEach(fuelType => {
+                const docRef = doc(collection(db, 'fuel_types'));
+                batch.set(docRef, fuelType);
+            });
+            
+            INITIAL_FOURNISSEURS.forEach(fournisseur => {
+                const docRef = doc(collection(db, 'fournisseurs'));
+                batch.set(docRef, { name: fournisseur });
+            });
+            
+            INITIAL_SPECIFICATIONS_DATA.forEach(spec => {
+                const docRef = doc(collection(db, 'specifications'));
+                batch.set(docRef, spec);
+            });
+
+            batch.set(seedCheckDoc, { seeded: true, timestamp: new Date() });
+
+            await batch.commit();
+            console.log("Database seeded successfully.");
+        } catch (error) {
+            console.error("Error seeding database:", error);
+        } finally {
+            isSeeding = false;
+        }
+    })();
     return seedingPromise;
 }
 
 
-export function getFuelTypes(): FuelType[] {
-    return [...INITIAL_FUEL_TYPES];
+export async function getFuelTypes(): Promise<FuelType[]> {
+    const fuelTypesCollection = collection(db, 'fuel_types');
+    const snapshot = await getDocs(fuelTypesCollection);
+    const fuelTypes = snapshot.docs.map(doc => doc.data() as FuelType);
+    
+    // Update H_MAP dynamically
+    fuelTypes.forEach(ft => {
+        H_MAP[ft.name] = ft.hValue;
+    });
+
+    return fuelTypes;
 };
 
-export function getFournisseurs(): string[] {
-    return [...INITIAL_FOURNISSEURS];
+export async function getFournisseurs(): Promise<string[]> {
+    const fournisseursCollection = collection(db, 'fournisseurs');
+    const snapshot = await getDocs(fournisseursCollection);
+    return snapshot.docs.map(doc => doc.data().name as string);
 };
 
 async function updateSpecMap() {
@@ -118,7 +144,6 @@ export async function getSpecifications(): Promise<Specification[]> {
     const snapshot = await getDocs(specsCollection);
     const specs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Specification));
     
-    // Update the map after fetching
     SPEC_MAP.clear();
     specs.forEach(spec => {
         SPEC_MAP.set(`${spec.type_combustible}|${spec.fournisseur}`, spec);
@@ -130,9 +155,17 @@ export async function getSpecifications(): Promise<Specification[]> {
 export async function addSpecification(spec: Omit<Specification, 'id'>) {
     const q = query(collection(db, "specifications"), where("type_combustible", "==", spec.type_combustible), where("fournisseur", "==", spec.fournisseur));
     const existing = await getDocs(q);
-    if (!existing.empty) {
+if (!existing.empty) {
         throw new Error("Une spécification pour ce combustible et ce fournisseur existe déjà.");
     }
+
+    // Also add the new fournisseur to the 'fournisseurs' collection if it doesn't exist
+    const founisseurQuery = query(collection(db, "fournisseurs"), where("name", "==", spec.fournisseur));
+    const existingFournisseur = await getDocs(founisseurQuery);
+    if(existingFournisseur.empty){
+        await addDoc(collection(db, 'fournisseurs'), {name: spec.fournisseur});
+    }
+
     await addDoc(collection(db, 'specifications'), spec);
     await updateSpecMap();
 };
