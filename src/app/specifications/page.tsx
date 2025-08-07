@@ -13,7 +13,8 @@ import {
     getFuelTypes,
     getFournisseurs,
     type Specification,
-    type FuelType
+    type FuelType,
+    seedDatabase
 } from "@/lib/data";
 import {
   Table,
@@ -92,9 +93,12 @@ export default function SpecificationsPage() {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const fTypes = getFuelTypes();
-            const founisseursList = getFournisseurs();
-            const specs = getSpecifications();
+            await seedDatabase(); // Ensure DB is seeded
+            const [fTypes, founisseursList, specs] = await Promise.all([
+                getFuelTypes(),
+                getFournisseurs(),
+                getSpecifications()
+            ]);
             
             setFuelTypes(fTypes);
             setFournisseurs(founisseursList);
@@ -133,31 +137,32 @@ export default function SpecificationsPage() {
         setIsDialogOpen(true);
     };
 
-    const onSubmit = (data: SpecFormData) => {
+    const onSubmit = async (data: SpecFormData) => {
         try {
             const dataToSave = Object.fromEntries(
                 Object.entries(data).map(([key, value]) => [key, value === '' ? undefined : value])
             );
 
             if (currentSpec?.id) {
-                updateSpecification(currentSpec.id, { ...currentSpec, ...dataToSave });
+                await updateSpecification(currentSpec.id, dataToSave as Specification);
                 toast({ title: "Succès", description: "Spécification mise à jour." });
             } else {
-                addSpecification(dataToSave as Omit<Specification, 'id'>);
+                await addSpecification(dataToSave as Omit<Specification, 'id'>);
                 toast({ title: "Succès", description: "Spécification ajoutée." });
             }
             setIsDialogOpen(false);
-            fetchData();
+            fetchData(); // Refetch data to show changes
         } catch (error) {
             console.error("Failed to save specification:", error);
-            toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer la spécification." });
+            const errorMessage = error instanceof Error ? error.message : "Impossible d'enregistrer la spécification.";
+            toast({ variant: "destructive", title: "Erreur", description: errorMessage });
         }
     };
 
-    const handleDeleteConfirm = () => {
+    const handleDeleteConfirm = async () => {
         if (!specToDelete) return;
         try {
-            deleteSpecification(specToDelete);
+            await deleteSpecification(specToDelete);
             toast({ title: "Succès", description: "Spécification supprimée." });
             setSpecToDelete(null);
             fetchData();

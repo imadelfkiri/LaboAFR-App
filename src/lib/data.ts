@@ -1,6 +1,6 @@
 
 
-import { collection, getDocs, doc, writeBatch, query, setDoc, orderBy, serverTimestamp, getDoc, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, getDocs, doc, writeBatch, query, setDoc, orderBy, serverTimestamp, getDoc, addDoc, updateDoc, deleteDoc, where } from "firebase/firestore";
 import { db } from "./firebase";
 
 export const H_MAP: Record<string, number> = {};
@@ -8,7 +8,6 @@ export const H_MAP: Record<string, number> = {};
 export interface FuelType {
     name: string;
     hValue: number;
-    createdAt?: { seconds: number; nanoseconds: number; };
 }
 
 export interface Specification {
@@ -22,11 +21,9 @@ export interface Specification {
     Soufre_max?: number | null;
 }
 
-// Map to hold specifications for easy lookup. Key: "fuelType|fournisseur"
 export const SPEC_MAP = new Map<string, Specification>();
 
-
-export const INITIAL_FUEL_TYPES: Omit<FuelType, 'createdAt'>[] = [
+const INITIAL_FUEL_TYPES: Omit<FuelType, 'createdAt'>[] = [
     { name: "Textile", hValue: 6.0 },
     { name: "RDF", hValue: 6.0 },
     { name: "Pneus", hValue: 6.5 },
@@ -61,67 +58,64 @@ const INITIAL_SPECIFICATIONS_DATA: Omit<Specification, 'id'>[] = [
     { type_combustible: 'Pneus', fournisseur: 'RJL', H2O_max: 1, PCI_min: 6800, Cl_max: 0.3, Cendres_max: 1, Soufre_max: null },
 ];
 
+export async function seedDatabase() {
+    const specsRef = collection(db, 'specifications');
+    const snapshot = await getDocs(query(specsRef));
+    if (snapshot.empty) {
+        console.log("Database is empty, seeding specifications...");
+        const batch = writeBatch(db);
+        INITIAL_SPECIFICATIONS_DATA.forEach(spec => {
+            const docRef = doc(collection(db, 'specifications'));
+            batch.set(docRef, spec);
+        });
+        await batch.commit();
+    }
+}
+
 INITIAL_FUEL_TYPES.forEach(ft => {
     if (ft.hValue !== undefined) H_MAP[ft.name] = ft.hValue;
 });
 
-// Populate SPEC_MAP from initial data
-if (SPEC_MAP.size === 0) {
-    INITIAL_SPECIFICATIONS_DATA.forEach((spec, index) => {
-        const id = `spec-${index}`;
-        const fullSpec: Specification = { id, ...spec };
-        SPEC_MAP.set(`${fullSpec.type_combustible}|${fullSpec.fournisseur}`, fullSpec);
+export const getFuelTypes = async (): Promise<FuelType[]> => {
+    return INITIAL_FUEL_TYPES;
+};
+
+export const getFournisseurs = async (): Promise<string[]> => {
+    return INITIAL_FOURNISSEURS;
+};
+
+export const getSpecifications = async (): Promise<Specification[]> => {
+    const specsRef = collection(db, "specifications");
+    const q = query(specsRef, orderBy("type_combustible"), orderBy("fournisseur"));
+    const snapshot = await getDocs(q);
+    const specs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Specification));
+    
+    SPEC_MAP.clear();
+    specs.forEach(spec => {
+        SPEC_MAP.set(`${spec.type_combustible}|${spec.fournisseur}`, spec);
     });
-}
 
-
-export const getFuelTypes = (): FuelType[] => {
-    return INITIAL_FUEL_TYPES.map(ft => ({...ft}));
+    return specs;
 };
 
-export const getFournisseurs = (): string[] => {
-    return [...INITIAL_FOURNISSEURS];
-};
+export const addSpecification = async (spec: Omit<Specification, 'id'>) => {
+    const specsRef = collection(db, "specifications");
+    const q = query(specsRef, where("type_combustible", "==", spec.type_combustible), where("fournisseur", "==", spec.fournisseur));
+    const snapshot = await getDocs(q);
 
-export const getSpecifications = (): Specification[] => {
-    return Array.from(SPEC_MAP.values()).sort((a,b) => 
-        a.type_combustible.localeCompare(b.type_combustible) || a.fournisseur.localeCompare(b.fournisseur)
-    );
-};
-
-export const addSpecification = (spec: Omit<Specification, 'id'>) => {
-    const id = `spec-${Date.now()}`;
-    const newSpec: Specification = {id, ...spec};
-    const key = `${newSpec.type_combustible}|${newSpec.fournisseur}`;
-    
-    // Check for duplicates
-    for (const s of SPEC_MAP.values()) {
-        if (s.type_combustible === newSpec.type_combustible && s.fournisseur === newSpec.fournisseur) {
-            throw new Error("Une spécification pour ce combustible et ce fournisseur existe déjà.");
-        }
+    if (!snapshot.empty) {
+        throw new Error("Une spécification pour ce combustible et ce fournisseur existe déjà.");
     }
     
-    SPEC_MAP.set(key, newSpec);
+    await addDoc(specsRef, spec);
 };
 
-export const updateSpecification = (id: string, spec: Specification) => {
-     const key = `${spec.type_combustible}|${spec.fournisseur}`;
-     
-     // Find old key to delete if it's different
-     for(let [k, v] of SPEC_MAP.entries()){
-         if(v.id === id && k !== key){
-             SPEC_MAP.delete(k);
-         }
-     }
-
-     SPEC_MAP.set(key, spec);
+export const updateSpecification = async (id: string, spec: Partial<Specification>) => {
+    const docRef = doc(db, 'specifications', id);
+    await updateDoc(docRef, spec);
 };
 
-export const deleteSpecification = (id: string) => {
-    for (const [key, value] of SPEC_MAP.entries()) {
-        if (value.id === id) {
-            SPEC_MAP.delete(key);
-            break;
-        }
-    }
+export const deleteSpecification = async (id: string) => {
+    const docRef = doc(db, 'specifications', id);
+    await deleteDoc(docRef);
 };
