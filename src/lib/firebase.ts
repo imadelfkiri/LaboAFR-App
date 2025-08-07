@@ -17,20 +17,34 @@ const firebaseConfig = {
 // Initialize Firebase
 let app: FirebaseApp;
 let appCheck: AppCheck | null = null;
-
-try {
-  app = getApp();
-} catch (e) {
-  app = initializeApp(firebaseConfig);
-}
+let firebaseAppPromise: Promise<FirebaseApp>;
 
 if (typeof window !== 'undefined') {
-    appCheck = initializeAppCheck(app, {
-        provider: new ReCaptchaV3Provider('6Ld-sQ8qAAAAAGn4584i9GoV60ERb7aCU65_D2rO'),
-        isTokenAutoRefreshEnabled: true,
-    });
+  try {
+    app = getApp();
+  } catch (e) {
+    app = initializeApp(firebaseConfig);
+  }
+
+  appCheck = initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider('6Ld-sQ8qAAAAAGn4584i9GoV60ERb7aCU65_D2rO'),
+      isTokenAutoRefreshEnabled: true,
+  });
+  firebaseAppPromise = Promise.resolve(app);
+} else {
+  // For server-side rendering, we can just resolve the promise
+  firebaseAppPromise = new Promise((resolve) => {
+    try {
+      resolve(getApp());
+    } catch (e) {
+      resolve(initializeApp(firebaseConfig));
+    }
+  });
 }
+
 
 const db = getFirestore(app);
 
-export { db, appCheck };
+export { db, appCheck, firebaseAppPromise };
+
+    

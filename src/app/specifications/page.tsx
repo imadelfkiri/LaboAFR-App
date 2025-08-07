@@ -16,7 +16,7 @@ import {
     type Specification,
     type FuelType,
 } from "@/lib/data";
-import { appCheck } from '@/lib/firebase';
+import { firebaseAppPromise } from '@/lib/firebase';
 import {
   Table,
   TableBody,
@@ -94,11 +94,7 @@ export default function SpecificationsPage() {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            // This is the key change: wait for App Check to be initialized.
-            if (appCheck) {
-                // No need to call a function, the import itself ensures initialization.
-                // The presence of the appCheck object is enough.
-            }
+            await firebaseAppPromise;
             
             const [specs, fTypes, founisseursList] = await Promise.all([
                 getSpecifications(),
@@ -333,3 +329,5 @@ export default function SpecificationsPage() {
         </div>
     );
 }
+
+    
