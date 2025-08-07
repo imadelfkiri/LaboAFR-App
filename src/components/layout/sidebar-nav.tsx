@@ -10,6 +10,7 @@ const links = [
   { href: '/calculateur', label: 'Calculateur PCI', icon: Flame },
   { href: '/resultats', label: 'Résultats', icon: Database },
   { href: '/statistiques', label: 'Statistiques', icon: BarChart3 },
+  { href: '/specifications', label: 'Spécifications', icon: ClipboardCheck },
 ];
 
 export function SidebarNav() {
