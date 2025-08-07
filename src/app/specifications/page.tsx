@@ -92,7 +92,7 @@ export default function SpecificationsPage() {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            // Data is now synchronous
+            // Data is now synchronous for fueltypes and fournisseurs
             const fTypes = getFuelTypes();
             const founisseursList = getFournisseurs();
             // Only specifications are fetched asynchronously
@@ -217,7 +217,7 @@ export default function SpecificationsPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {specifications.map((spec) => (
+                                {specifications && specifications.map((spec) => (
                                     <TableRow key={spec.id}>
                                         <TableCell className="font-medium">{spec.type_combustible}</TableCell>
                                         <TableCell>{spec.fournisseur}</TableCell>
