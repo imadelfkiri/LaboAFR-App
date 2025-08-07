@@ -48,7 +48,6 @@ const INITIAL_SPECIFICATIONS_DATA: Omit<Specification, 'id'>[] = [
     { type_combustible: 'CSR', fournisseur: 'Polluclean', H2O_max: 16.5, PCI_min: 4000, Cl_max: 1, Cendres_max: 15, Soufre_max: null },
     { type_combustible: 'CSR', fournisseur: 'SMBRM', H2O_max: 14, PCI_min: 5000, Cl_max: 0.6, Cendres_max: 15, Soufre_max: null },
     { type_combustible: 'DMB', fournisseur: 'MTR', H2O_max: 15, PCI_min: 4300, Cl_max: 0.6, Cendres_max: 15, Soufre_max: 0.5 },
-    { type_combustible: "Grignons d'olives", fournisseur: 'Ain Seddeine', H2O_max: 20, PCI_min: 3700, Cl_max: 0.5, Cendres_max: 5, Soufre_max: null },
     { type_combustible: 'Plastiques', fournisseur: 'Bichara', H2O_max: 10, PCI_min: 4200, Cl_max: 1, Cendres_max: 15, Soufre_max: null },
     { type_combustible: 'Plastiques', fournisseur: 'Ssardi', H2O_max: 18, PCI_min: 4200, Cl_max: 1, Cendres_max: 15, Soufre_max: null },
     { type_combustible: 'Plastiques', fournisseur: 'ValRecete', H2O_max: 15, PCI_min: 4300, Cl_max: 1, Cendres_max: 15, Soufre_max: 0.5 },
@@ -120,6 +119,12 @@ export async function getFuelTypes(): Promise<FuelType[]> {
     await firebaseAppPromise;
     const fuelTypesCollection = collection(db, 'fuel_types');
     const snapshot = await getDocs(fuelTypesCollection);
+    
+    if (snapshot.empty) {
+        console.log("No fuel types found, returning initial data.");
+        return INITIAL_FUEL_TYPES;
+    }
+
     const fuelTypes = snapshot.docs.map(doc => doc.data() as FuelType);
     
     // Update H_MAP dynamically
@@ -134,6 +139,12 @@ export async function getFournisseurs(): Promise<string[]> {
     await firebaseAppPromise;
     const fournisseursCollection = collection(db, 'fournisseurs');
     const snapshot = await getDocs(fournisseursCollection);
+
+    if (snapshot.empty) {
+        console.log("No fournisseurs found, returning initial data.");
+        return INITIAL_FOURNISSEURS;
+    }
+
     const suppliers = snapshot.docs.map(doc => doc.data().name as string);
     return [...new Set(suppliers)]; // Ensure uniqueness
 };
@@ -150,6 +161,12 @@ export async function getSpecifications(): Promise<Specification[]> {
     await firebaseAppPromise;
     const specsCollection = collection(db, 'specifications');
     const snapshot = await getDocs(specsCollection);
+
+    if (snapshot.empty) {
+        console.log("No specifications found, returning initial data.");
+        return INITIAL_SPECIFICATIONS_DATA.map((spec, index) => ({ id: `initial-${index}`, ...spec }));
+    }
+
     const specs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Specification));
     
     SPEC_MAP.clear();
@@ -192,5 +209,3 @@ export async function deleteSpecification(id: string) {
     await deleteDoc(specRef);
     await updateSpecMap();
 };
-
-
