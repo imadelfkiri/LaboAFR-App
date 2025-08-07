@@ -74,7 +74,6 @@ const formSchema = z.object({
 
 const newFuelTypeSchema = z.object({
     name: z.string().nonempty({ message: "Le nom du combustible est requis."}),
-    hValue: z.coerce.number({ required_error: "La valeur H est requise."}).min(0, { message: "La valeur H doit être positive." }),
 });
 
 const newFournisseurSchema = z.object({
@@ -93,7 +92,6 @@ export function PciCalculator() {
   
   const [isFuelModalOpen, setIsFuelModalOpen] = useState(false);
   const [newFuelTypeName, setNewFuelTypeName] = useState("");
-  const [newFuelTypeHValue, setNewFuelTypeHValue] = useState<number | string>("");
 
   const [isFournisseurModalOpen, setIsFournisseurModalOpen] = useState(false);
   const [newFournisseurName, setNewFournisseurName] = useState("");
@@ -153,10 +151,6 @@ export function PciCalculator() {
       setAllFuelTypes(fetchedFuelTypes);
       setAllFournisseurs(fetchedFournisseurs);
       setFuelSupplierMap(map);
-
-      if (fetchedFuelTypes.length > 0) {
-        setValue("type_combustible", fetchedFuelTypes[0].name);
-      }
   };
 
   useEffect(() => {
@@ -210,10 +204,8 @@ export function PciCalculator() {
       try {
         const newFuel = newFuelTypeSchema.parse({ 
             name: newFuelTypeName, 
-            hValue: newFuelTypeHValue,
         });
 
-        // This part needs to be adapted if fuel types are not stored in DB
         console.warn("Adding fuel types dynamically is not fully supported with current data structure.");
         toast({
             title: "Fonctionnalité limitée",
@@ -306,16 +298,12 @@ export function PciCalculator() {
         remarques: values.remarques || "",
       };
 
-      // Here you would typically save to a database.
       console.log("Data to save:", dataToSave);
       
       toast({
           title: "Succès (Simulation)",
           description: "Les résultats ont été enregistrés localement. L'intégration DB est nécessaire.",
       });
-
-      // To see the data in the results table, we'd need a shared state management or to pass data
-      // For now, just logging it.
       
       resetForm();
 
@@ -616,10 +604,6 @@ export function PciCalculator() {
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="name" className="text-right">Nom</Label>
                         <Input id="name" value={newFuelTypeName} onChange={(e) => setNewFuelTypeName(e.target.value)} className="col-span-3" />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="hValue" className="text-right">Valeur H</Label>
-                        <Input id="hValue" type="number" value={newFuelTypeHValue} onChange={(e) => setNewFuelTypeHValue(e.target.value)} className="col-span-3" />
                     </div>
                 </div>
                 <DialogFooter>
