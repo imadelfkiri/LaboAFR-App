@@ -3,8 +3,8 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-// import { collection, query, onSnapshot, orderBy, doc, deleteDoc } from 'firebase/firestore';
-// import { db } from '@/lib/firebase';
+import { collection, query, onSnapshot, orderBy, doc, deleteDoc, Timestamp } from 'firebase/firestore';
+import { db, firebaseAppPromise } from '@/lib/firebase';
 import {
   Table,
   TableBody,
@@ -59,7 +59,7 @@ import * as XLSX from 'xlsx';
 
 interface Result {
     id: string;
-    date_arrivage: string; // Changed from { seconds, nanoseconds } to string
+    date_arrivage: { seconds: number; nanoseconds: number } | string;
     type_combustible: string;
     fournisseur: string;
     h2o: number;
@@ -69,25 +69,6 @@ interface Result {
     pci_brut: number;
     remarques: string;
 }
-
-// Dummy functions to simulate DB operations
-async function getResults(): Promise<Result[]> {
-    if (typeof window !== 'undefined') {
-        const localData = sessionStorage.getItem('results');
-        return localData ? JSON.parse(localData) : [];
-    }
-    return [];
-}
-
-async function deleteResult(id: string) {
-    if (typeof window !== 'undefined') {
-        let results = await getResults();
-        results = results.filter(r => r.id !== id);
-        sessionStorage.setItem('results', JSON.stringify(results));
-    }
-    return Promise.resolve();
-}
-
 
 export function ResultsTable() {
     const [results, setResults] = useState<Result[]>([]);
@@ -100,20 +81,31 @@ export function ResultsTable() {
     const [fournisseurs, setFournisseurs] = useState<string[]>([]);
     const { toast } = useToast();
 
-    const fetchInitialData = useCallback(() => {
+    const fetchInitialData = useCallback(async () => {
         setLoading(true);
         try {
-            getSpecifications(); // Populates SPEC_MAP
+            await firebaseAppPromise;
+            await getSpecifications(); // Populates SPEC_MAP
             const fetchedFuelTypes = getFuelTypes();
             const fetchedFournisseurs = getFournisseurs();
             setFuelTypes(fetchedFuelTypes);
             setFournisseurs(fetchedFournisseurs);
 
-             getResults().then(resultsData => {
-                resultsData.sort((a, b) => new Date(b.date_arrivage).getTime() - new Date(a.date_arrivage).getTime());
+            const q = query(collection(db, "resultats"), orderBy("date_creation", "desc"));
+            const unsubscribe = onSnapshot(q, (querySnapshot) => {
+                const resultsData: Result[] = [];
+                querySnapshot.forEach((doc) => {
+                    resultsData.push({ id: doc.id, ...doc.data() } as Result);
+                });
                 setResults(resultsData);
                 setLoading(false);
+            }, (error) => {
+                console.error("Erreur de lecture des résultats:", error);
+                toast({ variant: "destructive", title: "Erreur de lecture", description: "Impossible de charger l'historique des résultats." });
+                setLoading(false);
             });
+            return () => unsubscribe();
+
         } catch (error) {
             console.error("Erreur lors de la récupération des données de base :", error);
             toast({ variant: "destructive", title: "Erreur de données", description: "Impossible de charger les données de configuration." });
@@ -124,12 +116,23 @@ export function ResultsTable() {
     useEffect(() => {
         fetchInitialData();
     }, [fetchInitialData]);
+    
+    const normalizeDate = (date: { seconds: number; nanoseconds: number } | string): Date | null => {
+        if (typeof date === 'string') {
+            const parsed = parseISO(date);
+            return isValid(parsed) ? parsed : null;
+        }
+        if (date && typeof date.seconds === 'number') {
+            return new Timestamp(date.seconds, date.nanoseconds).toDate();
+        }
+        return null;
+    };
 
     const filteredResults = useMemo(() => {
         return results.filter(result => {
             if (!result.date_arrivage) return false;
-            const dateArrivage = parseISO(result.date_arrivage);
-             if (!isValid(dateArrivage)) return false;
+            const dateArrivage = normalizeDate(result.date_arrivage);
+             if (!dateArrivage || !isValid(dateArrivage)) return false;
             
             const typeMatch = !typeFilter || result.type_combustible === typeFilter;
             const fournisseurMatch = !fournisseurFilter || result.fournisseur === fournisseurFilter;
@@ -149,10 +152,9 @@ export function ResultsTable() {
         return sum / validValues.length;
     };
     
-    function formatDate(date: string | Date): string {
-        if (!date) return "Date inconnue";
-        let parsedDate = typeof date === 'string' ? parseISO(date) : date;
-        if (!isValid(parsedDate)) return "Date inconnue";
+    function formatDate(date: { seconds: number; nanoseconds: number } | string): string {
+        const parsedDate = normalizeDate(date);
+        if (!parsedDate || !isValid(parsedDate)) return "Date inconnue";
         return format(parsedDate, "dd/MM/yyyy");
     }
 
@@ -165,12 +167,11 @@ export function ResultsTable() {
     const handleDelete = async () => {
         if (!resultToDelete) return;
         try {
-            await deleteResult(resultToDelete);
+            await deleteDoc(doc(db, "resultats", resultToDelete));
             toast({
                 title: "Succès",
                 description: "L'enregistrement a été supprimé.",
             });
-            fetchInitialData(); // Re-fetch data
         } catch (error) {
             console.error("Erreur lors de la suppression:", error);
             toast({
@@ -295,8 +296,8 @@ export function ResultsTable() {
             }
         
             reportData = results.filter(result => {
-                const dateArrivage = parseISO(result.date_arrivage);
-                return isValid(dateArrivage) && dateArrivage >= startDate && dateArrivage <= endDate;
+                const dateArrivage = normalizeDate(result.date_arrivage);
+                return !!dateArrivage && isValid(dateArrivage) && dateArrivage >= startDate && dateArrivage <= endDate;
             });
         }
         
@@ -534,7 +535,7 @@ export function ResultsTable() {
                                 ) : (
                                     <TableRow>
                                         <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
-                                            Aucun résultat trouvé pour les filtres sélectionnés.
+                                            Aucun résultat trouvé.
                                         </TableCell>
                                     </TableRow>
                                 )}

@@ -3,8 +3,8 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-// import { collection, query, onSnapshot } from 'firebase/firestore';
-// import { db } from '@/lib/firebase';
+import { collection, query, onSnapshot, Timestamp } from 'firebase/firestore';
+import { db, firebaseAppPromise } from '@/lib/firebase';
 import {
   Card,
   CardContent,
@@ -24,22 +24,12 @@ import { Skeleton } from './ui/skeleton';
 
 interface Result {
     id: string;
-    date_arrivage: string; // Changed from { seconds, nanoseconds } to string
+    date_arrivage: { seconds: number; nanoseconds: number } | string;
     type_combustible: string;
     h2o: number;
     chlore: number;
     pci_brut: number;
 }
-
-// Dummy function to get results from session storage
-async function getResults(): Promise<Result[]> {
-    if (typeof window !== 'undefined') {
-        const localData = sessionStorage.getItem('results');
-        return localData ? JSON.parse(localData) : [];
-    }
-    return [];
-}
-
 
 const formatNumber = (num: number, fractionDigits: number = 0) => {
     if (isNaN(num)) return '0';
@@ -49,27 +39,46 @@ const formatNumber = (num: number, fractionDigits: number = 0) => {
     });
 };
 
+const normalizeDate = (date: { seconds: number; nanoseconds: number } | string): Date | null => {
+    if (typeof date === 'string') {
+        const parsed = parseISO(date);
+        return isValid(parsed) ? parsed : null;
+    }
+    if (date && typeof date.seconds === 'number') {
+        return new Timestamp(date.seconds, date.nanoseconds).toDate();
+    }
+    return null;
+};
 
 export function StatisticsDashboard() {
   const [results, setResults] = useState<Result[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
-    getResults().then(resultsData => {
-        // Sort results by date client-side
-        resultsData.sort((a, b) => {
-            const dateA = parseISO(a.date_arrivage);
-            const dateB = parseISO(b.date_arrivage);
-            if (!isValid(dateA) || !isValid(dateB)) return 0;
-            return dateA.getTime() - dateB.getTime();
+    const fetchData = async () => {
+        setLoading(true);
+        await firebaseAppPromise;
+        const q = query(collection(db, "resultats"));
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            const resultsData: Result[] = [];
+            querySnapshot.forEach((doc) => {
+                resultsData.push({ id: doc.id, ...doc.data() } as Result);
+            });
+            resultsData.sort((a, b) => {
+                const dateA = normalizeDate(a.date_arrivage);
+                const dateB = normalizeDate(b.date_arrivage);
+                if (!dateA || !dateB) return 0;
+                return dateA.getTime() - dateB.getTime();
+            });
+            setResults(resultsData);
+            setLoading(false);
+        }, (error) => {
+            console.error("Erreur de lecture des statistiques:", error);
+            setLoading(false);
         });
-        setResults(resultsData);
-        setLoading(false);
-    }).catch(error => {
-        console.error("Erreur de lecture des données locales:", error);
-        setLoading(false);
-    });
+        return () => unsubscribe();
+    }
+    fetchData();
   }, []);
 
   const summaryStats = useMemo(() => {
@@ -107,11 +116,14 @@ export function StatisticsDashboard() {
   
   const pciOverTime = useMemo(() => {
     return results
-    .filter(result => result.date_arrivage && isValid(parseISO(result.date_arrivage)))
-    .map(result => ({
-      date: format(parseISO(result.date_arrivage), 'dd/MM/yy'),
-      pci_brut: result.pci_brut,
-    }));
+    .map(result => {
+        const date = normalizeDate(result.date_arrivage);
+        return date && isValid(date) ? {
+            date: format(date, 'dd/MM/yy'),
+            pci_brut: result.pci_brut,
+        } : null;
+    })
+    .filter(item => item !== null);
   }, [results]);
 
   if (loading) {

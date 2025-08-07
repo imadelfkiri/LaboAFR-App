@@ -1,9 +1,9 @@
 
 
 // src/lib/firebase.ts
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApp, getApps } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
-// App Check is removed as Firestore is no longer used directly by the client.
+import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 
 const firebaseConfig = {
   "projectId": "fueltrack-afr",
@@ -15,10 +15,43 @@ const firebaseConfig = {
   "messagingSenderId": "908411260486"
 };
 
-const app = initializeApp(firebaseConfig);
-// We keep db export in case it's used by other parts of the app,
-// but the main data logic is now local.
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 
+// App Check initialization logic
+let appCheckInitialized = false;
 
-export { db };
+const initializeFirebase = () => {
+  if (typeof window !== 'undefined' && !appCheckInitialized) {
+    try {
+      initializeAppCheck(app, {
+        provider: new ReCaptchaV3Provider('6Ld-sQ8qAAAAAGn4584i9GoV60ERb7aCU65_D2rO'),
+        isTokenAutoRefreshEnabled: true
+      });
+      appCheckInitialized = true;
+      console.log("Firebase App Check initialized successfully.");
+    } catch(e) {
+      console.error("Error initializing Firebase App Check", e);
+    }
+  }
+  return app;
+};
+
+// This promise will resolve when firebase is initialized
+export const firebaseAppPromise = new Promise<any>((resolve) => {
+    if (appCheckInitialized) {
+        resolve(app);
+    } else {
+        // Retry until initialized
+        const interval = setInterval(() => {
+            initializeFirebase();
+            if (appCheckInitialized) {
+                clearInterval(interval);
+                resolve(app);
+            }
+        }, 100);
+    }
+});
+
+
+export { db, initializeFirebase };

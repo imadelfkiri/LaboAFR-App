@@ -16,6 +16,7 @@ import {
     type FuelType,
     seedDatabase
 } from "@/lib/data";
+import { firebaseAppPromise } from '@/lib/firebase';
 import {
   Table,
   TableBody,
@@ -93,8 +94,8 @@ export default function SpecificationsPage() {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            // seedDatabase is now a local, synchronous function
-            await seedDatabase(); 
+            await firebaseAppPromise;
+            await seedDatabase();
             const [specs, fTypes, founisseursList] = await Promise.all([
                 getSpecifications(),
                 Promise.resolve(getFuelTypes()),
