@@ -42,24 +42,58 @@ export const INITIAL_FUEL_TYPES: Omit<FuelType, 'createdAt'>[] = [
     { name: "Bois", icon: "🌲", hValue: 6.0 },
 ];
 
+const INITIAL_SPECIFICATIONS_DATA: Omit<Specification, 'id'>[] = [
+    { type_combustible: 'CSR', fournisseur: 'Polluclean', H2O_max: 16.5, PCI_min: 4000, Cl_max: 1, Cendres_max: 15, Soufre_max: null },
+    { type_combustible: 'CSR', fournisseur: 'SMBRM', H2O_max: 14, PCI_min: 5000, Cl_max: 0.6, Cendres_max: null, Soufre_max: null },
+    { type_combustible: 'DMB', fournisseur: 'MTR', H2O_max: 15, PCI_min: 4300, Cl_max: 0.6, Cendres_max: 15, Soufre_max: 0.5 },
+    { type_combustible: "Grignons d'olives", fournisseur: 'Ain Seddeine', H2O_max: 20, PCI_min: 3700, Cl_max: 0.5, Cendres_max: 5, Soufre_max: null },
+    { type_combustible: 'Plastiques', fournisseur: 'Bichara', H2O_max: 10, PCI_min: 4200, Cl_max: 1, Cendres_max: 15, Soufre_max: null },
+    { type_combustible: 'Plastiques', fournisseur: 'Ssardi', H2O_max: 18, PCI_min: 4200, Cl_max: 1, Cendres_max: 15, Soufre_max: null },
+    { type_combustible: 'Plastiques', fournisseur: 'ValRecete', H2O_max: 15, PCI_min: 4300, Cl_max: 1, Cendres_max: 15, Soufre_max: 0.5 },
+    { type_combustible: 'Plastiques', fournisseur: 'Valtradec', H2O_max: 10, PCI_min: 6000, Cl_max: 1, Cendres_max: 15, Soufre_max: 0.5 },
+    { type_combustible: 'Pneus', fournisseur: 'Aliapur', H2O_max: 1, PCI_min: 6800, Cl_max: 0.3, Cendres_max: 1, Soufre_max: null },
+    { type_combustible: 'Pneus', fournisseur: 'RJL', H2O_max: 1, PCI_min: 6800, Cl_max: 0.3, Cendres_max: 1, Soufre_max: null },
+];
+
+async function seedInitialData() {
+    const batch = writeBatch(db);
+
+    // Seed Fuel Types
+    const fuelTypesCollectionRef = collection(db, "fuel_types");
+    INITIAL_FUEL_TYPES.forEach((fuelType) => {
+        const docRef = doc(fuelTypesCollectionRef, fuelType.name);
+        batch.set(docRef, { ...fuelType, createdAt: serverTimestamp() });
+    });
+
+    // Seed Fournisseurs
+    const fournisseursCollectionRef = collection(db, "fournisseurs");
+    const uniqueFournisseurs = [...new Set(INITIAL_SPECIFICATIONS_DATA.map(s => s.fournisseur))];
+    uniqueFournisseurs.forEach(name => {
+        if(name) {
+            const docRef = doc(fournisseursCollectionRef, name);
+            batch.set(docRef, { name });
+        }
+    });
+
+    // Seed Specifications
+    const specsCollectionRef = collection(db, "specifications");
+    INITIAL_SPECIFICATIONS_DATA.forEach(spec => {
+        const docRef = doc(specsCollectionRef);
+        batch.set(docRef, cleanSpecData(spec));
+    });
+
+    try {
+        await batch.commit();
+        console.log("Initial data seeded successfully.");
+    } catch (error) {
+        console.error("Error seeding initial data:", error);
+        throw error; // Re-throw the error to be caught by the caller
+    }
+}
+
 
 export const getFuelTypes = async (): Promise<FuelType[]> => {
     const fuelTypesCollectionRef = collection(db, "fuel_types");
-    
-    // Check if the collection is empty first
-    const preliminarySnapshot = await getDocs(query(fuelTypesCollectionRef));
-    if (preliminarySnapshot.empty) {
-        console.log("Fuel types collection is empty, seeding with initial data...");
-        const batch = writeBatch(db);
-        INITIAL_FUEL_TYPES.forEach((fuelType) => {
-            const docRef = doc(fuelTypesCollectionRef, fuelType.name);
-            const dataWithTimestamp = { ...fuelType, createdAt: serverTimestamp() };
-            batch.set(docRef, dataWithTimestamp);
-        });
-        await batch.commit();
-        console.log("Seeding complete for fuel types.");
-    }
-    
     const q = query(fuelTypesCollectionRef, orderBy("createdAt", "asc"));
     const querySnapshot = await getDocs(q);
 
@@ -74,7 +108,6 @@ export const getFuelTypes = async (): Promise<FuelType[]> => {
         }
     });
     
-    // Populate H_MAP after fetching
     types.forEach(t => {
         if (t.hValue !== undefined) H_MAP[t.name] = t.hValue;
     });
@@ -116,19 +149,6 @@ const INITIAL_FOURNISSEURS = [
 
 export const getFournisseurs = async (): Promise<string[]> => {
     const fournisseursCollectionRef = collection(db, "fournisseurs");
-    
-    const preliminarySnapshot = await getDocs(query(fournisseursCollectionRef));
-    if (preliminarySnapshot.empty) {
-        console.log("Fournisseurs collection is empty, seeding with initial data...");
-        const batch = writeBatch(db);
-        INITIAL_FOURNISSEURS.forEach(name => {
-            const docRef = doc(fournisseursCollectionRef, name);
-            batch.set(docRef, { name });
-        });
-        await batch.commit();
-        console.log("Seeding complete for fournisseurs.");
-    }
-
     const querySnapshot = await getDocs(query(fournisseursCollectionRef, orderBy("name", "asc")));
     const fournisseurs: string[] = [];
     querySnapshot.forEach((doc) => {
@@ -192,36 +212,6 @@ const cleanSpecData = (spec: any): Omit<Specification, 'id'> => {
     return cleaned;
 };
 
-const INITIAL_SPECIFICATIONS: Omit<Specification, 'id'>[] = [
-    { type_combustible: 'CSR', fournisseur: 'Polluclean', H2O_max: 16.5, PCI_min: 4000, Cl_max: 1, Cendres_max: 15, Soufre_max: null },
-    { type_combustible: 'CSR', fournisseur: 'SMBRM', H2O_max: 14, PCI_min: 5000, Cl_max: 0.6, Cendres_max: null, Soufre_max: null },
-    { type_combustible: 'DMB', fournisseur: 'MTR', H2O_max: 15, PCI_min: 4300, Cl_max: 0.6, Cendres_max: 15, Soufre_max: 0.5 },
-    { type_combustible: "Grignons d'olives", fournisseur: 'Ain Seddeine', H2O_max: 20, PCI_min: 3700, Cl_max: 0.5, Cendres_max: 5, Soufre_max: null },
-    { type_combustible: 'Plastiques', fournisseur: 'Bichara', H2O_max: 10, PCI_min: 4200, Cl_max: 1, Cendres_max: 15, Soufre_max: null },
-    { type_combustible: 'Plastiques', fournisseur: 'Ssardi', H2O_max: 18, PCI_min: 4200, Cl_max: 1, Cendres_max: 15, Soufre_max: null },
-    { type_combustible: 'Plastiques', fournisseur: 'ValRecete', H2O_max: 15, PCI_min: 4300, Cl_max: 1, Cendres_max: 15, Soufre_max: 0.5 },
-    { type_combustible: 'Plastiques', fournisseur: 'Valtradec', H2O_max: 10, PCI_min: 6000, Cl_max: 1, Cendres_max: 15, Soufre_max: 0.5 },
-    { type_combustible: 'Pneus', fournisseur: 'Aliapur', H2O_max: 1, PCI_min: 6800, Cl_max: 0.3, Cendres_max: 1, Soufre_max: null },
-    { type_combustible: 'Pneus', fournisseur: 'RJL', H2O_max: 1, PCI_min: 6800, Cl_max: 0.3, Cendres_max: 1, Soufre_max: null },
-];
-
-async function seedSpecifications() {
-    console.log("Seeding initial specifications...");
-    const specsCollectionRef = collection(db, "specifications");
-    const batch = writeBatch(db);
-    
-    INITIAL_SPECIFICATIONS.forEach(spec => {
-        const docRef = doc(collection(db, "specifications")); // Create a new doc with a generated ID
-        batch.set(docRef, cleanSpecData(spec));
-    });
-
-    try {
-        await batch.commit();
-        console.log("Initial specifications seeded successfully.");
-    } catch(error) {
-        console.error("Error seeding specifications:", error);
-    }
-}
 
 export const getSpecifications = async (): Promise<Specification[]> => {
     const specsCollectionRef = collection(db, "specifications");
@@ -229,14 +219,13 @@ export const getSpecifications = async (): Promise<Specification[]> => {
 
     if (querySnapshot.empty) {
         console.log("Specifications collection is empty. Seeding data...");
-        await seedSpecifications();
-        querySnapshot = await getDocs(query(specsCollectionRef, orderBy("type_combustible"), orderBy("fournisseur")));
-    } else {
+        await seedInitialData();
+        // Re-fetch after seeding
         querySnapshot = await getDocs(query(specsCollectionRef, orderBy("type_combustible"), orderBy("fournisseur")));
     }
     
     const specs: Specification[] = [];
-    SPEC_MAP.clear(); // Clear the map before populating
+    SPEC_MAP.clear();
 
     querySnapshot.forEach((doc) => {
         const data = { id: doc.id, ...doc.data() } as Specification;
@@ -261,3 +250,5 @@ export const deleteSpecification = async (id: string) => {
     const specDocRef = doc(db, "specifications", id);
     await deleteDoc(specDocRef);
 };
+
+    
