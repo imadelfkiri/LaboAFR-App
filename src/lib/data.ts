@@ -120,8 +120,9 @@ export async function getFuelTypes(): Promise<FuelType[]> {
     const fuelTypesCollection = collection(db, 'fuel_types');
     const snapshot = await getDocs(fuelTypesCollection);
     
+    // This is a fallback to initial data if the collection is empty, but the seeding should prevent this.
     if (snapshot.empty) {
-        console.log("No fuel types found, returning initial data.");
+        console.log("No fuel types found, returning initial data for display.");
         return INITIAL_FUEL_TYPES;
     }
 
@@ -139,9 +140,10 @@ export async function getFournisseurs(): Promise<string[]> {
     await firebaseAppPromise;
     const fournisseursCollection = collection(db, 'fournisseurs');
     const snapshot = await getDocs(fournisseursCollection);
-
+    
+    // Fallback
     if (snapshot.empty) {
-        console.log("No fournisseurs found, returning initial data.");
+        console.log("No fournisseurs found, returning initial data for display.");
         return INITIAL_FOURNISSEURS;
     }
 
@@ -151,20 +153,24 @@ export async function getFournisseurs(): Promise<string[]> {
 
 async function updateSpecMap() {
     SPEC_MAP.clear();
-    const specs = await getSpecifications();
+    const specs = await getSpecifications(true); // get from db
     specs.forEach(spec => {
         SPEC_MAP.set(`${spec.type_combustible}|${spec.fournisseur}`, spec);
     });
 }
 
-export async function getSpecifications(): Promise<Specification[]> {
+export async function getSpecifications(forceDbRead = false): Promise<Specification[]> {
     await firebaseAppPromise;
     const specsCollection = collection(db, 'specifications');
     const snapshot = await getDocs(specsCollection);
 
-    if (snapshot.empty) {
-        console.log("No specifications found, returning initial data.");
+    if (snapshot.empty && !forceDbRead) {
+        console.log("No specifications found in DB, returning initial data for display.");
         return INITIAL_SPECIFICATIONS_DATA.map((spec, index) => ({ id: `initial-${index}`, ...spec }));
+    }
+    
+    if(snapshot.empty && forceDbRead) {
+        return [];
     }
 
     const specs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Specification));
@@ -192,8 +198,9 @@ if (!existing.empty) {
         await addDoc(collection(db, 'fournisseurs'), {name: spec.fournisseur});
     }
 
-    await addDoc(collection(db, 'specifications'), spec);
+    const docRef = await addDoc(collection(db, 'specifications'), spec);
     await updateSpecMap();
+    return docRef;
 };
 
 export async function updateSpecification(id: string, specUpdate: Partial<Omit<Specification, 'id'>>) {

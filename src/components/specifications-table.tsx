@@ -14,6 +14,7 @@ import {
     deleteSpecification,
     getFuelTypes,
     getFournisseurs,
+    seedDatabase, // Import the seeding function
     type Specification,
     type FuelType
 } from '@/lib/data';
@@ -107,6 +108,7 @@ export function SpecificationsTable() {
         setLoading(true);
         try {
             await firebaseAppPromise;
+            await seedDatabase(); // Ensure the database is seeded
             const [fetchedSpecs, fetchedFuelTypes, fetchedFournisseurs] = await Promise.all([
                 getSpecifications(),
                 getFuelTypes(),
@@ -192,7 +194,9 @@ export function SpecificationsTable() {
     if (loading) {
         return (
             <div className="space-y-4 p-4 lg:p-6">
-                <Skeleton className="h-10 w-48" />
+                <div className="flex justify-end">
+                     <Skeleton className="h-10 w-48" />
+                </div>
                 <Skeleton className="h-96 w-full" />
             </div>
         );
