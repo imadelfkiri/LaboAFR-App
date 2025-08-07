@@ -46,7 +46,6 @@ import {
   DialogTitle,
   DialogFooter,
   DialogClose,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -57,6 +56,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { PlusCircle, Edit, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -92,14 +92,12 @@ export default function SpecificationsPage() {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            // Fetch dependencies first
-            const fTypes = await getFuelTypes();
-            const founisseursList = await getFournisseurs();
+            const fTypes = getFuelTypes();
+            const founisseursList = getFournisseurs();
+            const specs = getSpecifications();
+            
             setFuelTypes(fTypes);
             setFournisseurs(founisseursList);
-
-            // Then fetch specifications
-            const specs = await getSpecifications();
             setSpecifications(specs);
 
         } catch (error) {
@@ -142,10 +140,10 @@ export default function SpecificationsPage() {
             );
 
             if (currentSpec?.id) {
-                await updateSpecification(currentSpec.id, dataToSave);
+                updateSpecification(currentSpec.id, dataToSave as Specification);
                 toast({ title: "Succès", description: "Spécification mise à jour." });
             } else {
-                await addSpecification(dataToSave);
+                addSpecification(dataToSave as Omit<Specification, 'id'>);
                 toast({ title: "Succès", description: "Spécification ajoutée." });
             }
             setIsDialogOpen(false);
@@ -159,7 +157,7 @@ export default function SpecificationsPage() {
     const handleDeleteConfirm = async () => {
         if (!specToDelete) return;
         try {
-            await deleteSpecification(specToDelete);
+            deleteSpecification(specToDelete);
             toast({ title: "Succès", description: "Spécification supprimée." });
             setSpecToDelete(null);
             fetchData();
