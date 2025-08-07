@@ -31,7 +31,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, XCircle, Trash2, Download, ChevronDown, FileOutput } from "lucide-react";
-import { getFuelTypes, type FuelType, getFournisseurs, getSpecifications, SPEC_MAP, Specification } from "@/lib/data";
+import { getSpecifications, SPEC_MAP, Specification } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
 import {
@@ -76,8 +76,6 @@ export function ResultsTable() {
     const [fournisseurFilter, setFournisseurFilter] = useState<string>("");
     const [dateFilter, setDateFilter] = useState<DateRange | undefined>();
     const [resultToDelete, setResultToDelete] = useState<string | null>(null);
-    const [fuelTypes, setFuelTypes] = useState<FuelType[]>([]);
-    const [fournisseurs, setFournisseurs] = useState<string[]>([]);
     const { toast } = useToast();
 
     const fetchInitialData = useCallback(async () => {
@@ -85,12 +83,6 @@ export function ResultsTable() {
         try {
             await firebaseAppPromise;
             await getSpecifications(); // Populates SPEC_MAP
-            const [fetchedFuelTypes, fetchedFournisseurs] = await Promise.all([
-                getFuelTypes(),
-                getFournisseurs()
-            ]);
-            setFuelTypes(fetchedFuelTypes);
-            setFournisseurs(fetchedFournisseurs);
 
             const q = query(collection(db, "resultats"), orderBy("date_creation", "desc"));
             const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -145,6 +137,13 @@ export function ResultsTable() {
             return typeMatch && fournisseurMatch && dateMatch;
         });
     }, [results, typeFilter, fournisseurFilter, dateFilter]);
+
+    const { uniqueFuelTypes, uniqueFournisseurs } = useMemo(() => {
+        const fuelTypes = [...new Set(results.map(r => r.type_combustible))].sort();
+        const fournisseurs = [...new Set(results.map(r => r.fournisseur))].sort();
+        return { uniqueFuelTypes: fuelTypes, uniqueFournisseurs: fournisseurs };
+    }, [results]);
+
 
     const calculateAverage = (results: Result[], field: keyof Result): number | null => {
         const validValues = results.map(r => r[field]).filter(v => typeof v === 'number') as number[];
@@ -378,7 +377,7 @@ export function ResultsTable() {
                                 <SelectValue placeholder="Type..." />
                             </SelectTrigger>
                             <SelectContent>
-                                {fuelTypes.map(fuel => <SelectItem key={fuel.name} value={fuel.name}>{fuel.name}</SelectItem>)}
+                                {uniqueFuelTypes.map(fuel => <SelectItem key={fuel} value={fuel}>{fuel}</SelectItem>)}
                             </SelectContent>
                         </Select>
                         <Select value={fournisseurFilter} onValueChange={setFournisseurFilter}>
@@ -386,7 +385,7 @@ export function ResultsTable() {
                                 <SelectValue placeholder="Fournisseur..." />
                             </SelectTrigger>
                             <SelectContent>
-                                {fournisseurs.map(supplier => <SelectItem key={supplier} value={supplier}>{supplier}</SelectItem>)}
+                                {uniqueFournisseurs.map(supplier => <SelectItem key={supplier} value={supplier}>{supplier}</SelectItem>)}
                             </SelectContent>
                         </Select>
                         <Popover>
