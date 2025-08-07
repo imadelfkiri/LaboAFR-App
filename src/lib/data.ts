@@ -3,6 +3,7 @@ import { collection, getDocs, doc, writeBatch, query, setDoc, orderBy, serverTim
 import { db } from "./firebase";
 
 export const H_MAP: Record<string, number> = {};
+export const SPEC_MAP = new Map<string, Specification>();
 
 export interface FuelType {
     name: string;
@@ -196,6 +197,14 @@ export const getSpecifications = async (): Promise<Specification[]> => {
     const specificationsCollectionRef = collection(db, "specifications");
     const querySnapshot = await getDocs(specificationsCollectionRef);
     const specifications: Specification[] = [];
+    SPEC_MAP.clear();
+
+    const processDoc = (doc: any) => {
+        const spec = { id: doc.id, ...doc.data() } as Specification;
+        specifications.push(spec);
+        const key = `${spec.combustible}|${spec.fournisseur}`;
+        SPEC_MAP.set(key, spec);
+    };
 
     if (querySnapshot.empty) {
         console.log("Specifications collection is empty, seeding with initial data...");
@@ -206,19 +215,16 @@ export const getSpecifications = async (): Promise<Specification[]> => {
         });
         await batch.commit();
         console.log("Specifications seeding complete.");
-        // Re-fetch to get the generated IDs
+        
         const seededSnapshot = await getDocs(specificationsCollectionRef);
-        seededSnapshot.forEach(doc => {
-            specifications.push({ id: doc.id, ...doc.data() } as Specification);
-        });
+        seededSnapshot.forEach(processDoc);
         return specifications;
     }
 
-    querySnapshot.forEach((doc) => {
-        specifications.push({ id: doc.id, ...doc.data() } as Specification);
-    });
+    querySnapshot.forEach(processDoc);
     return specifications;
 };
+
 
 type SpecificationData = Omit<Specification, "id">;
 

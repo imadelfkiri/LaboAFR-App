@@ -31,7 +31,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, XCircle, Trash2, Download, ChevronDown, FileOutput } from "lucide-react";
-import { getFuelTypes, type FuelType, getFournisseurs, getSpecifications, type Specification } from "@/lib/data";
+import { getFuelTypes, type FuelType, getFournisseurs, getSpecifications, type Specification, SPEC_MAP } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
 import {
@@ -69,9 +69,38 @@ interface Result {
     remarques: string;
 }
 
+const generateAlerts = (result: Result): string => {
+    const key = `${result.type_combustible}|${result.fournisseur}`;
+    const spec = SPEC_MAP.get(key);
+    const alerts: string[] = [];
+
+    if (!spec) {
+        return "✅ Conforme";
+    }
+
+    if (typeof spec.pci === 'number' && typeof result.pci_brut === 'number' && result.pci_brut < spec.pci) {
+        alerts.push("⚠️ PCI trop faible");
+    }
+    if (typeof spec.h2o === 'number' && typeof result.h2o === 'number' && result.h2o > spec.h2o) {
+        alerts.push("💧 H2O élevé");
+    }
+    if (typeof spec.chlorures === 'number' && typeof result.chlore === 'number' && result.chlore > spec.chlorures) {
+         alerts.push("🧪 Chlorures élevé");
+    }
+    if (typeof spec.cendres === 'number' && typeof result.cendres === 'number' && result.cendres > spec.cendres) {
+        alerts.push("🔥 Cendres élevé");
+    }
+
+    if (alerts.length === 0) {
+        return "✅ Conforme";
+    }
+
+    return alerts.join(' • ');
+};
+
+
 export function ResultsTable() {
     const [results, setResults] = useState<Result[]>([]);
-    const [specifications, setSpecifications] = useState<Specification[]>([]);
     const [loading, setLoading] = useState(true);
     const [typeFilter, setTypeFilter] = useState<string>("");
     const [fournisseurFilter, setFournisseurFilter] = useState<string>("");
@@ -86,44 +115,6 @@ export function ResultsTable() {
     useEffect(() => {
         setIsClient(true)
     }, [])
-
-    const specMap = useMemo(() => {
-        const map = new Map<string, Specification>();
-        specifications.forEach(spec => {
-            const key = `${spec.combustible}|${spec.fournisseur}`;
-            map.set(key, spec);
-        });
-        return map;
-    }, [specifications]);
-    
-    const generateAlerts = (result: Result): string => {
-        const key = `${result.type_combustible}|${result.fournisseur}`;
-        const spec = specMap.get(key);
-        const alerts: string[] = [];
-
-        if (!spec) {
-            return "✅ Conforme";
-        }
-    
-        if (typeof spec.pci === 'number' && typeof result.pci_brut === 'number' && result.pci_brut < spec.pci) {
-            alerts.push("⚠️ PCI trop faible");
-        }
-        if (typeof spec.h2o === 'number' && typeof result.h2o === 'number' && result.h2o > spec.h2o) {
-            alerts.push("💧 H2O élevé");
-        }
-        if (typeof spec.chlorures === 'number' && typeof result.chlore === 'number' && result.chlore > spec.chlorures) {
-             alerts.push("🧪 Chlorures élevé");
-        }
-        if (typeof spec.cendres === 'number' && typeof result.cendres === 'number' && result.cendres > spec.cendres) {
-            alerts.push("🔥 Cendres élevé");
-        }
-
-        if (alerts.length === 0) {
-            return "✅ Conforme";
-        }
-
-        return alerts.join(' • ');
-    };
 
     useEffect(() => {
       if (!isClient) return;
@@ -142,7 +133,6 @@ export function ResultsTable() {
             if (isMounted) {
                 setFuelTypes(fetchedFuelTypes);
                 setFournisseurs(fetchedFournisseurs);
-                setSpecifications(fetchedSpecs);
                 setFuelTypeMap(new Map(fetchedFuelTypes.map(fuel => [fuel.name, fuel.icon])));
             }
         } catch (error) {
@@ -251,7 +241,7 @@ export function ResultsTable() {
             maximumFractionDigits: fractionDigits,
             useGrouping: true,
         });
-    }
+    };
 
     const exportToExcel = (data: Result[], reportType: 'Journalier' | 'Hebdomadaire' | 'Mensuel' | 'Filtré') => {
         if (!data || data.length === 0) {
@@ -292,7 +282,7 @@ export function ResultsTable() {
 
         data.forEach(result => {
             const key = `${result.type_combustible}|${result.fournisseur}`;
-            const spec = specMap.get(key);
+            const spec = SPEC_MAP.get(key);
             
             const alertsText = generateAlerts(result);
             const isAlert = !alertsText.includes("✅");
@@ -507,7 +497,7 @@ export function ResultsTable() {
                                             const isAlert = !alerts.includes("✅");
 
                                             const key = `${result.type_combustible}|${result.fournisseur}`;
-                                            const spec = specMap.get(key);
+                                            const spec = SPEC_MAP.get(key);
                                             
                                             const pciStyle = spec && typeof spec.pci === 'number' && typeof result.pci_brut === 'number' && result.pci_brut < spec.pci ? "text-destructive" : "";
                                             const h2oStyle = spec && typeof spec.h2o === 'number' && typeof result.h2o === 'number' && result.h2o > spec.h2o ? "text-destructive" : "";
@@ -586,7 +576,7 @@ export function ResultsTable() {
                         <AlertDialogDescription>
                             Cette action est irréversible. Le résultat sera définitivement supprimé
                             de la base de données.
-                        </AlertDialogDescription>
+                        </Description>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                         <AlertDialogCancel>Annuler</AlertDialogCancel>
