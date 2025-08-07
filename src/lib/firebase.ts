@@ -1,7 +1,6 @@
 
-
 // src/lib/firebase.ts
-import { initializeApp, getApp, getApps, type FirebaseApp } from "firebase/app";
+import { initializeApp, getApp, type FirebaseApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 
@@ -15,6 +14,7 @@ const firebaseConfig = {
   "messagingSenderId": "908411260486"
 };
 
+// Initialize Firebase
 let app: FirebaseApp;
 try {
   app = getApp();
@@ -24,29 +24,22 @@ try {
 
 const db = getFirestore(app);
 
-// App Check initialization logic, wrapped in a promise
-const initializeFirebaseAppCheck = (): Promise<FirebaseApp> => {
-  return new Promise((resolve, reject) => {
-    if (typeof window !== 'undefined') {
-      try {
-        // Pass your reCAPTCHA v3 site key (public key) to the provider.
-        const appCheck = initializeAppCheck(app, {
-          provider: new ReCaptchaV3Provider('6Ld-sQ8qAAAAAGn4584i9GoV60ERb7aCU65_D2rO'),
-          isTokenAutoRefreshEnabled: true
-        });
-        console.log("Firebase App Check initialized successfully.");
-        resolve(app);
-      } catch (e) {
-        console.error("Error initializing Firebase App Check", e);
-        reject(e);
-      }
-    } else {
-      // Resolve without app check on the server
-      resolve(app);
-    }
-  });
-};
+// Initialize App Check
+let appCheckInitialized: Promise<void> | null = null;
+if (typeof window !== 'undefined') {
+    appCheckInitialized = new Promise<void>((resolve) => {
+        try {
+            initializeAppCheck(app, {
+                provider: new ReCaptchaV3Provider('6Ld-sQ8qAAAAAGn4584i9GoV60ERb7aCU65_D2rO'),
+                isTokenAutoRefreshEnabled: true,
+            });
+            console.log("App Check initialized");
+        } catch (error) {
+            console.error("Error initializing App Check", error);
+        } finally {
+            resolve();
+        }
+    });
+}
 
-
-export const firebaseAppPromise = initializeFirebaseAppCheck();
-export { db };
+export { db, appCheckInitialized };

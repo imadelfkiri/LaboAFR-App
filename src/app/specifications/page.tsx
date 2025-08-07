@@ -17,7 +17,7 @@ import {
     type FuelType,
     seedDatabase
 } from "@/lib/data";
-import { firebaseAppPromise } from '@/lib/firebase';
+import { appCheckInitialized } from '@/lib/firebase';
 import {
   Table,
   TableBody,
@@ -93,8 +93,13 @@ export default function SpecificationsPage() {
     });
 
     const fetchData = useCallback(async () => {
+        setLoading(true);
         try {
-            await firebaseAppPromise; // This ensures Firebase and App Check are initialized
+            // Wait for App Check to be initialized
+            if (appCheckInitialized) {
+                await appCheckInitialized;
+            }
+            
             await seedDatabase();
             
             const [specs, fTypes, founisseursList] = await Promise.all([
@@ -122,7 +127,6 @@ export default function SpecificationsPage() {
     }, [toast]);
 
     useEffect(() => {
-        setLoading(true);
         fetchData();
     }, [fetchData]);
 
