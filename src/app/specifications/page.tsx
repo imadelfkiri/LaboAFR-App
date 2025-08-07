@@ -92,6 +92,7 @@ export default function SpecificationsPage() {
     const fetchData = useCallback(() => {
         setLoading(true);
         try {
+            // All functions now read from local constants or localStorage, so they are sync
             const specs = getSpecifications();
             const fTypes = getFuelTypes();
             const founisseursList = getFournisseurs();

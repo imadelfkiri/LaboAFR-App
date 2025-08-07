@@ -57,10 +57,22 @@ const INITIAL_SPECIFICATIONS_DATA: Omit<Specification, 'id'>[] = [
     { type_combustible: 'Pneus', fournisseur: 'RJL', H2O_max: 1, PCI_min: 6800, Cl_max: 0.3, Cendres_max: 1, Soufre_max: null },
 ];
 
-let specifications: Specification[] = INITIAL_SPECIFICATIONS_DATA.map((spec, index) => ({
-    id: `spec_${index}`,
-    ...spec
-}));
+const LOCAL_STORAGE_KEY = 'fueltrack_specifications';
+
+function initializeLocalStorage() {
+    if (typeof window !== 'undefined') {
+        const storedSpecs = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (!storedSpecs) {
+            const initialData = INITIAL_SPECIFICATIONS_DATA.map((spec, index) => ({
+                id: `spec_${index}_${Date.now()}`,
+                ...spec
+            }));
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(initialData));
+        }
+    }
+}
+
+initializeLocalStorage();
 
 // Populate H_MAP from the constant
 INITIAL_FUEL_TYPES.forEach(ft => {
@@ -78,34 +90,46 @@ export function getFournisseurs(): string[] {
 
 // This function now returns local data
 export const getSpecifications = (): Specification[] => {
+    if (typeof window === 'undefined') {
+        return [];
+    }
+    const storedSpecs = localStorage.getItem(LOCAL_STORAGE_KEY);
+    const specifications = storedSpecs ? JSON.parse(storedSpecs) : [];
+    
     SPEC_MAP.clear();
-    specifications.forEach(spec => {
+    specifications.forEach((spec: Specification) => {
         SPEC_MAP.set(`${spec.type_combustible}|${spec.fournisseur}`, spec);
     });
     return specifications;
 };
 
 export const addSpecification = (spec: Omit<Specification, 'id'>) => {
+    const specifications = getSpecifications();
     const exists = specifications.some(s => s.type_combustible === spec.type_combustible && s.fournisseur === spec.fournisseur);
     if (exists) {
         throw new Error("Une spécification pour ce combustible et ce fournisseur existe déjà.");
     }
     const newSpec = { ...spec, id: `spec_${Date.now()}` };
-    specifications.push(newSpec);
+    const updatedSpecs = [...specifications, newSpec];
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedSpecs));
 };
 
 export const updateSpecification = (id: string, specUpdate: Partial<Specification>) => {
+    let specifications = getSpecifications();
     const specIndex = specifications.findIndex(s => s.id === id);
     if (specIndex > -1) {
         specifications[specIndex] = { ...specifications[specIndex], ...specUpdate };
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(specifications));
     }
 };
 
 export const deleteSpecification = (id: string) => {
-    specifications = specifications.filter(s => s.id !== id);
+    let specifications = getSpecifications();
+    const updatedSpecs = specifications.filter(s => s.id !== id);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedSpecs));
 };
 
 // This function is kept for potential future use but won't be called by default
 export async function seedDatabase() {
-    console.log("Seeding is now managed locally.");
+    console.log("Seeding is now managed locally via localStorage.");
 }
