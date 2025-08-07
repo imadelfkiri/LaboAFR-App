@@ -17,10 +17,16 @@ const app = initializeApp(firebaseConfig);
 
 // Initialize App Check
 if (typeof window !== 'undefined') {
-  initializeAppCheck(app, {
-    provider: new ReCaptchaV3Provider('6Lf-p_cpAAAAAIm_pZq3H9g-gHYf2W9b3F1aE6E9'), // Replace with your reCAPTCHA public key
-    isTokenAutoRefreshEnabled: true
-  });
+  // WARNING: Replace the following with your reCAPTCHA public key
+  // This is a placeholder and WILL NOT WORK.
+  const reCaptchaKey = "6Lf-p_cpAAAAAIm_pZq3H9g-gHYf2W9b3F1aE6E9"; 
+  
+  if (reCaptchaKey && reCaptchaKey !== "REPLACE_WITH_YOUR_RECAPTCHA_PUBLIC_KEY") {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider(reCaptchaKey),
+      isTokenAutoRefreshEnabled: true
+    });
+  }
 }
 
 const db = getFirestore(app);
