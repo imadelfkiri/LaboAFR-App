@@ -95,7 +95,9 @@ export default function SpecificationsPage() {
         setLoading(true);
         try {
             await firebaseAppPromise;
+            // On s'assure que la base de données est initialisée si besoin
             await seedDatabase();
+            
             const [specs, fTypes, founisseursList] = await Promise.all([
                 getSpecifications(),
                 getFuelTypes(),
@@ -185,7 +187,25 @@ export default function SpecificationsPage() {
     }
 
     if (loading) {
-        return <div className="p-8"><Skeleton className="h-96 w-full" /></div>;
+        return (
+            <div className="flex flex-1 flex-col gap-4 p-4 lg:p-6 h-full">
+                <Card>
+                    <CardHeader>
+                        <div className="flex justify-between items-center">
+                            <Skeleton className="h-10 w-1/3" />
+                            <Skeleton className="h-10 w-48" />
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                       <div className="space-y-2">
+                            <Skeleton className="h-12 w-full" />
+                            <Skeleton className="h-12 w-full" />
+                            <Skeleton className="h-12 w-full" />
+                       </div>
+                    </CardContent>
+                </Card>
+            </div>
+        );
     }
 
     return (
