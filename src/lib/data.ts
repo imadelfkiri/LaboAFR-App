@@ -57,49 +57,30 @@ const INITIAL_SPECIFICATIONS_DATA: Omit<Specification, 'id'>[] = [
     { type_combustible: 'Pneus', fournisseur: 'RJL', H2O_max: 1, PCI_min: 6800, Cl_max: 0.3, Cendres_max: 1, Soufre_max: null },
 ];
 
-let isSeeding = false;
 let seedPromise: Promise<void> | null = null;
-
 export async function seedDatabase() {
-    if (seedPromise) {
-        return seedPromise;
-    }
-    if (isSeeding) {
-        // Wait for the ongoing seeding to complete
-        return new Promise<void>((resolve) => {
-            const interval = setInterval(() => {
-                if (!isSeeding) {
-                    clearInterval(interval);
-                    resolve();
-                }
-            }, 100);
-        });
-    }
-
-    isSeeding = true;
-    seedPromise = (async () => {
-        try {
-            const flagRef = doc(db, 'internal', 'seeded');
-            const flagDoc = await getDoc(flagRef);
-            
-            if (!flagDoc.exists()) {
-                console.log("Database not seeded. Seeding now...");
-                const batch = writeBatch(db);
-                INITIAL_SPECIFICATIONS_DATA.forEach(spec => {
-                    const docRef = doc(collection(db, 'specifications'));
-                    batch.set(docRef, spec);
-                });
-
-                batch.set(flagRef, { done: true });
-                await batch.commit();
-                console.log("Seeding complete.");
-            }
-        } finally {
-            isSeeding = false;
-            seedPromise = null;
-        }
-    })();
+  if (seedPromise) {
     return seedPromise;
+  }
+  const flagRef = doc(db, 'internal', 'seeded');
+  
+  seedPromise = (async () => {
+    const flagDoc = await getDoc(flagRef);
+    if (!flagDoc.exists()) {
+      console.log("Database not seeded. Seeding now...");
+      const batch = writeBatch(db);
+      INITIAL_SPECIFICATIONS_DATA.forEach(spec => {
+        const docRef = doc(collection(db, 'specifications'));
+        batch.set(docRef, spec);
+      });
+      batch.set(flagRef, { done: true });
+      await batch.commit();
+      console.log("Seeding complete.");
+    }
+  })();
+  
+  await seedPromise;
+  seedPromise = null;
 }
 
 // Populate H_MAP from the constant

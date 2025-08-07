@@ -93,7 +93,6 @@ export default function SpecificationsPage() {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            // seedDatabase is now called inside getSpecifications, so it's always initialized
             const specs = await getSpecifications();
             const fTypes = getFuelTypes();
             const founisseursList = getFournisseurs();
@@ -110,7 +109,7 @@ export default function SpecificationsPage() {
 
         } catch (error) {
             console.error("Failed to fetch data:", error);
-            toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données. Veuillez actualiser la page." });
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données. Veuillez vérifier la configuration d'App Check dans votre console Firebase." });
         } finally {
             setLoading(false);
         }
