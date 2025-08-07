@@ -17,9 +17,9 @@ const app = initializeApp(firebaseConfig);
 
 // Initialize App Check
 if (typeof window !== 'undefined') {
-  // WARNING: Replace the following with your reCAPTCHA public key
-  // This is a placeholder and WILL NOT WORK.
-  const reCaptchaKey = "6Lf-p_cpAAAAAIm_pZq3H9g-gHYf2W9b3F1aE6E9"; 
+  // IMPORTANT: This key is for demonstration purposes only.
+  // Replace it with your own reCAPTCHA v3 site key.
+  const reCaptchaKey = "6LeLqfApAAAAAJ_kALrCaB3fGTHxXbH3m2GXSx9q"; 
   
   if (reCaptchaKey && reCaptchaKey !== "REPLACE_WITH_YOUR_RECAPTCHA_PUBLIC_KEY") {
     initializeAppCheck(app, {

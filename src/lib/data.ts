@@ -73,7 +73,6 @@ export function getFournisseurs(): string[] {
 };
 
 export async function getSpecifications(): Promise<Specification[]> {
-    await seedDatabase();
     const q = query(collection(db, "specifications"));
     const querySnapshot = await getDocs(q);
     const specifications: Specification[] = [];
