@@ -31,7 +31,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, XCircle, Trash2, Download, ChevronDown, FileOutput } from "lucide-react";
-import { getFuelTypes, type FuelType, getFournisseurs, getSpecifications, SPEC_MAP } from "@/lib/data";
+import { getFuelTypes, type FuelType, getFournisseurs, getSpecifications, SPEC_MAP, Specification } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
 import {
@@ -43,7 +43,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
@@ -55,6 +54,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import * as XLSX from 'xlsx';
+import { AlertDialogTrigger } from './ui/alert-dialog';
 
 interface Result {
     id: string;
@@ -326,6 +326,32 @@ export function ResultsTable() {
         exportToExcel(reportData, reportType);
     };
 
+    const getSpecValueColor = (result: Result, field: keyof Result) => {
+        const spec = SPEC_MAP.get(`${result.type_combustible}|${result.fournisseur}`);
+        if (!spec) return "text-foreground"; // No spec, default color
+
+        const value = result[field];
+        if (typeof value !== 'number') return "text-foreground";
+
+        switch (field) {
+            case 'pci_brut':
+                if (typeof spec.PCI_min === 'number' && value < spec.PCI_min) return "text-red-600";
+                return "text-green-600";
+            case 'h2o':
+                if (typeof spec.H2O_max === 'number' && value > spec.H2O_max) return "text-red-600";
+                return "text-green-600";
+            case 'chlore':
+                if (typeof spec.Cl_max === 'number' && value > spec.Cl_max) return "text-red-600";
+                return "text-green-600";
+            case 'cendres':
+                if (typeof spec.Cendres_max === 'number' && value > spec.Cendres_max) return "text-red-600";
+                return "text-green-600";
+            default:
+                return "text-foreground";
+        }
+    }
+
+
     const generateAlerts = (result: Result) => {
         const spec = SPEC_MAP.get(`${result.type_combustible}|${result.fournisseur}`);
         if (!spec) {
@@ -335,16 +361,16 @@ export function ResultsTable() {
         const alerts: string[] = [];
 
         if (typeof spec.PCI_min === 'number' && result.pci_brut < spec.PCI_min) {
-            alerts.push("⚠️ PCI trop faible");
+            alerts.push("⚠️ PCI");
         }
         if (typeof spec.H2O_max === 'number' && result.h2o > spec.H2O_max) {
-            alerts.push("💧 H2O élevé");
+            alerts.push("💧 H2O");
         }
         if (typeof spec.Cl_max === 'number' && result.chlore > spec.Cl_max) {
-            alerts.push("🧪 Chlore élevé");
+            alerts.push("🧪 Chlore");
         }
         if (typeof spec.Cendres_max === 'number' && result.cendres > spec.Cendres_max) {
-            alerts.push("🔥 Cendres élevé");
+            alerts.push("🔥 Cendres");
         }
 
         if (alerts.length === 0) {
@@ -485,16 +511,16 @@ export function ResultsTable() {
                                                     {result.type_combustible}
                                                 </TableCell>
                                                 <TableCell className="px-4">{result.fournisseur}</TableCell>
-                                                <TableCell className="font-bold text-right px-4">
+                                                <TableCell className={cn("font-bold text-right px-4", getSpecValueColor(result, 'pci_brut'))}>
                                                     {formatNumber(result.pci_brut, 0)}
                                                 </TableCell>
-                                                <TableCell className="text-right px-4">
+                                                <TableCell className={cn("text-right px-4 font-medium", getSpecValueColor(result, 'h2o'))}>
                                                   {formatNumber(result.h2o, 1)}
                                                 </TableCell>
-                                                <TableCell className="text-right px-4">
+                                                <TableCell className={cn("text-right px-4 font-medium", getSpecValueColor(result, 'chlore'))}>
                                                   {formatNumber(result.chlore, 2)}
                                                 </TableCell>
-                                                <TableCell className="text-right px-4">
+                                                <TableCell className={cn("text-right px-4 font-medium", getSpecValueColor(result, 'cendres'))}>
                                                   {formatNumber(result.cendres, 1)}
                                                 </TableCell>
                                                 <TableCell className="text-right px-4">{formatNumber(result.densite, 2)}</TableCell>
@@ -558,3 +584,5 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
+
+    
