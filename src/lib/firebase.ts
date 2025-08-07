@@ -1,6 +1,7 @@
 // src/lib/firebase.ts
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
+import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 
 const firebaseConfig = {
   "projectId": "fueltrack-afr",
@@ -13,6 +14,15 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+
+// Initialize App Check
+if (typeof window !== 'undefined') {
+  initializeAppCheck(app, {
+    provider: new ReCaptchaV3Provider('6Lf-p_cpAAAAAIm_pZq3H9g-gHYf2W9b3F1aE6E9'), // Replace with your reCAPTCHA public key
+    isTokenAutoRefreshEnabled: true
+  });
+}
+
 const db = getFirestore(app);
 
 export { db };
