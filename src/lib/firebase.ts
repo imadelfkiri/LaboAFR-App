@@ -17,18 +17,27 @@ const app = initializeApp(firebaseConfig);
 
 // Initialize App Check
 if (typeof window !== 'undefined') {
-  // IMPORTANT: This key is for demonstration purposes only.
-  // Replace it with your own reCAPTCHA v3 site key.
-  const reCaptchaKey = "6LeLqfApAAAAAJ_kALrCaB3fGTHxXbH3m2GXSx9q"; 
-  
-  if (reCaptchaKey && reCaptchaKey !== "REPLACE_WITH_YOUR_RECAPTCHA_PUBLIC_KEY") {
-    initializeAppCheck(app, {
-      provider: new ReCaptchaV3Provider(reCaptchaKey),
-      isTokenAutoRefreshEnabled: true
-    });
+  try {
+    // IMPORTANT: This key is for demonstration purposes only and will be replaced.
+    // Ensure you have a valid reCAPTCHA v3 site key for your domain.
+    const reCaptchaKey = "6LeLqfApAAAAAJ_kALrCaB3fGTHxXbH3m2GXSx9q"; 
+    
+    if (reCaptchaKey && reCaptchaKey.startsWith("6L")) {
+      initializeAppCheck(app, {
+        provider: new ReCaptchaV3Provider(reCaptchaKey),
+        isTokenAutoRefreshEnabled: true
+      });
+      console.log("Firebase App Check initialized successfully.");
+    } else {
+       console.warn("reCAPTCHA v3 key not found or invalid. App Check will not be initialized.");
+    }
+  } catch (error) {
+    console.error("Error initializing Firebase App Check:", error);
   }
 }
 
 const db = getFirestore(app);
 
 export { db };
+
+    

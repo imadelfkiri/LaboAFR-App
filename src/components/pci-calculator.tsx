@@ -105,7 +105,7 @@ export function PciCalculator() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      date_arrivage: undefined,
+      date_arrivage: new Date(),
       type_combustible: "",
       fournisseur: "",
       pcs: undefined,
@@ -121,7 +121,7 @@ export function PciCalculator() {
 
   const resetForm = () => {
     reset({
-        date_arrivage: undefined,
+        date_arrivage: new Date(),
         type_combustible: "",
         fournisseur: "",
         pcs: '' as any,
@@ -131,19 +131,18 @@ export function PciCalculator() {
         densite: '' as any,
         remarques: "",
     });
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    setValue("date_arrivage", yesterday);
     setPciResult(null);
   };
 
-  const fetchAndSetData = useCallback(() => {
+  const fetchAndSetData = useCallback(async () => {
       setLoading(true);
       try {
-        const fetchedFuelTypes = getFuelTypes();
-        const fetchedFournisseurs = getFournisseurs();
-        const specs = getSpecifications();
-
+        const [fetchedFuelTypes, fetchedFournisseurs, specs] = await Promise.all([
+          getFuelTypes(),
+          getFournisseurs(),
+          getSpecifications()
+        ]);
+        
         const map: Record<string, string[]> = {};
         specs.forEach(spec => {
             if (!map[spec.type_combustible]) {
@@ -166,13 +165,8 @@ export function PciCalculator() {
   }, [toast]);
 
   useEffect(() => {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    setValue("date_arrivage", yesterday);
-    
     fetchAndSetData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchAndSetData]);
 
 
   const pcsValue = watch("pcs");
@@ -242,7 +236,7 @@ export function PciCalculator() {
     }
   };
 
-  const handleAddFournisseur = () => {
+  const handleAddFournisseur = async () => {
     const selectedFuelType = getValues("type_combustible");
     if (!selectedFuelType) return;
 
@@ -250,12 +244,12 @@ export function PciCalculator() {
         const newFournisseur = newFournisseurSchema.parse({ name: newFournisseurName });
         const name = newFournisseur.name.trim();
 
-        addSpecification({
+        await addSpecification({
             type_combustible: selectedFuelType,
             fournisseur: name
         });
         
-        fetchAndSetData();
+        await fetchAndSetData();
         
         setValue("fournisseur", name, { shouldValidate: true });
 
@@ -276,10 +270,11 @@ export function PciCalculator() {
             });
         } else {
             console.error("Erreur lors de l'ajout du fournisseur:", error);
+            const errorMessage = error instanceof Error ? error.message : "Impossible d'ajouter ou d'associer le nouveau fournisseur.";
             toast({
                 variant: "destructive",
                 title: "Erreur",
-                description: "Impossible d'ajouter ou d'associer le nouveau fournisseur.",
+                description: errorMessage
             });
         }
     }
@@ -664,3 +659,5 @@ export function PciCalculator() {
     </div>
   );
 }
+
+    
