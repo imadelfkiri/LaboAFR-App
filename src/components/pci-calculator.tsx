@@ -155,8 +155,8 @@ export function PciCalculator() {
             }
         });
         
-        setAllFuelTypes(fetchedFuelTypes);
-        setAllFournisseurs(fetchedFournisseurs);
+        setAllFuelTypes([...new Map(fetchedFuelTypes.map(item => [item['name'], item])).values()].sort((a,b) => a.name.localeCompare(b.name)));
+        setAllFournisseurs([...new Set(fetchedFournisseurs)].sort());
         setFuelSupplierMap(map);
       } catch (e) {
           console.error(e);
@@ -661,3 +661,4 @@ export function PciCalculator() {
     </div>
   );
 }
+

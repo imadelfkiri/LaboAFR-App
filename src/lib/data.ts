@@ -84,18 +84,21 @@ export async function seedDatabase() {
 
             console.log("Seeding database with initial data...");
             const batch = writeBatch(db);
-
-            INITIAL_FUEL_TYPES.forEach(fuelType => {
+            
+            const uniqueFuelTypes = [...new Map(INITIAL_FUEL_TYPES.map(item => [item['name'], item])).values()];
+            uniqueFuelTypes.forEach(fuelType => {
                 const docRef = doc(collection(db, 'fuel_types'));
                 batch.set(docRef, fuelType);
             });
             
-            INITIAL_FOURNISSEURS.forEach(fournisseur => {
+            const uniqueFournisseurs = [...new Set(INITIAL_FOURNISSEURS)];
+            uniqueFournisseurs.forEach(fournisseur => {
                 const docRef = doc(collection(db, 'fournisseurs'));
                 batch.set(docRef, { name: fournisseur });
             });
             
-            INITIAL_SPECIFICATIONS_DATA.forEach(spec => {
+            const uniqueSpecifications = [...new Map(INITIAL_SPECIFICATIONS_DATA.map(item => [`${item.type_combustible}-${item.fournisseur}`, item])).values()];
+            uniqueSpecifications.forEach(spec => {
                 const docRef = doc(collection(db, 'specifications'));
                 batch.set(docRef, spec);
             });
@@ -132,7 +135,8 @@ export async function getFournisseurs(): Promise<string[]> {
     await firebaseAppPromise;
     const fournisseursCollection = collection(db, 'fournisseurs');
     const snapshot = await getDocs(fournisseursCollection);
-    return snapshot.docs.map(doc => doc.data().name as string);
+    const suppliers = snapshot.docs.map(doc => doc.data().name as string);
+    return [...new Set(suppliers)]; // Ensure uniqueness
 };
 
 async function updateSpecMap() {
@@ -189,3 +193,4 @@ export async function deleteSpecification(id: string) {
     await deleteDoc(specRef);
     await updateSpecMap();
 };
+
