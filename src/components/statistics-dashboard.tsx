@@ -58,7 +58,7 @@ interface Result {
 }
 
 interface ChartData {
-    date: string;
+    date: string; // Keep as yyyy-MM-dd for sorting
     pci_brut?: number;
     h2o?: number;
     chlore?: number;
@@ -170,7 +170,7 @@ export function StatisticsDashboard() {
         });
         
         const data: ChartData[] = Object.entries(groupedByDay).map(([date, values]) => {
-            const entry: ChartData = { date: format(parseISO(date), 'd MMM', { locale: fr }) };
+            const entry: ChartData = { date: date }; // Keep date as yyyy-MM-dd
             METRICS.forEach(({ key }) => {
                 const dayValues = values[key];
                 if (dayValues.length > 0) {
@@ -180,13 +180,9 @@ export function StatisticsDashboard() {
             return entry;
         });
 
-        return data.sort((a, b) => {
-            // This is a simplified sort that might not be perfect for multi-year data.
-            // A more robust solution would parse the full date.
-            const dateA = new Date(a.date.split(' ').reverse().join('-') + ' ' + new Date().getFullYear());
-            const dateB = new Date(b.date.split(' ').reverse().join('-') + ' ' + new Date().getFullYear());
-            return dateA.getTime() - dateB.getTime()
-        });
+        // Sort by date chronologically
+        return data.sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
+
     }, [results, selectedFuelType, selectedFournisseur, dateRange]);
 
 
@@ -194,7 +190,7 @@ export function StatisticsDashboard() {
         if (active && payload && payload.length) {
             return (
                 <div className="bg-background border rounded-lg shadow-lg p-3">
-                    <p className="font-bold text-foreground">{`${label}`}</p>
+                    <p className="font-bold text-foreground">{format(parseISO(label), 'd MMMM yyyy', { locale: fr })}</p>
                     {payload.map((pld: any) => (
                         <div key={pld.dataKey} style={{ color: pld.color }}>
                             {`${pld.name}: ${pld.value.toFixed(2)}`}
@@ -294,7 +290,10 @@ export function StatisticsDashboard() {
                                 {chartData.length > 0 ? (
                                     <LineChart data={chartData}>
                                         <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="date" />
+                                        <XAxis 
+                                            dataKey="date" 
+                                            tickFormatter={(value) => format(parseISO(value), 'd MMM', { locale: fr })}
+                                        />
                                         <YAxis domain={['auto', 'auto']} />
                                         <Tooltip content={<CustomTooltip />}/>
                                         <Legend />
@@ -313,3 +312,5 @@ export function StatisticsDashboard() {
         </div>
     );
 }
+
+    
