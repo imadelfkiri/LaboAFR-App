@@ -1,6 +1,6 @@
 
 // src/lib/data.ts
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, arrayUnion } from 'firebase/firestore';
 import { db, firebaseAppPromise } from './firebase';
 
 export const H_MAP: Record<string, number> = {};
@@ -63,6 +63,43 @@ function populateHMap() {
 }
 
 populateHMap();
+
+export async function getFuelSupplierMap(): Promise<Record<string, string[]>> {
+    await firebaseAppPromise;
+    const mapCollection = collection(db, 'fuel_supplier_map');
+    const snapshot = await getDocs(mapCollection);
+    
+    if (snapshot.empty) {
+        console.warn("fuel_supplier_map collection is empty. Falling back to specifications.");
+        return {};
+    }
+
+    const map: Record<string, string[]> = {};
+    snapshot.forEach(doc => {
+        const data = doc.data();
+        if (data.suppliers && Array.isArray(data.suppliers)) {
+            map[doc.id] = data.suppliers;
+        }
+    });
+
+    return map;
+}
+
+export async function addSupplierToFuel(fuelType: string, supplier: string): Promise<void> {
+    await firebaseAppPromise;
+    const fuelDocRef = doc(db, 'fuel_supplier_map', fuelType);
+
+    const docSnap = await getDoc(fuelDocRef);
+
+    if (docSnap.exists()) {
+        await updateDoc(fuelDocRef, {
+            suppliers: arrayUnion(supplier)
+        });
+    } else {
+        await writeBatch(db).set(fuelDocRef, { suppliers: [supplier] }).commit();
+    }
+}
+
 
 // This function will now be called from the component to ensure it runs.
 export async function seedSpecifications() {

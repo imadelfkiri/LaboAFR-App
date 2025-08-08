@@ -56,7 +56,7 @@ import {
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator";
 import { calculerPCI } from '@/lib/pci';
-import { getFuelTypes, type FuelType, H_MAP, getFournisseurs, addSpecification, getSpecifications } from '@/lib/data';
+import { getFuelTypes, type FuelType, H_MAP, getFuelSupplierMap, addSupplierToFuel } from '@/lib/data';
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from './ui/skeleton';
 
@@ -88,7 +88,6 @@ export function PciCalculator() {
   const [isSaving, setIsSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [allFuelTypes, setAllFuelTypes] = useState<FuelType[]>([]);
-  const [allFournisseurs, setAllFournisseurs] = useState<string[]>([]);
   const [fuelSupplierMap, setFuelSupplierMap] = useState<Record<string, string[]>>({});
   
   const [filteredFournisseurs, setFilteredFournisseurs] = useState<string[]>([]);
@@ -137,24 +136,12 @@ export function PciCalculator() {
       setLoading(true);
       try {
         await firebaseAppPromise; // Wait for firebase to be initialized
-        const [fetchedFuelTypes, fetchedFournisseurs, specs] = await Promise.all([
+        const [fetchedFuelTypes, map] = await Promise.all([
           getFuelTypes(),
-          getFournisseurs(),
-          getSpecifications()
+          getFuelSupplierMap()
         ]);
         
-        const map: Record<string, string[]> = {};
-        specs.forEach(spec => {
-            if (!map[spec.type_combustible]) {
-                map[spec.type_combustible] = [];
-            }
-            if (!map[spec.type_combustible].includes(spec.fournisseur)) {
-                map[spec.type_combustible].push(spec.fournisseur);
-            }
-        });
-        
         setAllFuelTypes([...new Map(fetchedFuelTypes.map(item => [item['name'], item])).values()].sort((a,b) => a.name.localeCompare(b.name)));
-        setAllFournisseurs([...new Set(fetchedFournisseurs)].sort());
         setFuelSupplierMap(map);
       } catch (e) {
           console.error(e);
@@ -195,7 +182,7 @@ export function PciCalculator() {
   }, [pcsValue, h2oValue, typeCombustibleValue, getValues]);
 
   useEffect(() => {
-    if (typeCombustibleValue) {
+    if (typeCombustibleValue && fuelSupplierMap) {
         const relatedFournisseurs = fuelSupplierMap[typeCombustibleValue] || [];
         setFilteredFournisseurs(relatedFournisseurs.sort());
         setValue('fournisseur', '');
@@ -243,18 +230,15 @@ export function PciCalculator() {
         const newFournisseur = newFournisseurSchema.parse({ name: newFournisseurName });
         const name = newFournisseur.name.trim();
 
-        await addSpecification({
-            type_combustible: selectedFuelType,
-            fournisseur: name
-        });
+        await addSupplierToFuel(selectedFuelType, name);
         
-        await fetchAndSetData();
+        await fetchAndSetData(); // Refetch the map
         
         setValue("fournisseur", name, { shouldValidate: true });
 
         toast({
             title: "Succès",
-            description: `Le fournisseur "${name}" a été ajouté et associé.`,
+            description: `Le fournisseur "${name}" a été ajouté et associé à ${selectedFuelType}.`,
         });
 
         setIsFournisseurModalOpen(false);
@@ -658,5 +642,6 @@ export function PciCalculator() {
     </div>
   );
 }
+
 
 
