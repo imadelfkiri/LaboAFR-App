@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -198,14 +196,13 @@ export function PciCalculator() {
 
   useEffect(() => {
     if (typeCombustibleValue) {
-        const relatedFournisseurs = fuelSupplierMap[typeCombustibleValue] || allFournisseurs;
+        const relatedFournisseurs = fuelSupplierMap[typeCombustibleValue] || [];
         setFilteredFournisseurs(relatedFournisseurs.sort());
         setValue('fournisseur', '');
     } else {
-        setFilteredFournisseurs(allFournisseurs.sort());
+        setFilteredFournisseurs([]);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [typeCombustibleValue, fuelSupplierMap, allFournisseurs, setValue]);
+  }, [typeCombustibleValue, fuelSupplierMap, setValue]);
 
 
   const handleAddFuelType = async () => {
@@ -661,4 +658,5 @@ export function PciCalculator() {
     </div>
   );
 }
+
 
