@@ -124,17 +124,10 @@ export async function seedSpecifications() {
 
 export async function getFuelTypes(): Promise<FuelType[]> {
     await firebaseAppPromise;
-    const fuelTypesCollection = collection(db, 'fuel_types');
-    const snapshot = await getDocs(fuelTypesCollection);
+    // We will use the static list to avoid issues with corrupted data in Firestore.
+    const fuelTypes = INITIAL_FUEL_TYPES;
     
-    if (snapshot.empty) {
-        console.log("No fuel types found, returning initial data for display.");
-        return INITIAL_FUEL_TYPES;
-    }
-
-    const fuelTypes = snapshot.docs.map(doc => doc.data() as FuelType);
-    
-    // Update H_MAP dynamically
+    // Update H_MAP dynamically from the clean list
     fuelTypes.forEach(ft => {
         H_MAP[ft.name] = ft.hValue;
     });
@@ -146,9 +139,8 @@ export async function getFuelTypes(): Promise<FuelType[]> {
 export async function getFuelTypesSortedByRecency(): Promise<FuelType[]> {
     await firebaseAppPromise;
 
-    // 1. Get all available fuel types
+    // 1. Get all available fuel types from the clean, static list
     const allFuelTypes = await getFuelTypes();
-    const allFuelTypeNames = allFuelTypes.map(ft => ft.name);
 
     // 2. Get all results to determine recency
     const resultsQuery = query(collection(db, "resultats"), orderBy("date_creation", "desc"));
