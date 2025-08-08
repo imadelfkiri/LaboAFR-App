@@ -84,7 +84,7 @@ export function ResultsTable() {
             await firebaseAppPromise;
             await getSpecifications(); 
 
-            const q = query(collection(db, "resultats"), orderBy("date_creation", "desc"));
+            const q = query(collection(db, "resultats"), orderBy("date_arrivage", "desc"));
             const unsubscribe = onSnapshot(q, (querySnapshot) => {
                 const resultsData: Result[] = [];
                 querySnapshot.forEach((doc) => {
@@ -572,5 +572,7 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
+
+    
 
     
