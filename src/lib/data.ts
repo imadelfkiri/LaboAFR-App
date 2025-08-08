@@ -1,6 +1,6 @@
 
 // src/lib/data.ts
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, arrayUnion } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, arrayUnion, orderBy, Timestamp } from 'firebase/firestore';
 import { db, firebaseAppPromise } from './firebase';
 
 export const H_MAP: Record<string, number> = {};
@@ -142,6 +142,50 @@ export async function getFuelTypes(): Promise<FuelType[]> {
     return fuelTypes;
 };
 
+
+export async function getFuelTypesSortedByRecency(): Promise<FuelType[]> {
+    await firebaseAppPromise;
+
+    // 1. Get all available fuel types
+    const allFuelTypes = await getFuelTypes();
+    const allFuelTypeNames = allFuelTypes.map(ft => ft.name);
+
+    // 2. Get all results to determine recency
+    const resultsQuery = query(collection(db, "resultats"), orderBy("date_creation", "desc"));
+    const resultsSnapshot = await getDocs(resultsQuery);
+
+    const fuelRecencyMap = new Map<string, number>();
+
+    resultsSnapshot.forEach(doc => {
+        const result = doc.data();
+        const fuelType = result.type_combustible;
+        const timestamp = result.date_creation as Timestamp;
+
+        if (fuelType && !fuelRecencyMap.has(fuelType)) {
+             // Use seconds as a simple numeric value for sorting.
+            fuelRecencyMap.set(fuelType, timestamp?.seconds || 0);
+        }
+    });
+
+    // 3. Separate used and unused fuel types
+    const usedFuelTypes = allFuelTypes.filter(ft => fuelRecencyMap.has(ft.name));
+    const unusedFuelTypes = allFuelTypes.filter(ft => !fuelRecencyMap.has(ft.name));
+
+    // 4. Sort used fuel types by recency (most recent first)
+    usedFuelTypes.sort((a, b) => {
+        const recencyA = fuelRecencyMap.get(a.name) || 0;
+        const recencyB = fuelRecencyMap.get(b.name) || 0;
+        return recencyB - recencyA; // Descending order
+    });
+
+    // 5. Sort unused fuel types alphabetically
+    unusedFuelTypes.sort((a, b) => a.name.localeCompare(b.name));
+
+    // 6. Combine the lists
+    return [...usedFuelTypes, ...unusedFuelTypes];
+}
+
+
 export async function getFournisseurs(): Promise<string[]> {
     await firebaseAppPromise;
     const fournisseursCollection = collection(db, 'fournisseurs');
@@ -212,5 +256,3 @@ export async function deleteSpecification(id: string) {
     await deleteDoc(specRef);
     await updateSpecMap();
 };
-
-    

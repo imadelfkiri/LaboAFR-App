@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -56,7 +57,7 @@ import {
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator";
 import { calculerPCI } from '@/lib/pci';
-import { getFuelTypes, type FuelType, H_MAP, getFuelSupplierMap, addSupplierToFuel } from '@/lib/data';
+import { getFuelTypesSortedByRecency, type FuelType, H_MAP, getFuelSupplierMap, addSupplierToFuel } from '@/lib/data';
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from './ui/skeleton';
 
@@ -137,11 +138,11 @@ export function PciCalculator() {
       try {
         await firebaseAppPromise; // Wait for firebase to be initialized
         const [fetchedFuelTypes, map] = await Promise.all([
-          getFuelTypes(),
+          getFuelTypesSortedByRecency(),
           getFuelSupplierMap()
         ]);
         
-        setAllFuelTypes([...new Map(fetchedFuelTypes.map(item => [item['name'], item])).values()].sort((a,b) => a.name.localeCompare(b.name)));
+        setAllFuelTypes(fetchedFuelTypes);
         setFuelSupplierMap(map);
       } catch (e) {
           console.error(e);
@@ -297,6 +298,7 @@ export function PciCalculator() {
       });
       
       resetForm();
+      fetchAndSetData(); // Refetch to re-sort fuel types
 
     } catch (error: any) {
         console.error("Erreur lors de la soumission: ", error);
@@ -642,6 +644,3 @@ export function PciCalculator() {
     </div>
   );
 }
-
-
-
