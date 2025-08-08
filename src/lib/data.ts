@@ -30,6 +30,7 @@ const INITIAL_FUEL_TYPES: FuelType[] = [
     { name: "Plastiques", hValue: 7.0 },
     { name: "Pet Coke", hValue: 3.5 },
     { name: "Mélange", hValue: 6.0 },
+    { name: "Grignons", hValue: 5.0 },
     { name: "DMB", hValue: 6.5 },
     { name: "Charbon", hValue: 4.5 },
     { name: "Caoutchouc", hValue: 6.8 },
