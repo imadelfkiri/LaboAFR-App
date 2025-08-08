@@ -80,8 +80,8 @@ export function StatisticsDashboard() {
     const [initialDataLoaded, setInitialDataLoaded] = useState(false);
     
     // Filters
-    const [selectedFuelType, setSelectedFuelType] = useState<string>("");
-    const [selectedFournisseur, setSelectedFournisseur] = useState<string>("");
+    const [selectedFuelType, setSelectedFuelType] = useState<string>("all");
+    const [selectedFournisseur, setSelectedFournisseur] = useState<string>("all");
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
     // Data for filters
@@ -140,8 +140,8 @@ export function StatisticsDashboard() {
             const dateArrivage = normalizeDate(result.date_arrivage);
             if (!dateArrivage || !isValid(dateArrivage)) return false;
 
-            const fuelTypeMatch = !selectedFuelType || result.type_combustible === selectedFuelType;
-            const fournisseurMatch = !selectedFournisseur || result.fournisseur === selectedFournisseur;
+            const fuelTypeMatch = selectedFuelType === 'all' || result.type_combustible === selectedFuelType;
+            const fournisseurMatch = selectedFournisseur === 'all' || result.fournisseur === selectedFournisseur;
             const dateMatch = !dateRange || (
                 (!dateRange.from || dateArrivage >= startOfDay(dateRange.from)) &&
                 (!dateRange.to || dateArrivage <= endOfDay(dateRange.to))
@@ -181,6 +181,8 @@ export function StatisticsDashboard() {
         });
 
         return data.sort((a, b) => {
+            // This is a simplified sort that might not be perfect for multi-year data.
+            // A more robust solution would parse the full date.
             const dateA = new Date(a.date.split(' ').reverse().join('-') + ' ' + new Date().getFullYear());
             const dateB = new Date(b.date.split(' ').reverse().join('-') + ' ' + new Date().getFullYear());
             return dateA.getTime() - dateB.getTime()
@@ -227,7 +229,7 @@ export function StatisticsDashboard() {
                             <SelectValue placeholder="Sélectionner un type..." />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="">Tous les types</SelectItem>
+                            <SelectItem value="all">Tous les types</SelectItem>
                             {allFuelTypes.map(f => <SelectItem key={f.name} value={f.name}>{f.name}</SelectItem>)}
                         </SelectContent>
                     </Select>
@@ -236,7 +238,7 @@ export function StatisticsDashboard() {
                             <SelectValue placeholder="Sélectionner un fournisseur..." />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="">Tous les fournisseurs</SelectItem>
+                            <SelectItem value="all">Tous les fournisseurs</SelectItem>
                             {allFournisseurs.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
                         </SelectContent>
                     </Select>
@@ -311,4 +313,3 @@ export function StatisticsDashboard() {
         </div>
     );
 }
-
