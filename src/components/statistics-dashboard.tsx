@@ -29,7 +29,6 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { MultiSelect } from "@/components/ui/multi-select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -81,8 +80,8 @@ export function StatisticsDashboard() {
     const [initialDataLoaded, setInitialDataLoaded] = useState(false);
     
     // Filters
-    const [selectedFuelTypes, setSelectedFuelTypes] = useState<string[]>([]);
-    const [selectedFournisseurs, setSelectedFournisseurs] = useState<string[]>([]);
+    const [selectedFuelType, setSelectedFuelType] = useState<string>("");
+    const [selectedFournisseur, setSelectedFournisseur] = useState<string>("");
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
     // Data for filters
@@ -141,8 +140,8 @@ export function StatisticsDashboard() {
             const dateArrivage = normalizeDate(result.date_arrivage);
             if (!dateArrivage || !isValid(dateArrivage)) return false;
 
-            const fuelTypeMatch = selectedFuelTypes.length === 0 || selectedFuelTypes.includes(result.type_combustible);
-            const fournisseurMatch = selectedFournisseurs.length === 0 || selectedFournisseurs.includes(result.fournisseur);
+            const fuelTypeMatch = !selectedFuelType || result.type_combustible === selectedFuelType;
+            const fournisseurMatch = !selectedFournisseur || result.fournisseur === selectedFournisseur;
             const dateMatch = !dateRange || (
                 (!dateRange.from || dateArrivage >= startOfDay(dateRange.from)) &&
                 (!dateRange.to || dateArrivage <= endOfDay(dateRange.to))
@@ -181,10 +180,12 @@ export function StatisticsDashboard() {
             return entry;
         });
 
-        return data.sort((a, b) => new Date(parseISO(a.date.split(' ').reverse().join('-'))).getTime() - new Date(parseISO(b.date.split(' ').reverse().join('-'))).getTime());
-
-
-    }, [results, selectedFuelTypes, selectedFournisseurs, dateRange]);
+        return data.sort((a, b) => {
+            const dateA = new Date(a.date.split(' ').reverse().join('-') + ' ' + new Date().getFullYear());
+            const dateB = new Date(b.date.split(' ').reverse().join('-') + ' ' + new Date().getFullYear());
+            return dateA.getTime() - dateB.getTime()
+        });
+    }, [results, selectedFuelType, selectedFournisseur, dateRange]);
 
 
     const CustomTooltip = ({ active, payload, label }: any) => {
@@ -221,20 +222,24 @@ export function StatisticsDashboard() {
         <div className="space-y-4">
             <Card>
                 <CardContent className="p-4 flex flex-col md:flex-row gap-4">
-                    <MultiSelect
-                        options={allFuelTypes.map(f => ({ value: f.name, label: f.name }))}
-                        selected={selectedFuelTypes}
-                        onChange={setSelectedFuelTypes}
-                        placeholder="Sélectionner type(s)..."
-                        className="w-full md:w-1/3"
-                    />
-                     <MultiSelect
-                        options={allFournisseurs.map(f => ({ value: f, label: f }))}
-                        selected={selectedFournisseurs}
-                        onChange={setSelectedFournisseurs}
-                        placeholder="Sélectionner fournisseur(s)..."
-                        className="w-full md:w-1/3"
-                    />
+                    <Select value={selectedFuelType} onValueChange={setSelectedFuelType}>
+                        <SelectTrigger className="w-full md:w-1/3">
+                            <SelectValue placeholder="Sélectionner un type..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="">Tous les types</SelectItem>
+                            {allFuelTypes.map(f => <SelectItem key={f.name} value={f.name}>{f.name}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                     <Select value={selectedFournisseur} onValueChange={setSelectedFournisseur}>
+                        <SelectTrigger className="w-full md:w-1/3">
+                            <SelectValue placeholder="Sélectionner un fournisseur..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="">Tous les fournisseurs</SelectItem>
+                            {allFournisseurs.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button
@@ -307,3 +312,4 @@ export function StatisticsDashboard() {
     );
 }
 
+  
