@@ -129,6 +129,12 @@ export function SpecificationsTable() {
 
     useEffect(() => {
         fetchAllData();
+         // Expose a global function to open the modal
+        (window as any).openSpecModal = () => handleModalOpen();
+
+        return () => {
+            delete (window as any).openSpecModal;
+        };
     }, [fetchAllData]);
 
     const uniqueFuelTypes = useMemo(() => {
@@ -209,9 +215,6 @@ export function SpecificationsTable() {
     if (loading) {
         return (
             <div className="space-y-4 p-4 lg:p-6">
-                <div className="flex justify-end">
-                     <Skeleton className="h-10 w-48" />
-                </div>
                 <Skeleton className="h-96 w-full" />
             </div>
         );
@@ -219,12 +222,6 @@ export function SpecificationsTable() {
     
     return (
         <div className="flex flex-col gap-4 p-4 lg:p-6 h-full">
-            <div className="flex justify-end">
-                <Button onClick={() => handleModalOpen()} className="bg-primary hover:bg-primary/90">
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Ajouter une spécification
-                </Button>
-            </div>
             <ScrollArea className="flex-grow rounded-lg border">
                 <Table>
                     <TableHeader>
@@ -354,5 +351,3 @@ export function SpecificationsTable() {
         </div>
     );
 }
-
-    
