@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { format } from "date-fns";
+import { format, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
 import { CalendarIcon, Fuel, PlusCircle, ClipboardList, FlaskConical, MessageSquareText } from 'lucide-react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -117,7 +117,7 @@ export function PciCalculator() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      date_arrivage: new Date(),
+      date_arrivage: subDays(new Date(), 1),
       type_combustible: "",
       fournisseur: "",
       pcs: undefined,
@@ -133,7 +133,7 @@ export function PciCalculator() {
 
   const resetForm = () => {
     reset({
-        date_arrivage: new Date(),
+        date_arrivage: subDays(new Date(), 1),
         type_combustible: "",
         fournisseur: "",
         pcs: '' as any,
