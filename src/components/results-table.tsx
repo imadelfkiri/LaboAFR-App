@@ -222,7 +222,7 @@ export function ResultsTable() {
         const subtitleText = "Suivi des combustibles solides non dangereux";
         const filename = `${reportType}_AFR_Report_${format(reportDate, "yyyy-MM-dd")}.xlsx`;
 
-        const headers = ["Date", "Type Combustible", "Fournisseur", "PCS (kcal/kg)", "PCI sur Brut (kcal/kg)", "% H2O", "% Cl-", "% Cendres", "Densité (t/m³)", "Remarques"];
+        const headers = ["Date", "Type Combustible", "Fournisseur", "PCS (kcal/kg)", "PCI sur Brut (kcal/kg)", "% H2O", "% Cl-", "% Cendres", "Densité (t/m³)", "Alertes", "Remarques"];
         
         const border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
         const titleStyle = { font: { bold: true, sz: 14 }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } };
@@ -245,6 +245,7 @@ export function ResultsTable() {
 
 
         data.forEach(result => {
+            const alert = generateAlerts(result);
             const row = [
                 { v: formatDate(result.date_arrivage), s: centerAlignStyle },
                 { v: result.type_combustible, s: leftAlignStyle },
@@ -255,6 +256,7 @@ export function ResultsTable() {
                 { v: result.chlore, s: centerAlignStyle },
                 { v: result.cendres, s: centerAlignStyle },
                 { v: result.densite ?? '', s: centerAlignStyle },
+                { v: alert.text, s: leftAlignStyle },
                 { v: result.remarques || '', s: leftAlignStyle },
             ];
             ws_data.push(row);
@@ -281,6 +283,8 @@ export function ResultsTable() {
 
         const remarksIndex = headers.indexOf('Remarques');
         if (remarksIndex > -1) colWidths[remarksIndex] = { wch: 40 };
+        const alertsIndex = headers.indexOf('Alertes');
+        if (alertsIndex > -1) colWidths[alertsIndex] = { wch: 25 };
 
         ws['!cols'] = colWidths;
         
@@ -535,6 +539,8 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
+
+    
 
     
 
