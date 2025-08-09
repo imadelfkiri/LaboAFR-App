@@ -540,9 +540,8 @@ export function ResultsTable() {
                 0: { halign: 'left' }, // Type Combustible
                 1: { halign: 'left' }, // Fournisseur
                 4: { halign: 'left' }, // Alertes (daily/weekly)
-                5: { halign: 'left' }, // Remarques (daily/weekly)
-                6: { halign: 'left' }, // Alertes (monthly)
-                7: { halign: 'left' }  // Remarques (monthly)
+                5: { halign: 'left' }, // Remarques (daily/weekly) -> This is now Alertes for monthly
+                6: { halign: 'left' }  // Remarques (monthly) -> This is now Densité for monthly
             },
             didParseCell: (hookData) => {
                 if (hookData.section === 'body' && hookData.cell.raw) {
@@ -582,7 +581,6 @@ export function ResultsTable() {
             { header: '% H2O', dataKey: 'h2o' },
             { header: '% Cl-', dataKey: 'cl' },
             { header: 'Alertes', dataKey: 'alerts' },
-            { header: 'Remarques', dataKey: 'remarques' },
         ];
         
         const body = aggregated.map(r => {
@@ -593,7 +591,6 @@ export function ResultsTable() {
                 createStyledCell(r.h2o, r.alerts.details.h2o, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
                 createStyledCell(r.chlore, r.alerts.details.chlore, {minimumFractionDigits: 2, maximumFractionDigits: 2}),
                 createAlertCell(r.alerts.isConform, r.alerts.text),
-                r.remarques,
             ];
         });
 
@@ -627,7 +624,6 @@ export function ResultsTable() {
             { header: '% H2O', dataKey: 'h2o' },
             { header: '% Cl-', dataKey: 'cl' },
             { header: 'Alertes', dataKey: 'alerts' },
-            { header: 'Remarques', dataKey: 'remarques' },
         ];
 
         const body = aggregated.map(r => {
@@ -638,7 +634,6 @@ export function ResultsTable() {
                 createStyledCell(r.h2o, r.alerts.details.h2o, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
                 createStyledCell(r.chlore, r.alerts.details.chlore, {minimumFractionDigits: 2, maximumFractionDigits: 2}),
                 createAlertCell(r.alerts.isConform, r.alerts.text),
-                r.remarques,
             ];
         });
 
@@ -674,7 +669,6 @@ export function ResultsTable() {
             { header: '% Cendres', dataKey: 'cendres' },
             { header: 'Densité', dataKey: 'densite' },
             { header: 'Alertes', dataKey: 'alerts' },
-            { header: 'Remarques', dataKey: 'remarques' },
         ];
         
         const body = aggregated.map(r => {
@@ -687,7 +681,6 @@ export function ResultsTable() {
                 createStyledCell(r.cendres, r.alerts.details.cendres, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
                 createStyledCell(r.densite, null, {minimumFractionDigits: 3, maximumFractionDigits: 3}),
                 createAlertCell(r.alerts.isConform, r.alerts.text),
-                r.remarques,
             ];
         });
 
