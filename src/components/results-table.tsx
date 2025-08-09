@@ -482,15 +482,18 @@ export function ResultsTable() {
 
     const createAlertCell = (isConform: boolean, alertText: string) => {
         const styles: { textColor?: string } = {};
+        let text = alertText;
 
         if (isConform) {
             styles.textColor = '#008000'; // Green
+            text = `✓ ${alertText}`;
         } else {
             styles.textColor = '#FF0000'; // Red
+            text = `⚠ ${alertText}`;
         }
 
         return {
-            content: alertText,
+            content: text,
             styles
         };
     };
@@ -540,8 +543,6 @@ export function ResultsTable() {
                 0: { halign: 'left' }, // Type Combustible
                 1: { halign: 'left' }, // Fournisseur
                 4: { halign: 'left' }, // Alertes (daily/weekly)
-                5: { halign: 'left' }, // Remarques (daily/weekly) -> This is now Alertes for monthly
-                6: { halign: 'left' }  // Remarques (monthly) -> This is now Densité for monthly
             },
             didParseCell: (hookData) => {
                 if (hookData.section === 'body' && hookData.cell.raw) {
@@ -566,9 +567,15 @@ export function ResultsTable() {
 
     const exportToPdfDaily = () => {
         const today = new Date();
+        const yesterday = subDays(today, 1);
+        const todayStr = format(today, 'yyyy-MM-dd');
+        const yesterdayStr = format(yesterday, 'yyyy-MM-dd');
+
         const dailyData = results.filter(r => {
                 const d = normalizeDate(r.date_arrivage);
-                return d && isValid(d) && format(d, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
+                if (!d || !isValid(d)) return false;
+                const dateStr = format(d, 'yyyy-MM-dd');
+                return dateStr === todayStr || dateStr === yesterdayStr;
             })
             .sort((a,b) => normalizeDate(b.date_arrivage)!.getTime() - normalizeDate(a.date_arrivage)!.getTime());
 
@@ -597,7 +604,7 @@ export function ResultsTable() {
         generatePdf(
             body,
             'Suivi des analyses des combustibles solides non dangereux',
-            `Rapport journalier ${format(today, 'dd MMMM yyyy', { locale: fr })}`,
+            `Rapport journalier ${format(yesterday, 'dd/MM')} - ${format(today, 'dd/MM/yyyy')}`,
             columns,
             'landscape',
             `Rapport_Journalier_AFR_${format(today, 'yyyy-MM-dd')}.pdf`
