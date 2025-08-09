@@ -463,14 +463,13 @@ export function ResultsTable() {
     };
     
     const createStyledCell = (value: number | null, isConform: boolean | null, formatOptions: Intl.NumberFormatOptions = {}) => {
-        let textColor = '#000000'; // Default black
-        
         if (value === null || value === undefined) {
-             return { content: '', styles: {textColor} };
+             return { content: '', styles: {} };
         }
 
+        const styles: { textColor?: string } = {};
         if (isConform === false) {
-            textColor = '#FF0000'; // Red
+            styles.textColor = '#FF0000'; // Red
         }
 
         const content = value.toLocaleString('fr-FR', {
@@ -478,27 +477,21 @@ export function ResultsTable() {
             ...formatOptions,
         }).replace('.', ',');
         
-        return {
-            content,
-            styles: { textColor }
-        };
+        return { content, styles };
     };
 
     const createAlertCell = (isConform: boolean, alertText: string) => {
-        let textColor = '#000000'; // Default black
-        let icon = '';
+        const styles: { textColor?: string } = {};
 
         if (isConform) {
-            textColor = '#008000'; // Green
-            icon = '✓ ';
+            styles.textColor = '#008000'; // Green
         } else {
-            textColor = '#FF0000'; // Red
-            icon = '⚠ ';
+            styles.textColor = '#FF0000'; // Red
         }
 
         return {
-            content: icon + alertText,
-            styles: { textColor }
+            content: alertText,
+            styles
         };
     };
 
