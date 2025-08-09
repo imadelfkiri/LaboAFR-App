@@ -52,6 +52,8 @@ interface Result {
     cendres: number;
     chlore: number;
     pci_brut: number;
+    pcs: number;
+    densite: number | null;
     remarques: string;
 }
 
@@ -220,7 +222,7 @@ export function ResultsTable() {
         const subtitleText = "Suivi des combustibles solides non dangereux";
         const filename = `${reportType}_AFR_Report_${format(reportDate, "yyyy-MM-dd")}.xlsx`;
 
-        const headers = ["Date", "Type Combustible", "Fournisseur", "PCI sur Brut", "% H2O", "% Cl-", "% Cendres", "Remarques"];
+        const headers = ["Date", "Type Combustible", "Fournisseur", "PCS (kcal/kg)", "PCI sur Brut (kcal/kg)", "% H2O", "% Cl-", "% Cendres", "Densité (t/m³)", "Remarques"];
         
         const border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
         const titleStyle = { font: { bold: true, sz: 14 }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } };
@@ -247,10 +249,12 @@ export function ResultsTable() {
                 { v: formatDate(result.date_arrivage), s: centerAlignStyle },
                 { v: result.type_combustible, s: leftAlignStyle },
                 { v: result.fournisseur, s: leftAlignStyle },
+                { v: result.pcs, s: centerAlignStyle },
                 { v: result.pci_brut, s: centerAlignStyle },
                 { v: result.h2o, s: centerAlignStyle },
                 { v: result.chlore, s: centerAlignStyle },
                 { v: result.cendres, s: centerAlignStyle },
+                { v: result.densite ?? '', s: centerAlignStyle },
                 { v: result.remarques || '', s: leftAlignStyle },
             ];
             ws_data.push(row);
@@ -436,7 +440,7 @@ export function ResultsTable() {
                                     <TableHead className="text-right px-4">% Cl-</TableHead>
                                     <TableHead className="text-right px-4">% Cendres</TableHead>
                                     <TableHead className="px-4 font-bold">Alertes</TableHead>
-                                    <TableHead className="px-4">Remarques</TableHead>
+                                    <TableHead className="px-4 sticky right-[50px] bg-muted/50">Remarques</TableHead>
                                     <TableHead className="w-[50px] text-right px-4 sticky right-0 bg-muted/50">Action</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -475,7 +479,7 @@ export function ResultsTable() {
                                                         <span>{alert.text}</span>
                                                     </div>
                                                 </TableCell>
-                                                <TableCell className="max-w-[200px] truncate text-muted-foreground px-4">
+                                                <TableCell className="max-w-[200px] truncate text-muted-foreground px-4 sticky right-[50px] bg-background">
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
                                                             <span>{result.remarques}</span>
@@ -531,5 +535,7 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
+
+    
 
     
