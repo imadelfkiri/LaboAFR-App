@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -70,13 +71,23 @@ interface Result {
 interface AggregatedResult {
     type_combustible: string;
     fournisseur: string;
-    pci_brut: number;
-    h2o: number;
+    pci_brut: number | null;
+    h2o: number | null;
     chlore: number | null;
     cendres: number | null;
     densite: number | null;
+    remarques: string;
     count: number;
-    alerts: string;
+    alerts: {
+        text: string;
+        isConform: boolean;
+        details: {
+            pci: boolean;
+            h2o: boolean;
+            chlore: boolean;
+            cendres: boolean;
+        }
+    };
 }
 
 
@@ -371,17 +382,20 @@ export function ResultsTable() {
     };
 
     const aggregateResults = (data: Result[]): AggregatedResult[] => {
-        const grouped = new Map<string, { [key in keyof Omit<Result, 'id' | 'date_arrivage' | 'type_combustible' | 'fournisseur' | 'remarques'>]: number[] } & { count: number }>();
+        const grouped = new Map<string, { [key in keyof Omit<Result, 'id' | 'date_arrivage' | 'type_combustible' | 'fournisseur'>]: number[] } & { count: number; remarques: string[] }>();
 
         data.forEach(r => {
             const key = `${r.type_combustible}|${r.fournisseur}`;
             if (!grouped.has(key)) {
-                grouped.set(key, { pci_brut: [], h2o: [], chlore: [], cendres: [], pcs: [], densite: [], count: 0 });
+                grouped.set(key, { pci_brut: [], h2o: [], chlore: [], cendres: [], pcs: [], densite: [], count: 0, remarques: [] });
             }
             const group = grouped.get(key)!;
             group.count++;
+            if (r.remarques) {
+                group.remarques.push(r.remarques);
+            }
             (Object.keys(group) as (keyof typeof group)[]).forEach(metric => {
-                if (metric !== 'count' && typeof r[metric] === 'number') {
+                if (metric !== 'count' && metric !== 'remarques' && typeof r[metric] === 'number') {
                     (group[metric] as number[]).push(r[metric] as number);
                 }
             });
@@ -399,31 +413,44 @@ export function ResultsTable() {
 
             const spec = SPEC_MAP.get(`${type_combustible}|${fournisseur}`);
             const alertMessages: string[] = [];
+            const conformity = { pci: true, h2o: true, chlore: true, cendres: true };
+
             if (spec) {
                 if (pci_brut !== null && spec.PCI_min !== undefined && spec.PCI_min !== null && pci_brut < spec.PCI_min) {
                     alertMessages.push("PCI moyen bas");
+                    conformity.pci = false;
                 }
                 if (h2o !== null && spec.H2O_max !== undefined && spec.H2O_max !== null && h2o > spec.H2O_max) {
                     alertMessages.push("H2O moyen élevé");
+                    conformity.h2o = false;
                 }
                 if (chlore !== null && spec.Cl_max !== undefined && spec.Cl_max !== null && chlore > spec.Cl_max) {
                     alertMessages.push("Cl- moyen élevé");
+                     conformity.chlore = false;
                 }
                 if (cendres !== null && spec.Cendres_max !== undefined && spec.Cendres_max !== null && cendres > spec.Cendres_max) {
                     alertMessages.push("Cendres moy. élevées");
+                     conformity.cendres = false;
                 }
             }
+            
+            const isConform = alertMessages.length === 0;
 
             aggregated.push({
                 type_combustible,
                 fournisseur,
-                pci_brut: pci_brut!,
-                h2o: h2o!,
+                pci_brut: pci_brut,
+                h2o: h2o,
                 chlore: chlore,
                 cendres: cendres,
                 densite: avg(value.densite),
                 count: value.count,
-                alerts: alertMessages.length > 0 ? alertMessages.join(' / ') : "Conforme",
+                remarques: value.remarques.filter(Boolean).join('; '),
+                alerts: {
+                    text: isConform ? "Conforme" : alertMessages.join(' / '),
+                    isConform,
+                    details: conformity
+                },
             });
         });
 
@@ -470,16 +497,18 @@ export function ResultsTable() {
             alternateRowStyles: {
                 fillColor: '#F7FBF9'
             },
-            columnStyles: {
-                0: { halign: 'left' },   // Type
-                1: { halign: 'left' },   // Fournisseur
-                2: { halign: 'center' }, // Nb Analyses
-                3: { halign: 'center' }, // PCI
-                4: { halign: 'center' }, // H2O
-                5: { halign: 'center' }, // Cl-
-                6: { halign: 'left' },   // Alertes
-                7: { halign: 'center' }, // Cendres
-                8: { halign: 'center' }, // Densité
+            styles: {
+                 // default text color
+                textColor: '#000000'
+            },
+            didParseCell: (hookData) => {
+                // This hook allows for cell-specific styling
+                if (hookData.section === 'body' && hookData.cell.raw) {
+                     const raw = hookData.cell.raw as any;
+                     if(raw.styles) {
+                         Object.assign(hookData.cell.styles, raw.styles);
+                     }
+                }
             },
             didDrawPage: (data) => {
                 // Footer
@@ -493,6 +522,13 @@ export function ResultsTable() {
         });
 
         doc.save(filename);
+    };
+
+    const createStyledCell = (content: string, isConform: boolean = true) => {
+        return {
+            content: content,
+            styles: { textColor: isConform ? '#000000' : '#FF0000' }
+        };
     };
 
     const exportToPdfDaily = () => {
@@ -509,21 +545,21 @@ export function ResultsTable() {
         const columns = [
             { header: 'Type Combustible', dataKey: 'type' },
             { header: 'Fournisseur', dataKey: 'fournisseur' },
-            { header: 'Nb Analyses', dataKey: 'count'},
             { header: 'PCI sur Brut', dataKey: 'pci' },
             { header: '% H2O', dataKey: 'h2o' },
             { header: '% Cl-', dataKey: 'cl' },
             { header: 'Alertes', dataKey: 'alerts' },
+            { header: 'Remarques', dataKey: 'remarques' },
         ];
         
         const body = aggregated.map(r => ([
-            r.type_combustible,
-            r.fournisseur,
-            r.count,
-            formatNumber(r.pci_brut, 0),
-            formatNumber(r.h2o, 1),
-            formatNumber(r.chlore, 2),
-            r.alerts,
+            createStyledCell(r.type_combustible),
+            createStyledCell(r.fournisseur),
+            createStyledCell(formatNumber(r.pci_brut, 0), r.alerts.details.pci),
+            createStyledCell(formatNumber(r.h2o, 1), r.alerts.details.h2o),
+            createStyledCell(formatNumber(r.chlore, 2), r.alerts.details.chlore),
+            createStyledCell(r.alerts.text, r.alerts.isConform),
+            createStyledCell(r.remarques),
         ]));
 
         generatePdf(
@@ -531,7 +567,7 @@ export function ResultsTable() {
             'Suivi des analyses des combustibles solides non dangereux',
             `Rapport journalier ${format(today, 'dd MMMM yyyy', { locale: fr })}`,
             columns,
-            'portrait',
+            'landscape',
             `Rapport_Journalier_AFR_${format(today, 'yyyy-MM-dd')}.pdf`
         );
     };
@@ -553,21 +589,21 @@ export function ResultsTable() {
         const columns = [
             { header: 'Type Combustible', dataKey: 'type' },
             { header: 'Fournisseur', dataKey: 'fournisseur' },
-            { header: 'Nb Analyses', dataKey: 'count'},
             { header: 'PCI sur Brut', dataKey: 'pci' },
             { header: '% H2O', dataKey: 'h2o' },
             { header: '% Cl-', dataKey: 'cl' },
             { header: 'Alertes', dataKey: 'alerts' },
+            { header: 'Remarques', dataKey: 'remarques' },
         ];
 
         const body = aggregated.map(r => ([
-            r.type_combustible,
-            r.fournisseur,
-            r.count,
-            formatNumber(r.pci_brut, 0),
-            formatNumber(r.h2o, 1),
-            formatNumber(r.chlore, 2),
-            r.alerts,
+            createStyledCell(r.type_combustible),
+            createStyledCell(r.fournisseur),
+            createStyledCell(formatNumber(r.pci_brut, 0), r.alerts.details.pci),
+            createStyledCell(formatNumber(r.h2o, 1), r.alerts.details.h2o),
+            createStyledCell(formatNumber(r.chlore, 2), r.alerts.details.chlore),
+            createStyledCell(r.alerts.text, r.alerts.isConform),
+            createStyledCell(r.remarques),
         ]));
 
         generatePdf(
@@ -575,7 +611,7 @@ export function ResultsTable() {
             'Suivi des analyses des combustibles solides non dangereux',
             `Rapport hebdomadaire semaine du ${format(start, 'dd MMMM', { locale: fr })}`,
             columns,
-            'portrait',
+            'landscape',
             `Rapport_Hebdo_AFR_Semaine_du_${format(start, 'yyyy-MM-dd')}.pdf`
         );
     };
@@ -597,25 +633,25 @@ export function ResultsTable() {
         const columns = [
             { header: 'Type Combustible', dataKey: 'type' },
             { header: 'Fournisseur', dataKey: 'fournisseur' },
-            { header: 'Nb Analyses', dataKey: 'count'},
             { header: 'PCI sur Brut', dataKey: 'pci' },
             { header: '% H2O', dataKey: 'h2o' },
             { header: '% Cl-', dataKey: 'cl' },
             { header: '% Cendres', dataKey: 'cendres' },
             { header: 'Densité', dataKey: 'densite' },
             { header: 'Alertes', dataKey: 'alerts' },
+            { header: 'Remarques', dataKey: 'remarques' },
         ];
         
         const body = aggregated.map(r => ([
-            r.type_combustible,
-            r.fournisseur,
-            r.count,
-            formatNumber(r.pci_brut, 0),
-            formatNumber(r.h2o, 1),
-            formatNumber(r.chlore, 2),
-            formatNumber(r.cendres, 1),
-            formatNumber(r.densite, 3),
-            r.alerts,
+            createStyledCell(r.type_combustible),
+            createStyledCell(r.fournisseur),
+            createStyledCell(formatNumber(r.pci_brut, 0), r.alerts.details.pci),
+            createStyledCell(formatNumber(r.h2o, 1), r.alerts.details.h2o),
+            createStyledCell(formatNumber(r.chlore, 2), r.alerts.details.chlore),
+            createStyledCell(formatNumber(r.cendres, 1), r.alerts.details.cendres),
+            createStyledCell(formatNumber(r.densite, 3)),
+            createStyledCell(r.alerts.text, r.alerts.isConform),
+            createStyledCell(r.remarques),
         ]));
 
         generatePdf(
@@ -833,9 +869,3 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
-
-    
-
-    
-
-    
