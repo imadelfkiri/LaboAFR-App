@@ -259,9 +259,9 @@ export function ResultsTable() {
                 { v: result.pcs, s: centerAlignStyle, t: 'n' },
                 { v: result.pci_brut, s: centerAlignStyle, t: 'n' },
                 { v: result.h2o, s: centerAlignStyle, t: 'n' },
-                { v: result.chlore ?? null, s: centerAlignStyle, t: result.chlore === null ? 's' : 'n' },
-                { v: result.cendres ?? null, s: centerAlignStyle, t: result.cendres === null ? 's' : 'n' },
-                { v: result.densite ?? null, s: centerAlignStyle, t: result.densite === null ? 's' : 'n' },
+                { v: result.chlore ?? 'N/A', s: centerAlignStyle, t: result.chlore === null ? 's' : 'n' },
+                { v: result.cendres ?? 'N/A', s: centerAlignStyle, t: result.cendres === null ? 's' : 'n' },
+                { v: result.densite ?? 'N/A', s: centerAlignStyle, t: result.densite === null ? 's' : 'n' },
                 { v: cleanAlertText(alert.text), s: leftAlignStyle, t: 's' },
                 { v: result.remarques || '', s: leftAlignStyle, t: 's' },
             ];
@@ -545,5 +545,3 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
-
-    
