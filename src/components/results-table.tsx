@@ -76,7 +76,6 @@ interface AggregatedResult {
     chlore: number | null;
     cendres: number | null;
     densite: number | null;
-    remarques: string;
     count: number;
     alerts: {
         text: string;
@@ -382,18 +381,15 @@ export function ResultsTable() {
     };
 
     const aggregateResults = (data: Result[], checkCendres: boolean = false): AggregatedResult[] => {
-        const grouped = new Map<string, { [key in keyof Omit<Result, 'id' | 'date_arrivage' | 'type_combustible' | 'fournisseur'>]: (number | null)[] } & { count: number; remarques: string[] }>();
+        const grouped = new Map<string, { [key in keyof Omit<Result, 'id' | 'date_arrivage' | 'type_combustible' | 'fournisseur' | 'remarques'>]: (number | null)[] } & { count: number }>();
     
         data.forEach(r => {
             const key = `${r.type_combustible}|${r.fournisseur}`;
             if (!grouped.has(key)) {
-                grouped.set(key, { pci_brut: [], h2o: [], chlore: [], cendres: [], pcs: [], densite: [], count: 0, remarques: [] });
+                grouped.set(key, { pci_brut: [], h2o: [], chlore: [], cendres: [], pcs: [], densite: [], count: 0 });
             }
             const group = grouped.get(key)!;
             group.count++;
-            if (r.remarques) {
-                group.remarques.push(r.remarques);
-            }
             const metrics: (keyof typeof r)[] = ['pci_brut', 'h2o', 'chlore', 'cendres', 'pcs', 'densite'];
             metrics.forEach(metric => {
                 const value = r[metric];
@@ -450,7 +446,6 @@ export function ResultsTable() {
                 cendres,
                 densite: avg(value.densite),
                 count: value.count,
-                remarques: value.remarques.filter(Boolean).join('; '),
                 alerts: {
                     text: isConform ? "Conforme" : alertMessages.join(' / '),
                     isConform,
@@ -486,10 +481,10 @@ export function ResultsTable() {
 
         if (isConform) {
             styles.textColor = '#008000'; // Green
-            text = `✓ ${alertText}`;
+            text = `${alertText}`;
         } else {
             styles.textColor = '#FF0000'; // Red
-            text = `⚠ ${alertText}`;
+            text = `${alertText}`;
         }
 
         return {
@@ -542,7 +537,8 @@ export function ResultsTable() {
             columnStyles: {
                 0: { halign: 'left' }, // Type Combustible
                 1: { halign: 'left' }, // Fournisseur
-                4: { halign: 'left' }, // Alertes (daily/weekly)
+                5: { halign: 'left' }, // Alertes (daily/weekly)
+                6: { halign: 'left' }, // Alertes (monthly)
             },
             didParseCell: (hookData) => {
                 if (hookData.section === 'body' && hookData.cell.raw) {
@@ -568,16 +564,13 @@ export function ResultsTable() {
     const exportToPdfDaily = () => {
         const today = new Date();
         const yesterday = subDays(today, 1);
-        const todayStr = format(today, 'yyyy-MM-dd');
-        const yesterdayStr = format(yesterday, 'yyyy-MM-dd');
 
         const dailyData = results.filter(r => {
-                const d = normalizeDate(r.date_arrivage);
-                if (!d || !isValid(d)) return false;
-                const dateStr = format(d, 'yyyy-MM-dd');
-                return dateStr === todayStr || dateStr === yesterdayStr;
-            })
-            .sort((a,b) => normalizeDate(b.date_arrivage)!.getTime() - normalizeDate(a.date_arrivage)!.getTime());
+            const d = normalizeDate(r.date_arrivage);
+            if (!d || !isValid(d)) return false;
+            const dateOnly = startOfDay(d);
+            return dateOnly.getTime() === startOfDay(today).getTime() || dateOnly.getTime() === startOfDay(yesterday).getTime();
+        }).sort((a,b) => normalizeDate(b.date_arrivage)!.getTime() - normalizeDate(a.date_arrivage)!.getTime());
 
         const aggregated = aggregateResults(dailyData, false);
 
@@ -906,3 +899,4 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
+
