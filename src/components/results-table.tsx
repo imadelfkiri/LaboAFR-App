@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, XCircle, Trash2, Download, ChevronDown, FileOutput } from "lucide-react";
+import { CalendarIcon, XCircle, Trash2, Download, ChevronDown, FileOutput, AlertTriangle } from "lucide-react";
 import { getSpecifications, SPEC_MAP, getFuelSupplierMap } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
@@ -355,7 +355,7 @@ export function ResultsTable() {
     const generateAlerts = (result: Result) => {
         const spec = SPEC_MAP.get(`${result.type_combustible}|${result.fournisseur}`);
         if (!spec) {
-            return { text: "N/A", color: "text-muted-foreground" };
+            return { text: "N/A", color: "text-muted-foreground", isConform: true };
         }
 
         const alerts: string[] = [];
@@ -374,10 +374,10 @@ export function ResultsTable() {
         }
 
         if (alerts.length === 0) {
-            return { text: "Conforme", color: "text-green-600" };
+            return { text: "Conforme", color: "text-green-600", isConform: true };
         }
 
-        return { text: alerts.join(' / '), color: "text-red-600" };
+        return { text: alerts.join(' / '), color: "text-red-600", isConform: false };
     };
 
     if (loading) {
@@ -533,7 +533,10 @@ export function ResultsTable() {
                                                     </Tooltip>
                                                 </TableCell>
                                                 <TableCell className={cn("px-4 font-semibold", alert.color)}>
-                                                    {alert.text}
+                                                    <div className="flex items-center gap-2">
+                                                        {!alert.isConform && <AlertTriangle className="h-4 w-4" />}
+                                                        <span>{alert.text}</span>
+                                                    </div>
                                                 </TableCell>
                                                 <TableCell className="text-right px-4 sticky right-0 bg-background">
                                                     <AlertDialogTrigger asChild>
@@ -584,7 +587,3 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
-
-    
-
-    
