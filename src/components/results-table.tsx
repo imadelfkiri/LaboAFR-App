@@ -247,7 +247,7 @@ export function ResultsTable() {
             minimumFractionDigits: fractionDigits,
             maximumFractionDigits: fractionDigits,
             useGrouping: false, 
-        });
+        }).replace('.', ',');
     };
 
     const exportToExcel = (data: Result[], reportType: 'Filtré') => {
@@ -268,8 +268,8 @@ export function ResultsTable() {
         const border = { top: { style: "thin", color: { rgb: "000000" } }, bottom: { style: "thin", color: { rgb: "000000" } }, left: { style: "thin", color: { rgb: "000000" } }, right: { style: "thin", color: { rgb: "000000" } } };
         const titleStyle = { font: { bold: true, sz: 12, color: { rgb: "FFFFFF" } }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "002060" } }, border };
         const headerStyle = { font: { bold: true, color: { rgb: "FFFFFF" } }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "3F51B5" } }, border };
-        const dataStyleBase = { border, alignment: { vertical: "center" }, fill: { fgColor: { rgb: "F0F8FF" } } };
         
+        const dataStyleBase = { border, alignment: { vertical: "center" }, fill: { fgColor: { rgb: "F0F8FF" } } };
         const dataStyleCenter = { ...dataStyleBase, alignment: { ...dataStyleBase.alignment, horizontal: "center" } };
         const dataStyleLeft = { ...dataStyleBase, alignment: { ...dataStyleBase.alignment, horizontal: "left", wrapText: true } };
     
@@ -562,7 +562,7 @@ export function ResultsTable() {
             createStyledCell(formatNumber(r.pci_brut, 0), r.alerts.details.pci),
             createStyledCell(formatNumber(r.h2o, 1), r.alerts.details.h2o),
             createStyledCell(formatNumber(r.chlore, 2), r.alerts.details.chlore),
-            createStyledCell(r.alerts.isConform ? `✓ ${r.alerts.text}` : `⚠ ${r.alerts.text}`, r.alerts.isConform),
+            createStyledCell(r.alerts.isConform ? `' Conforme` : `& ${r.alerts.text}`, r.alerts.isConform),
             createStyledCell(r.remarques, null, '#000000'),
         ]));
 
@@ -605,7 +605,7 @@ export function ResultsTable() {
             createStyledCell(formatNumber(r.pci_brut, 0), r.alerts.details.pci),
             createStyledCell(formatNumber(r.h2o, 1), r.alerts.details.h2o),
             createStyledCell(formatNumber(r.chlore, 2), r.alerts.details.chlore),
-            createStyledCell(r.alerts.isConform ? `✓ ${r.alerts.text}` : `⚠ ${r.alerts.text}`, r.alerts.isConform),
+            createStyledCell(r.alerts.isConform ? `' Conforme` : `& ${r.alerts.text}`, r.alerts.isConform),
             createStyledCell(r.remarques, null, '#000000'),
         ]));
 
@@ -652,7 +652,7 @@ export function ResultsTable() {
             createStyledCell(formatNumber(r.chlore, 2), r.alerts.details.chlore),
             createStyledCell(formatNumber(r.cendres, 1), r.alerts.details.cendres),
             createStyledCell(formatNumber(r.densite, 3), null, '#000000'),
-            createStyledCell(r.alerts.isConform ? `✓ ${r.alerts.text}` : `⚠ ${r.alerts.text}`, r.alerts.isConform),
+            createStyledCell(r.alerts.isConform ? `' Conforme` : `& ${r.alerts.text}`, r.alerts.isConform),
             createStyledCell(r.remarques, null, '#000000'),
         ]));
 
