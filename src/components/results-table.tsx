@@ -519,8 +519,8 @@ export function ResultsTable() {
             columnStyles: {
                 0: { halign: 'left' }, // Type Combustible
                 1: { halign: 'left' }, // Fournisseur
-                5: { halign: 'left' }, // Alertes (index change)
-                6: { halign: 'left' }  // Remarques
+                5: { halign: 'left' }, // Alertes (index change for daily/weekly)
+                6: { halign: 'left' }  // Remarques (index change for daily/weekly)
             },
             didParseCell: (hookData) => {
                 if (hookData.section === 'body' && hookData.cell.raw) {
@@ -887,3 +887,4 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
+
