@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format, startOfDay, endOfDay, subDays, isValid, parseISO } from "date-fns";
+import { format, startOfDay, endOfDay, subDays, isValid, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
   Popover,
@@ -23,8 +23,8 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, XCircle, Trash2, Download, AlertTriangle, CheckCircle2 } from "lucide-react";
-import { getSpecifications, SPEC_MAP, getFuelSupplierMap } from "@/lib/data";
+import { CalendarIcon, XCircle, Trash2, Download, AlertTriangle, CheckCircle2, ChevronDown } from "lucide-react";
+import { getSpecifications, SPEC_MAP, getFuelSupplierMap, Specification } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
 import {
@@ -36,12 +36,21 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { MultiSelect } from '@/components/ui/multi-select';
 import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+
 
 interface Result {
     id: string;
@@ -56,6 +65,14 @@ interface Result {
     densite: number | null;
     remarques: string;
 }
+
+// Extend the jsPDF interface to include autoTable
+declare module 'jspdf' {
+  interface jsPDF {
+    autoTable: (options: any) => jsPDF;
+  }
+}
+
 
 export function ResultsTable() {
     const [results, setResults] = useState<Result[]>([]);
@@ -126,7 +143,6 @@ export function ResultsTable() {
         if (typeFilter.length > 0) {
             const newAvailable = typeFilter.flatMap(type => fuelSupplierMap[type] || []);
             setAvailableFournisseurs([...new Set(newAvailable)].sort());
-            // Deselect suppliers that are no longer available
             setFournisseurFilter(current => current.filter(f => newAvailable.includes(f)));
         } else {
             setAvailableFournisseurs(allUniqueFournisseurs);
@@ -168,10 +184,10 @@ export function ResultsTable() {
         return sum / validValues.length;
     };
     
-    function formatDate(date: { seconds: number; nanoseconds: number } | string): string {
+    function formatDate(date: { seconds: number; nanoseconds: number } | string, formatStr: string = "dd/MM/yyyy"): string {
         const parsedDate = normalizeDate(date);
         if (!parsedDate || !isValid(parsedDate)) return "Date inconnue";
-        return format(parsedDate, "dd/MM/yyyy");
+        return format(parsedDate, formatStr, { locale: fr });
     }
 
     const resetFilters = () => {
@@ -244,7 +260,7 @@ export function ResultsTable() {
         data.forEach(result => {
             const alert = generateAlerts(result);
             const row = [
-                { v: formatDate(result.date_arrivage), s: dataStyleCenter, t: 's' },
+                { v: formatDate(result.date_arrivage, "dd/MM/yyyy"), s: dataStyleCenter, t: 's' },
                 { v: result.type_combustible, s: dataStyleLeft, t: 's' },
                 { v: result.fournisseur, s: dataStyleLeft, t: 's' },
                 { v: result.pcs, s: dataStyleCenter, t: 'n' },
@@ -269,7 +285,7 @@ export function ResultsTable() {
         const colWidths = [
             { wch: 12 }, // Date
             { wch: 20 }, // Type Combustible
-            { wch: 15 }, // Fournisseur
+            { wch: 20 }, // Fournisseur
             { wch: 15 }, // PCS
             { wch: 22 }, // PCI sur Brut
             { wch: 10 }, // H2O
@@ -286,13 +302,9 @@ export function ResultsTable() {
         XLSX.writeFile(wb, filename, { bookType: 'xlsx', type: 'binary' });
     };
 
-    const handleReportDownload = () => {
-        exportToExcel(filteredResults, 'Filtré');
-    };
-
     const getSpecValueColor = (result: Result, field: keyof Result) => {
         const spec = SPEC_MAP.get(`${result.type_combustible}|${result.fournisseur}`);
-        if (!spec) return "text-foreground"; // No spec, default color
+        if (!spec) return "text-foreground"; 
 
         const value = result[field];
         if (typeof value !== 'number') return "text-foreground";
@@ -324,16 +336,16 @@ export function ResultsTable() {
 
         const alerts: string[] = [];
 
-        if (typeof spec.PCI_min === 'number' && result.pci_brut < spec.PCI_min) {
+        if (spec.PCI_min !== undefined && spec.PCI_min !== null && result.pci_brut < spec.PCI_min) {
             alerts.push("PCI trop bas");
         }
-        if (typeof spec.H2O_max === 'number' && result.h2o > spec.H2O_max) {
+        if (spec.H2O_max !== undefined && spec.H2O_max !== null && result.h2o > spec.H2O_max) {
             alerts.push("Humidité élevée");
         }
-        if (result.chlore !== null && typeof spec.Cl_max === 'number' && result.chlore > spec.Cl_max) {
+        if (result.chlore !== null && spec.Cl_max !== undefined && spec.Cl_max !== null && result.chlore > spec.Cl_max) {
             alerts.push("Chlore trop élevé");
         }
-        if (result.cendres !== null && typeof spec.Cendres_max === 'number' && result.cendres > spec.Cendres_max) {
+        if (result.cendres !== null && spec.Cendres_max !== undefined && spec.Cendres_max !== null && result.cendres > spec.Cendres_max) {
             alerts.push("Taux de cendres élevé");
         }
 
@@ -343,6 +355,207 @@ export function ResultsTable() {
 
         return { text: alerts.join(' / '), color: "text-red-600", isConform: false };
     };
+
+    // PDF Generation Logic
+    const generatePdf = (
+        data: any[],
+        title: string,
+        subtitle: string,
+        columns: any[],
+        orientation: 'portrait' | 'landscape',
+        filename: string
+    ) => {
+        if (data.length === 0) {
+            toast({ variant: 'destructive', title: 'Aucune donnée', description: 'Il n\'y a pas de données à exporter pour cette période.' });
+            return;
+        }
+
+        const doc = new jsPDF({ orientation });
+        const generationDate = format(new Date(), "dd/MM/yyyy HH:mm:ss");
+
+        // Main Title
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text(title, doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
+
+        // Subtitle
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'normal');
+        doc.text(subtitle, doc.internal.pageSize.getWidth() / 2, 22, { align: 'center' });
+
+        doc.autoTable({
+            head: [columns.map(c => c.header)],
+            body: data,
+            startY: 30,
+            theme: 'grid',
+            headStyles: {
+                fillColor: '#CDE9D6',
+                textColor: '#000000',
+                fontStyle: 'bold'
+            },
+            alternateRowStyles: {
+                fillColor: '#F7FBF9'
+            },
+            columnStyles: {
+                0: { halign: 'center' }, // Date
+                1: { halign: 'left' },   // Type
+                2: { halign: 'left' },   // Fournisseur
+                3: { halign: 'center' }, // PCI
+                4: { halign: 'center' }, // H2O
+                5: { halign: 'center' }, // Cl-
+                6: { halign: 'center' }, // Cendres or Alertes
+                7: { halign: 'left' },   // Densité or Remarques
+                8: { halign: 'left' },   // Alertes
+                9: { halign: 'left' }    // Remarques
+            },
+            didDrawPage: (data) => {
+                // Footer
+                const pageCount = doc.internal.pages.length;
+                doc.setFontSize(8);
+                doc.text(
+                    `Généré le: ${generationDate} - Page ${data.pageNumber} sur ${pageCount-1}`,
+                    data.settings.margin.left,
+                    doc.internal.pageSize.getHeight() - 10
+                );
+            },
+        });
+
+        doc.save(filename);
+    };
+
+    const exportToPdfDaily = () => {
+        const today = new Date();
+        const dailyData = results
+            .filter(r => {
+                const d = normalizeDate(r.date_arrivage);
+                return d && isValid(d) && format(d, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
+            })
+            .sort((a,b) => normalizeDate(b.date_arrivage)!.getTime() - normalizeDate(a.date_arrivage)!.getTime());
+
+        const columns = [
+            { header: 'Date Arrivage', dataKey: 'date' },
+            { header: 'Type Combustible', dataKey: 'type' },
+            { header: 'Fournisseur', dataKey: 'fournisseur' },
+            { header: 'PCI sur Brut', dataKey: 'pci' },
+            { header: '% H2O', dataKey: 'h2o' },
+            { header: '% Cl-', dataKey: 'cl' },
+            { header: 'Alertes', dataKey: 'alertes' },
+            { header: 'Remarques', dataKey: 'remarques' },
+        ];
+        
+        const body = dailyData.map(r => ({
+            date: formatDate(r.date_arrivage),
+            type: r.type_combustible,
+            fournisseur: r.fournisseur,
+            pci: formatNumber(r.pci_brut, 0),
+            h2o: formatNumber(r.h2o, 1),
+            cl: formatNumber(r.chlore, 2),
+            alertes: generateAlerts(r).text,
+            remarques: r.remarques,
+        }));
+
+        generatePdf(
+            body,
+            'Suivi des analyses des combustibles solides non dangereux',
+            `Rapport journalier ${format(today, 'dd MMMM yyyy', { locale: fr })}`,
+            columns,
+            'portrait',
+            `Rapport_Journalier_AFR_${format(today, 'yyyy-MM-dd')}.pdf`
+        );
+    };
+
+    const exportToPdfWeekly = () => {
+        const today = new Date();
+        const start = startOfWeek(today.getDay() === 1 ? subWeeks(today, 1) : today, { weekStartsOn: 1 });
+        const end = endOfWeek(start, { weekStartsOn: 1 });
+        
+        const weeklyData = results
+             .filter(r => {
+                const d = normalizeDate(r.date_arrivage);
+                return d && isValid(d) && d >= start && d <= end;
+            })
+            .sort((a,b) => normalizeDate(b.date_arrivage)!.getTime() - normalizeDate(a.date_arrivage)!.getTime());
+
+        const columns = [
+            { header: 'Date Arrivage', dataKey: 'date' },
+            { header: 'Type Combustible', dataKey: 'type' },
+            { header: 'Fournisseur', dataKey: 'fournisseur' },
+            { header: 'PCI sur Brut', dataKey: 'pci' },
+            { header: '% H2O', dataKey: 'h2o' },
+            { header: '% Cl-', dataKey: 'cl' },
+            { header: 'Alertes', dataKey: 'alertes' },
+            { header: 'Remarques', dataKey: 'remarques' },
+        ];
+
+        const body = weeklyData.map(r => ({
+            date: formatDate(r.date_arrivage),
+            type: r.type_combustible,
+            fournisseur: r.fournisseur,
+            pci: formatNumber(r.pci_brut, 0),
+            h2o: formatNumber(r.h2o, 1),
+            cl: formatNumber(r.chlore, 2),
+            alertes: generateAlerts(r).text,
+            remarques: r.remarques,
+        }));
+
+        generatePdf(
+            body,
+            'Suivi des analyses des combustibles solides non dangereux',
+            `Rapport hebdomadaire semaine du ${format(start, 'dd MMMM', { locale: fr })}`,
+            columns,
+            'portrait',
+            `Rapport_Hebdo_AFR_Semaine_du_${format(start, 'yyyy-MM-dd')}.pdf`
+        );
+    };
+
+    const exportToPdfMonthly = () => {
+        const today = new Date();
+        const start = startOfMonth(today);
+        const end = endOfMonth(today);
+
+         const monthlyData = results
+            .filter(r => {
+                const d = normalizeDate(r.date_arrivage);
+                return d && isValid(d) && d >= start && d <= end;
+            })
+            .sort((a,b) => normalizeDate(b.date_arrivage)!.getTime() - normalizeDate(a.date_arrivage)!.getTime());
+        
+        const columns = [
+            { header: 'Date Arrivage', dataKey: 'date' },
+            { header: 'Type Combustible', dataKey: 'type' },
+            { header: 'Fournisseur', dataKey: 'fournisseur' },
+            { header: 'PCI sur Brut', dataKey: 'pci' },
+            { header: '% H2O', dataKey: 'h2o' },
+            { header: '% Cl-', dataKey: 'cl' },
+            { header: '% Cendres', dataKey: 'cendres' },
+            { header: 'Densité', dataKey: 'densite' },
+            { header: 'Alertes', dataKey: 'alertes' },
+            { header: 'Remarques', dataKey: 'remarques' },
+        ];
+        
+        const body = monthlyData.map(r => ({
+            date: formatDate(r.date_arrivage),
+            type: r.type_combustible,
+            fournisseur: r.fournisseur,
+            pci: formatNumber(r.pci_brut, 0),
+            h2o: formatNumber(r.h2o, 1),
+            cl: formatNumber(r.chlore, 2),
+            cendres: formatNumber(r.cendres, 1),
+            densite: formatNumber(r.densite, 3),
+            alertes: generateAlerts(r).text,
+            remarques: r.remarques,
+        }));
+
+        generatePdf(
+            body,
+            'Suivi des analyses des combustibles solides non dangereux',
+            `Rapport mensuel ${format(today, 'MMMM yyyy', { locale: fr })}`,
+            columns,
+            'landscape',
+            `Rapport_Mensuel_AFR_${format(today, 'yyyy-MM')}.pdf`
+        );
+    };
+
 
     if (loading) {
         return (
@@ -415,14 +628,30 @@ export function ResultsTable() {
                             <XCircle className="mr-2 h-4 w-4"/>
                             Réinitialiser
                         </Button>
-                        <Button 
-                            variant="outline" 
-                            className="w-full sm:w-auto bg-white hover:bg-green-50 border-green-300 text-gray-800"
-                            onClick={handleReportDownload}
-                        >
-                            <Download className="mr-2 h-4 w-4"/>
-                            <span>Exporter la vue filtrée</span>
-                        </Button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" className="w-full sm:w-auto bg-white hover:bg-green-50 border-green-300 text-gray-800">
+                                <Download className="mr-2 h-4 w-4" />
+                                <span>Exporter</span>
+                                <ChevronDown className="ml-2 h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={exportToPdfDaily}>
+                                    Rapport Journalier (PDF)
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={exportToPdfWeekly}>
+                                    Rapport Hebdomadaire (PDF)
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={exportToPdfMonthly}>
+                                    Rapport Mensuel (PDF)
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => exportToExcel(filteredResults, 'Filtré')}>
+                                    Exporter la vue filtrée (Excel)
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
 
                     <ScrollArea className="flex-grow rounded-lg border">
@@ -532,5 +761,3 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
-
-    
