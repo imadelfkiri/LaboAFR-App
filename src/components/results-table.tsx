@@ -439,10 +439,10 @@ export function ResultsTable() {
             aggregated.push({
                 type_combustible,
                 fournisseur,
-                pci_brut: pci_brut,
-                h2o: h2o,
-                chlore: chlore,
-                cendres: cendres,
+                pci_brut,
+                h2o,
+                chlore,
+                cendres,
                 densite: avg(value.densite),
                 count: value.count,
                 remarques: value.remarques.filter(Boolean).join('; '),
@@ -457,7 +457,24 @@ export function ResultsTable() {
         return aggregated.sort((a,b) => a.type_combustible.localeCompare(b.type_combustible) || a.fournisseur.localeCompare(b.fournisseur));
     };
 
-    // PDF Generation Logic
+    const createStyledCell = (content: string, isConform: boolean | null = true, colorOverride?: string) => {
+        let textColor = colorOverride;
+        if (textColor) {
+            // Use override if provided
+        } else if (isConform === false) {
+            textColor = '#FF0000'; // Red for non-conform
+        } else if (isConform === true) {
+            textColor = '#008000'; // Green for conform
+        } else {
+            textColor = '#000000'; // Black for neutral/default
+        }
+
+        return {
+            content: content,
+            styles: { textColor }
+        };
+    };
+
     const generatePdf = (
         data: any[],
         title: string,
@@ -474,12 +491,10 @@ export function ResultsTable() {
         const doc = new jsPDF({ orientation });
         const generationDate = format(new Date(), "dd/MM/yyyy HH:mm:ss");
 
-        // Main Title
         doc.setFontSize(16);
         doc.setFont('helvetica', 'bold');
         doc.text(title, doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
 
-        // Subtitle
         doc.setFontSize(12);
         doc.setFont('helvetica', 'normal');
         doc.text(subtitle, doc.internal.pageSize.getWidth() / 2, 22, { align: 'center' });
@@ -498,11 +513,9 @@ export function ResultsTable() {
                 fillColor: '#F7FBF9'
             },
             styles: {
-                 // default text color
                 textColor: '#000000'
             },
             didParseCell: (hookData) => {
-                // This hook allows for cell-specific styling
                 if (hookData.section === 'body' && hookData.cell.raw) {
                      const raw = hookData.cell.raw as any;
                      if(raw.styles) {
@@ -511,10 +524,9 @@ export function ResultsTable() {
                 }
             },
             didDrawPage: (data) => {
-                // Footer
                 doc.setFontSize(8);
                 doc.text(
-                    `Généré le: ${generationDate} - Page ${data.pageNumber} sur ${doc.internal.pages.length-1}`,
+                    `Généré le: ${generationDate} - Page ${data.pageNumber} sur ${doc.internal.pages.length - 1}`,
                     data.settings.margin.left,
                     doc.internal.pageSize.getHeight() - 10
                 );
@@ -524,17 +536,9 @@ export function ResultsTable() {
         doc.save(filename);
     };
 
-    const createStyledCell = (content: string, isConform: boolean = true, color: string = '#000000') => {
-        return {
-            content: content,
-            styles: { textColor: color }
-        };
-    };
-
     const exportToPdfDaily = () => {
         const today = new Date();
-        const dailyData = results
-            .filter(r => {
+        const dailyData = results.filter(r => {
                 const d = normalizeDate(r.date_arrivage);
                 return d && isValid(d) && format(d, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
             })
@@ -553,13 +557,13 @@ export function ResultsTable() {
         ];
         
         const body = aggregated.map(r => ([
-            createStyledCell(r.type_combustible),
-            createStyledCell(r.fournisseur),
-            createStyledCell(formatNumber(r.pci_brut, 0), true, r.alerts.details.pci ? '#000000' : '#FF0000'),
-            createStyledCell(formatNumber(r.h2o, 1), true, r.alerts.details.h2o ? '#000000' : '#FF0000'),
-            createStyledCell(formatNumber(r.chlore, 2), true, r.alerts.details.chlore ? '#000000' : '#FF0000'),
-            createStyledCell(r.alerts.text, true, r.alerts.isConform ? '#008000' : '#FF0000'),
-            createStyledCell(r.remarques),
+            createStyledCell(r.type_combustible, null, '#000000'),
+            createStyledCell(r.fournisseur, null, '#000000'),
+            createStyledCell(formatNumber(r.pci_brut, 0), r.alerts.details.pci),
+            createStyledCell(formatNumber(r.h2o, 1), r.alerts.details.h2o),
+            createStyledCell(formatNumber(r.chlore, 2), r.alerts.details.chlore),
+            createStyledCell(r.alerts.isConform ? `✓ ${r.alerts.text}` : `⚠ ${r.alerts.text}`, r.alerts.isConform),
+            createStyledCell(r.remarques, null, '#000000'),
         ]));
 
         generatePdf(
@@ -577,8 +581,7 @@ export function ResultsTable() {
         const start = startOfWeek(today.getDay() === 1 ? subWeeks(today, 1) : today, { weekStartsOn: 1 });
         const end = endOfWeek(start, { weekStartsOn: 1 });
         
-        const weeklyData = results
-             .filter(r => {
+        const weeklyData = results.filter(r => {
                 const d = normalizeDate(r.date_arrivage);
                 return d && isValid(d) && d >= start && d <= end;
             })
@@ -597,13 +600,13 @@ export function ResultsTable() {
         ];
 
         const body = aggregated.map(r => ([
-            createStyledCell(r.type_combustible),
-            createStyledCell(r.fournisseur),
-            createStyledCell(formatNumber(r.pci_brut, 0), true, r.alerts.details.pci ? '#000000' : '#FF0000'),
-            createStyledCell(formatNumber(r.h2o, 1), true, r.alerts.details.h2o ? '#000000' : '#FF0000'),
-            createStyledCell(formatNumber(r.chlore, 2), true, r.alerts.details.chlore ? '#000000' : '#FF0000'),
-            createStyledCell(r.alerts.text, true, r.alerts.isConform ? '#008000' : '#FF0000'),
-            createStyledCell(r.remarques),
+            createStyledCell(r.type_combustible, null, '#000000'),
+            createStyledCell(r.fournisseur, null, '#000000'),
+            createStyledCell(formatNumber(r.pci_brut, 0), r.alerts.details.pci),
+            createStyledCell(formatNumber(r.h2o, 1), r.alerts.details.h2o),
+            createStyledCell(formatNumber(r.chlore, 2), r.alerts.details.chlore),
+            createStyledCell(r.alerts.isConform ? `✓ ${r.alerts.text}` : `⚠ ${r.alerts.text}`, r.alerts.isConform),
+            createStyledCell(r.remarques, null, '#000000'),
         ]));
 
         generatePdf(
@@ -621,8 +624,7 @@ export function ResultsTable() {
         const start = startOfMonth(today);
         const end = endOfMonth(today);
 
-         const monthlyData = results
-            .filter(r => {
+        const monthlyData = results.filter(r => {
                 const d = normalizeDate(r.date_arrivage);
                 return d && isValid(d) && d >= start && d <= end;
             })
@@ -643,15 +645,15 @@ export function ResultsTable() {
         ];
         
         const body = aggregated.map(r => ([
-            createStyledCell(r.type_combustible),
-            createStyledCell(r.fournisseur),
-            createStyledCell(formatNumber(r.pci_brut, 0), true, r.alerts.details.pci ? '#000000' : '#FF0000'),
-            createStyledCell(formatNumber(r.h2o, 1), true, r.alerts.details.h2o ? '#000000' : '#FF0000'),
-            createStyledCell(formatNumber(r.chlore, 2), true, r.alerts.details.chlore ? '#000000' : '#FF0000'),
-            createStyledCell(formatNumber(r.cendres, 1), true, r.alerts.details.cendres ? '#000000' : '#FF0000'),
-            createStyledCell(formatNumber(r.densite, 3)),
-            createStyledCell(r.alerts.text, true, r.alerts.isConform ? '#008000' : '#FF0000'),
-            createStyledCell(r.remarques),
+            createStyledCell(r.type_combustible, null, '#000000'),
+            createStyledCell(r.fournisseur, null, '#000000'),
+            createStyledCell(formatNumber(r.pci_brut, 0), r.alerts.details.pci),
+            createStyledCell(formatNumber(r.h2o, 1), r.alerts.details.h2o),
+            createStyledCell(formatNumber(r.chlore, 2), r.alerts.details.chlore),
+            createStyledCell(formatNumber(r.cendres, 1), r.alerts.details.cendres),
+            createStyledCell(formatNumber(r.densite, 3), null, '#000000'),
+            createStyledCell(r.alerts.isConform ? `✓ ${r.alerts.text}` : `⚠ ${r.alerts.text}`, r.alerts.isConform),
+            createStyledCell(r.remarques, null, '#000000'),
         ]));
 
         generatePdf(
