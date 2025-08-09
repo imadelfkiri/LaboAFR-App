@@ -331,7 +331,7 @@ export function PciCalculator() {
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card className="p-6 rounded-2xl shadow-md bg-white/70 backdrop-blur-md">
-                    <CardHeader>
+                    <CardHeader className="p-0 pb-6">
                        <CardTitle>
                           <div className="text-xl font-bold text-gray-800 flex items-center gap-2">
                             <ClipboardList className="h-5 w-5" />
@@ -339,7 +339,7 @@ export function PciCalculator() {
                           </div>
                        </CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="p-0">
                         <div className="space-y-6">
                             <FormField
                                 control={form.control}
@@ -487,12 +487,13 @@ export function PciCalculator() {
                 </Card>
 
                 <Card className="p-6 rounded-2xl shadow-md bg-white/70 backdrop-blur-md">
-                    <CardHeader>
-                        <h2 className="text-xl font-semibold flex items-center gap-2 text-neutral-800">
-                            <FlaskConical className="w-5 h-5 mr-2 text-green-600" /> Données Analytiques
-                        </h2>
+                    <CardHeader className="p-0 pb-6">
+                        <CardTitle className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                            <FlaskConical className="w-5 h-5 text-green-600" /> 
+                            <span>Données Analytiques</span>
+                        </CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="p-0">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
                             <FormField
                                 control={form.control}
@@ -589,7 +590,7 @@ export function PciCalculator() {
             <Button 
                 type="submit" 
                 disabled={isSaving || pciResult === null} 
-                className="fixed bottom-6 right-6 bg-green-600 hover:bg-green-700 text-white rounded-full px-6 py-3 shadow-lg"
+                className="fixed bottom-6 right-6 bg-green-600 hover:bg-green-700 text-white rounded-full h-12 px-6 shadow-lg text-base"
             >
                 {isSaving ? "Enregistrement..." : "Enregistrer"}
             </Button>
@@ -644,3 +645,5 @@ export function PciCalculator() {
     </div>
   );
 }
+
+    
