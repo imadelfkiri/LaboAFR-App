@@ -224,15 +224,17 @@ export function ResultsTable() {
 
         const headers = ["Date", "Type Combustible", "Fournisseur", "PCS (kcal/kg)", "PCI sur Brut (kcal/kg)", "% H2O", "% Cl-", "% Cendres", "Densité (t/m³)", "Alertes", "Remarques"];
         
+        // --- STYLES ---
         const border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
-        const titleStyle = { font: { bold: true, sz: 14 }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } };
-        const subtitleStyle = { font: { bold: true, sz: 12 }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } };
-        const headerStyle = { font: { bold: true, color: { rgb: "000000" } }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "CDE9D6" } }, border };
+        const titleStyle = { font: { bold: true, sz: 14, color: { rgb: "FFFFFF" } }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "002060" } }, border };
+        const subtitleStyle = { font: { bold: true, sz: 12, color: { rgb: "FFFFFF" } }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "002060" } }, border };
+        const headerStyle = { font: { bold: true, color: { rgb: "FFFFFF" } }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "3F51B5" } }, border };
+        const dataStyleBase = { border, alignment: { vertical: "center" }, fill: { fgColor: { rgb: "F0F8FF" } } };
         
-        const baseCellStyle = { border, alignment: { vertical: "center" } };
-        const centerAlignStyle = { ...baseCellStyle, alignment: { ...baseCellStyle.alignment, horizontal: "center" } };
-        const leftAlignStyle = { ...baseCellStyle, alignment: { ...baseCellStyle.alignment, horizontal: "left", wrapText: true } };
-        
+        const dataStyleCenter = { ...dataStyleBase, alignment: { ...dataStyleBase.alignment, horizontal: "center" } };
+        const dataStyleLeft = { ...dataStyleBase, alignment: { ...dataStyleBase.alignment, horizontal: "left", wrapText: true } };
+
+
         const ws_data: (any)[][] = [
             [ { v: titleText, s: titleStyle } ],
             [ { v: subtitleText, s: subtitleStyle } ],
@@ -253,17 +255,17 @@ export function ResultsTable() {
         data.forEach(result => {
             const alert = generateAlerts(result);
             const row = [
-                { v: formatDate(result.date_arrivage), s: centerAlignStyle, t: 's' },
-                { v: result.type_combustible, s: leftAlignStyle, t: 's' },
-                { v: result.fournisseur, s: leftAlignStyle, t: 's' },
-                { v: result.pcs, s: centerAlignStyle, t: 'n' },
-                { v: result.pci_brut, s: centerAlignStyle, t: 'n' },
-                { v: result.h2o, s: centerAlignStyle, t: 'n' },
-                { v: result.chlore ?? 'N/A', s: centerAlignStyle, t: result.chlore === null ? 's' : 'n' },
-                { v: result.cendres ?? 'N/A', s: centerAlignStyle, t: result.cendres === null ? 's' : 'n' },
-                { v: result.densite ?? 'N/A', s: centerAlignStyle, t: result.densite === null ? 's' : 'n' },
-                { v: cleanAlertText(alert.text), s: leftAlignStyle, t: 's' },
-                { v: result.remarques || '', s: leftAlignStyle, t: 's' },
+                { v: formatDate(result.date_arrivage), s: dataStyleCenter, t: 's' },
+                { v: result.type_combustible, s: dataStyleLeft, t: 's' },
+                { v: result.fournisseur, s: dataStyleLeft, t: 's' },
+                { v: result.pcs, s: dataStyleCenter, t: 'n' },
+                { v: result.pci_brut, s: dataStyleCenter, t: 'n' },
+                { v: result.h2o, s: dataStyleCenter, t: 'n' },
+                { v: result.chlore ?? 'N/A', s: dataStyleCenter, t: result.chlore === null ? 's' : 'n' },
+                { v: result.cendres ?? 'N/A', s: dataStyleCenter, t: result.cendres === null ? 's' : 'n' },
+                { v: result.densite ?? 'N/A', s: dataStyleCenter, t: result.densite === null ? 's' : 'n' },
+                { v: cleanAlertText(alert.text), s: dataStyleLeft, t: 's' },
+                { v: result.remarques || '', s: dataStyleLeft, t: 's' },
             ];
             ws_data.push(row);
         });
@@ -284,13 +286,18 @@ export function ResultsTable() {
                     return value ? value.toString().length : 0;
                 })
             );
-            return { wch: maxLength + 2 };
+            return { wch: Math.min(Math.max(maxLength, 10), 30) }; // min 10, max 30
         });
 
         const remarksIndex = headers.indexOf('Remarques');
         if (remarksIndex > -1) colWidths[remarksIndex] = { wch: 40 };
         const alertsIndex = headers.indexOf('Alertes');
         if (alertsIndex > -1) colWidths[alertsIndex] = { wch: 25 };
+        const typeIndex = headers.indexOf('Type Combustible');
+        if (typeIndex > -1) colWidths[typeIndex] = { wch: 15 };
+        const fournisseurIndex = headers.indexOf('Fournisseur');
+        if (fournisseurIndex > -1) colWidths[fournisseurIndex] = { wch: 15 };
+
 
         ws['!cols'] = colWidths;
         
