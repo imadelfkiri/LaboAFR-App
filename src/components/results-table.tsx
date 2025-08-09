@@ -205,7 +205,7 @@ export function ResultsTable() {
         return num.toLocaleString('fr-FR', {
             minimumFractionDigits: fractionDigits,
             maximumFractionDigits: fractionDigits,
-            useGrouping: true,
+            useGrouping: false, // Important for Excel
         });
     };
 
@@ -214,44 +214,37 @@ export function ResultsTable() {
             toast({ variant: "destructive", title: "Aucune donnée", description: "Il n'y a aucune donnée à exporter." });
             return;
         }
-
+    
         const reportDate = new Date();
         const formattedDate = format(reportDate, 'dd/MM/yyyy');
-
+    
         const titleText = `Rapport ${reportType} du ${formattedDate} analyses des AF`;
         const subtitleText = "Suivi des combustibles solides non dangereux";
         const filename = `Filtré_AFR_Report_${format(reportDate, "yyyy-MM-dd")}.xlsx`;
-
+    
         const headers = ["Date", "Type Combustible", "Fournisseur", "PCS (kcal/kg)", "PCI sur Brut (kcal/kg)", "% H2O", "% Cl-", "% Cendres", "Densité (t/m³)", "Alertes", "Remarques"];
         
         // --- STYLES ---
         const border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
-        const titleStyle = { font: { bold: true, sz: 14, color: { rgb: "FFFFFF" } }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "002060" } }, border };
-        const subtitleStyle = { font: { bold: true, sz: 12, color: { rgb: "FFFFFF" } }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "002060" } }, border };
+        const titleStyle = { font: { bold: true, sz: 12, color: { rgb: "FFFFFF" } }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "002060" } }, border };
         const headerStyle = { font: { bold: true, color: { rgb: "FFFFFF" } }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "3F51B5" } }, border };
         const dataStyleBase = { border, alignment: { vertical: "center" }, fill: { fgColor: { rgb: "F0F8FF" } } };
         
         const dataStyleCenter = { ...dataStyleBase, alignment: { ...dataStyleBase.alignment, horizontal: "center" } };
         const dataStyleLeft = { ...dataStyleBase, alignment: { ...dataStyleBase.alignment, horizontal: "left", wrapText: true } };
-
-
+    
         const ws_data: (any)[][] = [
             [ { v: titleText, s: titleStyle } ],
-            [ { v: subtitleText, s: subtitleStyle } ],
+            [ { v: subtitleText, s: titleStyle } ],
             [], 
             headers.map(h => ({ v: h, s: headerStyle }))
         ];
         
         ws_data[0] = [...ws_data[0], ...Array(headers.length - 1).fill({v: "", s: titleStyle})];
-        ws_data[1] = [...ws_data[1], ...Array(headers.length - 1).fill({v: "", s: subtitleStyle})];
-
-        const cleanAlertText = (text: string) => {
-            if (text.endsWith(' / ')) {
-                return text.slice(0, -3);
-            }
-            return text;
-        }
-
+        ws_data[1] = [...ws_data[1], ...Array(headers.length - 1).fill({v: "", s: titleStyle})];
+    
+        const cleanAlertText = (text: string) => text.endsWith(' / ') ? text.slice(0, -3) : text;
+    
         data.forEach(result => {
             const alert = generateAlerts(result);
             const row = [
@@ -277,24 +270,19 @@ export function ResultsTable() {
         ws['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: mergeEndColumn } });
         ws['!merges'].push({ s: { r: 1, c: 0 }, e: { r: 1, c: mergeEndColumn } });
     
-        const colWidths = headers.map((header, i) => {
-            const maxLength = Math.max(
-                header.length,
-                ...ws_data.slice(4).map(row => {
-                    const cell = row[i];
-                    const value = cell && cell.v ? cell.v : '';
-                    return value ? value.toString().length : 0;
-                })
-            );
-            return { wch: Math.min(Math.max(maxLength, 12), 35) }; 
-        });
-
-        colWidths[1] = { wch: 20 }; // Type Combustible
-        colWidths[2] = { wch: 15 }; // Fournisseur
-        colWidths[9] = { wch: 30 }; // Alertes
-        colWidths[10] = { wch: 40 }; // Remarques
-
-
+        const colWidths = [
+            { wch: 12 }, // Date
+            { wch: 20 }, // Type Combustible
+            { wch: 15 }, // Fournisseur
+            { wch: 15 }, // PCS
+            { wch: 22 }, // PCI sur Brut
+            { wch: 10 }, // H2O
+            { wch: 10 }, // Cl-
+            { wch: 10 }, // Cendres
+            { wch: 15 }, // Densité
+            { wch: 35 }, // Alertes
+            { wch: 40 }, // Remarques
+        ];
         ws['!cols'] = colWidths;
         
         const wb = XLSX.utils.book_new();
@@ -548,3 +536,5 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
+
+    
