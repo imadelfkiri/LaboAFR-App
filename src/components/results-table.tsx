@@ -36,6 +36,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
     DropdownMenu,
@@ -443,16 +444,16 @@ export function ResultsTable() {
             { header: 'Remarques', dataKey: 'remarques' },
         ];
         
-        const body = dailyData.map(r => ({
-            date: formatDate(r.date_arrivage),
-            type: r.type_combustible,
-            fournisseur: r.fournisseur,
-            pci: formatNumber(r.pci_brut, 0),
-            h2o: formatNumber(r.h2o, 1),
-            cl: formatNumber(r.chlore, 2),
-            alertes: generateAlerts(r).text,
-            remarques: r.remarques,
-        }));
+        const body = dailyData.map(r => ([
+            formatDate(r.date_arrivage),
+            r.type_combustible,
+            r.fournisseur,
+            formatNumber(r.pci_brut, 0),
+            formatNumber(r.h2o, 1),
+            formatNumber(r.chlore, 2),
+            generateAlerts(r).text,
+            r.remarques,
+        ]));
 
         generatePdf(
             body,
@@ -487,16 +488,16 @@ export function ResultsTable() {
             { header: 'Remarques', dataKey: 'remarques' },
         ];
 
-        const body = weeklyData.map(r => ({
-            date: formatDate(r.date_arrivage),
-            type: r.type_combustible,
-            fournisseur: r.fournisseur,
-            pci: formatNumber(r.pci_brut, 0),
-            h2o: formatNumber(r.h2o, 1),
-            cl: formatNumber(r.chlore, 2),
-            alertes: generateAlerts(r).text,
-            remarques: r.remarques,
-        }));
+        const body = weeklyData.map(r => ([
+            formatDate(r.date_arrivage),
+            r.type_combustible,
+            r.fournisseur,
+            formatNumber(r.pci_brut, 0),
+            formatNumber(r.h2o, 1),
+            formatNumber(r.chlore, 2),
+            generateAlerts(r).text,
+            r.remarques,
+        ]));
 
         generatePdf(
             body,
@@ -533,18 +534,18 @@ export function ResultsTable() {
             { header: 'Remarques', dataKey: 'remarques' },
         ];
         
-        const body = monthlyData.map(r => ({
-            date: formatDate(r.date_arrivage),
-            type: r.type_combustible,
-            fournisseur: r.fournisseur,
-            pci: formatNumber(r.pci_brut, 0),
-            h2o: formatNumber(r.h2o, 1),
-            cl: formatNumber(r.chlore, 2),
-            cendres: formatNumber(r.cendres, 1),
-            densite: formatNumber(r.densite, 3),
-            alertes: generateAlerts(r).text,
-            remarques: r.remarques,
-        }));
+        const body = monthlyData.map(r => ([
+            formatDate(r.date_arrivage),
+            r.type_combustible,
+            r.fournisseur,
+            formatNumber(r.pci_brut, 0),
+            formatNumber(r.h2o, 1),
+            formatNumber(r.chlore, 2),
+            formatNumber(r.cendres, 1),
+            formatNumber(r.densite, 3),
+            generateAlerts(r).text,
+            r.remarques,
+        ]));
 
         generatePdf(
             body,
@@ -761,3 +762,5 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
+
+    
