@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, XCircle, Trash2, Download, ChevronDown, FileOutput, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { CalendarIcon, XCircle, Trash2, Download, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { getSpecifications, SPEC_MAP, getFuelSupplierMap } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
@@ -38,13 +38,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu"
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { MultiSelect } from '@/components/ui/multi-select';
@@ -58,7 +51,6 @@ interface Result {
     h2o: number;
     cendres: number;
     chlore: number;
-    densite: number;
     pci_brut: number;
     remarques: string;
 }
@@ -293,36 +285,8 @@ export function ResultsTable() {
         XLSX.writeFile(wb, filename);
     };
 
-    const handleReportDownload = (period: 'daily' | 'weekly' | 'monthly' | 'filtered') => {
-        let reportData: Result[];
-        let reportType: 'Journalier' | 'Hebdomadaire' | 'Mensuel' | 'Filtré';
-
-        if (period === 'filtered') {
-            reportData = filteredResults;
-            reportType = 'Filtré';
-        } else {
-            const now = new Date();
-            let startDate: Date;
-            const endDate: Date = endOfDay(now);
-        
-            if (period === 'daily') {
-                startDate = startOfDay(subDays(now, 1));
-                reportType = 'Journalier';
-            } else if (period === 'weekly') {
-                startDate = startOfDay(subDays(now, 7));
-                reportType = 'Hebdomadaire';
-            } else { // monthly
-                startDate = startOfDay(subDays(now, 30));
-                reportType = 'Mensuel';
-            }
-        
-            reportData = results.filter(result => {
-                const dateArrivage = normalizeDate(result.date_arrivage);
-                return !!dateArrivage && isValid(dateArrivage) && dateArrivage >= startDate && dateArrivage <= endDate;
-            });
-        }
-        
-        exportToExcel(reportData, reportType);
+    const handleReportDownload = (period: 'filtered') => {
+        exportToExcel(filteredResults, 'Filtré');
     };
 
     const getSpecValueColor = (result: Result, field: keyof Result) => {
@@ -450,34 +414,14 @@ export function ResultsTable() {
                             <XCircle className="mr-2 h-4 w-4"/>
                             Réinitialiser
                         </Button>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" className="w-full sm:w-auto bg-white hover:bg-green-50 border-green-300 text-gray-800">
-                                    <Download className="mr-2 h-4 w-4"/>
-                                    <span>Rapport Excel</span>
-                                    <ChevronDown className="ml-2 h-4 w-4" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                 <DropdownMenuItem onClick={() => handleReportDownload('daily')}>
-                                    <FileOutput className="mr-2 h-4 w-4"/>
-                                    Rapport Journalier
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleReportDownload('weekly')}>
-                                     <FileOutput className="mr-2 h-4 w-4"/>
-                                    Rapport Hebdomadaire
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleReportDownload('monthly')}>
-                                     <FileOutput className="mr-2 h-4 w-4"/>
-                                    Rapport Mensuel
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => handleReportDownload('filtered')}>
-                                    <FileOutput className="mr-2 h-4 w-4"/>
-                                    Exporter la vue filtrée
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                        <Button 
+                            variant="outline" 
+                            className="w-full sm:w-auto bg-white hover:bg-green-50 border-green-300 text-gray-800"
+                            onClick={() => handleReportDownload('filtered')}
+                        >
+                            <Download className="mr-2 h-4 w-4"/>
+                            <span>Exporter la vue filtrée</span>
+                        </Button>
                     </div>
 
                     <ScrollArea className="flex-grow rounded-lg border">
@@ -587,3 +531,5 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
+
+    
