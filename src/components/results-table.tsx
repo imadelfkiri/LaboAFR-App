@@ -24,7 +24,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, XCircle, Trash2, Download, ChevronDown, FileOutput } from "lucide-react";
-import { getSpecifications, SPEC_MAP, Specification } from "@/lib/data";
+import { getSpecifications, SPEC_MAP, getFuelSupplierMap } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
 import {
@@ -70,13 +70,21 @@ export function ResultsTable() {
     const [fournisseurFilter, setFournisseurFilter] = useState<string[]>([]);
     const [dateFilter, setDateFilter] = useState<DateRange | undefined>();
     const [resultToDelete, setResultToDelete] = useState<string | null>(null);
+    
+    const [fuelSupplierMap, setFuelSupplierMap] = useState<Record<string, string[]>>({});
+    const [availableFournisseurs, setAvailableFournisseurs] = useState<string[]>([]);
+
     const { toast } = useToast();
 
     const fetchInitialData = useCallback(async () => {
         setLoading(true);
         try {
             await firebaseAppPromise;
-            await getSpecifications(); 
+            const [map] = await Promise.all([
+                getFuelSupplierMap(),
+                getSpecifications()
+            ]);
+            setFuelSupplierMap(map);
 
             const q = query(collection(db, "resultats"), orderBy("date_arrivage", "desc"));
             const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -113,6 +121,23 @@ export function ResultsTable() {
             }
         };
     }, [fetchInitialData]);
+
+    const { uniqueFuelTypes, allUniqueFournisseurs } = useMemo(() => {
+        const fuelTypes = [...new Set(results.map(r => r.type_combustible))].sort();
+        const fournisseurs = [...new Set(results.map(r => r.fournisseur))].sort();
+        return { uniqueFuelTypes: fuelTypes, allUniqueFournisseurs: fournisseurs };
+    }, [results]);
+
+    useEffect(() => {
+        if (typeFilter.length > 0) {
+            const newAvailable = typeFilter.flatMap(type => fuelSupplierMap[type] || []);
+            setAvailableFournisseurs([...new Set(newAvailable)].sort());
+            // Deselect suppliers that are no longer available
+            setFournisseurFilter(current => current.filter(f => newAvailable.includes(f)));
+        } else {
+            setAvailableFournisseurs(allUniqueFournisseurs);
+        }
+    }, [typeFilter, fuelSupplierMap, allUniqueFournisseurs]);
     
     const normalizeDate = (date: { seconds: number; nanoseconds: number } | string): Date | null => {
         if (typeof date === 'string') {
@@ -141,13 +166,6 @@ export function ResultsTable() {
             return typeMatch && fournisseurMatch && dateMatch;
         });
     }, [results, typeFilter, fournisseurFilter, dateFilter]);
-
-    const { uniqueFuelTypes, uniqueFournisseurs } = useMemo(() => {
-        const fuelTypes = [...new Set(results.map(r => r.type_combustible))].sort();
-        const fournisseurs = [...new Set(results.map(r => r.fournisseur))].sort();
-        return { uniqueFuelTypes: fuelTypes, uniqueFournisseurs: fournisseurs };
-    }, [results]);
-
 
     const calculateAverage = (results: Result[], field: keyof Result): number | null => {
         const validValues = results.map(r => r[field]).filter(v => typeof v === 'number') as number[];
@@ -385,7 +403,7 @@ export function ResultsTable() {
                             className="w-full sm:w-auto flex-1 min-w-[160px] bg-white border-green-300 hover:bg-green-50"
                         />
                         <MultiSelect
-                            options={uniqueFournisseurs.map(f => ({ label: f, value: f }))}
+                            options={availableFournisseurs.map(f => ({ label: f, value: f }))}
                             selected={fournisseurFilter}
                             onChange={setFournisseurFilter}
                             placeholder="Filtrer par fournisseur..."
