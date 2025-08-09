@@ -147,7 +147,6 @@ export function PciCalculator() {
   };
 
   const fetchAndSetData = useCallback(async () => {
-      setLoading(true);
       try {
         await firebaseAppPromise; 
         const [fetchedFuelTypes, map, _specs] = await Promise.all([
