@@ -43,8 +43,6 @@ import {
   SelectTrigger,
   SelectValue,
   SelectSeparator,
-  SelectGroup,
-  SelectLabel,
 } from "@/components/ui/select";
 import {
     Dialog,
@@ -57,7 +55,7 @@ import {
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator";
 import { calculerPCI } from '@/lib/pci';
-import { getFuelTypesSortedByRecency, type FuelType, H_MAP, getFuelSupplierMap, addSupplierToFuel } from '@/lib/data';
+import { getFuelTypesSortedByRecency, type FuelType, H_MAP, getFuelSupplierMap, addSupplierToFuel, SPEC_MAP, getSpecifications, Specification } from '@/lib/data';
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from './ui/skeleton';
 
@@ -83,6 +81,14 @@ const newFournisseurSchema = z.object({
     name: z.string().nonempty({ message: "Le nom du fournisseur est requis."}).regex(/^[a-zA-Z0-9\s-]+$/, "Le nom ne doit contenir que des lettres, chiffres, espaces ou tirets."),
 });
 
+type ValidationStatus = 'conform' | 'non-conform' | 'neutral';
+type FieldValidationStatus = {
+    pci: ValidationStatus;
+    h2o: ValidationStatus;
+    chlore: ValidationStatus;
+    cendres: ValidationStatus;
+};
+
 export function PciCalculator() {
   const [pciResult, setPciResult] = useState<number | null>(null);
   const [hValue, setHValue] = useState<number | null>(null);
@@ -98,6 +104,13 @@ export function PciCalculator() {
 
   const [isFournisseurModalOpen, setIsFournisseurModalOpen] = useState(false);
   const [newFournisseurName, setNewFournisseurName] = useState("");
+
+  const [validationStatus, setValidationStatus] = useState<FieldValidationStatus>({
+    pci: 'neutral',
+    h2o: 'neutral',
+    chlore: 'neutral',
+    cendres: 'neutral',
+  });
 
   const { toast } = useToast();
 
@@ -136,10 +149,11 @@ export function PciCalculator() {
   const fetchAndSetData = useCallback(async () => {
       setLoading(true);
       try {
-        await firebaseAppPromise; // Wait for firebase to be initialized
-        const [fetchedFuelTypes, map] = await Promise.all([
+        await firebaseAppPromise; 
+        const [fetchedFuelTypes, map, _specs] = await Promise.all([
           getFuelTypesSortedByRecency(),
-          getFuelSupplierMap()
+          getFuelSupplierMap(),
+          getSpecifications() 
         ]);
         
         setAllFuelTypes(fetchedFuelTypes);
@@ -156,42 +170,79 @@ export function PciCalculator() {
     fetchAndSetData();
   }, [fetchAndSetData]);
 
-
-  const pcsValue = watch("pcs");
-  const h2oValue = watch("h2o");
-  const typeCombustibleValue = watch("type_combustible");
+  const watchedValues = watch();
 
   useEffect(() => {
-    if (typeCombustibleValue) {
-        const h = H_MAP[typeCombustibleValue];
-        setHValue(h ?? null);
-    } else {
-        setHValue(null);
-    }
-  }, [typeCombustibleValue]);
-
-  useEffect(() => {
-    const values = getValues();
-    const { pcs, h2o, type_combustible } = values;
-
+    const { pcs, h2o, type_combustible } = watchedValues;
     if (pcs !== undefined && h2o !== undefined && type_combustible) {
       const result = calculerPCI(Number(pcs), Number(h2o), type_combustible);
       setPciResult(result);
     } else {
-        setPciResult(null);
+      setPciResult(null);
     }
-  }, [pcsValue, h2oValue, typeCombustibleValue, getValues]);
+  }, [watchedValues.pcs, watchedValues.h2o, watchedValues.type_combustible, watchedValues]);
 
   useEffect(() => {
-    if (typeCombustibleValue && fuelSupplierMap) {
-        const relatedFournisseurs = fuelSupplierMap[typeCombustibleValue] || [];
+    if (watchedValues.type_combustible) {
+        const h = H_MAP[watchedValues.type_combustible];
+        setHValue(h ?? null);
+    } else {
+        setHValue(null);
+    }
+  }, [watchedValues.type_combustible]);
+
+  useEffect(() => {
+    if (watchedValues.type_combustible && fuelSupplierMap) {
+        const relatedFournisseurs = fuelSupplierMap[watchedValues.type_combustible] || [];
         setFilteredFournisseurs(relatedFournisseurs.sort());
         setValue('fournisseur', '');
     } else {
         setFilteredFournisseurs([]);
     }
-  }, [typeCombustibleValue, fuelSupplierMap, setValue]);
+  }, [watchedValues.type_combustible, fuelSupplierMap, setValue]);
 
+
+  useEffect(() => {
+    const { type_combustible, fournisseur, h2o, chlore, cendres } = watchedValues;
+    const spec = SPEC_MAP.get(`${type_combustible}|${fournisseur}`);
+    
+    const newStatus: FieldValidationStatus = {
+        pci: 'neutral',
+        h2o: 'neutral',
+        chlore: 'neutral',
+        cendres: 'neutral',
+    };
+
+    if (spec) {
+        // PCI
+        if (spec.PCI_min !== null && spec.PCI_min !== undefined && pciResult !== null) {
+            newStatus.pci = pciResult < spec.PCI_min ? 'non-conform' : 'conform';
+        }
+        // H2O
+        if (spec.H2O_max !== null && spec.H2O_max !== undefined && h2o !== undefined && h2o !== '') {
+            newStatus.h2o = Number(h2o) > spec.H2O_max ? 'non-conform' : 'conform';
+        }
+        // Chlore
+        if (spec.Cl_max !== null && spec.Cl_max !== undefined && chlore !== undefined && chlore !== '') {
+            newStatus.chlore = Number(chlore) > spec.Cl_max ? 'non-conform' : 'conform';
+        }
+        // Cendres
+        if (spec.Cendres_max !== null && spec.Cendres_max !== undefined && cendres !== undefined && cendres !== '') {
+            newStatus.cendres = Number(cendres) > spec.Cendres_max ? 'non-conform' : 'conform';
+        }
+    }
+    
+    setValidationStatus(newStatus);
+  }, [watchedValues, pciResult]);
+
+
+  const getInputClass = (status: ValidationStatus) => {
+    switch (status) {
+      case 'conform': return 'border-green-500 focus-visible:ring-green-500';
+      case 'non-conform': return 'border-red-500 focus-visible:ring-red-500';
+      default: return '';
+    }
+  };
 
   const handleAddFuelType = async () => {
       try {
@@ -298,7 +349,7 @@ export function PciCalculator() {
       });
       
       resetForm();
-      fetchAndSetData(); // Refetch to re-sort fuel types
+      fetchAndSetData();
 
     } catch (error: any) {
         console.error("Erreur lors de la soumission: ", error);
@@ -312,7 +363,7 @@ export function PciCalculator() {
     }
   }
 
-  const isFournisseurDisabled = !typeCombustibleValue;
+  const isFournisseurDisabled = !watchedValues.type_combustible;
 
   if (loading) {
       return (
@@ -430,7 +481,7 @@ export function PciCalculator() {
                                             </SelectTrigger>
                                             </FormControl>
                                             <SelectContent side="bottom" avoidCollisions={false} className="z-50">
-                                                {filteredFournisseurs.length === 0 && typeCombustibleValue ? (
+                                                {filteredFournisseurs.length === 0 && watchedValues.type_combustible ? (
                                                     <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">Aucun fournisseur.</div>
                                                 ) : (
                                                     filteredFournisseurs.map((fournisseur) => (
@@ -439,7 +490,7 @@ export function PciCalculator() {
                                                         </SelectItem>
                                                     ))
                                                 )}
-                                                {typeCombustibleValue && (
+                                                {watchedValues.type_combustible && (
                                                     <>
                                                         <Separator className="my-1" />
                                                         <div
@@ -515,7 +566,7 @@ export function PciCalculator() {
                                 <FormItem>
                                     <FormLabel>% H2O</FormLabel>
                                     <FormControl>
-                                    <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className="rounded-xl h-11 px-4 text-sm" />
+                                    <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className={cn("rounded-xl h-11 px-4 text-sm", getInputClass(validationStatus.h2o))} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -541,7 +592,7 @@ export function PciCalculator() {
                                 <FormItem>
                                     <FormLabel>% Cl-</FormLabel>
                                     <FormControl>
-                                    <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className="rounded-xl h-11 px-4 text-sm" />
+                                    <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className={cn("rounded-xl h-11 px-4 text-sm", getInputClass(validationStatus.chlore))} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -554,7 +605,7 @@ export function PciCalculator() {
                                 <FormItem>
                                     <FormLabel>% Cendres</FormLabel>
                                     <FormControl>
-                                    <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className="rounded-xl h-11 px-4 text-sm" />
+                                    <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className={cn("rounded-xl h-11 px-4 text-sm", getInputClass(validationStatus.cendres))} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -573,11 +624,21 @@ export function PciCalculator() {
                                 </FormItem>
                                 )}
                             />
-                            <div className="p-4 rounded-lg bg-green-50 border border-green-200 text-center md:col-span-2">
-                                 <p className="text-sm font-medium text-green-700 mb-1">PCI sur Brut (kcal/kg)</p>
+                            <div className={cn("p-4 rounded-lg border text-center md:col-span-2", 
+                                validationStatus.pci === 'conform' && 'bg-green-50 border-green-200',
+                                validationStatus.pci === 'non-conform' && 'bg-red-50 border-red-200',
+                                validationStatus.pci === 'neutral' && 'bg-gray-50 border-gray-200'
+                            )}>
+                                 <p className={cn("text-sm font-medium",
+                                    validationStatus.pci === 'conform' && 'text-green-700',
+                                    validationStatus.pci === 'non-conform' && 'text-red-700',
+                                    validationStatus.pci === 'neutral' && 'text-gray-700'
+                                 )}>PCI sur Brut (kcal/kg)</p>
                                 <p className={cn(
                                     "text-2xl font-bold tracking-tight transition-opacity duration-300",
-                                    pciResult !== null ? "text-green-600 opacity-100" : "text-gray-400 opacity-50"
+                                    validationStatus.pci === 'conform' && 'text-green-600',
+                                    validationStatus.pci === 'non-conform' && 'text-red-600',
+                                     pciResult !== null ? "opacity-100" : "text-gray-400 opacity-50"
                                 )}>
                                     {pciResult !== null ? pciResult.toLocaleString('fr-FR') : '-'}
                                 </p>
@@ -625,7 +686,7 @@ export function PciCalculator() {
                 <DialogHeader>
                     <DialogTitle>Ajouter un nouveau fournisseur</DialogTitle>
                     <DialogDescription>
-                        Entrez le nom du nouveau fournisseur pour le combustible "{typeCombustibleValue}".
+                        Entrez le nom du nouveau fournisseur pour le combustible "{watchedValues.type_combustible}".
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
