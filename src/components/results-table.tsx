@@ -205,7 +205,7 @@ export function ResultsTable() {
         return num.toLocaleString('fr-FR', {
             minimumFractionDigits: fractionDigits,
             maximumFractionDigits: fractionDigits,
-            useGrouping: false, // Important for Excel
+            useGrouping: false, 
         });
     };
 
@@ -224,8 +224,7 @@ export function ResultsTable() {
     
         const headers = ["Date", "Type Combustible", "Fournisseur", "PCS (kcal/kg)", "PCI sur Brut (kcal/kg)", "% H2O", "% Cl-", "% Cendres", "Densité (t/m³)", "Alertes", "Remarques"];
         
-        // --- STYLES ---
-        const border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
+        const border = { top: { style: "thin", color: { rgb: "000000" } }, bottom: { style: "thin", color: { rgb: "000000" } }, left: { style: "thin", color: { rgb: "000000" } }, right: { style: "thin", color: { rgb: "000000" } } };
         const titleStyle = { font: { bold: true, sz: 12, color: { rgb: "FFFFFF" } }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "002060" } }, border };
         const headerStyle = { font: { bold: true, color: { rgb: "FFFFFF" } }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "3F51B5" } }, border };
         const dataStyleBase = { border, alignment: { vertical: "center" }, fill: { fgColor: { rgb: "F0F8FF" } } };
@@ -233,15 +232,12 @@ export function ResultsTable() {
         const dataStyleCenter = { ...dataStyleBase, alignment: { ...dataStyleBase.alignment, horizontal: "center" } };
         const dataStyleLeft = { ...dataStyleBase, alignment: { ...dataStyleBase.alignment, horizontal: "left", wrapText: true } };
     
-        const ws_data: (any)[][] = [
-            [ { v: titleText, s: titleStyle } ],
-            [ { v: subtitleText, s: titleStyle } ],
-            [], 
-            headers.map(h => ({ v: h, s: headerStyle }))
-        ];
-        
-        ws_data[0] = [...ws_data[0], ...Array(headers.length - 1).fill({v: "", s: titleStyle})];
-        ws_data[1] = [...ws_data[1], ...Array(headers.length - 1).fill({v: "", s: titleStyle})];
+        const ws_data: (any)[][] = [];
+    
+        ws_data.push( Array(headers.length).fill({ v: titleText, s: titleStyle }) );
+        ws_data.push( Array(headers.length).fill({ v: subtitleText, s: titleStyle }) );
+        ws_data.push( [] ); 
+        ws_data.push( headers.map(h => ({ v: h, s: headerStyle })) );
     
         const cleanAlertText = (text: string) => text.endsWith(' / ') ? text.slice(0, -3) : text;
     
@@ -265,10 +261,10 @@ export function ResultsTable() {
         
         const ws = XLSX.utils.aoa_to_sheet(ws_data, { cellStyles: true });
     
-        if (!ws['!merges']) ws['!merges'] = [];
-        const mergeEndColumn = headers.length - 1;
-        ws['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: mergeEndColumn } });
-        ws['!merges'].push({ s: { r: 1, c: 0 }, e: { r: 1, c: mergeEndColumn } });
+        ws['!merges'] = [
+            { s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } },
+            { s: { r: 1, c: 0 }, e: { r: 1, c: headers.length - 1 } }
+        ];
     
         const colWidths = [
             { wch: 12 }, // Date
@@ -287,7 +283,7 @@ export function ResultsTable() {
         
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Rapport AFR");
-        XLSX.writeFile(wb, filename);
+        XLSX.writeFile(wb, filename, { bookType: 'xlsx', type: 'binary' });
     };
 
     const handleReportDownload = () => {
