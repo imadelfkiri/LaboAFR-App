@@ -220,7 +220,7 @@ export function ResultsTable() {
 
         const titleText = `Rapport ${reportType} du ${formattedDate} analyses des AF`;
         const subtitleText = "Suivi des combustibles solides non dangereux";
-        const filename = `${reportType}_AFR_Report_${format(reportDate, "yyyy-MM-dd")}.xlsx`;
+        const filename = `Filtré_AFR_Report_${format(reportDate, "yyyy-MM-dd")}.xlsx`;
 
         const headers = ["Date", "Type Combustible", "Fournisseur", "PCS (kcal/kg)", "PCI sur Brut (kcal/kg)", "% H2O", "% Cl-", "% Cendres", "Densité (t/m³)", "Alertes", "Remarques"];
         
@@ -286,17 +286,13 @@ export function ResultsTable() {
                     return value ? value.toString().length : 0;
                 })
             );
-            return { wch: Math.min(Math.max(maxLength, 10), 30) }; // min 10, max 30
+            return { wch: Math.min(Math.max(maxLength, 12), 35) }; 
         });
 
-        const remarksIndex = headers.indexOf('Remarques');
-        if (remarksIndex > -1) colWidths[remarksIndex] = { wch: 40 };
-        const alertsIndex = headers.indexOf('Alertes');
-        if (alertsIndex > -1) colWidths[alertsIndex] = { wch: 25 };
-        const typeIndex = headers.indexOf('Type Combustible');
-        if (typeIndex > -1) colWidths[typeIndex] = { wch: 15 };
-        const fournisseurIndex = headers.indexOf('Fournisseur');
-        if (fournisseurIndex > -1) colWidths[fournisseurIndex] = { wch: 15 };
+        colWidths[1] = { wch: 20 }; // Type Combustible
+        colWidths[2] = { wch: 15 }; // Fournisseur
+        colWidths[9] = { wch: 30 }; // Alertes
+        colWidths[10] = { wch: 40 }; // Remarques
 
 
         ws['!cols'] = colWidths;
