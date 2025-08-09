@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -52,6 +51,7 @@ import { MultiSelect } from '@/components/ui/multi-select';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { heidelbergLogo, asmentLogo } from '@/lib/assets';
 
 
 interface Result {
@@ -355,7 +355,7 @@ export function ResultsTable() {
     const generateAlerts = (result: Result) => {
         const spec = SPEC_MAP.get(`${result.type_combustible}|${result.fournisseur}`);
         if (!spec) {
-            return { text: "Conforme", color: "text-green-600", isConform: true };
+            return { text: "Conforme", color: "text-green-600", isConform: true, details: { pci: true, h2o: true, chlore: true, cendres: true } };
         }
 
         const alerts: string[] = [];
@@ -508,19 +508,29 @@ export function ResultsTable() {
 
         const doc = new jsPDF({ orientation });
         const generationDate = format(new Date(), "dd/MM/yyyy HH:mm:ss");
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const pageWidth = doc.internal.pageSize.getWidth();
+
+        // Add Logos if they exist
+        if (heidelbergLogo) {
+            doc.addImage(heidelbergLogo, 'PNG', 15, 10, 40, 15);
+        }
+        if (asmentLogo) {
+            doc.addImage(asmentLogo, 'PNG', pageWidth - 55, 10, 40, 15);
+        }
 
         doc.setFontSize(16);
         doc.setFont('helvetica', 'bold');
-        doc.text(title, doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
+        doc.text(title, pageWidth / 2, 15, { align: 'center' });
 
         doc.setFontSize(12);
         doc.setFont('helvetica', 'normal');
-        doc.text(subtitle, doc.internal.pageSize.getWidth() / 2, 22, { align: 'center' });
+        doc.text(subtitle, pageWidth / 2, 22, { align: 'center' });
 
         doc.autoTable({
             head: [columns.map(c => c.header)],
             body: data,
-            startY: 30,
+            startY: 35, // Start table lower to accommodate logos/title
             theme: 'grid',
             headStyles: {
                 fillColor: '#3F51B5', // Deep Blue
@@ -556,7 +566,7 @@ export function ResultsTable() {
                 doc.text(
                     `Généré le: ${generationDate} - Page ${data.pageNumber} sur ${doc.internal.pages.length - 1}`,
                     data.settings.margin.left,
-                    doc.internal.pageSize.getHeight() - 10
+                    pageHeight - 10
                 );
             },
         });
@@ -590,9 +600,9 @@ export function ResultsTable() {
             return [
                 r.type_combustible,
                 r.fournisseur,
-                createStyledCell(r.pci_brut, r.alerts.details.pci, {maximumFractionDigits: 0}),
-                createStyledCell(r.h2o, r.alerts.details.h2o, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
-                createStyledCell(r.chlore, r.alerts.details.chlore, {minimumFractionDigits: 2, maximumFractionDigits: 2}),
+                createStyledCell(r.pci_brut, !r.alerts.details.pci, {maximumFractionDigits: 0}),
+                createStyledCell(r.h2o, !r.alerts.details.h2o, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
+                createStyledCell(r.chlore, !r.alerts.details.chlore, {minimumFractionDigits: 2, maximumFractionDigits: 2}),
                 createAlertCell(r.alerts.isConform, r.alerts.text),
             ];
         });
@@ -633,9 +643,9 @@ export function ResultsTable() {
             return [
                 r.type_combustible,
                 r.fournisseur,
-                createStyledCell(r.pci_brut, r.alerts.details.pci, {maximumFractionDigits: 0}),
-                createStyledCell(r.h2o, r.alerts.details.h2o, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
-                createStyledCell(r.chlore, r.alerts.details.chlore, {minimumFractionDigits: 2, maximumFractionDigits: 2}),
+                createStyledCell(r.pci_brut, !r.alerts.details.pci, {maximumFractionDigits: 0}),
+                createStyledCell(r.h2o, !r.alerts.details.h2o, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
+                createStyledCell(r.chlore, !r.alerts.details.chlore, {minimumFractionDigits: 2, maximumFractionDigits: 2}),
                 createAlertCell(r.alerts.isConform, r.alerts.text),
             ];
         });
@@ -677,10 +687,10 @@ export function ResultsTable() {
            return [
                 r.type_combustible,
                 r.fournisseur,
-                createStyledCell(r.pci_brut, r.alerts.details.pci, {maximumFractionDigits: 0}),
-                createStyledCell(r.h2o, r.alerts.details.h2o, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
-                createStyledCell(r.chlore, r.alerts.details.chlore, {minimumFractionDigits: 2, maximumFractionDigits: 2}),
-                createStyledCell(r.cendres, r.alerts.details.cendres, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
+                createStyledCell(r.pci_brut, !r.alerts.details.pci, {maximumFractionDigits: 0}),
+                createStyledCell(r.h2o, !r.alerts.details.h2o, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
+                createStyledCell(r.chlore, !r.alerts.details.chlore, {minimumFractionDigits: 2, maximumFractionDigits: 2}),
+                createStyledCell(r.cendres, !r.alerts.details.cendres, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
                 createAlertCell(r.alerts.isConform, r.alerts.text),
             ];
         });
@@ -723,10 +733,10 @@ export function ResultsTable() {
            return [
                 r.type_combustible,
                 r.fournisseur,
-                createStyledCell(r.pci_brut, r.alerts.details.pci, {maximumFractionDigits: 0}),
-                createStyledCell(r.h2o, r.alerts.details.h2o, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
-                createStyledCell(r.chlore, r.alerts.details.chlore, {minimumFractionDigits: 2, maximumFractionDigits: 2}),
-                createStyledCell(r.cendres, r.alerts.details.cendres, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
+                createStyledCell(r.pci_brut, !r.alerts.details.pci, {maximumFractionDigits: 0}),
+                createStyledCell(r.h2o, !r.alerts.details.h2o, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
+                createStyledCell(r.chlore, !r.alerts.details.chlore, {minimumFractionDigits: 2, maximumFractionDigits: 2}),
+                createStyledCell(r.cendres, !r.alerts.details.cendres, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
                 createAlertCell(r.alerts.isConform, r.alerts.text),
             ];
         });
@@ -885,10 +895,10 @@ export function ResultsTable() {
                                                 </TableCell>
                                                 <TableCell className={cn("px-4 font-semibold", alert.color)}>
                                                     <div className="flex items-center gap-2">
-                                                        {alert.isConform ? (
-                                                            <CheckCircle2 className="h-4 w-4" />
-                                                        ) : (
+                                                        {!alert.isConform ? (
                                                             <AlertTriangle className="h-4 w-4" />
+                                                        ) : (
+                                                            <CheckCircle2 className="h-4 w-4" />
                                                         )}
                                                         <span>{alert.text}</span>
                                                     </div>
