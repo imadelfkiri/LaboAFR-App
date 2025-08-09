@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, XCircle, Trash2, Download, ChevronDown, FileOutput, AlertTriangle } from "lucide-react";
+import { CalendarIcon, XCircle, Trash2, Download, ChevronDown, FileOutput, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { getSpecifications, SPEC_MAP, getFuelSupplierMap } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
@@ -534,7 +534,11 @@ export function ResultsTable() {
                                                 </TableCell>
                                                 <TableCell className={cn("px-4 font-semibold", alert.color)}>
                                                     <div className="flex items-center gap-2">
-                                                        {!alert.isConform && <AlertTriangle className="h-4 w-4" />}
+                                                        {alert.isConform ? (
+                                                            <CheckCircle2 className="h-4 w-4" />
+                                                        ) : (
+                                                            <AlertTriangle className="h-4 w-4" />
+                                                        )}
                                                         <span>{alert.text}</span>
                                                     </div>
                                                 </TableCell>
