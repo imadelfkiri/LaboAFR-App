@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format, startOfDay, endOfDay, subDays, isValid, parseISO, startOfWeek, endOfWeek, startOfMonth, subWeeks } from "date-fns";
+import { format, startOfDay, endOfDay, subDays, isValid, parseISO, startOfWeek, endOfWeek, startOfMonth, subWeeks, endOfMonth } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
   Popover,
@@ -394,12 +394,10 @@ export function ResultsTable() {
             if (r.remarques) {
                 group.remarques.push(r.remarques);
             }
-            // Use a broader type for metric keys to include all potential fields
             const metrics: (keyof typeof r)[] = ['pci_brut', 'h2o', 'chlore', 'cendres', 'pcs', 'densite'];
             metrics.forEach(metric => {
                 const value = r[metric];
                 if (metric in group) {
-                     // The metric is a valid key for the group object
                      (group[metric as keyof typeof group] as (number | null)[]).push(typeof value === 'number' ? value : null);
                 }
             });
@@ -463,27 +461,43 @@ export function ResultsTable() {
     
         return aggregated.sort((a,b) => a.type_combustible.localeCompare(b.type_combustible) || a.fournisseur.localeCompare(b.fournisseur));
     };
+    
+    const createStyledCell = (value: number | null, isConform: boolean | null, formatOptions: Intl.NumberFormatOptions = {}) => {
+        let textColor = '#000000'; // Default black
+        
+        if (value === null || value === undefined) {
+             return { content: '', styles: {textColor} };
+        }
 
-    const createStyledCell = (content: string, isConform: boolean | null, isAlert: boolean = false) => {
+        if (isConform === false) {
+            textColor = '#FF0000'; // Red
+        }
+
+        const content = value.toLocaleString('fr-FR', {
+            useGrouping: false,
+            ...formatOptions,
+        }).replace('.', ',');
+        
+        return {
+            content,
+            styles: { textColor }
+        };
+    };
+
+    const createAlertCell = (isConform: boolean, alertText: string) => {
         let textColor = '#000000'; // Default black
         let icon = '';
 
-        if (isAlert) {
-            if (isConform === true) {
-                textColor = '#008000'; // Green for 'Conforme'
-                icon = '✓ ';
-            } else if (isConform === false) {
-                textColor = '#FF0000'; // Red for alerts
-                icon = '⚠ ';
-            }
+        if (isConform) {
+            textColor = '#008000'; // Green
+            icon = '✓ ';
         } else {
-             if (isConform === false) {
-                 textColor = '#FF0000'; // Red for non-conform values
-             }
+            textColor = '#FF0000'; // Red
+            icon = '⚠ ';
         }
 
         return {
-            content: icon + content,
+            content: icon + alertText,
             styles: { textColor }
         };
     };
@@ -532,9 +546,10 @@ export function ResultsTable() {
             columnStyles: {
                 0: { halign: 'left' }, // Type Combustible
                 1: { halign: 'left' }, // Fournisseur
-                5: { halign: 'left' }, // Alertes (index change for daily/weekly)
-                6: { halign: 'left' },  // Remarques (index change for daily/weekly)
-                7: { halign: 'left' } // Remarques (monthly)
+                4: { halign: 'left' }, // Alertes (daily/weekly)
+                5: { halign: 'left' }, // Remarques (daily/weekly)
+                6: { halign: 'left' }, // Alertes (monthly)
+                7: { halign: 'left' }  // Remarques (monthly)
             },
             didParseCell: (hookData) => {
                 if (hookData.section === 'body' && hookData.cell.raw) {
@@ -581,10 +596,10 @@ export function ResultsTable() {
             return [
                 r.type_combustible,
                 r.fournisseur,
-                createStyledCell(formatNumber(r.pci_brut, 0), r.alerts.details.pci),
-                createStyledCell(formatNumber(r.h2o, 1), r.alerts.details.h2o),
-                createStyledCell(formatNumber(r.chlore, 2), r.alerts.details.chlore),
-                createStyledCell(r.alerts.text, r.alerts.isConform, true),
+                createStyledCell(r.pci_brut, r.alerts.details.pci, {maximumFractionDigits: 0}),
+                createStyledCell(r.h2o, r.alerts.details.h2o, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
+                createStyledCell(r.chlore, r.alerts.details.chlore, {minimumFractionDigits: 2, maximumFractionDigits: 2}),
+                createAlertCell(r.alerts.isConform, r.alerts.text),
                 r.remarques,
             ];
         });
@@ -626,10 +641,10 @@ export function ResultsTable() {
             return [
                 r.type_combustible,
                 r.fournisseur,
-                createStyledCell(formatNumber(r.pci_brut, 0), r.alerts.details.pci),
-                createStyledCell(formatNumber(r.h2o, 1), r.alerts.details.h2o),
-                createStyledCell(formatNumber(r.chlore, 2), r.alerts.details.chlore),
-                createStyledCell(r.alerts.text, r.alerts.isConform, true),
+                createStyledCell(r.pci_brut, r.alerts.details.pci, {maximumFractionDigits: 0}),
+                createStyledCell(r.h2o, r.alerts.details.h2o, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
+                createStyledCell(r.chlore, r.alerts.details.chlore, {minimumFractionDigits: 2, maximumFractionDigits: 2}),
+                createAlertCell(r.alerts.isConform, r.alerts.text),
                 r.remarques,
             ];
         });
@@ -673,12 +688,12 @@ export function ResultsTable() {
            return [
                 r.type_combustible,
                 r.fournisseur,
-                createStyledCell(formatNumber(r.pci_brut, 0), r.alerts.details.pci),
-                createStyledCell(formatNumber(r.h2o, 1), r.alerts.details.h2o),
-                createStyledCell(formatNumber(r.chlore, 2), r.alerts.details.chlore),
-                createStyledCell(formatNumber(r.cendres, 1), r.alerts.details.cendres),
-                createStyledCell(formatNumber(r.densite, 3), null),
-                createStyledCell(r.alerts.text, r.alerts.isConform, true),
+                createStyledCell(r.pci_brut, r.alerts.details.pci, {maximumFractionDigits: 0}),
+                createStyledCell(r.h2o, r.alerts.details.h2o, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
+                createStyledCell(r.chlore, r.alerts.details.chlore, {minimumFractionDigits: 2, maximumFractionDigits: 2}),
+                createStyledCell(r.cendres, r.alerts.details.cendres, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
+                createStyledCell(r.densite, null, {minimumFractionDigits: 3, maximumFractionDigits: 3}),
+                createAlertCell(r.alerts.isConform, r.alerts.text),
                 r.remarques,
             ];
         });
@@ -898,4 +913,3 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
-
