@@ -361,16 +361,16 @@ export function ResultsTable() {
         const alerts: string[] = [];
 
         if (spec.PCI_min !== undefined && spec.PCI_min !== null && result.pci_brut < spec.PCI_min) {
-            alerts.push("PCI trop bas");
+            alerts.push("PCI bas");
         }
         if (spec.H2O_max !== undefined && spec.H2O_max !== null && result.h2o > spec.H2O_max) {
-            alerts.push("Humidité élevée");
+            alerts.push("H2O élevé");
         }
         if (result.chlore !== null && spec.Cl_max !== undefined && spec.Cl_max !== null && result.chlore > spec.Cl_max) {
-            alerts.push("Chlore trop élevé");
+            alerts.push("Cl- élevé");
         }
         if (result.cendres !== null && spec.Cendres_max !== undefined && spec.Cendres_max !== null && result.cendres > spec.Cendres_max) {
-            alerts.push("Taux de cendres élevé");
+            alerts.push("Cendres élevées");
         }
 
         if (alerts.length === 0) {
@@ -481,10 +481,9 @@ export function ResultsTable() {
 
         if (isConform) {
             styles.textColor = '#008000'; // Green
-            text = `${alertText}`;
+            text = `Conforme`;
         } else {
             styles.textColor = '#FF0000'; // Red
-            text = `${alertText}`;
         }
 
         return {
@@ -899,4 +898,3 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
-
