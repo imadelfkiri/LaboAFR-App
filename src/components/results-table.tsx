@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format, startOfDay, endOfDay, subDays, isValid, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks } from "date-fns";
+import { format, startOfDay, endOfDay, subDays, isValid, parseISO, startOfWeek, endOfWeek, startOfMonth, subWeeks } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
   Popover,
@@ -382,7 +382,7 @@ export function ResultsTable() {
     };
 
     const aggregateResults = (data: Result[], checkCendres: boolean = false): AggregatedResult[] => {
-        const grouped = new Map<string, { [key in keyof Omit<Result, 'id' | 'date_arrivage' | 'type_combustible' | 'fournisseur'>]: number[] } & { count: number; remarques: string[] }>();
+        const grouped = new Map<string, { [key in keyof Omit<Result, 'id' | 'date_arrivage' | 'type_combustible' | 'fournisseur'>]: (number | null)[] } & { count: number; remarques: string[] }>();
     
         data.forEach(r => {
             const key = `${r.type_combustible}|${r.fournisseur}`;
@@ -394,9 +394,13 @@ export function ResultsTable() {
             if (r.remarques) {
                 group.remarques.push(r.remarques);
             }
-            (Object.keys(group) as (keyof typeof group)[]).forEach(metric => {
-                if (metric !== 'count' && metric !== 'remarques' && typeof r[metric] === 'number') {
-                    (group[metric] as number[]).push(r[metric] as number);
+            // Use a broader type for metric keys to include all potential fields
+            const metrics: (keyof typeof r)[] = ['pci_brut', 'h2o', 'chlore', 'cendres', 'pcs', 'densite'];
+            metrics.forEach(metric => {
+                const value = r[metric];
+                if (metric in group) {
+                     // The metric is a valid key for the group object
+                     (group[metric as keyof typeof group] as (number | null)[]).push(typeof value === 'number' ? value : null);
                 }
             });
         });
@@ -404,7 +408,10 @@ export function ResultsTable() {
         const aggregated: AggregatedResult[] = [];
         grouped.forEach((value, key) => {
             const [type_combustible, fournisseur] = key.split('|');
-            const avg = (arr: number[]) => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
+            const avg = (arr: (number | null)[]) => {
+                 const validNums = arr.filter(n => typeof n === 'number') as number[];
+                 return validNums.length > 0 ? validNums.reduce((a, b) => a + b, 0) / validNums.length : null;
+            };
             
             const pci_brut = avg(value.pci_brut);
             const h2o = avg(value.h2o);
@@ -457,20 +464,26 @@ export function ResultsTable() {
         return aggregated.sort((a,b) => a.type_combustible.localeCompare(b.type_combustible) || a.fournisseur.localeCompare(b.fournisseur));
     };
 
-    const createStyledCell = (content: string, isConform: boolean | null = true, colorOverride?: string) => {
-        let textColor = colorOverride;
-        if (textColor) {
-            // Use override if provided
-        } else if (isConform === false) {
-            textColor = '#FF0000'; // Red for non-conform
-        } else if (isConform === true) {
-            textColor = '#008000'; // Green for conform
+    const createStyledCell = (content: string, isConform: boolean | null, isAlert: boolean = false) => {
+        let textColor = '#000000'; // Default black
+        let icon = '';
+
+        if (isAlert) {
+            if (isConform === true) {
+                textColor = '#008000'; // Green for 'Conforme'
+                icon = '✓ ';
+            } else if (isConform === false) {
+                textColor = '#FF0000'; // Red for alerts
+                icon = '⚠ ';
+            }
         } else {
-            textColor = '#000000'; // Black for neutral/default
+             if (isConform === false) {
+                 textColor = '#FF0000'; // Red for non-conform values
+             }
         }
 
         return {
-            content: content,
+            content: icon + content,
             styles: { textColor }
         };
     };
@@ -520,7 +533,8 @@ export function ResultsTable() {
                 0: { halign: 'left' }, // Type Combustible
                 1: { halign: 'left' }, // Fournisseur
                 5: { halign: 'left' }, // Alertes (index change for daily/weekly)
-                6: { halign: 'left' }  // Remarques (index change for daily/weekly)
+                6: { halign: 'left' },  // Remarques (index change for daily/weekly)
+                7: { halign: 'left' } // Remarques (monthly)
             },
             didParseCell: (hookData) => {
                 if (hookData.section === 'body' && hookData.cell.raw) {
@@ -564,15 +578,14 @@ export function ResultsTable() {
         ];
         
         const body = aggregated.map(r => {
-            const alertText = r.alerts.isConform ? `✓ Conforme` : `⚠ ${r.alerts.text}`;
             return [
-                createStyledCell(r.type_combustible, null, '#000000'),
-                createStyledCell(r.fournisseur, null, '#000000'),
+                r.type_combustible,
+                r.fournisseur,
                 createStyledCell(formatNumber(r.pci_brut, 0), r.alerts.details.pci),
                 createStyledCell(formatNumber(r.h2o, 1), r.alerts.details.h2o),
                 createStyledCell(formatNumber(r.chlore, 2), r.alerts.details.chlore),
-                createStyledCell(alertText, r.alerts.isConform),
-                createStyledCell(r.remarques, null, '#000000'),
+                createStyledCell(r.alerts.text, r.alerts.isConform, true),
+                r.remarques,
             ];
         });
 
@@ -610,15 +623,14 @@ export function ResultsTable() {
         ];
 
         const body = aggregated.map(r => {
-            const alertText = r.alerts.isConform ? `✓ Conforme` : `⚠ ${r.alerts.text}`;
             return [
-                createStyledCell(r.type_combustible, null, '#000000'),
-                createStyledCell(r.fournisseur, null, '#000000'),
+                r.type_combustible,
+                r.fournisseur,
                 createStyledCell(formatNumber(r.pci_brut, 0), r.alerts.details.pci),
                 createStyledCell(formatNumber(r.h2o, 1), r.alerts.details.h2o),
                 createStyledCell(formatNumber(r.chlore, 2), r.alerts.details.chlore),
-                createStyledCell(alertText, r.alerts.isConform),
-                createStyledCell(r.remarques, null, '#000000'),
+                createStyledCell(r.alerts.text, r.alerts.isConform, true),
+                r.remarques,
             ];
         });
 
@@ -658,17 +670,16 @@ export function ResultsTable() {
         ];
         
         const body = aggregated.map(r => {
-            const alertText = r.alerts.isConform ? `✓ Conforme` : `⚠ ${r.alerts.text}`;
-            return [
-                createStyledCell(r.type_combustible, null, '#000000'),
-                createStyledCell(r.fournisseur, null, '#000000'),
+           return [
+                r.type_combustible,
+                r.fournisseur,
                 createStyledCell(formatNumber(r.pci_brut, 0), r.alerts.details.pci),
                 createStyledCell(formatNumber(r.h2o, 1), r.alerts.details.h2o),
                 createStyledCell(formatNumber(r.chlore, 2), r.alerts.details.chlore),
                 createStyledCell(formatNumber(r.cendres, 1), r.alerts.details.cendres),
-                createStyledCell(formatNumber(r.densite, 3), null, '#000000'),
-                createStyledCell(alertText, r.alerts.isConform),
-                createStyledCell(r.remarques, null, '#000000'),
+                createStyledCell(formatNumber(r.densite, 3), null),
+                createStyledCell(r.alerts.text, r.alerts.isConform, true),
+                r.remarques,
             ];
         });
 
