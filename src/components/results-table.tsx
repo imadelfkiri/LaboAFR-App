@@ -49,8 +49,8 @@ interface Result {
     type_combustible: string;
     fournisseur: string;
     h2o: number;
-    cendres: number;
-    chlore: number;
+    cendres: number | null;
+    chlore: number | null;
     pci_brut: number;
     pcs: number;
     densite: number | null;
@@ -216,7 +216,7 @@ export function ResultsTable() {
         }
 
         const reportDate = new Date();
-        const formattedDate = format(reportDate, 'dd-MM-yyyy');
+        const formattedDate = format(reportDate, 'dd/MM/yyyy');
 
         const titleText = `Rapport ${reportType} du ${formattedDate} analyses des AF`;
         const subtitleText = "Suivi des combustibles solides non dangereux";
@@ -243,21 +243,27 @@ export function ResultsTable() {
         ws_data[0] = [...ws_data[0], ...Array(headers.length - 1).fill({v: "", s: titleStyle})];
         ws_data[1] = [...ws_data[1], ...Array(headers.length - 1).fill({v: "", s: subtitleStyle})];
 
+        const cleanAlertText = (text: string) => {
+            if (text.endsWith(' / ')) {
+                return text.slice(0, -3);
+            }
+            return text;
+        }
 
         data.forEach(result => {
             const alert = generateAlerts(result);
             const row = [
-                { v: formatDate(result.date_arrivage), s: centerAlignStyle },
-                { v: result.type_combustible, s: leftAlignStyle },
-                { v: result.fournisseur, s: leftAlignStyle },
-                { v: result.pcs, s: centerAlignStyle },
-                { v: result.pci_brut, s: centerAlignStyle },
-                { v: result.h2o, s: centerAlignStyle },
-                { v: result.chlore, s: centerAlignStyle },
-                { v: result.cendres, s: centerAlignStyle },
-                { v: result.densite ?? '', s: centerAlignStyle },
-                { v: alert.text, s: leftAlignStyle },
-                { v: result.remarques || '', s: leftAlignStyle },
+                { v: formatDate(result.date_arrivage), s: centerAlignStyle, t: 's' },
+                { v: result.type_combustible, s: leftAlignStyle, t: 's' },
+                { v: result.fournisseur, s: leftAlignStyle, t: 's' },
+                { v: result.pcs, s: centerAlignStyle, t: 'n' },
+                { v: result.pci_brut, s: centerAlignStyle, t: 'n' },
+                { v: result.h2o, s: centerAlignStyle, t: 'n' },
+                { v: result.chlore ?? null, s: centerAlignStyle, t: result.chlore === null ? 's' : 'n' },
+                { v: result.cendres ?? null, s: centerAlignStyle, t: result.cendres === null ? 's' : 'n' },
+                { v: result.densite ?? null, s: centerAlignStyle, t: result.densite === null ? 's' : 'n' },
+                { v: cleanAlertText(alert.text), s: leftAlignStyle, t: 's' },
+                { v: result.remarques || '', s: leftAlignStyle, t: 's' },
             ];
             ws_data.push(row);
         });
@@ -293,7 +299,7 @@ export function ResultsTable() {
         XLSX.writeFile(wb, filename);
     };
 
-    const handleReportDownload = (period: 'filtered') => {
+    const handleReportDownload = () => {
         exportToExcel(filteredResults, 'Filtré');
     };
 
@@ -337,10 +343,10 @@ export function ResultsTable() {
         if (typeof spec.H2O_max === 'number' && result.h2o > spec.H2O_max) {
             alerts.push("Humidité élevée");
         }
-        if (typeof spec.Cl_max === 'number' && result.chlore > spec.Cl_max) {
+        if (result.chlore !== null && typeof spec.Cl_max === 'number' && result.chlore > spec.Cl_max) {
             alerts.push("Chlore trop élevé");
         }
-        if (typeof spec.Cendres_max === 'number' && result.cendres > spec.Cendres_max) {
+        if (result.cendres !== null && typeof spec.Cendres_max === 'number' && result.cendres > spec.Cendres_max) {
             alerts.push("Taux de cendres élevé");
         }
 
@@ -425,7 +431,7 @@ export function ResultsTable() {
                         <Button 
                             variant="outline" 
                             className="w-full sm:w-auto bg-white hover:bg-green-50 border-green-300 text-gray-800"
-                            onClick={() => handleReportDownload('filtered')}
+                            onClick={handleReportDownload}
                         >
                             <Download className="mr-2 h-4 w-4"/>
                             <span>Exporter la vue filtrée</span>
