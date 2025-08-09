@@ -76,6 +76,7 @@ interface AggregatedResult {
     cendres: number | null;
     densite: number | null;
     count: number;
+    alerts: string;
 }
 
 
@@ -391,15 +392,38 @@ export function ResultsTable() {
             const [type_combustible, fournisseur] = key.split('|');
             const avg = (arr: number[]) => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
             
+            const pci_brut = avg(value.pci_brut);
+            const h2o = avg(value.h2o);
+            const chlore = avg(value.chlore);
+            const cendres = avg(value.cendres);
+
+            const spec = SPEC_MAP.get(`${type_combustible}|${fournisseur}`);
+            const alertMessages: string[] = [];
+            if (spec) {
+                if (pci_brut !== null && spec.PCI_min !== undefined && spec.PCI_min !== null && pci_brut < spec.PCI_min) {
+                    alertMessages.push("PCI moyen bas");
+                }
+                if (h2o !== null && spec.H2O_max !== undefined && spec.H2O_max !== null && h2o > spec.H2O_max) {
+                    alertMessages.push("H2O moyen élevé");
+                }
+                if (chlore !== null && spec.Cl_max !== undefined && spec.Cl_max !== null && chlore > spec.Cl_max) {
+                    alertMessages.push("Cl- moyen élevé");
+                }
+                if (cendres !== null && spec.Cendres_max !== undefined && spec.Cendres_max !== null && cendres > spec.Cendres_max) {
+                    alertMessages.push("Cendres moy. élevées");
+                }
+            }
+
             aggregated.push({
                 type_combustible,
                 fournisseur,
-                pci_brut: avg(value.pci_brut)!,
-                h2o: avg(value.h2o)!,
-                chlore: avg(value.chlore),
-                cendres: avg(value.cendres),
+                pci_brut: pci_brut!,
+                h2o: h2o!,
+                chlore: chlore,
+                cendres: cendres,
                 densite: avg(value.densite),
-                count: value.count
+                count: value.count,
+                alerts: alertMessages.length > 0 ? alertMessages.join(' / ') : "Conforme",
             });
         });
 
@@ -453,12 +477,12 @@ export function ResultsTable() {
                 3: { halign: 'center' }, // PCI
                 4: { halign: 'center' }, // H2O
                 5: { halign: 'center' }, // Cl-
-                6: { halign: 'center' }, // Cendres
-                7: { halign: 'center' }, // Densité
+                6: { halign: 'left' },   // Alertes
+                7: { halign: 'center' }, // Cendres
+                8: { halign: 'center' }, // Densité
             },
             didDrawPage: (data) => {
                 // Footer
-                const pageCount = doc.internal.pages.length;
                 doc.setFontSize(8);
                 doc.text(
                     `Généré le: ${generationDate} - Page ${data.pageNumber} sur ${doc.internal.pages.length-1}`,
@@ -489,6 +513,7 @@ export function ResultsTable() {
             { header: 'PCI sur Brut', dataKey: 'pci' },
             { header: '% H2O', dataKey: 'h2o' },
             { header: '% Cl-', dataKey: 'cl' },
+            { header: 'Alertes', dataKey: 'alerts' },
         ];
         
         const body = aggregated.map(r => ([
@@ -498,6 +523,7 @@ export function ResultsTable() {
             formatNumber(r.pci_brut, 0),
             formatNumber(r.h2o, 1),
             formatNumber(r.chlore, 2),
+            r.alerts,
         ]));
 
         generatePdf(
@@ -531,6 +557,7 @@ export function ResultsTable() {
             { header: 'PCI sur Brut', dataKey: 'pci' },
             { header: '% H2O', dataKey: 'h2o' },
             { header: '% Cl-', dataKey: 'cl' },
+            { header: 'Alertes', dataKey: 'alerts' },
         ];
 
         const body = aggregated.map(r => ([
@@ -540,6 +567,7 @@ export function ResultsTable() {
             formatNumber(r.pci_brut, 0),
             formatNumber(r.h2o, 1),
             formatNumber(r.chlore, 2),
+            r.alerts,
         ]));
 
         generatePdf(
@@ -575,6 +603,7 @@ export function ResultsTable() {
             { header: '% Cl-', dataKey: 'cl' },
             { header: '% Cendres', dataKey: 'cendres' },
             { header: 'Densité', dataKey: 'densite' },
+            { header: 'Alertes', dataKey: 'alerts' },
         ];
         
         const body = aggregated.map(r => ([
@@ -586,6 +615,7 @@ export function ResultsTable() {
             formatNumber(r.chlore, 2),
             formatNumber(r.cendres, 1),
             formatNumber(r.densite, 3),
+            r.alerts,
         ]));
 
         generatePdf(
@@ -803,6 +833,8 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
+
+    
 
     
 
