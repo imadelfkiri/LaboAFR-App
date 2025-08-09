@@ -355,7 +355,7 @@ export function ResultsTable() {
     const generateAlerts = (result: Result) => {
         const spec = SPEC_MAP.get(`${result.type_combustible}|${result.fournisseur}`);
         if (!spec) {
-            return { text: "N/A", color: "text-muted-foreground", isConform: true };
+            return { text: "Conforme", color: "text-green-600", isConform: true };
         }
 
         const alerts: string[] = [];
@@ -482,18 +482,15 @@ export function ResultsTable() {
 
     const createAlertCell = (isConform: boolean, alertText: string) => {
         const styles: { textColor?: string } = {};
-        let text = alertText;
 
         if (isConform) {
             styles.textColor = '#008000'; // Green
-            text = `✓ ${alertText}`;
         } else {
             styles.textColor = '#FF0000'; // Red
-            text = `⚠ ${alertText}`;
         }
 
         return {
-            content: text,
+            content: alertText,
             styles
         };
     };
