@@ -596,7 +596,7 @@ export function ResultsTable() {
         generatePdf(
             body,
             'Suivi des analyses des combustibles solides non dangereux',
-            `Rapport journalier ${format(yesterday, 'dd/MM')} - ${format(today, 'dd/MM/yyyy')}`,
+            `Rapport journalier du ${format(today, 'dd/MM/yyyy')}`,
             columns,
             'landscape',
             `Rapport_Journalier_AFR_${format(today, 'yyyy-MM-dd')}.pdf`
@@ -666,7 +666,6 @@ export function ResultsTable() {
             { header: '% H2O', dataKey: 'h2o' },
             { header: '% Cl-', dataKey: 'cl' },
             { header: '% Cendres', dataKey: 'cendres' },
-            { header: 'Densité', dataKey: 'densite' },
             { header: 'Alertes', dataKey: 'alerts' },
         ];
         
@@ -678,7 +677,6 @@ export function ResultsTable() {
                 createStyledCell(r.h2o, r.alerts.details.h2o, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
                 createStyledCell(r.chlore, r.alerts.details.chlore, {minimumFractionDigits: 2, maximumFractionDigits: 2}),
                 createStyledCell(r.cendres, r.alerts.details.cendres, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
-                createStyledCell(r.densite, null, {minimumFractionDigits: 3, maximumFractionDigits: 3}),
                 createAlertCell(r.alerts.isConform, r.alerts.text),
             ];
         });
