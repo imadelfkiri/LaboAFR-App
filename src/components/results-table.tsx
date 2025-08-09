@@ -209,7 +209,7 @@ export function ResultsTable() {
         });
     };
 
-    const exportToExcel = (data: Result[], reportType: 'Journalier' | 'Hebdomadaire' | 'Mensuel' | 'Filtré') => {
+    const exportToExcel = (data: Result[], reportType: 'Filtré') => {
         if (!data || data.length === 0) {
             toast({ variant: "destructive", title: "Aucune donnée", description: "Il n'y a aucune donnée à exporter." });
             return;
@@ -539,9 +539,5 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
-
-    
-
-    
 
     
