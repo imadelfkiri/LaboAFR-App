@@ -228,7 +228,7 @@ export function ResultsTable() {
         const subtitleText = "Suivi des combustibles solides non dangereux";
         const filename = `${reportType}_AFR_Report_${format(reportDate, "yyyy-MM-dd")}.xlsx`;
 
-        const headers = ["Date", "Type Combustible", "Fournisseur", "PCI sur Brut", "% H2O", "% Cl-", "% Cendres", "Densité", "Remarques"];
+        const headers = ["Date", "Type Combustible", "Fournisseur", "PCI sur Brut", "% H2O", "% Cl-", "% Cendres", "Remarques"];
         
         const border = { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } };
         const titleStyle = { font: { bold: true, sz: 14 }, alignment: { horizontal: "center", vertical: "center" }, fill: { fgColor: { rgb: "E6F4EA" } } };
@@ -259,7 +259,6 @@ export function ResultsTable() {
                 { v: result.h2o, s: centerAlignStyle },
                 { v: result.chlore, s: centerAlignStyle },
                 { v: result.cendres, s: centerAlignStyle },
-                { v: result.densite, s: centerAlignStyle },
                 { v: result.remarques || '', s: leftAlignStyle },
             ];
             ws_data.push(row);
@@ -492,9 +491,8 @@ export function ResultsTable() {
                                     <TableHead className="text-right px-4">% H2O</TableHead>
                                     <TableHead className="text-right px-4">% Cl-</TableHead>
                                     <TableHead className="text-right px-4">% Cendres</TableHead>
-                                    <TableHead className="text-right px-4">Densité</TableHead>
-                                    <TableHead className="px-4">Remarques</TableHead>
                                     <TableHead className="px-4 font-bold">Alertes</TableHead>
+                                    <TableHead className="px-4">Remarques</TableHead>
                                     <TableHead className="w-[50px] text-right px-4 sticky right-0 bg-muted/50">Action</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -523,15 +521,6 @@ export function ResultsTable() {
                                                 <TableCell className={cn("text-right px-4 font-medium", getSpecValueColor(result, 'cendres'))}>
                                                   {formatNumber(result.cendres, 1)}
                                                 </TableCell>
-                                                <TableCell className="text-right px-4">{formatNumber(result.densite, 2)}</TableCell>
-                                                <TableCell className="max-w-[200px] truncate text-muted-foreground px-4">
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <span>{result.remarques}</span>
-                                                        </TooltipTrigger>
-                                                        {result.remarques && <TooltipContent>{result.remarques}</TooltipContent>}
-                                                    </Tooltip>
-                                                </TableCell>
                                                 <TableCell className={cn("px-4 font-semibold", alert.color)}>
                                                     <div className="flex items-center gap-2">
                                                         {alert.isConform ? (
@@ -541,6 +530,14 @@ export function ResultsTable() {
                                                         )}
                                                         <span>{alert.text}</span>
                                                     </div>
+                                                </TableCell>
+                                                <TableCell className="max-w-[200px] truncate text-muted-foreground px-4">
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <span>{result.remarques}</span>
+                                                        </TooltipTrigger>
+                                                        {result.remarques && <TooltipContent>{result.remarques}</TooltipContent>}
+                                                    </Tooltip>
                                                 </TableCell>
                                                 <TableCell className="text-right px-4 sticky right-0 bg-background">
                                                     <AlertDialogTrigger asChild>
@@ -557,13 +554,12 @@ export function ResultsTable() {
                                             <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'h2o'), 1)}</TableCell>
                                             <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'chlore'), 2)}</TableCell>
                                             <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'cendres'), 1)}</TableCell>
-                                            <TableCell className="text-right px-4">{formatNumber(calculateAverage(filteredResults, 'densite'), 2)}</TableCell>
                                             <TableCell colSpan={3} className='sticky right-0 bg-muted/40'/>
                                         </TableRow>
                                     </>
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
+                                        <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
                                             Aucun résultat trouvé.
                                         </TableCell>
                                     </TableRow>
