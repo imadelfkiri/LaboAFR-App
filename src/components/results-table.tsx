@@ -17,13 +17,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { format, startOfDay, endOfDay, subDays, isValid, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -54,6 +47,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { MultiSelect } from '@/components/ui/multi-select';
 import * as XLSX from 'xlsx';
 
 interface Result {
@@ -72,8 +66,8 @@ interface Result {
 export function ResultsTable() {
     const [results, setResults] = useState<Result[]>([]);
     const [loading, setLoading] = useState(true);
-    const [typeFilter, setTypeFilter] = useState<string>("");
-    const [fournisseurFilter, setFournisseurFilter] = useState<string>("");
+    const [typeFilter, setTypeFilter] = useState<string[]>([]);
+    const [fournisseurFilter, setFournisseurFilter] = useState<string[]>([]);
     const [dateFilter, setDateFilter] = useState<DateRange | undefined>();
     const [resultToDelete, setResultToDelete] = useState<string | null>(null);
     const { toast } = useToast();
@@ -137,8 +131,8 @@ export function ResultsTable() {
             const dateArrivage = normalizeDate(result.date_arrivage);
              if (!dateArrivage || !isValid(dateArrivage)) return false;
             
-            const typeMatch = !typeFilter || result.type_combustible === typeFilter;
-            const fournisseurMatch = !fournisseurFilter || result.fournisseur === fournisseurFilter;
+            const typeMatch = typeFilter.length === 0 || typeFilter.includes(result.type_combustible);
+            const fournisseurMatch = fournisseurFilter.length === 0 || fournisseurFilter.includes(result.fournisseur);
             const dateMatch = !dateFilter || (
                 (!dateFilter.from || dateArrivage >= startOfDay(dateFilter.from)) &&
                 (!dateFilter.to || dateArrivage <= endOfDay(dateFilter.to))
@@ -169,8 +163,8 @@ export function ResultsTable() {
     }
 
     const resetFilters = () => {
-        setTypeFilter("");
-        setFournisseurFilter("");
+        setTypeFilter([]);
+        setFournisseurFilter([]);
         setDateFilter(undefined);
     };
 
@@ -382,22 +376,22 @@ export function ResultsTable() {
             <AlertDialog onOpenChange={(open) => !open && setResultToDelete(null)}>
                 <div className="flex flex-col gap-4 p-4 lg:p-6 h-full">
                     <div className='flex flex-wrap items-center gap-2 bg-green-100 text-green-800 font-semibold rounded-md px-3 py-2'>
-                        <Select value={typeFilter} onValueChange={setTypeFilter}>
-                            <SelectTrigger className="w-full sm:w-auto flex-1 min-w-[160px] bg-white border-green-300 hover:bg-green-50">
-                                <SelectValue placeholder="Type..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {uniqueFuelTypes.map(fuel => <SelectItem key={fuel} value={fuel}>{fuel}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                        <Select value={fournisseurFilter} onValueChange={setFournisseurFilter}>
-                            <SelectTrigger className="w-full sm:w-auto flex-1 min-w-[160px] bg-white border-green-300 hover:bg-green-50">
-                                <SelectValue placeholder="Fournisseur..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {uniqueFournisseurs.map(supplier => <SelectItem key={supplier} value={supplier}>{supplier}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
+                        
+                        <MultiSelect
+                            options={uniqueFuelTypes.map(f => ({ label: f, value: f }))}
+                            selected={typeFilter}
+                            onChange={setTypeFilter}
+                            placeholder="Filtrer par type..."
+                            className="w-full sm:w-auto flex-1 min-w-[160px] bg-white border-green-300 hover:bg-green-50"
+                        />
+                        <MultiSelect
+                            options={uniqueFournisseurs.map(f => ({ label: f, value: f }))}
+                            selected={fournisseurFilter}
+                            onChange={setFournisseurFilter}
+                            placeholder="Filtrer par fournisseur..."
+                            className="w-full sm:w-auto flex-1 min-w-[160px] bg-white border-green-300 hover:bg-green-50"
+                        />
+
                         <Popover>
                             <PopoverTrigger asChild>
                                 <Button
@@ -572,7 +566,5 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
-
-    
 
     
