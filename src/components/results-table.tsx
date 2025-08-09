@@ -67,6 +67,18 @@ interface Result {
     remarques: string;
 }
 
+interface AggregatedResult {
+    type_combustible: string;
+    fournisseur: string;
+    pci_brut: number;
+    h2o: number;
+    chlore: number | null;
+    cendres: number | null;
+    densite: number | null;
+    count: number;
+}
+
+
 // Extend the jsPDF interface to include autoTable
 declare module 'jspdf' {
   interface jsPDF {
@@ -357,6 +369,43 @@ export function ResultsTable() {
         return { text: alerts.join(' / '), color: "text-red-600", isConform: false };
     };
 
+    const aggregateResults = (data: Result[]): AggregatedResult[] => {
+        const grouped = new Map<string, { [key in keyof Omit<Result, 'id' | 'date_arrivage' | 'type_combustible' | 'fournisseur' | 'remarques'>]: number[] } & { count: number }>();
+
+        data.forEach(r => {
+            const key = `${r.type_combustible}|${r.fournisseur}`;
+            if (!grouped.has(key)) {
+                grouped.set(key, { pci_brut: [], h2o: [], chlore: [], cendres: [], pcs: [], densite: [], count: 0 });
+            }
+            const group = grouped.get(key)!;
+            group.count++;
+            (Object.keys(group) as (keyof typeof group)[]).forEach(metric => {
+                if (metric !== 'count' && typeof r[metric] === 'number') {
+                    (group[metric] as number[]).push(r[metric] as number);
+                }
+            });
+        });
+        
+        const aggregated: AggregatedResult[] = [];
+        grouped.forEach((value, key) => {
+            const [type_combustible, fournisseur] = key.split('|');
+            const avg = (arr: number[]) => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
+            
+            aggregated.push({
+                type_combustible,
+                fournisseur,
+                pci_brut: avg(value.pci_brut)!,
+                h2o: avg(value.h2o)!,
+                chlore: avg(value.chlore),
+                cendres: avg(value.cendres),
+                densite: avg(value.densite),
+                count: value.count
+            });
+        });
+
+        return aggregated.sort((a,b) => a.type_combustible.localeCompare(b.type_combustible) || a.fournisseur.localeCompare(b.fournisseur));
+    };
+
     // PDF Generation Logic
     const generatePdf = (
         data: any[],
@@ -398,23 +447,21 @@ export function ResultsTable() {
                 fillColor: '#F7FBF9'
             },
             columnStyles: {
-                0: { halign: 'center' }, // Date
-                1: { halign: 'left' },   // Type
-                2: { halign: 'left' },   // Fournisseur
+                0: { halign: 'left' },   // Type
+                1: { halign: 'left' },   // Fournisseur
+                2: { halign: 'center' }, // Nb Analyses
                 3: { halign: 'center' }, // PCI
                 4: { halign: 'center' }, // H2O
                 5: { halign: 'center' }, // Cl-
-                6: { halign: 'center' }, // Cendres or Alertes
-                7: { halign: 'left' },   // Densité or Remarques
-                8: { halign: 'left' },   // Alertes
-                9: { halign: 'left' }    // Remarques
+                6: { halign: 'center' }, // Cendres
+                7: { halign: 'center' }, // Densité
             },
             didDrawPage: (data) => {
                 // Footer
                 const pageCount = doc.internal.pages.length;
                 doc.setFontSize(8);
                 doc.text(
-                    `Généré le: ${generationDate} - Page ${data.pageNumber} sur ${pageCount-1}`,
+                    `Généré le: ${generationDate} - Page ${data.pageNumber} sur ${doc.internal.pages.length-1}`,
                     data.settings.margin.left,
                     doc.internal.pageSize.getHeight() - 10
                 );
@@ -433,26 +480,24 @@ export function ResultsTable() {
             })
             .sort((a,b) => normalizeDate(b.date_arrivage)!.getTime() - normalizeDate(a.date_arrivage)!.getTime());
 
+        const aggregated = aggregateResults(dailyData);
+
         const columns = [
-            { header: 'Date Arrivage', dataKey: 'date' },
             { header: 'Type Combustible', dataKey: 'type' },
             { header: 'Fournisseur', dataKey: 'fournisseur' },
+            { header: 'Nb Analyses', dataKey: 'count'},
             { header: 'PCI sur Brut', dataKey: 'pci' },
             { header: '% H2O', dataKey: 'h2o' },
             { header: '% Cl-', dataKey: 'cl' },
-            { header: 'Alertes', dataKey: 'alertes' },
-            { header: 'Remarques', dataKey: 'remarques' },
         ];
         
-        const body = dailyData.map(r => ([
-            formatDate(r.date_arrivage),
+        const body = aggregated.map(r => ([
             r.type_combustible,
             r.fournisseur,
+            r.count,
             formatNumber(r.pci_brut, 0),
             formatNumber(r.h2o, 1),
             formatNumber(r.chlore, 2),
-            generateAlerts(r).text,
-            r.remarques,
         ]));
 
         generatePdf(
@@ -476,27 +521,25 @@ export function ResultsTable() {
                 return d && isValid(d) && d >= start && d <= end;
             })
             .sort((a,b) => normalizeDate(b.date_arrivage)!.getTime() - normalizeDate(a.date_arrivage)!.getTime());
+        
+        const aggregated = aggregateResults(weeklyData);
 
         const columns = [
-            { header: 'Date Arrivage', dataKey: 'date' },
             { header: 'Type Combustible', dataKey: 'type' },
             { header: 'Fournisseur', dataKey: 'fournisseur' },
+            { header: 'Nb Analyses', dataKey: 'count'},
             { header: 'PCI sur Brut', dataKey: 'pci' },
             { header: '% H2O', dataKey: 'h2o' },
             { header: '% Cl-', dataKey: 'cl' },
-            { header: 'Alertes', dataKey: 'alertes' },
-            { header: 'Remarques', dataKey: 'remarques' },
         ];
 
-        const body = weeklyData.map(r => ([
-            formatDate(r.date_arrivage),
+        const body = aggregated.map(r => ([
             r.type_combustible,
             r.fournisseur,
+            r.count,
             formatNumber(r.pci_brut, 0),
             formatNumber(r.h2o, 1),
             formatNumber(r.chlore, 2),
-            generateAlerts(r).text,
-            r.remarques,
         ]));
 
         generatePdf(
@@ -521,30 +564,28 @@ export function ResultsTable() {
             })
             .sort((a,b) => normalizeDate(b.date_arrivage)!.getTime() - normalizeDate(a.date_arrivage)!.getTime());
         
+        const aggregated = aggregateResults(monthlyData);
+        
         const columns = [
-            { header: 'Date Arrivage', dataKey: 'date' },
             { header: 'Type Combustible', dataKey: 'type' },
             { header: 'Fournisseur', dataKey: 'fournisseur' },
+            { header: 'Nb Analyses', dataKey: 'count'},
             { header: 'PCI sur Brut', dataKey: 'pci' },
             { header: '% H2O', dataKey: 'h2o' },
             { header: '% Cl-', dataKey: 'cl' },
             { header: '% Cendres', dataKey: 'cendres' },
             { header: 'Densité', dataKey: 'densite' },
-            { header: 'Alertes', dataKey: 'alertes' },
-            { header: 'Remarques', dataKey: 'remarques' },
         ];
         
-        const body = monthlyData.map(r => ([
-            formatDate(r.date_arrivage),
+        const body = aggregated.map(r => ([
             r.type_combustible,
             r.fournisseur,
+            r.count,
             formatNumber(r.pci_brut, 0),
             formatNumber(r.h2o, 1),
             formatNumber(r.chlore, 2),
             formatNumber(r.cendres, 1),
             formatNumber(r.densite, 3),
-            generateAlerts(r).text,
-            r.remarques,
         ]));
 
         generatePdf(
@@ -762,5 +803,7 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
+
+    
 
     
