@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format, startOfDay, endOfDay, subDays, isValid, parseISO, startOfWeek, endOfWeek, startOfMonth, subWeeks, endOfMonth } from "date-fns";
+import { format, startOfDay, endOfDay, subDays, isValid, parseISO, startOfWeek, endOfWeek, startOfMonth, subWeeks, endOfMonth, subMonths } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
   Popover,
@@ -359,25 +359,30 @@ export function ResultsTable() {
         }
 
         const alerts: string[] = [];
+        const alertDetails = { pci: true, h2o: true, chlore: true, cendres: true };
 
         if (spec.PCI_min !== undefined && spec.PCI_min !== null && result.pci_brut < spec.PCI_min) {
             alerts.push("PCI bas");
+            alertDetails.pci = false;
         }
         if (spec.H2O_max !== undefined && spec.H2O_max !== null && result.h2o > spec.H2O_max) {
             alerts.push("H2O élevé");
+            alertDetails.h2o = false;
         }
         if (result.chlore !== null && spec.Cl_max !== undefined && spec.Cl_max !== null && result.chlore > spec.Cl_max) {
             alerts.push("Cl- élevé");
+            alertDetails.chlore = false;
         }
         if (result.cendres !== null && spec.Cendres_max !== undefined && spec.Cendres_max !== null && result.cendres > spec.Cendres_max) {
             alerts.push("Cendres élevées");
+            alertDetails.cendres = false;
         }
 
         if (alerts.length === 0) {
-            return { text: "Conforme", color: "text-green-600", isConform: true };
+            return { text: "Conforme", color: "text-green-600", isConform: true, details: alertDetails };
         }
 
-        return { text: alerts.join(' / '), color: "text-red-600", isConform: false };
+        return { text: alerts.join(' / '), color: "text-red-600", isConform: false, details: alertDetails };
     };
 
     const aggregateResults = (data: Result[], checkCendres: boolean = false): AggregatedResult[] => {
@@ -457,7 +462,7 @@ export function ResultsTable() {
         return aggregated.sort((a,b) => a.type_combustible.localeCompare(b.type_combustible) || a.fournisseur.localeCompare(b.fournisseur));
     };
     
-    const createStyledCell = (value: number | null, isConform: boolean | null, formatOptions: Intl.NumberFormatOptions = {}) => {
+    const createStyledCell = (value: number | null, isConform: boolean, formatOptions: Intl.NumberFormatOptions = {}) => {
         if (value === null || value === undefined) {
              return { content: '', styles: {} };
         }
@@ -481,9 +486,10 @@ export function ResultsTable() {
 
         if (isConform) {
             styles.textColor = '#008000'; // Green
-            text = `Conforme`;
+            text = `✓ ${alertText}`;
         } else {
             styles.textColor = '#FF0000'; // Red
+            text = `⚠ ${alertText}`;
         }
 
         return {
@@ -522,16 +528,17 @@ export function ResultsTable() {
             startY: 30,
             theme: 'grid',
             headStyles: {
-                fillColor: '#CDE9D6',
-                textColor: '#000000',
+                fillColor: '#3F51B5', // Deep Blue
+                textColor: '#FFFFFF',
                 fontStyle: 'bold'
             },
             alternateRowStyles: {
-                fillColor: '#F7FBF9'
+                fillColor: '#F0F0F0' // Light Gray
             },
             styles: {
                 textColor: '#000000',
-                halign: 'center'
+                halign: 'center',
+                valign: 'middle'
             },
             columnStyles: {
                 0: { halign: 'left' }, // Type Combustible
@@ -586,9 +593,9 @@ export function ResultsTable() {
             return [
                 r.type_combustible,
                 r.fournisseur,
-                createStyledCell(r.pci_brut, r.alerts.details.pci, {maximumFractionDigits: 0}),
-                createStyledCell(r.h2o, r.alerts.details.h2o, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
-                createStyledCell(r.chlore, r.alerts.details.chlore, {minimumFractionDigits: 2, maximumFractionDigits: 2}),
+                createStyledCell(r.pci_brut, !r.alerts.details.pci, {maximumFractionDigits: 0}),
+                createStyledCell(r.h2o, !r.alerts.details.h2o, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
+                createStyledCell(r.chlore, !r.alerts.details.chlore, {minimumFractionDigits: 2, maximumFractionDigits: 2}),
                 createAlertCell(r.alerts.isConform, r.alerts.text),
             ];
         });
@@ -629,9 +636,9 @@ export function ResultsTable() {
             return [
                 r.type_combustible,
                 r.fournisseur,
-                createStyledCell(r.pci_brut, r.alerts.details.pci, {maximumFractionDigits: 0}),
-                createStyledCell(r.h2o, r.alerts.details.h2o, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
-                createStyledCell(r.chlore, r.alerts.details.chlore, {minimumFractionDigits: 2, maximumFractionDigits: 2}),
+                createStyledCell(r.pci_brut, !r.alerts.details.pci, {maximumFractionDigits: 0}),
+                createStyledCell(r.h2o, !r.alerts.details.h2o, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
+                createStyledCell(r.chlore, !r.alerts.details.chlore, {minimumFractionDigits: 2, maximumFractionDigits: 2}),
                 createAlertCell(r.alerts.isConform, r.alerts.text),
             ];
         });
@@ -639,7 +646,7 @@ export function ResultsTable() {
         generatePdf(
             body,
             'Suivi des analyses des combustibles solides non dangereux',
-            `Rapport hebdomadaire semaine du ${format(start, 'dd MMMM', { locale: fr })}`,
+            `Rapport hebdomadaire semaine du ${format(start, 'dd MMMM yyyy', { locale: fr })}`,
             columns,
             'landscape',
             `Rapport_Hebdo_AFR_Semaine_du_${format(start, 'yyyy-MM-dd')}.pdf`
@@ -673,10 +680,10 @@ export function ResultsTable() {
            return [
                 r.type_combustible,
                 r.fournisseur,
-                createStyledCell(r.pci_brut, r.alerts.details.pci, {maximumFractionDigits: 0}),
-                createStyledCell(r.h2o, r.alerts.details.h2o, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
-                createStyledCell(r.chlore, r.alerts.details.chlore, {minimumFractionDigits: 2, maximumFractionDigits: 2}),
-                createStyledCell(r.cendres, r.alerts.details.cendres, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
+                createStyledCell(r.pci_brut, !r.alerts.details.pci, {maximumFractionDigits: 0}),
+                createStyledCell(r.h2o, !r.alerts.details.h2o, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
+                createStyledCell(r.chlore, !r.alerts.details.chlore, {minimumFractionDigits: 2, maximumFractionDigits: 2}),
+                createStyledCell(r.cendres, !r.alerts.details.cendres, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
                 createAlertCell(r.alerts.isConform, r.alerts.text),
             ];
         });
@@ -688,6 +695,52 @@ export function ResultsTable() {
             columns,
             'landscape',
             `Rapport_Mensuel_AFR_${format(today, 'yyyy-MM')}.pdf`
+        );
+    };
+
+    const exportToPdfPreviousMonth = () => {
+        const today = new Date();
+        const prevMonthDate = subMonths(today, 1);
+        const start = startOfMonth(prevMonthDate);
+        const end = endOfMonth(prevMonthDate);
+
+        const monthlyData = results.filter(r => {
+                const d = normalizeDate(r.date_arrivage);
+                return d && isValid(d) && d >= start && d <= end;
+            })
+            .sort((a,b) => normalizeDate(b.date_arrivage)!.getTime() - normalizeDate(a.date_arrivage)!.getTime());
+        
+        const aggregated = aggregateResults(monthlyData, true);
+        
+        const columns = [
+            { header: 'Type Combustible', dataKey: 'type' },
+            { header: 'Fournisseur', dataKey: 'fournisseur' },
+            { header: 'PCI sur Brut', dataKey: 'pci' },
+            { header: '% H2O', dataKey: 'h2o' },
+            { header: '% Cl-', dataKey: 'cl' },
+            { header: '% Cendres', dataKey: 'cendres' },
+            { header: 'Alertes', dataKey: 'alerts' },
+        ];
+        
+        const body = aggregated.map(r => {
+           return [
+                r.type_combustible,
+                r.fournisseur,
+                createStyledCell(r.pci_brut, !r.alerts.details.pci, {maximumFractionDigits: 0}),
+                createStyledCell(r.h2o, !r.alerts.details.h2o, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
+                createStyledCell(r.chlore, !r.alerts.details.chlore, {minimumFractionDigits: 2, maximumFractionDigits: 2}),
+                createStyledCell(r.cendres, !r.alerts.details.cendres, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
+                createAlertCell(r.alerts.isConform, r.alerts.text),
+            ];
+        });
+
+        generatePdf(
+            body,
+            'Suivi des analyses des combustibles solides non dangereux',
+            `Rapport mensuel ${format(prevMonthDate, 'MMMM yyyy', { locale: fr })}`,
+            columns,
+            'landscape',
+            `Rapport_Mensuel_AFR_${format(prevMonthDate, 'yyyy-MM')}.pdf`
         );
     };
 
@@ -705,21 +758,21 @@ export function ResultsTable() {
         <TooltipProvider>
             <AlertDialog onOpenChange={(open) => !open && setResultToDelete(null)}>
                 <div className="flex flex-col gap-4 p-4 lg:p-6 h-full">
-                    <div className='flex flex-wrap items-center gap-2 bg-green-100 text-green-800 font-semibold rounded-md px-3 py-2'>
+                    <div className='flex flex-wrap items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-md px-3 py-2'>
                         
                         <MultiSelect
                             options={uniqueFuelTypes.map(f => ({ label: f, value: f }))}
                             selected={typeFilter}
                             onChange={setTypeFilter}
                             placeholder="Filtrer par type..."
-                            className="w-full sm:w-auto flex-1 min-w-[160px] bg-white border-green-300 hover:bg-green-50"
+                            className="w-full sm:w-auto flex-1 min-w-[160px] bg-white"
                         />
                         <MultiSelect
                             options={availableFournisseurs.map(f => ({ label: f, value: f }))}
                             selected={fournisseurFilter}
                             onChange={setFournisseurFilter}
                             placeholder="Filtrer par fournisseur..."
-                            className="w-full sm:w-auto flex-1 min-w-[160px] bg-white border-green-300 hover:bg-green-50"
+                            className="w-full sm:w-auto flex-1 min-w-[160px] bg-white"
                         />
 
                         <Popover>
@@ -728,7 +781,7 @@ export function ResultsTable() {
                                     id="date"
                                     variant={"outline"}
                                     className={cn(
-                                        "w-full sm:w-auto flex-1 min-w-[210px] justify-start text-left font-medium bg-white border-green-300 hover:bg-green-50 text-gray-800",
+                                        "w-full sm:w-auto flex-1 min-w-[210px] justify-start text-left font-medium bg-white",
                                         !dateFilter && "text-muted-foreground"
                                     )}
                                     >
@@ -759,13 +812,13 @@ export function ResultsTable() {
                                 />
                             </PopoverContent>
                         </Popover>
-                        <Button onClick={resetFilters} variant="ghost" className="text-green-700 hover:text-green-900 hover:bg-green-100 h-9 px-3">
+                        <Button onClick={resetFilters} variant="ghost" className="text-slate-600 hover:text-slate-900 hover:bg-slate-200 h-9 px-3">
                             <XCircle className="mr-2 h-4 w-4"/>
                             Réinitialiser
                         </Button>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="outline" className="w-full sm:w-auto bg-white hover:bg-green-50 border-green-300 text-gray-800">
+                                <Button variant="outline" className="w-full sm:w-auto bg-white">
                                 <Download className="mr-2 h-4 w-4" />
                                 <span>Exporter</span>
                                 <ChevronDown className="ml-2 h-4 w-4" />
@@ -779,7 +832,10 @@ export function ResultsTable() {
                                     Rapport Hebdomadaire (PDF)
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={exportToPdfMonthly}>
-                                    Rapport Mensuel (PDF)
+                                    Rapport Mensuel (Mois en cours)
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={exportToPdfPreviousMonth}>
+                                    Rapport Mensuel (Mois précédent)
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => exportToExcel(filteredResults, 'Filtré')}>
