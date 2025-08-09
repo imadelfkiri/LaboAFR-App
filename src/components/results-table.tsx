@@ -482,6 +482,7 @@ export function ResultsTable() {
 
     const createAlertCell = (isConform: boolean, alertText: string) => {
         const styles: { textColor?: string } = {};
+        let content = alertText;
 
         if (isConform) {
             styles.textColor = '#008000'; // Green
@@ -489,10 +490,7 @@ export function ResultsTable() {
             styles.textColor = '#FF0000'; // Red
         }
 
-        return {
-            content: alertText,
-            styles
-        };
+        return { content, styles };
     };
 
     const generatePdf = (
@@ -540,14 +538,16 @@ export function ResultsTable() {
             columnStyles: {
                 0: { halign: 'left' }, // Type Combustible
                 1: { halign: 'left' }, // Fournisseur
-                5: { halign: 'left' }, // Alertes (daily/weekly)
-                6: { halign: 'left' }, // Alertes (monthly)
+                // The index for alerts can change based on the report type
             },
             didParseCell: (hookData) => {
                 if (hookData.section === 'body' && hookData.cell.raw) {
                      const raw = hookData.cell.raw as any;
                      if(raw.styles) {
                          Object.assign(hookData.cell.styles, raw.styles);
+                     }
+                     if (hookData.column.dataKey === 'alerts' && raw.styles.textColor) {
+                        hookData.cell.styles.halign = 'left';
                      }
                 }
             },
@@ -590,9 +590,9 @@ export function ResultsTable() {
             return [
                 r.type_combustible,
                 r.fournisseur,
-                createStyledCell(r.pci_brut, !r.alerts.details.pci, {maximumFractionDigits: 0}),
-                createStyledCell(r.h2o, !r.alerts.details.h2o, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
-                createStyledCell(r.chlore, !r.alerts.details.chlore, {minimumFractionDigits: 2, maximumFractionDigits: 2}),
+                createStyledCell(r.pci_brut, r.alerts.details.pci, {maximumFractionDigits: 0}),
+                createStyledCell(r.h2o, r.alerts.details.h2o, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
+                createStyledCell(r.chlore, r.alerts.details.chlore, {minimumFractionDigits: 2, maximumFractionDigits: 2}),
                 createAlertCell(r.alerts.isConform, r.alerts.text),
             ];
         });
@@ -633,9 +633,9 @@ export function ResultsTable() {
             return [
                 r.type_combustible,
                 r.fournisseur,
-                createStyledCell(r.pci_brut, !r.alerts.details.pci, {maximumFractionDigits: 0}),
-                createStyledCell(r.h2o, !r.alerts.details.h2o, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
-                createStyledCell(r.chlore, !r.alerts.details.chlore, {minimumFractionDigits: 2, maximumFractionDigits: 2}),
+                createStyledCell(r.pci_brut, r.alerts.details.pci, {maximumFractionDigits: 0}),
+                createStyledCell(r.h2o, r.alerts.details.h2o, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
+                createStyledCell(r.chlore, r.alerts.details.chlore, {minimumFractionDigits: 2, maximumFractionDigits: 2}),
                 createAlertCell(r.alerts.isConform, r.alerts.text),
             ];
         });
@@ -677,10 +677,10 @@ export function ResultsTable() {
            return [
                 r.type_combustible,
                 r.fournisseur,
-                createStyledCell(r.pci_brut, !r.alerts.details.pci, {maximumFractionDigits: 0}),
-                createStyledCell(r.h2o, !r.alerts.details.h2o, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
-                createStyledCell(r.chlore, !r.alerts.details.chlore, {minimumFractionDigits: 2, maximumFractionDigits: 2}),
-                createStyledCell(r.cendres, !r.alerts.details.cendres, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
+                createStyledCell(r.pci_brut, r.alerts.details.pci, {maximumFractionDigits: 0}),
+                createStyledCell(r.h2o, r.alerts.details.h2o, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
+                createStyledCell(r.chlore, r.alerts.details.chlore, {minimumFractionDigits: 2, maximumFractionDigits: 2}),
+                createStyledCell(r.cendres, r.alerts.details.cendres, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
                 createAlertCell(r.alerts.isConform, r.alerts.text),
             ];
         });
@@ -723,10 +723,10 @@ export function ResultsTable() {
            return [
                 r.type_combustible,
                 r.fournisseur,
-                createStyledCell(r.pci_brut, !r.alerts.details.pci, {maximumFractionDigits: 0}),
-                createStyledCell(r.h2o, !r.alerts.details.h2o, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
-                createStyledCell(r.chlore, !r.alerts.details.chlore, {minimumFractionDigits: 2, maximumFractionDigits: 2}),
-                createStyledCell(r.cendres, !r.alerts.details.cendres, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
+                createStyledCell(r.pci_brut, r.alerts.details.pci, {maximumFractionDigits: 0}),
+                createStyledCell(r.h2o, r.alerts.details.h2o, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
+                createStyledCell(r.chlore, r.alerts.details.chlore, {minimumFractionDigits: 2, maximumFractionDigits: 2}),
+                createStyledCell(r.cendres, r.alerts.details.cendres, {minimumFractionDigits: 1, maximumFractionDigits: 1}),
                 createAlertCell(r.alerts.isConform, r.alerts.text),
             ];
         });
