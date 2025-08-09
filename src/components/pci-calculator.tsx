@@ -170,41 +170,44 @@ export function PciCalculator() {
     fetchAndSetData();
   }, [fetchAndSetData]);
 
-  const watchedValues = watch();
+  const watchedPcs = watch("pcs");
+  const watchedH2o = watch("h2o");
+  const watchedTypeCombustible = watch("type_combustible");
+  const watchedFournisseur = watch("fournisseur");
+  const watchedChlore = watch("chlore");
+  const watchedCendres = watch("cendres");
 
   useEffect(() => {
-    const { pcs, h2o, type_combustible } = watchedValues;
-    if (pcs !== undefined && h2o !== undefined && type_combustible) {
-      const result = calculerPCI(Number(pcs), Number(h2o), type_combustible);
+    if (watchedPcs !== undefined && watchedH2o !== undefined && watchedTypeCombustible) {
+      const result = calculerPCI(Number(watchedPcs), Number(watchedH2o), watchedTypeCombustible);
       setPciResult(result);
     } else {
       setPciResult(null);
     }
-  }, [watchedValues.pcs, watchedValues.h2o, watchedValues.type_combustible, watchedValues]);
+  }, [watchedPcs, watchedH2o, watchedTypeCombustible]);
 
   useEffect(() => {
-    if (watchedValues.type_combustible) {
-        const h = H_MAP[watchedValues.type_combustible];
+    if (watchedTypeCombustible) {
+        const h = H_MAP[watchedTypeCombustible];
         setHValue(h ?? null);
     } else {
         setHValue(null);
     }
-  }, [watchedValues.type_combustible]);
+  }, [watchedTypeCombustible]);
 
   useEffect(() => {
-    if (watchedValues.type_combustible && fuelSupplierMap) {
-        const relatedFournisseurs = fuelSupplierMap[watchedValues.type_combustible] || [];
+    if (watchedTypeCombustible && fuelSupplierMap) {
+        const relatedFournisseurs = fuelSupplierMap[watchedTypeCombustible] || [];
         setFilteredFournisseurs(relatedFournisseurs.sort());
         setValue('fournisseur', '');
     } else {
         setFilteredFournisseurs([]);
     }
-  }, [watchedValues.type_combustible, fuelSupplierMap, setValue]);
+  }, [watchedTypeCombustible, fuelSupplierMap, setValue]);
 
 
   useEffect(() => {
-    const { type_combustible, fournisseur, h2o, chlore, cendres } = watchedValues;
-    const spec = SPEC_MAP.get(`${type_combustible}|${fournisseur}`);
+    const spec = SPEC_MAP.get(`${watchedTypeCombustible}|${watchedFournisseur}`);
     
     const newStatus: FieldValidationStatus = {
         pci: 'neutral',
@@ -219,21 +222,21 @@ export function PciCalculator() {
             newStatus.pci = pciResult < spec.PCI_min ? 'non-conform' : 'conform';
         }
         // H2O
-        if (spec.H2O_max !== null && spec.H2O_max !== undefined && h2o !== undefined && h2o !== '') {
-            newStatus.h2o = Number(h2o) > spec.H2O_max ? 'non-conform' : 'conform';
+        if (spec.H2O_max !== null && spec.H2O_max !== undefined && watchedH2o !== undefined && watchedH2o !== '') {
+            newStatus.h2o = Number(watchedH2o) > spec.H2O_max ? 'non-conform' : 'conform';
         }
         // Chlore
-        if (spec.Cl_max !== null && spec.Cl_max !== undefined && chlore !== undefined && chlore !== '') {
-            newStatus.chlore = Number(chlore) > spec.Cl_max ? 'non-conform' : 'conform';
+        if (spec.Cl_max !== null && spec.Cl_max !== undefined && watchedChlore !== undefined && watchedChlore !== '') {
+            newStatus.chlore = Number(watchedChlore) > spec.Cl_max ? 'non-conform' : 'conform';
         }
         // Cendres
-        if (spec.Cendres_max !== null && spec.Cendres_max !== undefined && cendres !== undefined && cendres !== '') {
-            newStatus.cendres = Number(cendres) > spec.Cendres_max ? 'non-conform' : 'conform';
+        if (spec.Cendres_max !== null && spec.Cendres_max !== undefined && watchedCendres !== undefined && watchedCendres !== '') {
+            newStatus.cendres = Number(watchedCendres) > spec.Cendres_max ? 'non-conform' : 'conform';
         }
     }
     
     setValidationStatus(newStatus);
-  }, [watchedValues, pciResult]);
+  }, [pciResult, watchedTypeCombustible, watchedFournisseur, watchedH2o, watchedChlore, watchedCendres]);
 
 
   const getInputClass = (status: ValidationStatus) => {
@@ -363,7 +366,7 @@ export function PciCalculator() {
     }
   }
 
-  const isFournisseurDisabled = !watchedValues.type_combustible;
+  const isFournisseurDisabled = !watchedTypeCombustible;
 
   if (loading) {
       return (
@@ -481,7 +484,7 @@ export function PciCalculator() {
                                             </SelectTrigger>
                                             </FormControl>
                                             <SelectContent side="bottom" avoidCollisions={false} className="z-50">
-                                                {filteredFournisseurs.length === 0 && watchedValues.type_combustible ? (
+                                                {filteredFournisseurs.length === 0 && watchedTypeCombustible ? (
                                                     <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">Aucun fournisseur.</div>
                                                 ) : (
                                                     filteredFournisseurs.map((fournisseur) => (
@@ -490,7 +493,7 @@ export function PciCalculator() {
                                                         </SelectItem>
                                                     ))
                                                 )}
-                                                {watchedValues.type_combustible && (
+                                                {watchedTypeCombustible && (
                                                     <>
                                                         <Separator className="my-1" />
                                                         <div
@@ -686,7 +689,7 @@ export function PciCalculator() {
                 <DialogHeader>
                     <DialogTitle>Ajouter un nouveau fournisseur</DialogTitle>
                     <DialogDescription>
-                        Entrez le nom du nouveau fournisseur pour le combustible "{watchedValues.type_combustible}".
+                        Entrez le nom du nouveau fournisseur pour le combustible "{watchedTypeCombustible}".
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
