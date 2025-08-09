@@ -381,9 +381,9 @@ export function ResultsTable() {
         return { text: alerts.join(' / '), color: "text-red-600", isConform: false };
     };
 
-    const aggregateResults = (data: Result[]): AggregatedResult[] => {
+    const aggregateResults = (data: Result[], checkCendres: boolean = false): AggregatedResult[] => {
         const grouped = new Map<string, { [key in keyof Omit<Result, 'id' | 'date_arrivage' | 'type_combustible' | 'fournisseur'>]: number[] } & { count: number; remarques: string[] }>();
-
+    
         data.forEach(r => {
             const key = `${r.type_combustible}|${r.fournisseur}`;
             if (!grouped.has(key)) {
@@ -410,32 +410,32 @@ export function ResultsTable() {
             const h2o = avg(value.h2o);
             const chlore = avg(value.chlore);
             const cendres = avg(value.cendres);
-
+    
             const spec = SPEC_MAP.get(`${type_combustible}|${fournisseur}`);
             const alertMessages: string[] = [];
             const conformity = { pci: true, h2o: true, chlore: true, cendres: true };
-
+    
             if (spec) {
                 if (pci_brut !== null && spec.PCI_min !== undefined && spec.PCI_min !== null && pci_brut < spec.PCI_min) {
-                    alertMessages.push("PCI moyen bas");
+                    alertMessages.push("PCI bas");
                     conformity.pci = false;
                 }
                 if (h2o !== null && spec.H2O_max !== undefined && spec.H2O_max !== null && h2o > spec.H2O_max) {
-                    alertMessages.push("H2O moyen élevé");
+                    alertMessages.push("H2O élevé");
                     conformity.h2o = false;
                 }
                 if (chlore !== null && spec.Cl_max !== undefined && spec.Cl_max !== null && chlore > spec.Cl_max) {
-                    alertMessages.push("Cl- moyen élevé");
-                     conformity.chlore = false;
+                    alertMessages.push("Cl- élevé");
+                    conformity.chlore = false;
                 }
-                if (cendres !== null && spec.Cendres_max !== undefined && spec.Cendres_max !== null && cendres > spec.Cendres_max) {
-                    alertMessages.push("Cendres moy. élevées");
-                     conformity.cendres = false;
+                if (checkCendres && cendres !== null && spec.Cendres_max !== undefined && spec.Cendres_max !== null && cendres > spec.Cendres_max) {
+                    alertMessages.push("Cendres élevées");
+                    conformity.cendres = false;
                 }
             }
             
             const isConform = alertMessages.length === 0;
-
+    
             aggregated.push({
                 type_combustible,
                 fournisseur,
@@ -453,7 +453,7 @@ export function ResultsTable() {
                 },
             });
         });
-
+    
         return aggregated.sort((a,b) => a.type_combustible.localeCompare(b.type_combustible) || a.fournisseur.localeCompare(b.fournisseur));
     };
 
@@ -524,10 +524,10 @@ export function ResultsTable() {
         doc.save(filename);
     };
 
-    const createStyledCell = (content: string, isConform: boolean = true) => {
+    const createStyledCell = (content: string, isConform: boolean = true, color: string = '#000000') => {
         return {
             content: content,
-            styles: { textColor: isConform ? '#000000' : '#FF0000' }
+            styles: { textColor: color }
         };
     };
 
@@ -540,7 +540,7 @@ export function ResultsTable() {
             })
             .sort((a,b) => normalizeDate(b.date_arrivage)!.getTime() - normalizeDate(a.date_arrivage)!.getTime());
 
-        const aggregated = aggregateResults(dailyData);
+        const aggregated = aggregateResults(dailyData, false);
 
         const columns = [
             { header: 'Type Combustible', dataKey: 'type' },
@@ -555,10 +555,10 @@ export function ResultsTable() {
         const body = aggregated.map(r => ([
             createStyledCell(r.type_combustible),
             createStyledCell(r.fournisseur),
-            createStyledCell(formatNumber(r.pci_brut, 0), r.alerts.details.pci),
-            createStyledCell(formatNumber(r.h2o, 1), r.alerts.details.h2o),
-            createStyledCell(formatNumber(r.chlore, 2), r.alerts.details.chlore),
-            createStyledCell(r.alerts.text, r.alerts.isConform),
+            createStyledCell(formatNumber(r.pci_brut, 0), true, r.alerts.details.pci ? '#000000' : '#FF0000'),
+            createStyledCell(formatNumber(r.h2o, 1), true, r.alerts.details.h2o ? '#000000' : '#FF0000'),
+            createStyledCell(formatNumber(r.chlore, 2), true, r.alerts.details.chlore ? '#000000' : '#FF0000'),
+            createStyledCell(r.alerts.text, true, r.alerts.isConform ? '#008000' : '#FF0000'),
             createStyledCell(r.remarques),
         ]));
 
@@ -584,7 +584,7 @@ export function ResultsTable() {
             })
             .sort((a,b) => normalizeDate(b.date_arrivage)!.getTime() - normalizeDate(a.date_arrivage)!.getTime());
         
-        const aggregated = aggregateResults(weeklyData);
+        const aggregated = aggregateResults(weeklyData, false);
 
         const columns = [
             { header: 'Type Combustible', dataKey: 'type' },
@@ -599,10 +599,10 @@ export function ResultsTable() {
         const body = aggregated.map(r => ([
             createStyledCell(r.type_combustible),
             createStyledCell(r.fournisseur),
-            createStyledCell(formatNumber(r.pci_brut, 0), r.alerts.details.pci),
-            createStyledCell(formatNumber(r.h2o, 1), r.alerts.details.h2o),
-            createStyledCell(formatNumber(r.chlore, 2), r.alerts.details.chlore),
-            createStyledCell(r.alerts.text, r.alerts.isConform),
+            createStyledCell(formatNumber(r.pci_brut, 0), true, r.alerts.details.pci ? '#000000' : '#FF0000'),
+            createStyledCell(formatNumber(r.h2o, 1), true, r.alerts.details.h2o ? '#000000' : '#FF0000'),
+            createStyledCell(formatNumber(r.chlore, 2), true, r.alerts.details.chlore ? '#000000' : '#FF0000'),
+            createStyledCell(r.alerts.text, true, r.alerts.isConform ? '#008000' : '#FF0000'),
             createStyledCell(r.remarques),
         ]));
 
@@ -628,7 +628,7 @@ export function ResultsTable() {
             })
             .sort((a,b) => normalizeDate(b.date_arrivage)!.getTime() - normalizeDate(a.date_arrivage)!.getTime());
         
-        const aggregated = aggregateResults(monthlyData);
+        const aggregated = aggregateResults(monthlyData, true);
         
         const columns = [
             { header: 'Type Combustible', dataKey: 'type' },
@@ -645,12 +645,12 @@ export function ResultsTable() {
         const body = aggregated.map(r => ([
             createStyledCell(r.type_combustible),
             createStyledCell(r.fournisseur),
-            createStyledCell(formatNumber(r.pci_brut, 0), r.alerts.details.pci),
-            createStyledCell(formatNumber(r.h2o, 1), r.alerts.details.h2o),
-            createStyledCell(formatNumber(r.chlore, 2), r.alerts.details.chlore),
-            createStyledCell(formatNumber(r.cendres, 1), r.alerts.details.cendres),
+            createStyledCell(formatNumber(r.pci_brut, 0), true, r.alerts.details.pci ? '#000000' : '#FF0000'),
+            createStyledCell(formatNumber(r.h2o, 1), true, r.alerts.details.h2o ? '#000000' : '#FF0000'),
+            createStyledCell(formatNumber(r.chlore, 2), true, r.alerts.details.chlore ? '#000000' : '#FF0000'),
+            createStyledCell(formatNumber(r.cendres, 1), true, r.alerts.details.cendres ? '#000000' : '#FF0000'),
             createStyledCell(formatNumber(r.densite, 3)),
-            createStyledCell(r.alerts.text, r.alerts.isConform),
+            createStyledCell(r.alerts.text, true, r.alerts.isConform ? '#008000' : '#FF0000'),
             createStyledCell(r.remarques),
         ]));
 
