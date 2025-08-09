@@ -361,16 +361,16 @@ export function ResultsTable() {
         const alerts: string[] = [];
 
         if (typeof spec.PCI_min === 'number' && result.pci_brut < spec.PCI_min) {
-            alerts.push("PCI");
+            alerts.push("PCI trop bas");
         }
         if (typeof spec.H2O_max === 'number' && result.h2o > spec.H2O_max) {
-            alerts.push("H2O");
+            alerts.push("Humidité élevée");
         }
         if (typeof spec.Cl_max === 'number' && result.chlore > spec.Cl_max) {
-            alerts.push("Chlore");
+            alerts.push("Chlore trop élevé");
         }
         if (typeof spec.Cendres_max === 'number' && result.cendres > spec.Cendres_max) {
-            alerts.push("Cendres");
+            alerts.push("Taux de cendres élevé");
         }
 
         if (alerts.length === 0) {
@@ -584,5 +584,7 @@ export function ResultsTable() {
         </TooltipProvider>
     );
 }
+
+    
 
     
