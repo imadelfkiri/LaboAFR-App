@@ -242,7 +242,7 @@ export function ResultsTable() {
     };
     
     const formatNumber = (num: number | null | undefined, fractionDigits: number = 0) => {
-        if (num === null || num === undefined || isNaN(num)) return 'N/A';
+        if (num === null || num === undefined || isNaN(num)) return '';
         return num.toLocaleString('fr-FR', {
             minimumFractionDigits: fractionDigits,
             maximumFractionDigits: fractionDigits,
@@ -513,7 +513,14 @@ export function ResultsTable() {
                 fillColor: '#F7FBF9'
             },
             styles: {
-                textColor: '#000000'
+                textColor: '#000000',
+                halign: 'center'
+            },
+            columnStyles: {
+                0: { halign: 'left' }, // Type Combustible
+                1: { halign: 'left' }, // Fournisseur
+                5: { halign: 'left' }, // Alertes (index change)
+                6: { halign: 'left' }  // Remarques
             },
             didParseCell: (hookData) => {
                 if (hookData.section === 'body' && hookData.cell.raw) {
@@ -556,15 +563,18 @@ export function ResultsTable() {
             { header: 'Remarques', dataKey: 'remarques' },
         ];
         
-        const body = aggregated.map(r => ([
-            createStyledCell(r.type_combustible, null, '#000000'),
-            createStyledCell(r.fournisseur, null, '#000000'),
-            createStyledCell(formatNumber(r.pci_brut, 0), r.alerts.details.pci),
-            createStyledCell(formatNumber(r.h2o, 1), r.alerts.details.h2o),
-            createStyledCell(formatNumber(r.chlore, 2), r.alerts.details.chlore),
-            createStyledCell(r.alerts.isConform ? `' Conforme` : `& ${r.alerts.text}`, r.alerts.isConform),
-            createStyledCell(r.remarques, null, '#000000'),
-        ]));
+        const body = aggregated.map(r => {
+            const alertText = r.alerts.isConform ? `✓ Conforme` : `⚠ ${r.alerts.text}`;
+            return [
+                createStyledCell(r.type_combustible, null, '#000000'),
+                createStyledCell(r.fournisseur, null, '#000000'),
+                createStyledCell(formatNumber(r.pci_brut, 0), r.alerts.details.pci),
+                createStyledCell(formatNumber(r.h2o, 1), r.alerts.details.h2o),
+                createStyledCell(formatNumber(r.chlore, 2), r.alerts.details.chlore),
+                createStyledCell(alertText, r.alerts.isConform),
+                createStyledCell(r.remarques, null, '#000000'),
+            ];
+        });
 
         generatePdf(
             body,
@@ -599,15 +609,18 @@ export function ResultsTable() {
             { header: 'Remarques', dataKey: 'remarques' },
         ];
 
-        const body = aggregated.map(r => ([
-            createStyledCell(r.type_combustible, null, '#000000'),
-            createStyledCell(r.fournisseur, null, '#000000'),
-            createStyledCell(formatNumber(r.pci_brut, 0), r.alerts.details.pci),
-            createStyledCell(formatNumber(r.h2o, 1), r.alerts.details.h2o),
-            createStyledCell(formatNumber(r.chlore, 2), r.alerts.details.chlore),
-            createStyledCell(r.alerts.isConform ? `' Conforme` : `& ${r.alerts.text}`, r.alerts.isConform),
-            createStyledCell(r.remarques, null, '#000000'),
-        ]));
+        const body = aggregated.map(r => {
+            const alertText = r.alerts.isConform ? `✓ Conforme` : `⚠ ${r.alerts.text}`;
+            return [
+                createStyledCell(r.type_combustible, null, '#000000'),
+                createStyledCell(r.fournisseur, null, '#000000'),
+                createStyledCell(formatNumber(r.pci_brut, 0), r.alerts.details.pci),
+                createStyledCell(formatNumber(r.h2o, 1), r.alerts.details.h2o),
+                createStyledCell(formatNumber(r.chlore, 2), r.alerts.details.chlore),
+                createStyledCell(alertText, r.alerts.isConform),
+                createStyledCell(r.remarques, null, '#000000'),
+            ];
+        });
 
         generatePdf(
             body,
@@ -644,17 +657,20 @@ export function ResultsTable() {
             { header: 'Remarques', dataKey: 'remarques' },
         ];
         
-        const body = aggregated.map(r => ([
-            createStyledCell(r.type_combustible, null, '#000000'),
-            createStyledCell(r.fournisseur, null, '#000000'),
-            createStyledCell(formatNumber(r.pci_brut, 0), r.alerts.details.pci),
-            createStyledCell(formatNumber(r.h2o, 1), r.alerts.details.h2o),
-            createStyledCell(formatNumber(r.chlore, 2), r.alerts.details.chlore),
-            createStyledCell(formatNumber(r.cendres, 1), r.alerts.details.cendres),
-            createStyledCell(formatNumber(r.densite, 3), null, '#000000'),
-            createStyledCell(r.alerts.isConform ? `' Conforme` : `& ${r.alerts.text}`, r.alerts.isConform),
-            createStyledCell(r.remarques, null, '#000000'),
-        ]));
+        const body = aggregated.map(r => {
+            const alertText = r.alerts.isConform ? `✓ Conforme` : `⚠ ${r.alerts.text}`;
+            return [
+                createStyledCell(r.type_combustible, null, '#000000'),
+                createStyledCell(r.fournisseur, null, '#000000'),
+                createStyledCell(formatNumber(r.pci_brut, 0), r.alerts.details.pci),
+                createStyledCell(formatNumber(r.h2o, 1), r.alerts.details.h2o),
+                createStyledCell(formatNumber(r.chlore, 2), r.alerts.details.chlore),
+                createStyledCell(formatNumber(r.cendres, 1), r.alerts.details.cendres),
+                createStyledCell(formatNumber(r.densite, 3), null, '#000000'),
+                createStyledCell(alertText, r.alerts.isConform),
+                createStyledCell(r.remarques, null, '#000000'),
+            ];
+        });
 
         generatePdf(
             body,
