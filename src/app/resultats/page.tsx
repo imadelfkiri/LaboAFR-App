@@ -1,18 +1,27 @@
+// app/results/page.tsx
+// Server component that renders your client ResultsTable
+// Adjust the import path to where you pasted the component
 
-import { ResultsTable } from "@/components/results-table";
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
+import React from "react";
+import type { Metadata } from "next";
+import { cn } from "@/lib/utils";
+import ResultsTable from "@/components/results-table";
+
+export const metadata: Metadata = {
+  title: "Résultats | AFR",
+  description: "Historique et export des analyses des combustibles (PDF, Excel)",
+};
 
 export default function ResultsPage() {
   return (
-    <div className="flex flex-1 flex-col gap-4 p-4 lg:p-6 h-full">
-       <Card className="flex-1">
-        <CardContent className="p-0 h-full">
-            <ResultsTable />
-        </CardContent>
-       </Card>
-    </div>
+    <main className={cn("container mx-auto px-4 py-6")}> 
+      <h1 className="text-2xl font-semibold tracking-tight mb-4">Résultats des analyses</h1>
+      <p className="text-muted-foreground mb-6">
+        Filtrez par type, fournisseur et dates, puis exportez en PDF/Excel.
+      </p>
+
+      {/* Client component */}
+      <ResultsTable />
+    </main>
   );
 }
