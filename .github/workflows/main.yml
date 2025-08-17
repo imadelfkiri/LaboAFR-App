@@ -3,12 +3,12 @@ name: Deploy to Firebase Hosting
 on:
   push:
     branches:
-      - principal   # puisque ta branche par défaut s’appelle "principal"
+      - main
+  workflow_dispatch:
 
 jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
