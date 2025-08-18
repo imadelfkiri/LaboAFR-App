@@ -21,6 +21,7 @@ const pageTitles: { [key: string]: string } = {
   '/resultats': 'Historique des Résultats',
   '/statistiques': 'Tableau de Bord des Statistiques',
   '/specifications': 'Spécifications Techniques',
+  '/calcul-melange': 'Calcul de Mélange',
 };
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
