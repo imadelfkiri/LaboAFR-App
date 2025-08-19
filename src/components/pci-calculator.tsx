@@ -117,7 +117,6 @@ export function PciCalculator() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      date_arrivage: subDays(new Date(), 1),
       type_combustible: "",
       fournisseur: "",
       pcs: undefined,
@@ -130,6 +129,11 @@ export function PciCalculator() {
   });
 
   const { watch, reset, getValues, setValue } = form;
+
+  useEffect(() => {
+    // Set the default date only on the client side to avoid hydration errors
+    setValue('date_arrivage', subDays(new Date(), 1));
+  }, [setValue]);
 
   const resetForm = () => {
     reset({
