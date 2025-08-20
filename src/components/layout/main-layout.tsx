@@ -21,6 +21,8 @@ const pageTitles: { [key: string]: string } = {
   '/resultats': 'Historique des Résultats',
   '/statistiques': 'Tableau de Bord des Statistiques',
   '/specifications': 'Spécifications Techniques',
+  '/calcul-melange': 'Calcul de Mélange',
+  '/indicateurs': 'Indicateurs',
 };
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
@@ -62,10 +64,10 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
             <SidebarTrigger />
           </div>
           <div className="flex-1 text-center">
-            {title && <h1 className="text-xl font-bold tracking-tight">{title}</h1>}
+            {isClient && title && <h1 className="text-xl font-bold tracking-tight">{title}</h1>}
           </div>
            <div className="flex items-center justify-end" style={{ minWidth: '180px' }}>
-             {pathname === '/resultats' && (
+             {isClient && pathname === '/resultats' && (
                 <Button asChild size="sm" className="bg-green-600 hover:bg-green-700 text-white">
                   <Link href="/calculateur">
                     <Plus className="mr-2 h-4 w-4" />
@@ -73,7 +75,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                   </Link>
                 </Button>
             )}
-             {pathname === '/specifications' && (
+             {isClient && pathname === '/specifications' && (
                 <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={() => (window as any).openSpecModal()}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Ajouter une spécification
