@@ -22,6 +22,7 @@ const pageTitles: { [key: string]: string } = {
   '/statistiques': 'Tableau de Bord des Statistiques',
   '/specifications': 'Spécifications Techniques',
   '/calcul-melange': 'Calcul de Mélange',
+  '/indicateurs': 'Indicateurs',
 };
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
