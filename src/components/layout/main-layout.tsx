@@ -34,10 +34,6 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     setIsClient(true);
   }, []);
 
-  if (!isClient) {
-    return <>{children}</>;
-  }
-
   return (
     <SidebarProvider>
       <Sidebar>
