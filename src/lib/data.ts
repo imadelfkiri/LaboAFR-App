@@ -70,7 +70,8 @@ export async function addSupplierToFuel(fuelType: string, supplier: string): Pro
 
 export async function getFuelTypes(): Promise<FuelType[]> {
     const fuelTypesCollection = collection(db, 'fuel_types');
-    const snapshot = await getDocs(fuelTypesCollection);
+    const q = query(fuelTypesCollection, orderBy("name"));
+    const snapshot = await getDocs(q);
     
     const fuelTypes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FuelType));
     
@@ -78,41 +79,6 @@ export async function getFuelTypes(): Promise<FuelType[]> {
 
     return fuelTypes;
 };
-
-
-export async function getFuelTypesSortedByRecency(): Promise<FuelType[]> {
-    const allFuelTypes = await getFuelTypes();
-    if (allFuelTypes.length === 0) return [];
-
-    const resultsQuery = query(collection(db, "resultats"), orderBy("date_creation", "desc"));
-    const resultsSnapshot = await getDocs(resultsQuery);
-
-    const fuelRecencyMap = new Map<string, number>();
-
-    resultsSnapshot.forEach(doc => {
-        const result = doc.data();
-        const fuelType = result.type_combustible;
-        const timestamp = result.date_creation as Timestamp;
-
-        if (fuelType && !fuelRecencyMap.has(fuelType)) {
-             fuelRecencyMap.set(fuelType, timestamp?.seconds || 0);
-        }
-    });
-
-    const usedFuelTypes = allFuelTypes.filter(ft => fuelRecencyMap.has(ft.name));
-    const unusedFuelTypes = allFuelTypes.filter(ft => !fuelRecencyMap.has(ft.name));
-
-    usedFuelTypes.sort((a, b) => {
-        const recencyA = fuelRecencyMap.get(a.name) || 0;
-        const recencyB = fuelRecencyMap.get(b.name) || 0;
-        return recencyB - recencyA;
-    });
-
-    unusedFuelTypes.sort((a, b) => a.name.localeCompare(b.name));
-
-    return [...usedFuelTypes, ...unusedFuelTypes];
-}
-
 
 export async function getFournisseurs(): Promise<string[]> {
     const fournisseursCollection = collection(db, 'fournisseurs');

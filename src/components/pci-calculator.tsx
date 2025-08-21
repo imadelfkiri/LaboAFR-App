@@ -55,7 +55,7 @@ import {
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator";
 import { calculerPCI } from '@/lib/pci';
-import { getFuelTypesSortedByRecency, type FuelType, H_MAP, getFuelSupplierMap, addSupplierToFuel, SPEC_MAP, getSpecifications, Specification } from '@/lib/data';
+import { getFuelTypes, type FuelType, H_MAP, getFuelSupplierMap, addSupplierToFuel, SPEC_MAP, getSpecifications, Specification } from '@/lib/data';
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from './ui/skeleton';
 
@@ -154,7 +154,7 @@ export function PciCalculator() {
       setLoading(true);
       try {
         const [fetchedFuelTypes, map, _specs] = await Promise.all([
-          getFuelTypesSortedByRecency(),
+          getFuelTypes(),
           getFuelSupplierMap(),
           getSpecifications() 
         ]);
@@ -355,7 +355,7 @@ export function PciCalculator() {
       });
       
       resetForm();
-      fetchAndSetData();
+      // No need to refetch here, new results will show on the results page.
 
     } catch (error: any) {
         console.error("Erreur lors de la soumission: ", error);
