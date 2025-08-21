@@ -14,7 +14,6 @@ import {
     deleteSpecification,
     getFuelTypes,
     getFournisseurs,
-    seedInitialData, // Import the new seeding function
     type Specification,
     type FuelType
 } from '@/lib/data';
@@ -109,9 +108,6 @@ export function SpecificationsTable() {
         try {
             await firebaseAppPromise;
             
-            // Call the seeding function here. It will only run if collections are empty.
-            await seedInitialData();
-
             const [fetchedSpecs, fetchedFuelTypes, fetchedFournisseurs] = await Promise.all([
                 getSpecifications(),
                 getFuelTypes(),
@@ -352,3 +348,5 @@ export function SpecificationsTable() {
         </div>
     );
 }
+
+    

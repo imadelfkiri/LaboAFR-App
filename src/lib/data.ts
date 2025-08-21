@@ -65,7 +65,7 @@ function populateHMap(fuelTypes: FuelType[]) {
     });
 }
 
-const seedInitialData = async () => {
+export const seedInitialData = async () => {
     await firebaseAppPromise;
     console.log("Checking if initial data seeding is required...");
 
@@ -280,5 +280,4 @@ export async function deleteSpecification(id: string) {
     await updateSpecMap();
 };
 
-// Export the seeding function so it can be called from a component.
-export { seedInitialData };
+    

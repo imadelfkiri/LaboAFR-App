@@ -55,7 +55,7 @@ import {
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator";
 import { calculerPCI } from '@/lib/pci';
-import { getFuelTypesSortedByRecency, type FuelType, H_MAP, getFuelSupplierMap, addSupplierToFuel, SPEC_MAP, getSpecifications, Specification } from '@/lib/data';
+import { getFuelTypesSortedByRecency, type FuelType, H_MAP, getFuelSupplierMap, addSupplierToFuel, SPEC_MAP, getSpecifications, Specification, seedInitialData } from '@/lib/data';
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from './ui/skeleton';
 
@@ -152,6 +152,7 @@ export function PciCalculator() {
 
   const fetchAndSetData = useCallback(async () => {
       try {
+        await seedInitialData();
         const [fetchedFuelTypes, map, _specs] = await Promise.all([
           getFuelTypesSortedByRecency(),
           getFuelSupplierMap(),
@@ -711,3 +712,5 @@ export function PciCalculator() {
     </div>
   );
 }
+
+    
