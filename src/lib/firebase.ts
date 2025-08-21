@@ -1,40 +1,30 @@
 
 // src/lib/firebase.ts
-import { initializeApp, getApp, type FirebaseApp } from "firebase/app";
+import { initializeApp, getApp, getApps, type FirebaseApp } from "firebase/app";
 import { getFirestore, Firestore } from "firebase/firestore";
 import { initializeAppCheck, ReCaptchaV3Provider, AppCheck } from "firebase/app-check";
 
 const firebaseConfig = {
-  "projectId": "fueltrack-afr",
-  "appId": "1:908411260486:web:fd57de11a69873142dc447",
-  "storageBucket": "fueltrack-afr.firebasestorage.app",
-  "apiKey": "AIzaSyDjyU_KQ2_BJpcbDJ4lwk6hGbSwxFccPIs",
-  "authDomain": "fueltrack-afr.firebaseapp.com",
-  "measurementId": "",
-  "messagingSenderId": "908411260486"
+  apiKey: "AIzaSyC53dmBWCzf_YceZfhNs-Dv50Dw__wFO48",
+  authDomain: "laboafr-app.firebaseapp.com",
+  projectId: "laboafr-app",
+  storageBucket: "laboafr-app.firebasestorage.app",
+  messagingSenderId: "222450216856",
+  appId: "1:222450216856:web:e94dd3f68370172b58c5ed"
 };
 
-let app: FirebaseApp;
+// Initialize Firebase
+const app: FirebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const db: Firestore = getFirestore(app);
 let appCheck: AppCheck | null = null;
-let db: Firestore;
 
-const firebaseAppPromise = new Promise<FirebaseApp>((resolve) => {
-    if (typeof window !== 'undefined') {
-        try {
-            app = getApp();
-        } catch (e) {
-            app = initializeApp(firebaseConfig);
-        }
+if (typeof window !== 'undefined') {
+    // Note: You need to go to the Firebase Console > App Check and register your site's reCAPTCHA v3 site key.
+    // Without this, App Check will fail and queries to Firestore may be blocked.
+    appCheck = initializeAppCheck(app, {
+        provider: new ReCaptchaV3Provider('6LeIxAcpAAAAAPd_Xdp_18h5FAI_2M6vB_85hQfC'), // This is a public test key
+        isTokenAutoRefreshEnabled: true,
+    });
+}
 
-        appCheck = initializeAppCheck(app, {
-            provider: new ReCaptchaV3Provider('6Ld-sQ8qAAAAAGn4584i9GoV60ERb7aCU65_D2rO'),
-            isTokenAutoRefreshEnabled: true,
-        });
-        
-        db = getFirestore(app);
-        resolve(app);
-    }
-});
-
-
-export { db, appCheck, firebaseAppPromise };
+export { db };

@@ -9,7 +9,7 @@ import { format, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
 import { CalendarIcon, Fuel, PlusCircle, ClipboardList, FlaskConical, MessageSquareText } from 'lucide-react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db, firebaseAppPromise } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -55,7 +55,7 @@ import {
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator";
 import { calculerPCI } from '@/lib/pci';
-import { getFuelTypesSortedByRecency, type FuelType, H_MAP, getFuelSupplierMap, addSupplierToFuel, SPEC_MAP, getSpecifications, Specification } from '@/lib/data';
+import { getFuelTypes, type FuelType, H_MAP, getFuelSupplierMap, addSupplierToFuel, SPEC_MAP, getSpecifications, Specification } from '@/lib/data';
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from './ui/skeleton';
 
@@ -151,10 +151,12 @@ export function PciCalculator() {
   };
 
   const fetchAndSetData = useCallback(async () => {
+      setLoading(true);
       try {
-        await firebaseAppPromise; 
+        setAllFuelTypes([]); 
+        setFuelSupplierMap({});
         const [fetchedFuelTypes, map, _specs] = await Promise.all([
-          getFuelTypesSortedByRecency(),
+          getFuelTypes(),
           getFuelSupplierMap(),
           getSpecifications() 
         ]);
@@ -355,7 +357,7 @@ export function PciCalculator() {
       });
       
       resetForm();
-      fetchAndSetData();
+      // No need to refetch here, new results will show on the results page.
 
     } catch (error: any) {
         console.error("Erreur lors de la soumission: ", error);
@@ -455,7 +457,7 @@ export function PciCalculator() {
                                             </FormControl>
                                             <SelectContent side="bottom" avoidCollisions={false} className="z-50">
                                                 {allFuelTypes.map((fuel) => (
-                                                    <SelectItem key={fuel.name} value={fuel.name}>
+                                                    <SelectItem key={fuel.id} value={fuel.name}>
                                                         {fuel.name}
                                                     </SelectItem>
                                                 ))}
@@ -712,5 +714,3 @@ export function PciCalculator() {
     </div>
   );
 }
-
-    

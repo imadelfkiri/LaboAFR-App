@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
-import { db, firebaseAppPromise } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { 
     getSpecifications, 
     addSpecification, 
@@ -14,7 +14,6 @@ import {
     deleteSpecification,
     getFuelTypes,
     getFournisseurs,
-    seedSpecifications, // Import the new seeding function
     type Specification,
     type FuelType
 } from '@/lib/data';
@@ -107,18 +106,14 @@ export function SpecificationsTable() {
     const fetchAllData = useCallback(async () => {
         setLoading(true);
         try {
-            await firebaseAppPromise;
-            
-            await seedSpecifications();
-
             const [fetchedSpecs, fetchedFuelTypes, fetchedFournisseurs] = await Promise.all([
                 getSpecifications(),
                 getFuelTypes(),
                 getFournisseurs()
             ]);
             setSpecs(fetchedSpecs.sort((a, b) => a.type_combustible.localeCompare(b.type_combustible)));
-            setFuelTypes(fetchedFuelTypes.sort((a,b) => a.name.localeCompare(b.name)));
-            setFournisseurs(fetchedFournisseurs.sort());
+            setFuelTypes(fetchedFuelTypes);
+            setFournisseurs(fetchedFournisseurs);
         } catch (error) {
             console.error("Erreur de chargement des données :", error);
             toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données." });
@@ -129,7 +124,6 @@ export function SpecificationsTable() {
 
     useEffect(() => {
         fetchAllData();
-         // Expose a global function to open the modal
         (window as any).openSpecModal = () => handleModalOpen();
 
         return () => {
@@ -138,16 +132,11 @@ export function SpecificationsTable() {
     }, [fetchAllData]);
 
     const uniqueFuelTypes = useMemo(() => {
-        const seen = new Set();
-        return fuelTypes.filter(ft => {
-            const duplicate = seen.has(ft.name);
-            seen.add(ft.name);
-            return !duplicate;
-        });
+        return [...new Map(fuelTypes.map(item => [item.name, item])).values()].sort((a,b) => a.name.localeCompare(b.name));
     }, [fuelTypes]);
 
     const uniqueFournisseurs = useMemo(() => {
-        return [...new Set(fournisseurs)];
+        return [...new Set(fournisseurs)].sort();
     }, [fournisseurs]);
 
     const handleModalOpen = (spec: Specification | null = null) => {
@@ -290,7 +279,7 @@ export function SpecificationsTable() {
                                                     <SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
-                                                    {uniqueFuelTypes.map(ft => <SelectItem key={ft.name} value={ft.name}>{ft.name}</SelectItem>)}
+                                                    {uniqueFuelTypes.map(ft => <SelectItem key={ft.id} value={ft.name}>{ft.name}</SelectItem>)}
                                                 </SelectContent>
                                             </Select>
                                             <FormMessage />
