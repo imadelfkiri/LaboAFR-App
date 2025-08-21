@@ -77,7 +77,7 @@ export const seedInitialData = async () => {
             console.log(`Seeding ${collectionName}...`);
             writesPending = true;
             initialData.forEach(item => {
-                const docRef = idField ? doc(db, collectionName, item[idField].replace(/ /g, '_')) : doc(collection(db, collectionName));
+                const docRef = idField ? doc(db, collectionName, item[idField].replace(/[\/\s]/g, '_')) : doc(collection(db, collectionName));
                 batch.set(docRef, item);
             });
         }
@@ -144,9 +144,12 @@ export async function addSupplierToFuel(fuelType: string, supplier: string): Pro
     const docSnap = await getDoc(fuelDocRef);
 
     if (docSnap.exists()) {
-        await updateDoc(fuelDocRef, {
-            suppliers: arrayUnion(supplier)
-        });
+        const existingSuppliers = docSnap.data().suppliers || [];
+        if (!existingSuppliers.includes(supplier)) {
+            await updateDoc(fuelDocRef, {
+                suppliers: arrayUnion(supplier)
+            });
+        }
     } else {
         await setDoc(fuelDocRef, { suppliers: [supplier] });
     }
