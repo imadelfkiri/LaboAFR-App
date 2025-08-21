@@ -44,7 +44,8 @@ export async function getFuelSupplierMap(): Promise<Record<string, string[]>> {
     snapshot.forEach(doc => {
         const data = doc.data();
         if (data.suppliers && Array.isArray(data.suppliers)) {
-            map[doc.id] = data.suppliers;
+            // Ensure unique suppliers
+            map[doc.id] = [...new Set(data.suppliers)];
         }
     });
 
@@ -76,8 +77,11 @@ export async function getFuelTypes(): Promise<FuelType[]> {
     const fuelTypes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FuelType));
     
     populateHMap(fuelTypes);
+    
+    // Remove duplicates by name, just in case
+    const uniqueFuelTypes = Array.from(new Map(fuelTypes.map(item => [item['name'], item])).values());
 
-    return fuelTypes;
+    return uniqueFuelTypes;
 };
 
 export async function getFournisseurs(): Promise<string[]> {
@@ -85,7 +89,7 @@ export async function getFournisseurs(): Promise<string[]> {
     const snapshot = await getDocs(fournisseursCollection);
     
     const suppliers = snapshot.docs.map(doc => doc.data().name as string);
-    return [...new Set(suppliers)];
+    return [...new Set(suppliers)]; // Return unique suppliers
 };
 
 async function updateSpecMap() {

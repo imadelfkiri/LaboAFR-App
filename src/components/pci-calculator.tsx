@@ -153,7 +153,8 @@ export function PciCalculator() {
   const fetchAndSetData = useCallback(async () => {
       setLoading(true);
       try {
-        setAllFuelTypes([]); // Réinitialiser pour éviter les doublons
+        setAllFuelTypes([]); 
+        setFuelSupplierMap({});
         const [fetchedFuelTypes, map, _specs] = await Promise.all([
           getFuelTypes(),
           getFuelSupplierMap(),
@@ -713,5 +714,3 @@ export function PciCalculator() {
     </div>
   );
 }
-
-    
