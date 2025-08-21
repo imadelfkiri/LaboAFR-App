@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { collection, query, where, onSnapshot, Timestamp, QueryConstraint } from 'firebase/firestore';
-import { db, firebaseAppPromise } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { format, startOfDay, endOfDay, eachDayOfInterval, isValid, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { DateRange } from "react-day-picker";
@@ -105,7 +105,6 @@ export function StatisticsDashboard() {
     useEffect(() => {
         const fetchDropdownData = async () => {
             try {
-                await firebaseAppPromise;
                 const [fuels, resultsSnapshot] = await Promise.all([
                     getFuelTypes(),
                     onSnapshot(collection(db, "resultats"), (snapshot) => {
@@ -312,5 +311,3 @@ export function StatisticsDashboard() {
         </div>
     );
 }
-
-    

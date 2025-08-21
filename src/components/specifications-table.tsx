@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
-import { db, firebaseAppPromise } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { 
     getSpecifications, 
     addSpecification, 
@@ -106,8 +106,6 @@ export function SpecificationsTable() {
     const fetchAllData = useCallback(async () => {
         setLoading(true);
         try {
-            await firebaseAppPromise;
-            
             const [fetchedSpecs, fetchedFuelTypes, fetchedFournisseurs] = await Promise.all([
                 getSpecifications(),
                 getFuelTypes(),
@@ -300,7 +298,7 @@ export function SpecificationsTable() {
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Fournisseur</FormLabel>
-                                             <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                             <Select onValuechange={field.onChange} defaultValue={field.value}>
                                                 <FormControl>
                                                     <SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger>
                                                 </FormControl>
@@ -348,5 +346,3 @@ export function SpecificationsTable() {
         </div>
     );
 }
-
-    

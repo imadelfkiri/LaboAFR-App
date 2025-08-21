@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
@@ -10,7 +11,7 @@ import {
   deleteDoc,
   Timestamp,
 } from "firebase/firestore";
-import { db, firebaseAppPromise } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
 import {
   Table,
   TableBody,
@@ -139,7 +140,6 @@ export function ResultsTable() {
   const fetchInitialData = useCallback(async () => {
     setLoading(true);
     try {
-      await firebaseAppPromise;
       const [map] = await Promise.all([
         getFuelSupplierMap(),
         // Charger les specs pour remplir SPEC_MAP (on ignore le résultat)

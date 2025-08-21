@@ -1,7 +1,7 @@
 
 // src/lib/data.ts
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, arrayUnion, orderBy, Timestamp, setDoc } from 'firebase/firestore';
-import { db, firebaseAppPromise } from './firebase';
+import { db } from './firebase';
 
 export const H_MAP: Record<string, number> = {};
 
@@ -66,7 +66,6 @@ function populateHMap(fuelTypes: FuelType[]) {
 }
 
 export const seedInitialData = async () => {
-    await firebaseAppPromise;
     console.log("Checking if initial data seeding is required...");
 
     const batch = writeBatch(db);
@@ -135,7 +134,6 @@ export const seedInitialData = async () => {
 
 
 export async function getFuelSupplierMap(): Promise<Record<string, string[]>> {
-    await firebaseAppPromise;
     const mapCollection = collection(db, 'fuel_supplier_map');
     const snapshot = await getDocs(mapCollection);
     
@@ -156,7 +154,6 @@ export async function getFuelSupplierMap(): Promise<Record<string, string[]>> {
 }
 
 export async function addSupplierToFuel(fuelType: string, supplier: string): Promise<void> {
-    await firebaseAppPromise;
     const fuelDocRef = doc(db, 'fuel_supplier_map', fuelType);
 
     const docSnap = await getDoc(fuelDocRef);
@@ -172,7 +169,6 @@ export async function addSupplierToFuel(fuelType: string, supplier: string): Pro
 
 
 export async function getFuelTypes(): Promise<FuelType[]> {
-    await firebaseAppPromise;
     const fuelTypesCollection = collection(db, 'fuel_types');
     const snapshot = await getDocs(fuelTypesCollection);
 
@@ -189,7 +185,6 @@ export async function getFuelTypes(): Promise<FuelType[]> {
 
 
 export async function getFuelTypesSortedByRecency(): Promise<FuelType[]> {
-    await firebaseAppPromise;
 
     const allFuelTypes = await getFuelTypes();
     if (allFuelTypes.length === 0) return [];
@@ -225,7 +220,6 @@ export async function getFuelTypesSortedByRecency(): Promise<FuelType[]> {
 
 
 export async function getFournisseurs(): Promise<string[]> {
-    await firebaseAppPromise;
     const fournisseursCollection = collection(db, 'fournisseurs');
     const snapshot = await getDocs(fournisseursCollection);
     
@@ -246,7 +240,6 @@ async function updateSpecMap() {
 }
 
 export async function getSpecifications(forceDbRead = false): Promise<Specification[]> {
-    await firebaseAppPromise;
     if (!forceDbRead && SPEC_MAP.size > 0) {
         return Array.from(SPEC_MAP.values());
     }
@@ -265,7 +258,6 @@ export async function getSpecifications(forceDbRead = false): Promise<Specificat
 };
 
 export async function addSpecification(spec: Omit<Specification, 'id'>) {
-    await firebaseAppPromise;
     const q = query(collection(db, "specifications"), where("type_combustible", "==", spec.type_combustible), where("fournisseur", "==", spec.fournisseur));
     const existing = await getDocs(q);
     if (!existing.empty) {
@@ -277,17 +269,13 @@ export async function addSpecification(spec: Omit<Specification, 'id'>) {
 };
 
 export async function updateSpecification(id: string, specUpdate: Partial<Omit<Specification, 'id'>>) {
-    await firebaseAppPromise;
     const specRef = doc(db, 'specifications', id);
     await updateDoc(specRef, specUpdate);
     await updateSpecMap();
 };
 
 export async function deleteSpecification(id: string) {
-    await firebaseAppPromise;
     const specRef = doc(db, 'specifications', id);
     await deleteDoc(specRef);
     await updateSpecMap();
 };
-
-    

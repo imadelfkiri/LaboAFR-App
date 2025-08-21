@@ -1,6 +1,6 @@
 
 // src/lib/firebase.ts
-import { initializeApp, getApp, type FirebaseApp } from "firebase/app";
+import { initializeApp, getApp, getApps, type FirebaseApp } from "firebase/app";
 import { getFirestore, Firestore } from "firebase/firestore";
 import { initializeAppCheck, ReCaptchaV3Provider, AppCheck } from "firebase/app-check";
 
@@ -14,27 +14,19 @@ const firebaseConfig = {
   "messagingSenderId": "908411260486"
 };
 
-let app: FirebaseApp;
+// Initialize Firebase
+const app: FirebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const db: Firestore = getFirestore(app);
 let appCheck: AppCheck | null = null;
-let db: Firestore;
 
-try {
-    app = getApp();
-} catch (e) {
-    app = initializeApp(firebaseConfig);
-}
-
-if (typeof window !== 'undefined' && app) {
+if (typeof window !== 'undefined') {
     appCheck = initializeAppCheck(app, {
         provider: new ReCaptchaV3Provider('6Ld-sQ8qAAAAAGn4584i9GoV60ERb7aCU65_D2rO'),
         isTokenAutoRefreshEnabled: true,
     });
 }
 
-db = getFirestore(app);
-
-// firebaseAppPromise is kept for compatibility with other files if they use it,
-// but direct export of 'db' is now more reliable.
+// firebaseAppPromise is kept for compatibility if needed, but direct export is cleaner.
 const firebaseAppPromise = Promise.resolve(app);
 
 
