@@ -1,11 +1,12 @@
 
 // src/lib/data.ts
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, arrayUnion, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, arrayUnion, orderBy, Timestamp, setDoc } from 'firebase/firestore';
 import { db, firebaseAppPromise } from './firebase';
 
 export const H_MAP: Record<string, number> = {};
 
 export interface FuelType {
+    id?: string;
     name: string;
     hValue: number;
 }
@@ -57,13 +58,71 @@ const INITIAL_SPECIFICATIONS_DATA: Omit<Specification, 'id'>[] = [
     { type_combustible: 'Pneus', fournisseur: 'RJL', H2O_max: 1, PCI_min: 6800, Cl_max: 0.3, Cendres_max: 1, Soufre_max: null },
 ];
 
-function populateHMap() {
-    INITIAL_FUEL_TYPES.forEach(ft => {
+function populateHMap(fuelTypes: FuelType[]) {
+    H_MAP['default'] = 6.0; // Default fallback
+    fuelTypes.forEach(ft => {
         H_MAP[ft.name] = ft.hValue;
     });
 }
 
-populateHMap();
+const seedInitialData = async () => {
+    await firebaseAppPromise;
+    console.log("Checking if initial data seeding is required...");
+
+    const checkPromises = [
+        getDocs(collection(db, 'fuel_types')),
+        getDocs(collection(db, 'fournisseurs')),
+        getDocs(collection(db, 'specifications')),
+        getDocs(collection(db, 'fuel_supplier_map'))
+    ];
+
+    const snapshots = await Promise.all(checkPromises);
+    const isEmpty = snapshots.some(snapshot => snapshot.empty);
+
+    if (isEmpty) {
+        console.log("One or more collections are empty. Seeding all initial data...");
+        const batch = writeBatch(db);
+
+        // Seed Fuel Types
+        INITIAL_FUEL_TYPES.forEach(fuel => {
+            const docRef = doc(db, 'fuel_types', fuel.name.replace(/ /g, '_'));
+            batch.set(docRef, fuel);
+        });
+
+        // Seed Fournisseurs
+        INITIAL_FOURNISSEURS.forEach(fournisseur => {
+            const docRef = doc(db, 'fournisseurs', fournisseur);
+            batch.set(docRef, { name: fournisseur });
+        });
+
+        // Seed Specifications
+        INITIAL_SPECIFICATIONS_DATA.forEach(spec => {
+            const docRef = doc(collection(db, 'specifications'));
+            batch.set(docRef, spec);
+        });
+
+        // Seed Fuel Supplier Map
+        const supplierMap: Record<string, string[]> = {};
+        INITIAL_SPECIFICATIONS_DATA.forEach(spec => {
+            if (!supplierMap[spec.type_combustible]) {
+                supplierMap[spec.type_combustible] = [];
+            }
+            if (!supplierMap[spec.type_combustible].includes(spec.fournisseur)) {
+                supplierMap[spec.type_combustible].push(spec.fournisseur);
+            }
+        });
+        Object.entries(supplierMap).forEach(([fuelType, suppliers]) => {
+            const docRef = doc(db, 'fuel_supplier_map', fuelType);
+            batch.set(docRef, { suppliers });
+        });
+
+        await batch.commit();
+        console.log("All initial data seeded successfully.");
+    } else {
+        console.log("Initial data already exists. Seeding skipped.");
+    }
+};
+
 
 export async function getFuelSupplierMap(): Promise<Record<string, string[]>> {
     await firebaseAppPromise;
@@ -71,7 +130,7 @@ export async function getFuelSupplierMap(): Promise<Record<string, string[]>> {
     const snapshot = await getDocs(mapCollection);
     
     if (snapshot.empty) {
-        console.warn("fuel_supplier_map collection is empty. Falling back to specifications.");
+        console.warn("fuel_supplier_map collection is empty.");
         return {};
     }
 
@@ -97,41 +156,23 @@ export async function addSupplierToFuel(fuelType: string, supplier: string): Pro
             suppliers: arrayUnion(supplier)
         });
     } else {
-        await writeBatch(db).set(fuelDocRef, { suppliers: [supplier] }).commit();
-    }
-}
-
-
-// This function will now be called from the component to ensure it runs.
-export async function seedSpecifications() {
-    await firebaseAppPromise;
-    const specsCollection = collection(db, 'specifications');
-    const snapshot = await getDocs(specsCollection);
-
-    if (snapshot.empty) {
-        console.log("Specifications collection is empty. Seeding now...");
-        const batch = writeBatch(db);
-        INITIAL_SPECIFICATIONS_DATA.forEach(spec => {
-            const docRef = doc(collection(db, 'specifications'));
-            batch.set(docRef, spec);
-        });
-        await batch.commit();
-        console.log("Specifications seeded successfully.");
-    } else {
-        console.log("Specifications collection already exists.");
+        await setDoc(fuelDocRef, { suppliers: [supplier] });
     }
 }
 
 
 export async function getFuelTypes(): Promise<FuelType[]> {
     await firebaseAppPromise;
-    // We will use the static list to avoid issues with corrupted data in Firestore.
-    const fuelTypes = INITIAL_FUEL_TYPES;
+    const fuelTypesCollection = collection(db, 'fuel_types');
+    const snapshot = await getDocs(fuelTypesCollection);
+
+    if (snapshot.empty) {
+        return [];
+    }
     
-    // Update H_MAP dynamically from the clean list
-    fuelTypes.forEach(ft => {
-        H_MAP[ft.name] = ft.hValue;
-    });
+    const fuelTypes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FuelType));
+    
+    populateHMap(fuelTypes);
 
     return fuelTypes;
 };
@@ -140,10 +181,9 @@ export async function getFuelTypes(): Promise<FuelType[]> {
 export async function getFuelTypesSortedByRecency(): Promise<FuelType[]> {
     await firebaseAppPromise;
 
-    // 1. Get all available fuel types from the clean, static list
     const allFuelTypes = await getFuelTypes();
+    if (allFuelTypes.length === 0) return [];
 
-    // 2. Get all results to determine recency
     const resultsQuery = query(collection(db, "resultats"), orderBy("date_creation", "desc"));
     const resultsSnapshot = await getDocs(resultsQuery);
 
@@ -155,26 +195,21 @@ export async function getFuelTypesSortedByRecency(): Promise<FuelType[]> {
         const timestamp = result.date_creation as Timestamp;
 
         if (fuelType && !fuelRecencyMap.has(fuelType)) {
-             // Use seconds as a simple numeric value for sorting.
-            fuelRecencyMap.set(fuelType, timestamp?.seconds || 0);
+             fuelRecencyMap.set(fuelType, timestamp?.seconds || 0);
         }
     });
 
-    // 3. Separate used and unused fuel types
     const usedFuelTypes = allFuelTypes.filter(ft => fuelRecencyMap.has(ft.name));
     const unusedFuelTypes = allFuelTypes.filter(ft => !fuelRecencyMap.has(ft.name));
 
-    // 4. Sort used fuel types by recency (most recent first)
     usedFuelTypes.sort((a, b) => {
         const recencyA = fuelRecencyMap.get(a.name) || 0;
         const recencyB = fuelRecencyMap.get(b.name) || 0;
-        return recencyB - recencyA; // Descending order
+        return recencyB - recencyA;
     });
 
-    // 5. Sort unused fuel types alphabetically
     unusedFuelTypes.sort((a, b) => a.name.localeCompare(b.name));
 
-    // 6. Combine the lists
     return [...usedFuelTypes, ...unusedFuelTypes];
 }
 
@@ -185,17 +220,16 @@ export async function getFournisseurs(): Promise<string[]> {
     const snapshot = await getDocs(fournisseursCollection);
     
     if (snapshot.empty) {
-        console.log("No fournisseurs found, returning initial data for display.");
-        return INITIAL_FOURNISSEURS;
+        return [];
     }
 
     const suppliers = snapshot.docs.map(doc => doc.data().name as string);
-    return [...new Set(suppliers)]; // Ensure uniqueness
+    return [...new Set(suppliers)];
 };
 
 async function updateSpecMap() {
     SPEC_MAP.clear();
-    const specs = await getSpecifications(true); // get from db
+    const specs = await getSpecifications(true);
     specs.forEach(spec => {
         SPEC_MAP.set(`${spec.type_combustible}|${spec.fournisseur}`, spec);
     });
@@ -203,6 +237,10 @@ async function updateSpecMap() {
 
 export async function getSpecifications(forceDbRead = false): Promise<Specification[]> {
     await firebaseAppPromise;
+    if (!forceDbRead && SPEC_MAP.size > 0) {
+        return Array.from(SPEC_MAP.values());
+    }
+
     const specsCollection = collection(db, 'specifications');
     const snapshot = await getDocs(specsCollection);
 
@@ -220,20 +258,12 @@ export async function addSpecification(spec: Omit<Specification, 'id'>) {
     await firebaseAppPromise;
     const q = query(collection(db, "specifications"), where("type_combustible", "==", spec.type_combustible), where("fournisseur", "==", spec.fournisseur));
     const existing = await getDocs(q);
-if (!existing.empty) {
-        throw new Error("Une spécification pour ce combustible et ce fournisseur existe déjà.");
+    if (!existing.empty) {
+            throw new Error("Une spécification pour ce combustible et ce fournisseur existe déjà.");
     }
-
-    // Also add the new fournisseur to the 'fournisseurs' collection if it doesn't exist
-    const founisseurQuery = query(collection(db, "fournisseurs"), where("name", "==", spec.fournisseur));
-    const existingFournisseur = await getDocs(founisseurQuery);
-    if(existingFournisseur.empty){
-        await addDoc(collection(db, 'fournisseurs'), {name: spec.fournisseur});
-    }
-
-    const docRef = await addDoc(collection(db, 'specifications'), spec);
+    
+    await addDoc(collection(db, 'specifications'), spec);
     await updateSpecMap();
-    return docRef;
 };
 
 export async function updateSpecification(id: string, specUpdate: Partial<Omit<Specification, 'id'>>) {
@@ -249,3 +279,6 @@ export async function deleteSpecification(id: string) {
     await deleteDoc(specRef);
     await updateSpecMap();
 };
+
+// Export the seeding function so it can be called from a component.
+export { seedInitialData };

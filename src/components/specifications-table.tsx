@@ -14,7 +14,7 @@ import {
     deleteSpecification,
     getFuelTypes,
     getFournisseurs,
-    seedSpecifications, // Import the new seeding function
+    seedInitialData, // Import the new seeding function
     type Specification,
     type FuelType
 } from '@/lib/data';
@@ -109,7 +109,8 @@ export function SpecificationsTable() {
         try {
             await firebaseAppPromise;
             
-            await seedSpecifications();
+            // Call the seeding function here. It will only run if collections are empty.
+            await seedInitialData();
 
             const [fetchedSpecs, fetchedFuelTypes, fetchedFournisseurs] = await Promise.all([
                 getSpecifications(),
@@ -340,7 +341,7 @@ export function SpecificationsTable() {
                         <AlertDialogTitle>Êtes-vous sûr ?</AlertDialogTitle>
                         <AlertDialogDescription>
                             Cette action est irréversible et supprimera définitivement la spécification.
-                        </AlertDialogDescription>
+                        </d-description>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel onClick={() => setDeletingSpecId(null)}>Annuler</AlertDialogCancel>
