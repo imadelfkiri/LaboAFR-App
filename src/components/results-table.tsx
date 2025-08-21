@@ -140,12 +140,10 @@ export function ResultsTable() {
   const fetchInitialData = useCallback(async () => {
     setLoading(true);
     try {
-      const [map] = await Promise.all([
-        getFuelSupplierMap(),
-        // Charger les specs pour remplir SPEC_MAP (on ignore le résultat)
-        getSpecifications(),
-      ]);
+      // getFuelSupplierMap will now also trigger the seeding if necessary
+      const map = await getFuelSupplierMap();
       setFuelSupplierMap(map);
+      await getSpecifications(); // This ensures SPEC_MAP is populated
 
       const q = query(collection(db, "resultats"), orderBy("date_arrivage", "desc"));
       const unsubscribe = onSnapshot(

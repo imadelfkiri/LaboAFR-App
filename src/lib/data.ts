@@ -72,7 +72,7 @@ export const seedInitialData = async () => {
 
     // Helper function to check and seed a collection
     const seedCollection = async (collectionName: string, initialData: any[], idField?: string) => {
-        const snapshot = await getDocs(collection(db, collectionName));
+        const snapshot = await getDocs(query(collection(db, collectionName)));
         if (snapshot.empty) {
             console.log(`Seeding ${collectionName}...`);
             writesPending = true;
@@ -112,8 +112,10 @@ export const seedInitialData = async () => {
     if (writesPending) {
         await batch.commit();
         console.log("Initial data seeding committed.");
+        // After seeding, we need to populate our in-memory maps
+        await updateSpecMap();
     } else {
-        console.log("All collections already populated. Seeding skipped.");
+        console.log("Data already exists or check passed. Seeding skipped.");
     }
 };
 
@@ -157,6 +159,7 @@ export async function addSupplierToFuel(fuelType: string, supplier: string): Pro
 
 
 export async function getFuelTypes(): Promise<FuelType[]> {
+    await seedInitialData(); // Make sure data is there before reading
     const fuelTypesCollection = collection(db, 'fuel_types');
     const snapshot = await getDocs(fuelTypesCollection);
 
@@ -221,7 +224,7 @@ export async function getFournisseurs(): Promise<string[]> {
 
 async function updateSpecMap() {
     SPEC_MAP.clear();
-    const specs = await getSpecifications(true);
+    const specs = await getSpecifications(true); // Force read from DB
     specs.forEach(spec => {
         SPEC_MAP.set(`${spec.type_combustible}|${spec.fournisseur}`, spec);
     });
