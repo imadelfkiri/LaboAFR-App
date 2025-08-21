@@ -124,7 +124,6 @@ export function SpecificationsTable() {
 
     useEffect(() => {
         fetchAllData();
-         // Expose a global function to open the modal
         (window as any).openSpecModal = () => handleModalOpen();
 
         return () => {
@@ -335,7 +334,7 @@ export function SpecificationsTable() {
                         <AlertDialogTitle>Êtes-vous sûr ?</AlertDialogTitle>
                         <AlertDialogDescription>
                             Cette action est irréversible et supprimera définitivement la spécification.
-                        </d-description>
+                        </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel onClick={() => setDeletingSpecId(null)}>Annuler</AlertDialogCancel>
