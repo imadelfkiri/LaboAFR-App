@@ -67,43 +67,27 @@ function populateHMap(fuelTypes: FuelType[]) {
 
 export const seedInitialData = async () => {
     console.log("Checking if initial data seeding is required...");
-
     const batch = writeBatch(db);
     let writesPending = false;
 
-    // Seed Fuel Types
-    const fuelTypesSnapshot = await getDocs(collection(db, 'fuel_types'));
-    if (fuelTypesSnapshot.empty) {
-        console.log("Seeding fuel_types...");
-        writesPending = true;
-        INITIAL_FUEL_TYPES.forEach(fuel => {
-            const docRef = doc(db, 'fuel_types', fuel.name.replace(/ /g, '_'));
-            batch.set(docRef, fuel);
-        });
-    }
+    // Helper function to check and seed a collection
+    const seedCollection = async (collectionName: string, initialData: any[], idField?: string) => {
+        const snapshot = await getDocs(collection(db, collectionName));
+        if (snapshot.empty) {
+            console.log(`Seeding ${collectionName}...`);
+            writesPending = true;
+            initialData.forEach(item => {
+                const docRef = idField ? doc(db, collectionName, item[idField].replace(/ /g, '_')) : doc(collection(db, collectionName));
+                batch.set(docRef, item);
+            });
+        }
+    };
+    
+    // Seed all collections individually
+    await seedCollection('fuel_types', INITIAL_FUEL_TYPES, 'name');
+    await seedCollection('fournisseurs', INITIAL_FOURNISSEURS.map(name => ({ name })), 'name');
+    await seedCollection('specifications', INITIAL_SPECIFICATIONS_DATA);
 
-    // Seed Fournisseurs
-    const fournisseursSnapshot = await getDocs(collection(db, 'fournisseurs'));
-    if (fournisseursSnapshot.empty) {
-        console.log("Seeding fournisseurs...");
-        writesPending = true;
-        INITIAL_FOURNISSEURS.forEach(fournisseur => {
-            const docRef = doc(db, 'fournisseurs', fournisseur);
-            batch.set(docRef, { name: fournisseur });
-        });
-    }
-    
-    // Seed Specifications
-    const specificationsSnapshot = await getDocs(collection(db, 'specifications'));
-    if (specificationsSnapshot.empty) {
-        console.log("Seeding specifications...");
-        writesPending = true;
-        INITIAL_SPECIFICATIONS_DATA.forEach(spec => {
-            const docRef = doc(collection(db, 'specifications'));
-            batch.set(docRef, spec);
-        });
-    }
-    
     // Seed Fuel Supplier Map
     const supplierMapSnapshot = await getDocs(collection(db, 'fuel_supplier_map'));
     if (supplierMapSnapshot.empty) {
@@ -123,6 +107,7 @@ export const seedInitialData = async () => {
             batch.set(docRef, { suppliers });
         });
     }
+
 
     if (writesPending) {
         await batch.commit();
