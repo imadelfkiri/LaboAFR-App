@@ -54,7 +54,7 @@ import {
   CheckCircle2,
   ChevronDown,
 } from "lucide-react";
-import { getSpecifications, SPEC_MAP, getFuelSupplierMap, seedInitialData } from "@/lib/data";
+import { getSpecifications, SPEC_MAP, getFuelSupplierMap } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
 import {
@@ -140,9 +140,8 @@ export function ResultsTable() {
   const fetchInitialData = useCallback(async () => {
     setLoading(true);
     try {
-      await seedInitialData();
-      await getSpecifications(); // This ensures SPEC_MAP is populated
-      
+      // These ensure SPEC_MAP is populated and we have the latest supplier map
+      await getSpecifications(); 
       const map = await getFuelSupplierMap();
       setFuelSupplierMap(map);
 

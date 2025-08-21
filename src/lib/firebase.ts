@@ -21,15 +21,10 @@ let appCheck: AppCheck | null = null;
 if (typeof window !== 'undefined') {
     // Note: You need to go to the Firebase Console > App Check and register your site's reCAPTCHA v3 site key.
     // Without this, App Check will fail and queries to Firestore may be blocked.
-    // For now, I will use a placeholder key.
     appCheck = initializeAppCheck(app, {
         provider: new ReCaptchaV3Provider('6LeIxAcpAAAAAPd_Xdp_18h5FAI_2M6vB_85hQfC'), // This is a public test key
         isTokenAutoRefreshEnabled: true,
     });
 }
 
-// firebaseAppPromise is kept for compatibility if needed, but direct export is cleaner.
-const firebaseAppPromise = Promise.resolve(app);
-
-
-export { db, appCheck, firebaseAppPromise };
+export { db };
