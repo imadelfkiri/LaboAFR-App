@@ -22,6 +22,7 @@ const pageTitles: { [key: string]: string } = {
   '/specifications': 'Spécifications Techniques',
   '/calcul-melange': 'Calcul de Mélange',
   '/indicateurs': 'Indicateurs',
+  '/calcul-impact': "Calcul d'Impact",
 };
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
