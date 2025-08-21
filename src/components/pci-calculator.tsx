@@ -152,7 +152,7 @@ export function PciCalculator() {
 
   const fetchAndSetData = useCallback(async () => {
       try {
-        await seedInitialData();
+        await seedInitialData(); // This will ensure data is seeded if needed
         const [fetchedFuelTypes, map, _specs] = await Promise.all([
           getFuelTypesSortedByRecency(),
           getFuelSupplierMap(),
@@ -712,5 +712,3 @@ export function PciCalculator() {
     </div>
   );
 }
-
-    

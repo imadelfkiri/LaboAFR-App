@@ -141,9 +141,10 @@ export function ResultsTable() {
     setLoading(true);
     try {
       await seedInitialData();
+      await getSpecifications(); // This ensures SPEC_MAP is populated
+      
       const map = await getFuelSupplierMap();
       setFuelSupplierMap(map);
-      await getSpecifications(); // This ensures SPEC_MAP is populated
 
       const q = query(collection(db, "resultats"), orderBy("date_arrivage", "desc"));
       const unsubscribe = onSnapshot(
@@ -998,5 +999,3 @@ export function ResultsTable() {
 }
 
 export default ResultsTable;
-
-    

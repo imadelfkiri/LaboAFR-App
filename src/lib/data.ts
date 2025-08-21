@@ -1,6 +1,5 @@
-
 // src/lib/data.ts
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, arrayUnion, orderBy, Timestamp, setDoc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, arrayUnion, orderBy, Timestamp, setDoc,getCountFromServer } from 'firebase/firestore';
 import { db } from './firebase';
 
 export const H_MAP: Record<string, number> = {};
@@ -12,7 +11,7 @@ export interface FuelType {
 }
 
 export interface Specification {
-    id: string;
+    id:string;
     type_combustible: string;
     fournisseur: string;
     PCI_min?: number | null;
@@ -74,67 +73,60 @@ export const seedInitialData = async () => {
     }
 
     seedingPromise = (async () => {
-        console.log("Checking if initial data seeding is required...");
-        const batch = writeBatch(db);
-        let writesPending = false;
+        try {
+            console.log("Checking if initial data seeding is required...");
+            const batch = writeBatch(db);
+            let writesPending = false;
 
-        // Helper function to check and seed a collection
-        const seedCollection = async (collectionName: string, initialData: any[], idField?: string) => {
-            const snapshot = await getDocs(query(collection(db, collectionName)));
-            if (snapshot.empty) {
-                console.log(`Seeding ${collectionName}...`);
+            const seedCollectionIfNeeded = async (collectionName: string, initialData: any[], idField?: string) => {
+                const collRef = collection(db, collectionName);
+                const snapshot = await getCountFromServer(collRef);
+                if (snapshot.data().count === 0) {
+                    console.log(`Seeding ${collectionName}...`);
+                    writesPending = true;
+                    initialData.forEach(item => {
+                        const docRef = idField ? doc(db, collectionName, item[idField].replace(/[\/\s]/g, '_')) : doc(collection(db, collectionName));
+                        batch.set(docRef, item);
+                    });
+                }
+            };
+            
+            await seedCollectionIfNeeded('fuel_types', INITIAL_FUEL_TYPES, 'name');
+            await seedCollectionIfNeeded('fournisseurs', INITIAL_FOURNISSEURS.map(name => ({ name })), 'name');
+            await seedCollectionIfNeeded('specifications', INITIAL_SPECIFICATIONS_DATA);
+            
+            const supplierMapColl = collection(db, 'fuel_supplier_map');
+            const supplierMapSnapshot = await getCountFromServer(supplierMapColl);
+            if (supplierMapSnapshot.data().count === 0) {
+                console.log("Seeding fuel_supplier_map...");
                 writesPending = true;
-                initialData.forEach(item => {
-                    // Use a specific field as ID or auto-generate one
-                    const docRef = idField ? doc(db, collectionName, item[idField].replace(/[\/\s]/g, '_')) : doc(collection(db, collectionName));
-                    batch.set(docRef, item);
+                const supplierMap: Record<string, string[]> = {};
+                INITIAL_SPECIFICATIONS_DATA.forEach(spec => {
+                    if (!supplierMap[spec.type_combustible]) supplierMap[spec.type_combustible] = [];
+                    if (!supplierMap[spec.type_combustible].includes(spec.fournisseur)) {
+                        supplierMap[spec.type_combustible].push(spec.fournisseur);
+                    }
                 });
+                for (const [fuelType, suppliers] of Object.entries(supplierMap)) {
+                    const docRef = doc(db, 'fuel_supplier_map', fuelType);
+                    batch.set(docRef, { suppliers });
+                }
             }
-        };
-        
-        // Seed all base data collections
-        await seedCollection('fuel_types', INITIAL_FUEL_TYPES, 'name');
-        await seedCollection('fournisseurs', INITIAL_FOURNISSEURS.map(name => ({ name })), 'name');
-        await seedCollection('specifications', INITIAL_SPECIFICATIONS_DATA);
 
-        // Seed Fuel Supplier Map only if it's empty
-        const supplierMapSnapshot = await getDocs(collection(db, 'fuel_supplier_map'));
-        if (supplierMapSnapshot.empty) {
-            console.log("Seeding fuel_supplier_map...");
-            writesPending = true;
-            const supplierMap: Record<string, string[]> = {};
-            // Derive map from specifications
-            INITIAL_SPECIFICATIONS_DATA.forEach(spec => {
-                if (!supplierMap[spec.type_combustible]) {
-                    supplierMap[spec.type_combustible] = [];
-                }
-                if (!supplierMap[spec.type_combustible].includes(spec.fournisseur)) {
-                    supplierMap[spec.type_combustible].push(spec.fournisseur);
-                }
-            });
-            Object.entries(supplierMap).forEach(([fuelType, suppliers]) => {
-                const docRef = doc(db, 'fuel_supplier_map', fuelType);
-                batch.set(docRef, { suppliers });
-            });
-        }
-
-
-        if (writesPending) {
-            try {
+            if (writesPending) {
                 await batch.commit();
                 console.log("Initial data seeding committed.");
-            } catch(e) {
-                console.error("Seeding failed: ", e);
+            } else {
+                console.log("Data already exists. Seeding skipped.");
             }
-        } else {
-            console.log("Data already exists. Seeding skipped.");
+        } catch (e) {
+            console.error("Seeding failed: ", e);
+        } finally {
+            seedingPromise = null; // Reset for next call
         }
-        // After seeding is done (or skipped), populate our in-memory maps
-        await Promise.all([updateSpecMap(), getFuelTypes()]);
     })();
 
-    await seedingPromise;
-    seedingPromise = null; // Reset for potential future calls if needed
+    return seedingPromise;
 };
 
 
@@ -287,5 +279,3 @@ export async function deleteSpecification(id: string) {
     await deleteDoc(specRef);
     await updateSpecMap();
 };
-
-    
