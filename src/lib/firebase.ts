@@ -18,23 +18,24 @@ let app: FirebaseApp;
 let appCheck: AppCheck | null = null;
 let db: Firestore;
 
-const firebaseAppPromise = new Promise<FirebaseApp>((resolve) => {
-    if (typeof window !== 'undefined') {
-        try {
-            app = getApp();
-        } catch (e) {
-            app = initializeApp(firebaseConfig);
-        }
+try {
+    app = getApp();
+} catch (e) {
+    app = initializeApp(firebaseConfig);
+}
 
-        appCheck = initializeAppCheck(app, {
-            provider: new ReCaptchaV3Provider('6Ld-sQ8qAAAAAGn4584i9GoV60ERb7aCU65_D2rO'),
-            isTokenAutoRefreshEnabled: true,
-        });
-        
-        db = getFirestore(app);
-        resolve(app);
-    }
-});
+if (typeof window !== 'undefined' && app) {
+    appCheck = initializeAppCheck(app, {
+        provider: new ReCaptchaV3Provider('6Ld-sQ8qAAAAAGn4584i9GoV60ERb7aCU65_D2rO'),
+        isTokenAutoRefreshEnabled: true,
+    });
+}
+
+db = getFirestore(app);
+
+// firebaseAppPromise is kept for compatibility with other files if they use it,
+// but direct export of 'db' is now more reliable.
+const firebaseAppPromise = Promise.resolve(app);
 
 
 export { db, appCheck, firebaseAppPromise };

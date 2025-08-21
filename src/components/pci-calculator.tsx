@@ -9,7 +9,7 @@ import { format, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
 import { CalendarIcon, Fuel, PlusCircle, ClipboardList, FlaskConical, MessageSquareText } from 'lucide-react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db, firebaseAppPromise } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -152,7 +152,6 @@ export function PciCalculator() {
 
   const fetchAndSetData = useCallback(async () => {
       try {
-        await firebaseAppPromise; 
         const [fetchedFuelTypes, map, _specs] = await Promise.all([
           getFuelTypesSortedByRecency(),
           getFuelSupplierMap(),
@@ -712,5 +711,3 @@ export function PciCalculator() {
     </div>
   );
 }
-
-    
