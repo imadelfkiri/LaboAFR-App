@@ -153,6 +153,7 @@ export function PciCalculator() {
   const fetchAndSetData = useCallback(async () => {
       setLoading(true);
       try {
+        setAllFuelTypes([]); // Réinitialiser pour éviter les doublons
         const [fetchedFuelTypes, map, _specs] = await Promise.all([
           getFuelTypes(),
           getFuelSupplierMap(),
@@ -455,7 +456,7 @@ export function PciCalculator() {
                                             </FormControl>
                                             <SelectContent side="bottom" avoidCollisions={false} className="z-50">
                                                 {allFuelTypes.map((fuel) => (
-                                                    <SelectItem key={fuel.name} value={fuel.name}>
+                                                    <SelectItem key={fuel.id} value={fuel.name}>
                                                         {fuel.name}
                                                     </SelectItem>
                                                 ))}
@@ -712,3 +713,5 @@ export function PciCalculator() {
     </div>
   );
 }
+
+    
