@@ -65,58 +65,76 @@ function populateHMap(fuelTypes: FuelType[]) {
     });
 }
 
-export const seedInitialData = async () => {
-    console.log("Checking if initial data seeding is required...");
-    const batch = writeBatch(db);
-    let writesPending = false;
+// Singleton promise to prevent multiple seeding attempts running at the same time
+let seedingPromise: Promise<void> | null = null;
 
-    // Helper function to check and seed a collection
-    const seedCollection = async (collectionName: string, initialData: any[], idField?: string) => {
-        const snapshot = await getDocs(query(collection(db, collectionName)));
-        if (snapshot.empty) {
-            console.log(`Seeding ${collectionName}...`);
+export const seedInitialData = async () => {
+    if (seedingPromise) {
+        return seedingPromise;
+    }
+
+    seedingPromise = (async () => {
+        console.log("Checking if initial data seeding is required...");
+        const batch = writeBatch(db);
+        let writesPending = false;
+
+        // Helper function to check and seed a collection
+        const seedCollection = async (collectionName: string, initialData: any[], idField?: string) => {
+            const snapshot = await getDocs(query(collection(db, collectionName)));
+            if (snapshot.empty) {
+                console.log(`Seeding ${collectionName}...`);
+                writesPending = true;
+                initialData.forEach(item => {
+                    // Use a specific field as ID or auto-generate one
+                    const docRef = idField ? doc(db, collectionName, item[idField].replace(/[\/\s]/g, '_')) : doc(collection(db, collectionName));
+                    batch.set(docRef, item);
+                });
+            }
+        };
+        
+        // Seed all base data collections
+        await seedCollection('fuel_types', INITIAL_FUEL_TYPES, 'name');
+        await seedCollection('fournisseurs', INITIAL_FOURNISSEURS.map(name => ({ name })), 'name');
+        await seedCollection('specifications', INITIAL_SPECIFICATIONS_DATA);
+
+        // Seed Fuel Supplier Map only if it's empty
+        const supplierMapSnapshot = await getDocs(collection(db, 'fuel_supplier_map'));
+        if (supplierMapSnapshot.empty) {
+            console.log("Seeding fuel_supplier_map...");
             writesPending = true;
-            initialData.forEach(item => {
-                const docRef = idField ? doc(db, collectionName, item[idField].replace(/[\/\s]/g, '_')) : doc(collection(db, collectionName));
-                batch.set(docRef, item);
+            const supplierMap: Record<string, string[]> = {};
+            // Derive map from specifications
+            INITIAL_SPECIFICATIONS_DATA.forEach(spec => {
+                if (!supplierMap[spec.type_combustible]) {
+                    supplierMap[spec.type_combustible] = [];
+                }
+                if (!supplierMap[spec.type_combustible].includes(spec.fournisseur)) {
+                    supplierMap[spec.type_combustible].push(spec.fournisseur);
+                }
+            });
+            Object.entries(supplierMap).forEach(([fuelType, suppliers]) => {
+                const docRef = doc(db, 'fuel_supplier_map', fuelType);
+                batch.set(docRef, { suppliers });
             });
         }
-    };
-    
-    // Seed all collections individually
-    await seedCollection('fuel_types', INITIAL_FUEL_TYPES, 'name');
-    await seedCollection('fournisseurs', INITIAL_FOURNISSEURS.map(name => ({ name })), 'name');
-    await seedCollection('specifications', INITIAL_SPECIFICATIONS_DATA);
 
-    // Seed Fuel Supplier Map
-    const supplierMapSnapshot = await getDocs(collection(db, 'fuel_supplier_map'));
-    if (supplierMapSnapshot.empty) {
-        console.log("Seeding fuel_supplier_map...");
-        writesPending = true;
-        const supplierMap: Record<string, string[]> = {};
-        INITIAL_SPECIFICATIONS_DATA.forEach(spec => {
-            if (!supplierMap[spec.type_combustible]) {
-                supplierMap[spec.type_combustible] = [];
+
+        if (writesPending) {
+            try {
+                await batch.commit();
+                console.log("Initial data seeding committed.");
+            } catch(e) {
+                console.error("Seeding failed: ", e);
             }
-            if (!supplierMap[spec.type_combustible].includes(spec.fournisseur)) {
-                supplierMap[spec.type_combustible].push(spec.fournisseur);
-            }
-        });
-        Object.entries(supplierMap).forEach(([fuelType, suppliers]) => {
-            const docRef = doc(db, 'fuel_supplier_map', fuelType);
-            batch.set(docRef, { suppliers });
-        });
-    }
+        } else {
+            console.log("Data already exists. Seeding skipped.");
+        }
+        // After seeding is done (or skipped), populate our in-memory maps
+        await Promise.all([updateSpecMap(), getFuelTypes()]);
+    })();
 
-
-    if (writesPending) {
-        await batch.commit();
-        console.log("Initial data seeding committed.");
-        // After seeding, we need to populate our in-memory maps
-        await updateSpecMap();
-    } else {
-        console.log("Data already exists or check passed. Seeding skipped.");
-    }
+    await seedingPromise;
+    seedingPromise = null; // Reset for potential future calls if needed
 };
 
 
@@ -159,7 +177,6 @@ export async function addSupplierToFuel(fuelType: string, supplier: string): Pro
 
 
 export async function getFuelTypes(): Promise<FuelType[]> {
-    await seedInitialData(); // Make sure data is there before reading
     const fuelTypesCollection = collection(db, 'fuel_types');
     const snapshot = await getDocs(fuelTypesCollection);
 
@@ -270,3 +287,5 @@ export async function deleteSpecification(id: string) {
     await deleteDoc(specRef);
     await updateSpecMap();
 };
+
+    
