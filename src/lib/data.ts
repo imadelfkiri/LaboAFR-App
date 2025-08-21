@@ -69,39 +69,47 @@ export const seedInitialData = async () => {
     await firebaseAppPromise;
     console.log("Checking if initial data seeding is required...");
 
-    const checkPromises = [
-        getDocs(collection(db, 'fuel_types')),
-        getDocs(collection(db, 'fournisseurs')),
-        getDocs(collection(db, 'specifications')),
-        getDocs(collection(db, 'fuel_supplier_map'))
-    ];
+    const batch = writeBatch(db);
+    let writesPending = false;
 
-    const snapshots = await Promise.all(checkPromises);
-    const isEmpty = snapshots.some(snapshot => snapshot.empty);
-
-    if (isEmpty) {
-        console.log("One or more collections are empty. Seeding all initial data...");
-        const batch = writeBatch(db);
-
-        // Seed Fuel Types
+    // Seed Fuel Types
+    const fuelTypesSnapshot = await getDocs(collection(db, 'fuel_types'));
+    if (fuelTypesSnapshot.empty) {
+        console.log("Seeding fuel_types...");
+        writesPending = true;
         INITIAL_FUEL_TYPES.forEach(fuel => {
             const docRef = doc(db, 'fuel_types', fuel.name.replace(/ /g, '_'));
             batch.set(docRef, fuel);
         });
+    }
 
-        // Seed Fournisseurs
+    // Seed Fournisseurs
+    const fournisseursSnapshot = await getDocs(collection(db, 'fournisseurs'));
+    if (fournisseursSnapshot.empty) {
+        console.log("Seeding fournisseurs...");
+        writesPending = true;
         INITIAL_FOURNISSEURS.forEach(fournisseur => {
             const docRef = doc(db, 'fournisseurs', fournisseur);
             batch.set(docRef, { name: fournisseur });
         });
-
-        // Seed Specifications
+    }
+    
+    // Seed Specifications
+    const specificationsSnapshot = await getDocs(collection(db, 'specifications'));
+    if (specificationsSnapshot.empty) {
+        console.log("Seeding specifications...");
+        writesPending = true;
         INITIAL_SPECIFICATIONS_DATA.forEach(spec => {
             const docRef = doc(collection(db, 'specifications'));
             batch.set(docRef, spec);
         });
-
-        // Seed Fuel Supplier Map
+    }
+    
+    // Seed Fuel Supplier Map
+    const supplierMapSnapshot = await getDocs(collection(db, 'fuel_supplier_map'));
+    if (supplierMapSnapshot.empty) {
+        console.log("Seeding fuel_supplier_map...");
+        writesPending = true;
         const supplierMap: Record<string, string[]> = {};
         INITIAL_SPECIFICATIONS_DATA.forEach(spec => {
             if (!supplierMap[spec.type_combustible]) {
@@ -115,11 +123,13 @@ export const seedInitialData = async () => {
             const docRef = doc(db, 'fuel_supplier_map', fuelType);
             batch.set(docRef, { suppliers });
         });
+    }
 
+    if (writesPending) {
         await batch.commit();
-        console.log("All initial data seeded successfully.");
+        console.log("Initial data seeding committed.");
     } else {
-        console.log("Initial data already exists. Seeding skipped.");
+        console.log("All collections already populated. Seeding skipped.");
     }
 };
 
