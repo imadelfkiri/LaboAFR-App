@@ -1,10 +1,15 @@
-import React from 'react';
+import { MixtureCalculator } from '@/components/mixture-calculator';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: "Calcul de Mélange | FuelTrack AFR",
+  description: "Outil de simulation pour la préparation de mélanges de combustibles alternatifs (AF).",
+};
 
 export default function CalculMelangePage() {
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Calcul de Mélange</h1>
-      <p>Cette page est en cours de construction.</p>
+     <div className="flex-1 bg-gray-900 text-white">
+        <MixtureCalculator />
     </div>
   );
 }

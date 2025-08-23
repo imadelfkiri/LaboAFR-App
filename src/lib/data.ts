@@ -22,6 +22,16 @@ export interface Specification {
     Soufre_max?: number | null;
 }
 
+export interface AverageAnalysis {
+    pci_brut: number;
+    h2o: number;
+    chlore: number;
+    cendres: number;
+    density: number;
+    count: number;
+}
+
+
 export const SPEC_MAP = new Map<string, Specification>();
 
 function populateHMap(fuelTypes: FuelType[]) {
@@ -68,28 +78,31 @@ export async function addSupplierToFuel(fuelType: string, supplier: string): Pro
     }
 }
 
-
 export async function getFuelTypes(): Promise<FuelType[]> {
     const fuelTypesCollection = collection(db, 'fuel_types');
     const q = query(fuelTypesCollection, orderBy("name"));
     const snapshot = await getDocs(q);
     
+    if (snapshot.empty) return [];
+    
     const fuelTypes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FuelType));
     
     populateHMap(fuelTypes);
     
-    // Remove duplicates by name, just in case
-    const uniqueFuelTypes = Array.from(new Map(fuelTypes.map(item => [item['name'], item])).values());
+    const uniqueFuelTypes = [...new Map(fuelTypes.map(item => [item.name, item])).values()];
 
     return uniqueFuelTypes;
 };
 
 export async function getFournisseurs(): Promise<string[]> {
-    const fournisseursCollection = collection(db, 'fournisseurs');
-    const snapshot = await getDocs(fournisseursCollection);
-    
-    const suppliers = snapshot.docs.map(doc => doc.data().name as string);
-    return [...new Set(suppliers)]; // Return unique suppliers
+    // This function can be improved by fetching from a dedicated 'fournisseurs' collection
+    // For now, we get it from existing results to ensure we only list suppliers with data.
+    const resultsCollection = collection(db, 'resultats');
+    const snapshot = await getDocs(resultsCollection);
+    if (snapshot.empty) return [];
+
+    const suppliers = snapshot.docs.map(doc => doc.data().fournisseur as string);
+    return [...new Set(suppliers)].sort(); // Return unique sorted suppliers
 };
 
 async function updateSpecMap() {
@@ -107,6 +120,7 @@ export async function getSpecifications(forceDbRead = false): Promise<Specificat
 
     const specsCollection = collection(db, 'specifications');
     const snapshot = await getDocs(specsCollection);
+     if (snapshot.empty) return [];
 
     const specs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Specification));
     
@@ -140,3 +154,63 @@ export async function deleteSpecification(id: string) {
     await deleteDoc(specRef);
     await updateSpecMap();
 };
+
+export async function getAverageAnalysisForFuels(
+  fuelNames: string[] | null,
+  dateRange: { from: Date, to: Date }
+): Promise<Record<string, AverageAnalysis>> {
+  
+  let q = query(
+    collection(db, 'resultats'), 
+    where('date_arrivage', '>=', Timestamp.fromDate(dateRange.from)),
+    where('date_arrivage', '<=', Timestamp.fromDate(dateRange.to))
+  );
+
+  const snapshot = await getDocs(q);
+  const results = snapshot.docs.map(doc => doc.data());
+
+  const fuelNamesToProcess = fuelNames ?? [...new Set(results.map(r => r.type_combustible))];
+
+  const analysis: Record<string, {
+    pci_brut: number[];
+    h2o: number[];
+    chlore: number[];
+    cendres: number[];
+    density: number[];
+  }> = {};
+
+  // Initialize
+  fuelNamesToProcess.forEach(name => {
+    analysis[name] = { pci_brut: [], h2o: [], chlore: [], cendres: [], density: [] };
+  });
+
+  // Populate
+  results.forEach(res => {
+    if (fuelNamesToProcess.includes(res.type_combustible)) {
+      const target = analysis[res.type_combustible];
+      if (typeof res.pci_brut === 'number') target.pci_brut.push(res.pci_brut);
+      if (typeof res.h2o === 'number') target.h2o.push(res.h2o);
+      if (typeof res.chlore === 'number') target.chlore.push(res.chlore);
+      if (typeof res.cendres === 'number') target.cendres.push(res.cendres);
+      if (typeof res.densite === 'number') target.density.push(res.densite);
+    }
+  });
+
+  const finalAverages: Record<string, AverageAnalysis> = {};
+
+  const avg = (arr: number[]) => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+
+  for (const name in analysis) {
+    const data = analysis[name];
+    finalAverages[name] = {
+      pci_brut: avg(data.pci_brut),
+      h2o: avg(data.h2o),
+      chlore: avg(data.chlore),
+      cendres: avg(data.cendres),
+      density: avg(data.density),
+      count: data.pci_brut.length
+    };
+  }
+
+  return finalAverages;
+}
