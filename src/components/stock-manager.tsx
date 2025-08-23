@@ -6,9 +6,8 @@ import {
   getStocks,
   updateStock,
   addArrivage,
-  getArrivages,
+  calculateAndApplyYesterdayConsumption,
   type Stock,
-  type Arrivage
 } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,8 +51,8 @@ import {
 } from "@/components/ui/popover";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Archive, PlusCircle, CalendarIcon, Truck, Save } from 'lucide-react';
-import { format, subDays } from 'date-fns';
+import { Archive, PlusCircle, CalendarIcon, Truck, Save, Zap } from 'lucide-react';
+import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -79,6 +78,7 @@ export function StockManager() {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCalculating, setIsCalculating] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof arrivageSchema>>({
@@ -143,6 +143,39 @@ export function StockManager() {
         toast({ variant: "destructive", title: "Erreur", description: errorMessage });
     }
   };
+  
+  const handleCalculateConsumption = async () => {
+    setIsCalculating(true);
+    try {
+        const consumed = await calculateAndApplyYesterdayConsumption();
+        const consumedFuels = Object.entries(consumed).filter(([, qty]) => qty > 0);
+
+        if (consumedFuels.length === 0) {
+             toast({ title: "Calcul terminé", description: "Aucune consommation enregistrée pour la journée d'hier." });
+        } else {
+            toast({
+                title: "Consommation appliquée",
+                description: (
+                    <div>
+                        <p>Le stock a été mis à jour avec la consommation d'hier.</p>
+                        <ul className="mt-2 text-xs list-disc pl-4">
+                            {consumedFuels.map(([fuel, qty]) => (
+                                <li key={fuel}>{fuel}: {qty.toFixed(2)} tonnes</li>
+                            ))}
+                        </ul>
+                    </div>
+                ),
+            });
+        }
+
+        fetchStocks(); // Refresh stock data
+    } catch(error) {
+        const errorMessage = error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
+        toast({ variant: "destructive", title: "Erreur de calcul", description: errorMessage });
+    } finally {
+        setIsCalculating(false);
+    }
+  };
 
 
   if (loading) {
@@ -163,7 +196,7 @@ export function StockManager() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-row items-start md:items-center justify-between gap-4">
         <div>
           <CardTitle className="flex items-center gap-2">
             <Archive className="h-6 w-6 text-primary" />
@@ -173,101 +206,107 @@ export function StockManager() {
             Suivi et enregistrement des arrivages de combustibles.
           </CardDescription>
         </div>
-        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-            <DialogTrigger asChild>
-                <Button>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Enregistrer un Arrivage
-                </Button>
-            </DialogTrigger>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Nouvel Arrivage</DialogTitle>
-                    <DialogDescription>
-                        Entrez les informations de la nouvelle livraison. Le stock sera mis à jour automatiquement.
-                    </DialogDescription>
-                </DialogHeader>
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onArrivageSubmit)} className="space-y-4 py-4">
-                    <FormField
-                      control={form.control}
-                      name="type_combustible"
-                      render={({ field }) => (
-                          <FormItem>
-                              <FormLabel>Combustible</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+        <div className="flex flex-col md:flex-row gap-2">
+            <Button onClick={handleCalculateConsumption} disabled={isCalculating} variant="outline">
+                <Zap className="mr-2 h-4 w-4" />
+                {isCalculating ? "Calcul en cours..." : "Calculer la consommation d'hier"}
+            </Button>
+            <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+                <DialogTrigger asChild>
+                    <Button>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Enregistrer un Arrivage
+                    </Button>
+                </DialogTrigger>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Nouvel Arrivage</DialogTitle>
+                        <DialogDescription>
+                            Entrez les informations de la nouvelle livraison. Le stock sera mis à jour automatiquement.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <Form {...form}>
+                      <form onSubmit={form.handleSubmit(onArrivageSubmit)} className="space-y-4 py-4">
+                        <FormField
+                          control={form.control}
+                          name="type_combustible"
+                          render={({ field }) => (
+                              <FormItem>
+                                  <FormLabel>Combustible</FormLabel>
+                                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                      <FormControl>
+                                          <SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent>
+                                          {stocks.map(s => <SelectItem key={s.id} value={s.id}>{s.nom_combustible}</SelectItem>)}
+                                      </SelectContent>
+                                  </Select>
+                                  <FormMessage />
+                              </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="quantite"
+                          render={({ field }) => (
+                              <FormItem>
+                                  <FormLabel>Quantité (tonnes)</FormLabel>
+                                  <FormControl><Input type="number" {...field} value={field.value ?? ''} placeholder="Ex: 50.5" /></FormControl>
+                                  <FormMessage />
+                              </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="date_arrivage"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-col">
+                              <FormLabel>Date d'arrivage</FormLabel>
+                              <Popover>
+                                  <PopoverTrigger asChild>
                                   <FormControl>
-                                      <SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger>
+                                      <Button
+                                      variant={"outline"}
+                                      className={cn(
+                                          "w-full justify-start text-left font-normal",
+                                          !field.value && "text-muted-foreground"
+                                      )}
+                                      >
+                                      <CalendarIcon className="mr-2 h-4 w-4" />
+                                      {field.value ? (
+                                          format(field.value, "PPP", { locale: fr })
+                                      ) : (
+                                          <span>Choisir une date</span>
+                                      )}
+                                      </Button>
                                   </FormControl>
-                                  <SelectContent>
-                                      {stocks.map(s => <SelectItem key={s.id} value={s.id}>{s.nom_combustible}</SelectItem>)}
-                                  </SelectContent>
-                              </Select>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-0" align="start">
+                                  <Calendar
+                                      mode="single"
+                                      selected={field.value}
+                                      onSelect={field.onChange}
+                                      initialFocus
+                                      locale={fr}
+                                  />
+                                  </PopoverContent>
+                              </Popover>
                               <FormMessage />
-                          </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="quantite"
-                      render={({ field }) => (
-                          <FormItem>
-                              <FormLabel>Quantité (tonnes)</FormLabel>
-                              <FormControl><Input type="number" {...field} value={field.value ?? ''} placeholder="Ex: 50.5" /></FormControl>
-                              <FormMessage />
-                          </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="date_arrivage"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-col">
-                          <FormLabel>Date d'arrivage</FormLabel>
-                          <Popover>
-                              <PopoverTrigger asChild>
-                              <FormControl>
-                                  <Button
-                                  variant={"outline"}
-                                  className={cn(
-                                      "w-full justify-start text-left font-normal",
-                                      !field.value && "text-muted-foreground"
-                                  )}
-                                  >
-                                  <CalendarIcon className="mr-2 h-4 w-4" />
-                                  {field.value ? (
-                                      format(field.value, "PPP", { locale: fr })
-                                  ) : (
-                                      <span>Choisir une date</span>
-                                  )}
-                                  </Button>
-                              </FormControl>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-auto p-0" align="start">
-                              <Calendar
-                                  mode="single"
-                                  selected={field.value}
-                                  onSelect={field.onChange}
-                                  initialFocus
-                                  locale={fr}
-                              />
-                              </PopoverContent>
-                          </Popover>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                            </FormItem>
+                          )}
+                        />
 
-                    <DialogFooter>
-                        <DialogClose asChild>
-                            <Button type="button" variant="secondary">Annuler</Button>
-                        </DialogClose>
-                        <Button type="submit">Enregistrer</Button>
-                    </DialogFooter>
-                  </form>
-                </Form>
-            </DialogContent>
-        </Dialog>
+                        <DialogFooter>
+                            <DialogClose asChild>
+                                <Button type="button" variant="secondary">Annuler</Button>
+                            </DialogClose>
+                            <Button type="submit">Enregistrer</Button>
+                        </DialogFooter>
+                      </form>
+                    </Form>
+                </DialogContent>
+            </Dialog>
+        </div>
       </CardHeader>
       <CardContent>
         <Table>

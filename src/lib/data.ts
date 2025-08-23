@@ -1,6 +1,6 @@
 
 // src/lib/data.ts
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, arrayUnion, orderBy, Timestamp, setDoc,getCountFromServer } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, arrayUnion, orderBy, Timestamp, setDoc,getCountFromServer, startOfDay, endOfDay } from 'firebase/firestore';
 import { db } from './firebase';
 
 export const H_MAP: Record<string, number> = {};
@@ -378,6 +378,74 @@ export async function getArrivages(dateRange: { from: Date, to: Date }): Promise
     if (snapshot.empty) return [];
 
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Arrivage));
+}
+
+export async function calculateAndApplyYesterdayConsumption(): Promise<Record<string, number>> {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const startOfYesterday = startOfDay(yesterday);
+    const endOfYesterday = endOfDay(yesterday);
+
+    const sessions = await getMixtureSessions(startOfYesterday, endOfYesterday);
+
+    if (sessions.length === 0) {
+        console.log("No mixture sessions found for yesterday.");
+        return {};
+    }
+
+    const totalConsumptionByFuel: Record<string, number> = {};
+    let totalOperatingHours = 0;
+
+    sessions.forEach(session => {
+        // We assume each session represents a state for a period of time.
+        // A simple approach is to average the consumption rate over the day.
+        // Let's assume each session's flow rate is valid for (24 / num_sessions) hours.
+        const sessionDurationHours = 24 / sessions.length;
+        totalOperatingHours += sessionDurationHours;
+
+        const installations = [session.hallAF, session.ats];
+        installations.forEach(installation => {
+            if (!installation || !installation.flowRate || !installation.fuels) return;
+            
+            const totalBuckets = Object.values(installation.fuels).reduce((sum: number, fuel: any) => sum + (fuel.buckets || 0), 0);
+            if (totalBuckets === 0) return;
+
+            Object.entries(installation.fuels).forEach(([fuelName, fuelData]: [string, any]) => {
+                if (fuelData.buckets > 0) {
+                    const fuelProportion = fuelData.buckets / totalBuckets;
+                    // flowRate is in t/h, so consumption is in tonnes
+                    const fuelConsumption = installation.flowRate * sessionDurationHours * fuelProportion;
+
+                    if (!totalConsumptionByFuel[fuelName]) {
+                        totalConsumptionByFuel[fuelName] = 0;
+                    }
+                    totalConsumptionByFuel[fuelName] += fuelConsumption;
+                }
+            });
+        });
+    });
+
+    if (Object.keys(totalConsumptionByFuel).length === 0) {
+        return {};
+    }
+
+    const stocks = await getStocks();
+    const stockMap = new Map(stocks.map(s => [s.nom_combustible, s]));
+    const batch = writeBatch(db);
+
+    for (const fuelName in totalConsumptionByFuel) {
+        const stockInfo = stockMap.get(fuelName);
+        if (stockInfo) {
+            const consumedQty = totalConsumptionByFuel[fuelName];
+            const newStock = stockInfo.stock_actuel_tonnes - consumedQty;
+            const stockRef = doc(db, 'stocks', stockInfo.id);
+            batch.update(stockRef, { stock_actuel_tonnes: newStock < 0 ? 0 : newStock });
+        }
+    }
+
+    await batch.commit();
+    return totalConsumptionByFuel;
 }
 
     
