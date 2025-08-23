@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { BrainCircuit, Calendar as CalendarIcon, Save, AlertCircle, DollarSign } from 'lucide-react';
+import { BrainCircuit, Calendar as CalendarIcon, Save, AlertCircle, DollarSign, Settings, Info } from 'lucide-react';
 import { DateRange } from "react-day-picker";
 import { format, subDays, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -34,11 +34,31 @@ interface AISuggestion {
     output: MixtureOptimizerOutput;
 }
 
+interface MixtureThresholds {
+    pci_min: number;
+    humidity_max: number;
+    ash_max: number;
+    chlorine_max: number;
+    tireRate_max: number;
+}
+
+const defaultThresholds: MixtureThresholds = {
+    pci_min: 0,
+    humidity_max: 100,
+    ash_max: 100,
+    chlorine_max: 100,
+    tireRate_max: 100,
+};
+
+
 const BUCKET_VOLUME_M3 = 3;
 
-function IndicatorCard({ title, value, unit, tooltipText }: { title: string; value: string | number; unit?: string; tooltipText?: string }) {
+function IndicatorCard({ title, value, unit, tooltipText, isAlert }: { title: string; value: string | number; unit?: string; tooltipText?: string, isAlert?: boolean }) {
   const cardContent = (
-     <Card className="bg-gray-800/50 border-gray-700 text-center">
+     <Card className={cn(
+        "bg-gray-800/50 border-gray-700 text-center transition-colors",
+        isAlert && "border-red-500/80 bg-red-900/30"
+        )}>
       <CardHeader className="p-4 pb-2">
         <CardTitle className="text-sm font-medium text-gray-400">{title}</CardTitle>
       </CardHeader>
@@ -77,9 +97,30 @@ export function MixtureCalculator() {
 
   // Cost state
   const [fuelCosts, setFuelCosts] = useState<Record<string, FuelCost>>({});
-
+  
+  // Thresholds state
+  const [thresholds, setThresholds] = useState<MixtureThresholds>(defaultThresholds);
+  const [isThresholdModalOpen, setIsThresholdModalOpen] = useState(false);
 
   const { toast } = useToast();
+
+  useEffect(() => {
+    try {
+        const savedThresholds = localStorage.getItem('mixtureThresholds');
+        if (savedThresholds) {
+            setThresholds(JSON.parse(savedThresholds));
+        }
+    } catch (error) {
+        console.error("Could not load thresholds from localStorage", error);
+    }
+  }, []);
+
+  const handleSaveThresholds = (newThresholds: MixtureThresholds) => {
+    setThresholds(newThresholds);
+    localStorage.setItem('mixtureThresholds', JSON.stringify(newThresholds));
+    toast({ title: "Succès", description: "Les seuils d'alerte ont été enregistrés."});
+    setIsThresholdModalOpen(false);
+  }
 
   const fetchData = useCallback(async (fuelName?: string, dateRange?: DateRange) => {
     try {
@@ -211,9 +252,6 @@ export function MixtureCalculator() {
             const fuelInput = state.fuels[fuelName];
             const fuelData = availableFuels[fuelName];
             
-            // This is a simplification: we don't have supplier info here.
-            // A more robust solution would be to store supplier with the fuel analysis.
-            // For now, we find the first cost entry that matches the fuel name.
             const costKey = Object.keys(fuelCosts).find(key => key.startsWith(`${fuelName}|`));
             const fuelCost = costKey ? fuelCosts[costKey]?.cost || 0 : 0;
 
@@ -233,27 +271,41 @@ export function MixtureCalculator() {
     const totalWeight = totalWeightHall + totalWeightAts;
     const totalCost = totalCostHall + totalCostAts;
 
+    const pci = weightedAvg(hallMixture.pci, atsMixture.pci);
+    const chlorine = weightedAvg(hallMixture.chlorine, atsMixture.chlorine);
+    const tireRate = weightedAvg(hallMixture.tireRate, atsMixture.tireRate);
+    const humidity = totalWeight > 0 ? totalHumidity / totalWeight : 0;
+    const ash = totalWeight > 0 ? totalAsh / totalWeight : 0;
+
+    const alerts = {
+        pci: pci > 0 && thresholds.pci_min > 0 && pci < thresholds.pci_min,
+        humidity: humidity > thresholds.humidity_max,
+        ash: ash > thresholds.ash_max,
+        chlorine: chlorine > thresholds.chlorine_max,
+        tireRate: tireRate > thresholds.tireRate_max,
+    };
+
     return {
       flow: totalFlow,
-      pci: weightedAvg(hallMixture.pci, atsMixture.pci),
-      humidity: totalWeight > 0 ? totalHumidity / totalWeight : 0,
-      ash: totalWeight > 0 ? totalAsh / totalWeight : 0,
-      chlorine: weightedAvg(hallMixture.chlorine, atsMixture.chlorine),
-      tireRate: weightedAvg(hallMixture.tireRate, atsMixture.tireRate),
+      pci,
+      humidity,
+      ash,
+      chlorine,
+      tireRate,
       cost: totalWeight > 0 ? totalCost / totalWeight : 0,
+      alerts,
     };
-  }, [hallAF, ats, hallMixture, atsMixture, availableFuels, fuelCosts]);
+  }, [hallAF, ats, hallMixture, atsMixture, availableFuels, fuelCosts, thresholds]);
 
   const historyChartData = useMemo(() => {
     if (!historySessions || historySessions.length === 0) return [];
-    // Firestore Timestamps are objects, convert them to JS Dates first
     return historySessions.map(session => ({
-        date: session.timestamp.toDate(), // convert Timestamp to Date
+        date: session.timestamp.toDate(), 
         'PCI moyen': session.globalIndicators.pci,
         'Humidité moyenne': session.globalIndicators.humidity,
         'Chlorures moyens': session.globalIndicators.chlorine,
-    })).sort((a,b) => a.date.valueOf() - b.date.valueOf()) // sort by date
-     .map(session => ({ // Format date for display
+    })).sort((a,b) => a.date.valueOf() - b.date.valueOf()) 
+     .map(session => ({ 
          ...session,
          date: format(session.date, 'dd/MM HH:mm'),
      }));
@@ -469,6 +521,70 @@ export function MixtureCalculator() {
     );
   };
 
+  const ThresholdSettingsModal = () => {
+    const [currentThresholds, setCurrentThresholds] = useState(thresholds);
+
+    useEffect(() => {
+        setCurrentThresholds(thresholds);
+    }, [isThresholdModalOpen]);
+
+    const handleChange = (key: keyof MixtureThresholds, value: string) => {
+        const numValue = parseFloat(value);
+        setCurrentThresholds(prev => ({
+            ...prev,
+            [key]: isNaN(numValue) ? defaultThresholds[key] : numValue
+        }));
+    };
+
+    const handleSave = () => {
+        handleSaveThresholds(currentThresholds);
+    };
+
+    return (
+        <Dialog open={isThresholdModalOpen} onOpenChange={setIsThresholdModalOpen}>
+            <DialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white">
+                    <Settings className="h-5 w-5" />
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md bg-gray-800 border-gray-700 text-white">
+                <DialogHeader>
+                    <DialogTitle>Définir les seuils d'alerte</DialogTitle>
+                    <DialogDescription>
+                        Les indicateurs changeront de couleur si ces seuils sont dépassés.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid grid-cols-2 gap-4 py-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="pci_min">PCI Moyen (min)</Label>
+                        <Input id="pci_min" type="number" value={currentThresholds.pci_min} onChange={e => handleChange('pci_min', e.target.value)} className="bg-gray-700 border-gray-600" />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="humidity_max">Humidité Moyenne (max %)</Label>
+                        <Input id="humidity_max" type="number" value={currentThresholds.humidity_max} onChange={e => handleChange('humidity_max', e.target.value)} className="bg-gray-700 border-gray-600" />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="ash_max">Cendres Moyennes (max %)</Label>
+                        <Input id="ash_max" type="number" value={currentThresholds.ash_max} onChange={e => handleChange('ash_max', e.target.value)} className="bg-gray-700 border-gray-600" />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="chlorine_max">Chlorures Moyens (max %)</Label>
+                        <Input id="chlorine_max" type="number" value={currentThresholds.chlorine_max} onChange={e => handleChange('chlorine_max', e.target.value)} className="bg-gray-700 border-gray-600" />
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="tireRate_max">Taux de Pneus (max %)</Label>
+                        <Input id="tireRate_max" type="number" value={currentThresholds.tireRate_max} onChange={e => handleChange('tireRate_max', e.target.value)} className="bg-gray-700 border-gray-600" />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button type="button" variant="secondary" onClick={() => setIsThresholdModalOpen(false)}>Annuler</Button>
+                    <Button type="button" onClick={handleSave}>Enregistrer les seuils</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+  };
+
   const CustomHistoryTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
         return (
@@ -489,14 +605,17 @@ export function MixtureCalculator() {
   return (
     <div className="p-4 md:p-8 space-y-8">
       <section>
-        <h1 className="text-3xl font-bold mb-4">Indicateurs du Mélange</h1>
+        <div className="flex items-center justify-between mb-4">
+            <h1 className="text-3xl font-bold">Indicateurs du Mélange</h1>
+            <ThresholdSettingsModal />
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
           <IndicatorCard title="Débit des AFs" value={globalIndicators.flow.toFixed(2)} unit="t/h" />
-          <IndicatorCard title="PCI moy" value={globalIndicators.pci.toFixed(0)} unit="kcal/kg" />
-          <IndicatorCard title="% Humidité moy" value={globalIndicators.humidity.toFixed(2)} unit="%" />
-          <IndicatorCard title="% Cendres moy" value={globalIndicators.ash.toFixed(2)} unit="%" />
-          <IndicatorCard title="% Chlorures moyens" value={globalIndicators.chlorine.toFixed(3)} unit="%" />
-          <IndicatorCard title="Taux de pneus" value={globalIndicators.tireRate.toFixed(2)} unit="%" />
+          <IndicatorCard title="PCI moy" value={globalIndicators.pci.toFixed(0)} unit="kcal/kg" isAlert={globalIndicators.alerts.pci} />
+          <IndicatorCard title="% Humidité moy" value={globalIndicators.humidity.toFixed(2)} unit="%" isAlert={globalIndicators.alerts.humidity} />
+          <IndicatorCard title="% Cendres moy" value={globalIndicators.ash.toFixed(2)} unit="%" isAlert={globalIndicators.alerts.ash} />
+          <IndicatorCard title="% Chlorures moyens" value={globalIndicators.chlorine.toFixed(3)} unit="%" isAlert={globalIndicators.alerts.chlorine} />
+          <IndicatorCard title="Taux de pneus" value={globalIndicators.tireRate.toFixed(2)} unit="%" isAlert={globalIndicators.alerts.tireRate} />
           <IndicatorCard title="Coût du Mélange" value={globalIndicators.cost.toFixed(2)} unit="MAD/t" />
         </div>
       </section>
