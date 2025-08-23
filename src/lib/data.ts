@@ -45,6 +45,21 @@ export interface FuelCost {
     cost: number;
 }
 
+export interface Stock {
+    id: string;
+    nom_combustible: string;
+    stock_actuel_tonnes: number;
+    dernier_arrivage_date?: Timestamp | null;
+    dernier_arrivage_quantite?: number | null;
+}
+
+export interface Arrivage {
+    id: string;
+    type_combustible: string;
+    quantite: number;
+    date_arrivage: Timestamp;
+}
+
 
 export const SPEC_MAP = new Map<string, Specification>();
 
@@ -290,4 +305,77 @@ export async function saveFuelCost(fuelName: string, supplierName: string, cost:
     const costId = `${fuelName}|${supplierName}`;
     const costRef = doc(db, 'fuel_costs', costId);
     await setDoc(costRef, { cost }, { merge: true });
+}
+
+
+// --- Stock Management Functions ---
+
+export async function getStocks(): Promise<Stock[]> {
+    const stocksCollection = collection(db, 'stocks');
+    const q = query(stocksCollection, orderBy("nom_combustible"));
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) {
+        // If empty, let's create initial stock documents from fuel_types
+        const fuelTypes = await getFuelTypes();
+        const batch = writeBatch(db);
+        fuelTypes.forEach(ft => {
+            const stockRef = doc(db, 'stocks', ft.name);
+            batch.set(stockRef, { nom_combustible: ft.name, stock_actuel_tonnes: 0 });
+        });
+        await batch.commit();
+        // Re-fetch
+        const newSnapshot = await getDocs(q);
+        return newSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Stock));
+    }
+
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Stock));
+}
+
+
+export async function updateStock(id: string, data: Partial<Stock>): Promise<void> {
+    const stockRef = doc(db, 'stocks', id);
+    await updateDoc(stockRef, data);
+}
+
+export async function addArrivage(typeCombustibleId: string, quantite: number, dateArrivage: Date): Promise<void> {
+    const stockRef = doc(db, 'stocks', typeCombustibleId);
+    const stockDoc = await getDoc(stockRef);
+
+    if (!stockDoc.exists()) {
+        throw new Error("Le combustible sélectionné n'existe pas dans les stocks.");
+    }
+
+    const currentStock = stockDoc.data().stock_actuel_tonnes || 0;
+    const newStock = currentStock + quantite;
+
+    const batch = writeBatch(db);
+
+    batch.update(stockRef, {
+        stock_actuel_tonnes: newStock,
+        dernier_arrivage_date: Timestamp.fromDate(dateArrivage),
+        dernier_arrivage_quantite: quantite
+    });
+
+    const arrivageRef = doc(collection(db, 'arrivages'));
+    batch.set(arrivageRef, {
+        type_combustible: stockDoc.data().nom_combustible,
+        quantite,
+        date_arrivage: Timestamp.fromDate(dateArrivage)
+    });
+
+    await batch.commit();
+}
+
+
+export async function getArrivages(dateRange: { from: Date, to: Date }): Promise<Arrivage[]> {
+    const q = query(
+        collection(db, 'arrivages'),
+        where('date_arrivage', '>=', Timestamp.fromDate(dateRange.from)),
+        where('date_arrivage', '<=', Timestamp.fromDate(dateRange.to)),
+        orderBy('date_arrivage', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return [];
+
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Arrivage));
 }
