@@ -203,28 +203,35 @@ export function MixtureCalculator() {
 
     let totalHumidity = 0;
     let totalAsh = 0;
-    let totalCost = 0;
-
+    
     const processInstallation = (state: InstallationState) => {
         let totalWeight = 0;
+        let tempTotalCost = 0;
         for(const fuelName in state.fuels) {
             const fuelInput = state.fuels[fuelName];
             const fuelData = availableFuels[fuelName];
-            const fuelCost = fuelCosts[fuelName]?.cost || 0;
+            
+            // This is a simplification: we don't have supplier info here.
+            // A more robust solution would be to store supplier with the fuel analysis.
+            // For now, we find the first cost entry that matches the fuel name.
+            const costKey = Object.keys(fuelCosts).find(key => key.startsWith(`${fuelName}|`));
+            const fuelCost = costKey ? fuelCosts[costKey]?.cost || 0 : 0;
+
             if (fuelInput.buckets > 0 && fuelData && fuelData.density > 0) {
                 const weight = fuelInput.buckets * BUCKET_VOLUME_M3 * fuelData.density;
                 totalHumidity += weight * fuelData.h2o;
                 totalAsh += weight * fuelData.cendres;
-                totalCost += weight * fuelCost;
+                tempTotalCost += weight * fuelCost;
                 totalWeight += weight;
             }
         }
-        return totalWeight;
+        return { weight: totalWeight, cost: tempTotalCost };
     };
 
-    const totalWeightHall = processInstallation(hallAF);
-    const totalWeightAts = processInstallation(ats);
+    const { weight: totalWeightHall, cost: totalCostHall } = processInstallation(hallAF);
+    const { weight: totalWeightAts, cost: totalCostAts } = processInstallation(ats);
     const totalWeight = totalWeightHall + totalWeightAts;
+    const totalCost = totalCostHall + totalCostAts;
 
     return {
       flow: totalFlow,
@@ -490,7 +497,7 @@ export function MixtureCalculator() {
           <IndicatorCard title="% Cendres moy" value={globalIndicators.ash.toFixed(2)} unit="%" />
           <IndicatorCard title="% Chlorures moyens" value={globalIndicators.chlorine.toFixed(3)} unit="%" />
           <IndicatorCard title="Taux de pneus" value={globalIndicators.tireRate.toFixed(2)} unit="%" />
-          <IndicatorCard title="Coût du Mélange" value={globalIndicators.cost.toFixed(2)} unit="€/t" />
+          <IndicatorCard title="Coût du Mélange" value={globalIndicators.cost.toFixed(2)} unit="MAD/t" />
         </div>
       </section>
 
