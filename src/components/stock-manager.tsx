@@ -132,7 +132,11 @@ export function StockManager() {
       await addArrivage(values.type_combustible, values.quantite, values.date_arrivage);
       toast({ title: "Succès", description: "Arrivage enregistré."});
       setIsModalOpen(false);
-      form.reset();
+      form.reset({
+          type_combustible: '',
+          quantite: undefined,
+          date_arrivage: new Date(),
+      });
       fetchStocks(); // Refresh stocks after adding new arrival
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Une erreur est survenue.";
@@ -143,15 +147,17 @@ export function StockManager() {
 
   if (loading) {
     return (
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-8 w-1/2" />
-          <Skeleton className="h-4 w-3/4" />
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-64 w-full" />
-        </CardContent>
-      </Card>
+        <div className="p-4 md:p-6 lg:p-8">
+            <Card>
+                <CardHeader>
+                <Skeleton className="h-8 w-1/2" />
+                <Skeleton className="h-4 w-3/4" />
+                </CardHeader>
+                <CardContent>
+                <Skeleton className="h-64 w-full" />
+                </CardContent>
+            </Card>
+        </div>
     );
   }
 
@@ -178,7 +184,7 @@ export function StockManager() {
                 <DialogHeader>
                     <DialogTitle>Nouvel Arrivage</DialogTitle>
                     <DialogDescription>
-                        Entrez les informations de la nouvelle livraison.
+                        Entrez les informations de la nouvelle livraison. Le stock sera mis à jour automatiquement.
                     </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
@@ -207,7 +213,7 @@ export function StockManager() {
                       render={({ field }) => (
                           <FormItem>
                               <FormLabel>Quantité (tonnes)</FormLabel>
-                              <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
+                              <FormControl><Input type="number" {...field} value={field.value ?? ''} placeholder="Ex: 50.5" /></FormControl>
                               <FormMessage />
                           </FormItem>
                       )}
@@ -283,7 +289,7 @@ export function StockManager() {
                     ? format(stock.dernier_arrivage_date.toDate(), 'dd/MM/yyyy') 
                     : 'N/A'}
                 </TableCell>
-                <TableCell>{stock.dernier_arrivage_quantite ?? 'N/A'}</TableCell>
+                <TableCell>{stock.dernier_arrivage_quantite?.toLocaleString('fr-FR') ?? 'N/A'}</TableCell>
                 <TableCell>
                   <Input 
                     type="number"
@@ -306,3 +312,5 @@ export function StockManager() {
     </Card>
   );
 }
+
+    

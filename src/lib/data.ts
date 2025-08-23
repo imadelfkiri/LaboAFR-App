@@ -379,3 +379,5 @@ export async function getArrivages(dateRange: { from: Date, to: Date }): Promise
 
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Arrivage));
 }
+
+    
