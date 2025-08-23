@@ -31,6 +31,15 @@ export interface AverageAnalysis {
     count: number;
 }
 
+export interface MixtureSession {
+    id: string;
+    timestamp: Timestamp;
+    hallAF: any;
+    ats: any;
+    globalIndicators: any;
+    availableFuels: Record<string, AverageAnalysis>;
+}
+
 
 export const SPEC_MAP = new Map<string, Specification>();
 
@@ -89,9 +98,7 @@ export async function getFuelTypes(): Promise<FuelType[]> {
     
     populateHMap(fuelTypes);
     
-    const uniqueFuelTypes = [...new Map(fuelTypes.map(item => [item.name, item])).values()];
-
-    return uniqueFuelTypes;
+    return [...new Map(fuelTypes.map(item => [item.name, item])).values()];
 };
 
 export async function getFournisseurs(): Promise<string[]> {
@@ -214,3 +221,29 @@ export async function getAverageAnalysisForFuels(
 
   return finalAverages;
 }
+
+export async function saveMixtureSession(sessionData: Omit<MixtureSession, 'id' | 'timestamp'>): Promise<void> {
+    const dataToSave = {
+        ...sessionData,
+        timestamp: Timestamp.now(),
+    };
+    await addDoc(collection(db, 'sessions_melange'), dataToSave);
+}
+
+export async function getMixtureSessions(from: Date, to: Date): Promise<MixtureSession[]> {
+    const q = query(
+        collection(db, 'sessions_melange'),
+        where('timestamp', '>=', Timestamp.fromDate(from)),
+        where('timestamp', '<=', Timestamp.fromDate(to)),
+        orderBy('timestamp', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return [];
+
+    return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+    } as MixtureSession));
+}
+
+    
