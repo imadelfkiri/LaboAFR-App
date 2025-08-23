@@ -34,11 +34,6 @@ interface AISuggestion {
     output: MixtureOptimizerOutput;
 }
 
-const initialInstallationState: InstallationState = {
-  flowRate: 0,
-  fuels: {},
-};
-
 const BUCKET_VOLUME_M3 = 3;
 
 function IndicatorCard({ title, value, unit, tooltipText }: { title: string; value: string | number; unit?: string; tooltipText?: string }) {
@@ -71,8 +66,9 @@ export function MixtureCalculator() {
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [availableFuels, setAvailableFuels] = useState<Record<string, AverageAnalysis>>({});
-  const [hallAF, setHallAF] = useState<InstallationState>(initialInstallationState);
-  const [ats, setAts] = useState<InstallationState>(initialInstallationState);
+  
+  const [hallAF, setHallAF] = useState<InstallationState>({ flowRate: 0, fuels: {} });
+  const [ats, setAts] = useState<InstallationState>({ flowRate: 0, fuels: {} });
   
   // History state
   const [historySessions, setHistorySessions] = useState<MixtureSession[]>([]);
@@ -84,8 +80,10 @@ export function MixtureCalculator() {
 
   const fetchData = useCallback(async (fuelName?: string, dateRange?: DateRange) => {
     try {
-      const fuelsToFetch = fuelName ? [fuelName] : Object.keys(availableFuels);
-      if (fuelsToFetch.length === 0 && !fuelName) { // Initial load
+      if (fuelName && dateRange) { // Fetch specific fuel for custom range
+         const updatedFuelData = await getAverageAnalysisForFuels([fuelName], dateRange);
+         setAvailableFuels(prev => ({...prev, ...updatedFuelData}));
+      } else { // Initial load
           const initialFuels = await getAverageAnalysisForFuels(null, { from: subDays(new Date(), 7), to: new Date() });
           setAvailableFuels(initialFuels);
           
@@ -96,19 +94,14 @@ export function MixtureCalculator() {
 
           setHallAF(prev => ({...prev, fuels: { ...initialFuelState }}));
           setAts(prev => ({...prev, fuels: { ...initialFuelState }}));
-
-      } else if (fuelName && dateRange) {
-         const updatedFuelData = await getAverageAnalysisForFuels([fuelName], dateRange);
-         setAvailableFuels(prev => ({...prev, ...updatedFuelData}));
       }
-
     } catch (error) {
       console.error("Error fetching fuel data:", error);
       toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données des combustibles." });
     } finally {
       setLoading(false);
     }
-  }, [toast, availableFuels]);
+  }, [toast]);
 
 
   const fetchHistoryData = useCallback(async () => {
@@ -240,12 +233,18 @@ export function MixtureCalculator() {
   }, [hallAF, ats, hallMixture, atsMixture, availableFuels]);
 
   const historyChartData = useMemo(() => {
+    if (!historySessions || historySessions.length === 0) return [];
+    // Firestore Timestamps are objects, convert them to JS Dates first
     return historySessions.map(session => ({
-      date: format(session.timestamp.toDate(), 'dd/MM/yyyy HH:mm'),
-      'PCI moyen': session.globalIndicators.pci,
-      'Humidité moyenne': session.globalIndicators.humidity,
-      'Chlorures moyens': session.globalIndicators.chlorine,
-    })).sort((a,b) => parseISO(a.date).valueOf() - parseISO(b.date).valueOf());
+        date: session.timestamp.toDate(), // convert Timestamp to Date
+        'PCI moyen': session.globalIndicators.pci,
+        'Humidité moyenne': session.globalIndicators.humidity,
+        'Chlorures moyens': session.globalIndicators.chlorine,
+    })).sort((a,b) => a.date.valueOf() - b.date.valueOf()) // sort by date
+     .map(session => ({ // Format date for display
+         ...session,
+         date: format(session.date, 'dd/MM HH:mm'),
+     }));
   }, [historySessions]);
 
   const handleInputChange = (setter: React.Dispatch<React.SetStateAction<InstallationState>>, fuelName: string, value: string) => {
@@ -536,17 +535,18 @@ export function MixtureCalculator() {
             <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
                     {isHistoryLoading ? (
-                        <Skeleton className="h-full w-full" />
+                        <Skeleton className="h-full w-full bg-gray-700" />
                     ) : historyChartData.length > 0 ? (
                         <LineChart data={historyChartData}>
-                            <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
+                            <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} stroke="hsl(var(--muted-foreground))" />
                             <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                            <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                            <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} yAxisId="left" orientation="left" />
+                            <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} yAxisId="right" orientation="right" />
                             <RechartsTooltip content={<CustomHistoryTooltip />} />
-                            <Legend />
-                            <Line type="monotone" dataKey="PCI moyen" stroke="#8884d8" name="PCI" />
-                            <Line type="monotone" dataKey="Humidité moyenne" stroke="#82ca9d" name="Humidité (%)" />
-                            <Line type="monotone" dataKey="Chlorures moyens" stroke="#ffc658" name="Chlorures (%)" />
+                            <Legend wrapperStyle={{ color: "white" }}/>
+                            <Line yAxisId="left" type="monotone" dataKey="PCI moyen" stroke="#8884d8" name="PCI" dot={false} />
+                            <Line yAxisId="right" type="monotone" dataKey="Humidité moyenne" stroke="#82ca9d" name="Humidité (%)" dot={false} />
+                            <Line yAxisId="right" type="monotone" dataKey="Chlorures moyens" stroke="#ffc658" name="Chlorures (%)" dot={false} />
                         </LineChart>
                     ) : (
                         <div className="flex items-center justify-center h-full text-muted-foreground">
