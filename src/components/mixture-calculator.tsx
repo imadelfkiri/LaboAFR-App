@@ -56,15 +56,15 @@ const BUCKET_VOLUME_M3 = 3;
 function IndicatorCard({ title, value, unit, tooltipText, isAlert }: { title: string; value: string | number; unit?: string; tooltipText?: string, isAlert?: boolean }) {
   const cardContent = (
      <Card className={cn(
-        "bg-gray-800/50 border-gray-700 text-center transition-colors",
-        isAlert && "border-red-500/80 bg-red-900/30"
+        "bg-background text-center transition-colors",
+        isAlert && "border-red-500 bg-red-50"
         )}>
-      <CardHeader className="p-4 pb-2">
-        <CardTitle className="text-sm font-medium text-gray-400">{title}</CardTitle>
+      <CardHeader className="p-3 pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
       </CardHeader>
-      <CardContent className="p-4 pt-0">
-        <p className="text-2xl font-bold text-white">
-          {value} <span className="text-lg text-gray-300">{unit}</span>
+      <CardContent className="p-3 pt-0">
+        <p className="text-2xl font-bold text-foreground">
+          {value} <span className="text-lg text-gray-500">{unit}</span>
         </p>
       </CardContent>
     </Card>
@@ -347,7 +347,7 @@ export function MixtureCalculator() {
 
   const FuelInputList = ({ installationState, setInstallationState, installationName }: { installationState: InstallationState, setInstallationState: React.Dispatch<React.SetStateAction<InstallationState>>, installationName: 'hall' | 'ats' }) => {
     if (loading) {
-        return <Skeleton className="h-48 w-full bg-gray-700" />;
+        return <Skeleton className="h-48 w-full" />;
     }
     return (
         <div className="space-y-3 pr-2 max-h-60 overflow-y-auto">
@@ -359,8 +359,8 @@ export function MixtureCalculator() {
                     <Button 
                         variant="outline" 
                         size="icon" 
-                        className={cn("h-8 w-8 bg-gray-700 border-gray-600 hover:bg-gray-600",
-                            installationState.fuels[fuelName]?.dateRange && "bg-blue-600 hover:bg-blue-500 text-white"
+                        className={cn("h-8 w-8",
+                            installationState.fuels[fuelName]?.dateRange && "bg-primary/10 border-primary text-primary hover:bg-primary/20"
                         )}
                     >
                         <CalendarIcon className="h-4 w-4" />
@@ -380,7 +380,7 @@ export function MixtureCalculator() {
                 id={`${installationName}-${fuelName}`}
                 type="number"
                 placeholder="0"
-                className="w-24 bg-gray-700 border-gray-600 text-white"
+                className="w-24"
                 value={installationState.fuels[fuelName]?.buckets || ''}
                 onChange={(e) => handleInputChange(setInstallationState, fuelName, e.target.value)}
                 min="0"
@@ -445,14 +445,14 @@ export function MixtureCalculator() {
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
-                <Button className="fixed bottom-6 right-6 rounded-full h-16 w-16 shadow-lg bg-primary hover:bg-primary/90 z-40">
+                <Button className="fixed bottom-6 right-24 rounded-full h-16 w-16 shadow-lg bg-primary hover:bg-primary/90 z-40">
                     <BrainCircuit className="h-8 w-8" />
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[625px] bg-gray-800 border-gray-700 text-white">
+            <DialogContent className="sm:max-w-[625px]">
                 <DialogHeader>
                     <DialogTitle>Assistant d'Optimisation de Mélange</DialogTitle>
-                    <DialogDescription className="text-gray-400">
+                    <DialogDescription>
                         Décrivez votre objectif et l'IA vous proposera une recette.
                     </DialogDescription>
                 </DialogHeader>
@@ -463,7 +463,6 @@ export function MixtureCalculator() {
                         value={objective}
                         onChange={(e) => setObjective(e.target.value)}
                         placeholder="Ex: obtenir un PCI de 3500 kcal/kg avec un taux de chlore inférieur à 0.8%"
-                        className="bg-gray-700 border-gray-600"
                     />
                 </div>
                 <DialogFooter>
@@ -471,21 +470,21 @@ export function MixtureCalculator() {
                         {isGenerating ? "Génération en cours..." : "Générer la suggestion"}
                     </Button>
                 </DialogFooter>
-                {isGenerating && <Skeleton className="h-32 w-full bg-gray-700" />}
+                {isGenerating && <Skeleton className="h-32 w-full" />}
                 {suggestion && (
-                    <Card className="mt-4 bg-gray-900 border-gray-700">
+                    <Card className="mt-4">
                         <CardHeader>
                             <CardTitle>Suggestion de l'IA</CardTitle>
                         </CardHeader>
                         <CardContent className="text-sm space-y-4">
                              <p className="font-semibold">Raisonnement :</p>
-                             <p className="text-gray-300 whitespace-pre-wrap">{suggestion.reasoning}</p>
+                             <p className="text-gray-600 whitespace-pre-wrap">{suggestion.reasoning}</p>
                              <div>
                                 <p className="font-semibold mt-4">Recette proposée :</p>
                                 <div className="grid grid-cols-2 gap-4 mt-2">
                                     <div>
                                         <p className="font-medium">Hall des AF</p>
-                                        <ul className="list-disc pl-5 text-gray-300">
+                                        <ul className="list-disc pl-5 text-gray-600">
                                             {Object.keys(suggestion.recipe.hallAF).length > 0 ? Object.entries(suggestion.recipe.hallAF).map(([fuel, buckets]) => (
                                                 <li key={`hall-${fuel}`}>{fuel}: {buckets} godets</li>
                                             )) : <li>Aucun</li>}
@@ -493,7 +492,7 @@ export function MixtureCalculator() {
                                     </div>
                                     <div>
                                         <p className="font-medium">ATS</p>
-                                        <ul className="list-disc pl-5 text-gray-300">
+                                        <ul className="list-disc pl-5 text-gray-600">
                                             {Object.keys(suggestion.recipe.ats).length > 0 ? Object.entries(suggestion.recipe.ats).map(([fuel, buckets]) => (
                                                 <li key={`ats-${fuel}`}>{fuel}: {buckets} godets</li>
                                             )) : <li>Aucun</li>}
@@ -506,11 +505,11 @@ export function MixtureCalculator() {
                 )}
                 {suggestionHistory.length > 0 && (
                     <div className="mt-6">
-                        <h3 className="text-sm font-medium text-gray-400 mb-2">Historique des suggestions</h3>
+                        <h3 className="text-sm font-medium text-gray-500 mb-2">Historique des suggestions</h3>
                         <div className="space-y-2">
                             {suggestionHistory.map((item, index) => (
-                                <button key={index} onClick={() => reusePrompt(item.prompt)} className="w-full text-left p-2 bg-gray-700/50 rounded-md hover:bg-gray-700">
-                                    <p className="text-xs text-gray-300 truncate">{item.prompt}</p>
+                                <button key={index} onClick={() => reusePrompt(item.prompt)} className="w-full text-left p-2 bg-muted rounded-md hover:bg-accent">
+                                    <p className="text-xs text-muted-foreground truncate">{item.prompt}</p>
                                 </button>
                             ))}
                         </div>
@@ -543,11 +542,11 @@ export function MixtureCalculator() {
     return (
         <Dialog open={isThresholdModalOpen} onOpenChange={setIsThresholdModalOpen}>
             <DialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white">
+                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
                     <Settings className="h-5 w-5" />
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md bg-gray-800 border-gray-700 text-white">
+            <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>Définir les seuils d'alerte</DialogTitle>
                     <DialogDescription>
@@ -557,23 +556,23 @@ export function MixtureCalculator() {
                 <div className="grid grid-cols-2 gap-4 py-4">
                     <div className="space-y-2">
                         <Label htmlFor="pci_min">PCI Moyen (min)</Label>
-                        <Input id="pci_min" type="number" value={currentThresholds.pci_min} onChange={e => handleChange('pci_min', e.target.value)} className="bg-gray-700 border-gray-600" />
+                        <Input id="pci_min" type="number" value={currentThresholds.pci_min} onChange={e => handleChange('pci_min', e.target.value)} />
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="humidity_max">Humidité Moyenne (max %)</Label>
-                        <Input id="humidity_max" type="number" value={currentThresholds.humidity_max} onChange={e => handleChange('humidity_max', e.target.value)} className="bg-gray-700 border-gray-600" />
+                        <Input id="humidity_max" type="number" value={currentThresholds.humidity_max} onChange={e => handleChange('humidity_max', e.target.value)} />
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="ash_max">Cendres Moyennes (max %)</Label>
-                        <Input id="ash_max" type="number" value={currentThresholds.ash_max} onChange={e => handleChange('ash_max', e.target.value)} className="bg-gray-700 border-gray-600" />
+                        <Input id="ash_max" type="number" value={currentThresholds.ash_max} onChange={e => handleChange('ash_max', e.target.value)} />
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="chlorine_max">Chlorures Moyens (max %)</Label>
-                        <Input id="chlorine_max" type="number" value={currentThresholds.chlorine_max} onChange={e => handleChange('chlorine_max', e.target.value)} className="bg-gray-700 border-gray-600" />
+                        <Input id="chlorine_max" type="number" value={currentThresholds.chlorine_max} onChange={e => handleChange('chlorine_max', e.target.value)} />
                     </div>
                      <div className="space-y-2">
                         <Label htmlFor="tireRate_max">Taux de Pneus (max %)</Label>
-                        <Input id="tireRate_max" type="number" value={currentThresholds.tireRate_max} onChange={e => handleChange('tireRate_max', e.target.value)} className="bg-gray-700 border-gray-600" />
+                        <Input id="tireRate_max" type="number" value={currentThresholds.tireRate_max} onChange={e => handleChange('tireRate_max', e.target.value)} />
                     </div>
                 </div>
                 <DialogFooter>
@@ -588,8 +587,8 @@ export function MixtureCalculator() {
   const CustomHistoryTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
         return (
-            <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-3 text-white">
-                <p className="font-bold">{label}</p>
+            <div className="bg-background/80 backdrop-blur-sm border border-border rounded-lg shadow-lg p-3">
+                <p className="font-bold text-foreground">{label}</p>
                 {payload.map((pld: any) => (
                     <div key={pld.dataKey} style={{ color: pld.color }}>
                         {`${pld.name}: ${pld.value.toFixed(2)}`}
@@ -606,7 +605,7 @@ export function MixtureCalculator() {
     <div className="p-4 md:p-8 space-y-8">
       <section>
         <div className="flex items-center justify-between mb-4">
-            <h1 className="text-3xl font-bold">Indicateurs du Mélange</h1>
+            <h1 className="text-2xl font-bold">Indicateurs Globaux</h1>
             <ThresholdSettingsModal />
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
@@ -620,87 +619,85 @@ export function MixtureCalculator() {
         </div>
       </section>
 
-      <section>
-        <Card className="bg-gray-800/50 border-gray-700">
-            <CardHeader>
-                <CardTitle>Historique Global des Indicateurs</CardTitle>
-                <div className="pt-2">
-                     <Popover>
-                        <PopoverTrigger asChild>
-                        <Button
-                            id="date"
-                            variant={"outline"}
-                            className={cn(
-                                "w-[300px] justify-start text-left font-normal bg-gray-700 border-gray-600 hover:bg-gray-600",
-                                !historyDateRange && "text-muted-foreground"
-                            )}
-                        >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {historyDateRange?.from ? (
-                            historyDateRange.to ? (
-                                <>
-                                {format(historyDateRange.from, "d MMM y", { locale: fr })} -{" "}
-                                {format(historyDateRange.to, "d MMM y", { locale: fr })}
-                                </>
-                            ) : (
-                                format(historyDateRange.from, "d MMM y", { locale: fr })
-                            )
-                            ) : (
-                            <span>Sélectionner une plage de dates</span>
-                            )}
-                        </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                            initialFocus
-                            mode="range"
-                            defaultMonth={historyDateRange?.from}
-                            selected={historyDateRange}
-                            onSelect={setHistoryDateRange}
-                            numberOfMonths={2}
-                            locale={fr}
-                        />
-                        </PopoverContent>
-                    </Popover>
-                </div>
-            </CardHeader>
-            <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                    {isHistoryLoading ? (
-                        <Skeleton className="h-full w-full bg-gray-700" />
-                    ) : historyChartData.length > 0 ? (
-                        <LineChart data={historyChartData}>
-                            <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} stroke="hsl(var(--muted-foreground))" />
-                            <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                            <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} yAxisId="left" orientation="left" />
-                            <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} yAxisId="right" orientation="right" />
-                            <RechartsTooltip content={<CustomHistoryTooltip />} />
-                            <Legend wrapperStyle={{ color: "white" }}/>
-                            <Line yAxisId="left" type="monotone" dataKey="PCI moyen" stroke="#8884d8" name="PCI" dot={false} />
-                            <Line yAxisId="right" type="monotone" dataKey="Humidité moyenne" stroke="#82ca9d" name="Humidité (%)" dot={false} />
-                            <Line yAxisId="right" type="monotone" dataKey="Chlorures moyens" stroke="#ffc658" name="Chlorures (%)" dot={false} />
-                        </LineChart>
-                    ) : (
-                        <div className="flex items-center justify-center h-full text-muted-foreground">
-                            Aucune donnée historique pour la période sélectionnée.
-                        </div>
-                    )}
-                </ResponsiveContainer>
-            </CardContent>
-        </Card>
-      </section>
+      <Card className="shadow-md rounded-xl">
+          <CardHeader>
+              <CardTitle>Historique Global des Indicateurs</CardTitle>
+              <div className="pt-2">
+                   <Popover>
+                      <PopoverTrigger asChild>
+                      <Button
+                          id="date"
+                          variant={"outline"}
+                          className={cn(
+                              "w-[300px] justify-start text-left font-normal",
+                              !historyDateRange && "text-muted-foreground"
+                          )}
+                      >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {historyDateRange?.from ? (
+                          historyDateRange.to ? (
+                              <>
+                              {format(historyDateRange.from, "d MMM y", { locale: fr })} -{" "}
+                              {format(historyDateRange.to, "d MMM y", { locale: fr })}
+                              </>
+                          ) : (
+                              format(historyDateRange.from, "d MMM y", { locale: fr })
+                          )
+                          ) : (
+                          <span>Sélectionner une plage de dates</span>
+                          )}
+                      </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                          initialFocus
+                          mode="range"
+                          defaultMonth={historyDateRange?.from}
+                          selected={historyDateRange}
+                          onSelect={setHistoryDateRange}
+                          numberOfMonths={2}
+                          locale={fr}
+                      />
+                      </PopoverContent>
+                  </Popover>
+              </div>
+          </CardHeader>
+          <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                  {isHistoryLoading ? (
+                      <Skeleton className="h-full w-full" />
+                  ) : historyChartData.length > 0 ? (
+                      <LineChart data={historyChartData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                          <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                          <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} yAxisId="left" orientation="left" />
+                          <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} yAxisId="right" orientation="right" />
+                          <RechartsTooltip content={<CustomHistoryTooltip />} />
+                          <Legend />
+                          <Line yAxisId="left" type="monotone" dataKey="PCI moyen" stroke="hsl(var(--primary))" name="PCI" dot={false} strokeWidth={2} />
+                          <Line yAxisId="right" type="monotone" dataKey="Humidité moyenne" stroke="#82ca9d" name="Humidité (%)" dot={false} strokeWidth={2} />
+                          <Line yAxisId="right" type="monotone" dataKey="Chlorures moyens" stroke="#ffc658" name="Chlorures (%)" dot={false} strokeWidth={2}/>
+                      </LineChart>
+                  ) : (
+                      <div className="flex items-center justify-center h-full text-muted-foreground">
+                          Aucune donnée historique pour la période sélectionnée.
+                      </div>
+                  )}
+              </ResponsiveContainer>
+          </CardContent>
+      </Card>
 
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card className="bg-gray-800/50 border-gray-700">
+        <Card className="shadow-md rounded-xl">
           <CardHeader>
             <CardTitle>Hall des AF</CardTitle>
             <div className="flex items-center gap-2 pt-2">
                 <Label htmlFor="flow-hall" className="text-sm">Débit (t/h)</Label>
-                <Input id="flow-hall" type="number" className="w-32 bg-gray-700 border-gray-600" value={hallAF.flowRate || ''} onChange={(e) => handleFlowRateChange(setHallAF, e.target.value)} />
+                <Input id="flow-hall" type="number" className="w-32" value={hallAF.flowRate || ''} onChange={(e) => handleFlowRateChange(setHallAF, e.target.value)} />
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="p-3 rounded-lg bg-gray-900/70 grid grid-cols-3 gap-2 text-center">
+            <div className="p-3 rounded-lg bg-muted/50 grid grid-cols-3 gap-2 text-center">
               <IndicatorCard title="PCI Mélange" value={hallMixture.pci.toFixed(0)} tooltipText={`Basé sur ${hallMixture.analysisCount} analyses`} />
               <IndicatorCard title="Chlorures" value={hallMixture.chlorine.toFixed(3)} tooltipText={`Basé sur ${hallMixture.analysisCount} analyses`} />
               <IndicatorCard title="Taux Pneus" value={hallMixture.tireRate.toFixed(2)} unit="%" tooltipText={`Basé sur ${hallMixture.analysisCount} analyses`} />
@@ -709,16 +706,16 @@ export function MixtureCalculator() {
           </CardContent>
         </Card>
         
-        <Card className="bg-gray-800/50 border-gray-700">
+        <Card className="shadow-md rounded-xl">
           <CardHeader>
             <CardTitle>ATS</CardTitle>
             <div className="flex items-center gap-2 pt-2">
                 <Label htmlFor="flow-ats" className="text-sm">Débit (t/h)</Label>
-                <Input id="flow-ats" type="number" className="w-32 bg-gray-700 border-gray-600" value={ats.flowRate || ''} onChange={(e) => handleFlowRateChange(setAts, e.target.value)} />
+                <Input id="flow-ats" type="number" className="w-32" value={ats.flowRate || ''} onChange={(e) => handleFlowRateChange(setAts, e.target.value)} />
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="p-3 rounded-lg bg-gray-900/70 grid grid-cols-3 gap-2 text-center">
+            <div className="p-3 rounded-lg bg-muted/50 grid grid-cols-3 gap-2 text-center">
               <IndicatorCard title="PCI Mélange" value={atsMixture.pci.toFixed(0)} tooltipText={`Basé sur ${atsMixture.analysisCount} analyses`} />
               <IndicatorCard title="Chlorures" value={atsMixture.chlorine.toFixed(3)} tooltipText={`Basé sur ${atsMixture.analysisCount} analyses`} />
               <IndicatorCard title="Taux Pneus" value={atsMixture.tireRate.toFixed(2)} unit="%" tooltipText={`Basé sur ${atsMixture.analysisCount} analyses`} />
@@ -728,8 +725,8 @@ export function MixtureCalculator() {
         </Card>
       </section>
 
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
-        <Button onClick={handleSaveSession} disabled={isSaving} size="lg">
+      <div className="fixed bottom-6 right-6 z-40">
+        <Button onClick={handleSaveSession} disabled={isSaving} size="lg" className="rounded-full shadow-lg">
             <Save className="mr-2 h-5 w-5" />
             {isSaving ? "Enregistrement..." : "Enregistrer la Session"}
         </Button>
