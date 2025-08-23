@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { BrainCircuit, Calendar as CalendarIcon, Save, AlertCircle } from 'lucide-react';
+import { BrainCircuit, Calendar as CalendarIcon, Save, AlertCircle, DollarSign } from 'lucide-react';
 import { DateRange } from "react-day-picker";
 import { format, subDays, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getAverageAnalysisForFuels, saveMixtureSession, getMixtureSessions, MixtureSession } from '@/lib/data';
+import { getAverageAnalysisForFuels, saveMixtureSession, getMixtureSessions, MixtureSession, getFuelCosts, FuelCost } from '@/lib/data';
 import type { AverageAnalysis } from '@/lib/data';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -75,6 +75,9 @@ export function MixtureCalculator() {
   const [historyDateRange, setHistoryDateRange] = useState<DateRange | undefined>({ from: subDays(new Date(), 30), to: new Date() });
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
+  // Cost state
+  const [fuelCosts, setFuelCosts] = useState<Record<string, FuelCost>>({});
+
 
   const { toast } = useToast();
 
@@ -84,8 +87,13 @@ export function MixtureCalculator() {
          const updatedFuelData = await getAverageAnalysisForFuels([fuelName], dateRange);
          setAvailableFuels(prev => ({...prev, ...updatedFuelData}));
       } else { // Initial load
-          const initialFuels = await getAverageAnalysisForFuels(null, { from: subDays(new Date(), 7), to: new Date() });
+          setLoading(true);
+          const [initialFuels, costs] = await Promise.all([
+            getAverageAnalysisForFuels(null, { from: subDays(new Date(), 7), to: new Date() }),
+            getFuelCosts()
+          ]);
           setAvailableFuels(initialFuels);
+          setFuelCosts(costs);
           
           const initialFuelState = Object.keys(initialFuels).reduce((acc, key) => {
               acc[key] = { buckets: 0 };
@@ -138,7 +146,7 @@ export function MixtureCalculator() {
     }
   }
 
-  const calculateMixture = (installationState: InstallationState) => {
+  const calculateMixture = useCallback((installationState: InstallationState) => {
     let totalWeight = 0;
     let totalPci = 0;
     let totalChlorine = 0;
@@ -162,7 +170,7 @@ export function MixtureCalculator() {
       }
     }
     
-    if (totalWeight === 0) return { pci: 0, chlorine: 0, tireRate: 0, analysisCount: 0 };
+    if (totalWeight === 0) return { pci: 0, chlorine: 0, tireRate: 0, analysisCount: 0, totalWeight: 0 };
 
     for (const fuelName in weights) {
       const weight = weights[fuelName];
@@ -180,14 +188,13 @@ export function MixtureCalculator() {
       totalWeight: totalWeight,
       analysisCount: totalAnalysisCount
     };
-  };
+  }, [availableFuels]);
 
-  const hallMixture = useMemo(() => calculateMixture(hallAF), [hallAF, availableFuels]);
-  const atsMixture = useMemo(() => calculateMixture(ats), [ats, availableFuels]);
+  const hallMixture = useMemo(() => calculateMixture(hallAF), [hallAF, calculateMixture]);
+  const atsMixture = useMemo(() => calculateMixture(ats), [ats, calculateMixture]);
 
   const globalIndicators = useMemo(() => {
     const totalFlow = (hallAF.flowRate || 0) + (ats.flowRate || 0);
-    if (totalFlow === 0) return { flow: 0, pci: 0, humidity: 0, ash: 0, chlorine: 0, tireRate: 0 };
 
     const weightedAvg = (valHall: number, valAts: number) => {
       if (totalFlow === 0) return 0;
@@ -196,30 +203,27 @@ export function MixtureCalculator() {
 
     let totalHumidity = 0;
     let totalAsh = 0;
-    let totalWeightHall = 0;
-    let totalWeightAts = 0;
+    let totalCost = 0;
 
-    for(const fuelName in hallAF.fuels) {
-        const fuelInput = hallAF.fuels[fuelName];
-        const fuelData = availableFuels[fuelName];
-        if (fuelInput.buckets > 0 && fuelData && fuelData.density > 0) {
-            const weight = fuelInput.buckets * BUCKET_VOLUME_M3 * fuelData.density;
-            totalHumidity += weight * fuelData.h2o;
-            totalAsh += weight * fuelData.cendres;
-            totalWeightHall += weight;
+    const processInstallation = (state: InstallationState) => {
+        let totalWeight = 0;
+        for(const fuelName in state.fuels) {
+            const fuelInput = state.fuels[fuelName];
+            const fuelData = availableFuels[fuelName];
+            const fuelCost = fuelCosts[fuelName]?.cost || 0;
+            if (fuelInput.buckets > 0 && fuelData && fuelData.density > 0) {
+                const weight = fuelInput.buckets * BUCKET_VOLUME_M3 * fuelData.density;
+                totalHumidity += weight * fuelData.h2o;
+                totalAsh += weight * fuelData.cendres;
+                totalCost += weight * fuelCost;
+                totalWeight += weight;
+            }
         }
-    }
-    for(const fuelName in ats.fuels) {
-        const fuelInput = ats.fuels[fuelName];
-        const fuelData = availableFuels[fuelName];
-        if (fuelInput.buckets > 0 && fuelData && fuelData.density > 0) {
-            const weight = fuelInput.buckets * BUCKET_VOLUME_M3 * fuelData.density;
-            totalHumidity += weight * fuelData.h2o;
-            totalAsh += weight * fuelData.cendres;
-            totalWeightAts += weight;
-        }
-    }
+        return totalWeight;
+    };
 
+    const totalWeightHall = processInstallation(hallAF);
+    const totalWeightAts = processInstallation(ats);
     const totalWeight = totalWeightHall + totalWeightAts;
 
     return {
@@ -229,8 +233,9 @@ export function MixtureCalculator() {
       ash: totalWeight > 0 ? totalAsh / totalWeight : 0,
       chlorine: weightedAvg(hallMixture.chlorine, atsMixture.chlorine),
       tireRate: weightedAvg(hallMixture.tireRate, atsMixture.tireRate),
+      cost: totalWeight > 0 ? totalCost / totalWeight : 0,
     };
-  }, [hallAF, ats, hallMixture, atsMixture, availableFuels]);
+  }, [hallAF, ats, hallMixture, atsMixture, availableFuels, fuelCosts]);
 
   const historyChartData = useMemo(() => {
     if (!historySessions || historySessions.length === 0) return [];
@@ -478,13 +483,14 @@ export function MixtureCalculator() {
     <div className="p-4 md:p-8 space-y-8">
       <section>
         <h1 className="text-3xl font-bold mb-4">Indicateurs du Mélange</h1>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
           <IndicatorCard title="Débit des AFs" value={globalIndicators.flow.toFixed(2)} unit="t/h" />
           <IndicatorCard title="PCI moy" value={globalIndicators.pci.toFixed(0)} unit="kcal/kg" />
           <IndicatorCard title="% Humidité moy" value={globalIndicators.humidity.toFixed(2)} unit="%" />
           <IndicatorCard title="% Cendres moy" value={globalIndicators.ash.toFixed(2)} unit="%" />
           <IndicatorCard title="% Chlorures moyens" value={globalIndicators.chlorine.toFixed(3)} unit="%" />
           <IndicatorCard title="Taux de pneus" value={globalIndicators.tireRate.toFixed(2)} unit="%" />
+          <IndicatorCard title="Coût du Mélange" value={globalIndicators.cost.toFixed(2)} unit="€/t" />
         </div>
       </section>
 
@@ -607,5 +613,3 @@ export function MixtureCalculator() {
     </div>
   );
 }
-
-    

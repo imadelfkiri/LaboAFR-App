@@ -40,6 +40,11 @@ export interface MixtureSession {
     availableFuels: Record<string, AverageAnalysis>;
 }
 
+export interface FuelCost {
+    id: string;
+    cost: number;
+}
+
 
 export const SPEC_MAP = new Map<string, Specification>();
 
@@ -246,4 +251,21 @@ export async function getMixtureSessions(from: Date, to: Date): Promise<MixtureS
     } as MixtureSession));
 }
 
+
+export async function getFuelCosts(): Promise<Record<string, FuelCost>> {
+    const costsCollection = collection(db, 'fuel_costs');
+    const snapshot = await getDocs(costsCollection);
+    if (snapshot.empty) return {};
+
+    const costs: Record<string, FuelCost> = {};
+    snapshot.forEach(doc => {
+        costs[doc.id] = { id: doc.id, ...doc.data() } as FuelCost;
+    });
+    return costs;
+}
+
+export async function saveFuelCost(fuelName: string, cost: number): Promise<void> {
+    const costRef = doc(db, 'fuel_costs', fuelName);
+    await setDoc(costRef, { cost }, { merge: true });
+}
     

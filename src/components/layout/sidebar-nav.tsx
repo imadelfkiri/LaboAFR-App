@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
-import { Flame, Database, BarChart3, ClipboardCheck, Beaker, TrendingUp, Activity } from 'lucide-react';
+import { Flame, Database, BarChart3, ClipboardCheck, Beaker, TrendingUp, Activity, DollarSign } from 'lucide-react';
 
 const links = [
   { href: '/calculateur', label: 'Calculateur PCI', icon: Flame },
@@ -12,6 +12,7 @@ const links = [
   { href: '/statistiques', label: 'Statistiques', icon: BarChart3 },
   { href: '/specifications', label: 'Spécifications', icon: ClipboardCheck },
   { href: '/calcul-melange', label: 'Calcul de Mélange', icon: Beaker },
+  { href: '/gestion-couts', label: 'Gestion des Coûts', icon: DollarSign },
   { href: '/indicateurs', label: 'Indicateurs', icon: TrendingUp },
   { href: '/calcul-impact', label: "Calcul d'Impact", icon: Activity },
 ];

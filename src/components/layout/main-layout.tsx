@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -21,6 +22,7 @@ const pageTitles: { [key: string]: string } = {
   '/statistiques': 'Tableau de Bord des Statistiques',
   '/specifications': 'Spécifications Techniques',
   '/calcul-melange': 'Calcul de Mélange',
+  '/gestion-couts': 'Gestion des Coûts',
   '/indicateurs': 'Indicateurs',
   '/calcul-impact': "Calcul d'Impact",
 };
