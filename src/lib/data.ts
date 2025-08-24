@@ -1,5 +1,6 @@
+
 // src/lib/data.ts
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, arrayUnion, orderBy, Timestamp, setDoc,getCountFromServer } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, arrayUnion, orderBy, Timestamp, setDoc,getCountFromServer, limit } from 'firebase/firestore';
 import { db } from './firebase';
 import { startOfDay, endOfDay } from 'date-fns';
 
@@ -300,6 +301,20 @@ export async function getMixtureSessions(from: Date, to: Date): Promise<MixtureS
 }
 
 
+export async function getLatestMixtureSession(): Promise<MixtureSession | null> {
+    const q = query(
+        collection(db, 'sessions_melange'),
+        orderBy('timestamp', 'desc'),
+        limit(1)
+    );
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return null;
+
+    const doc = snapshot.docs[0];
+    return { id: doc.id, ...doc.data() } as MixtureSession;
+}
+
+
 export async function getFuelCosts(): Promise<Record<string, FuelCost>> {
     const costsCollection = collection(db, 'fuel_costs');
     const snapshot = await getDocs(costsCollection);
@@ -458,5 +473,3 @@ export async function calculateAndApplyYesterdayConsumption(): Promise<Record<st
     await batch.commit();
     return totalConsumptionByFuel;
 }
-
-    

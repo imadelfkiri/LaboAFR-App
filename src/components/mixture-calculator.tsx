@@ -17,7 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getAverageAnalysisForFuels, saveMixtureSession, getMixtureSessions, MixtureSession, getFuelCosts, FuelCost } from '@/lib/data';
+import { getAverageAnalysisForFuels, saveMixtureSession, getMixtureSessions, MixtureSession, getFuelCosts, FuelCost, getLatestMixtureSession } from '@/lib/data';
 import type { AverageAnalysis } from '@/lib/data';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -146,9 +146,10 @@ export function MixtureCalculator() {
     if (!analysisDateRange?.from || !analysisDateRange?.to) return;
     setLoading(true);
     try {
-        const [fuels, costs] = await Promise.all([
+        const [fuels, costs, latestSession] = await Promise.all([
             getAverageAnalysisForFuels(null, analysisDateRange),
-            getFuelCosts()
+            getFuelCosts(),
+            getLatestMixtureSession()
         ]);
         setAvailableFuels(fuels);
         setFuelCosts(costs);
@@ -158,8 +159,23 @@ export function MixtureCalculator() {
             return acc;
         }, {} as InstallationState['fuels']);
 
-        setHallAF(prev => ({...prev, fuels: { ...initialFuelState, ...prev.fuels }}));
-        setAts(prev => ({...prev, fuels: { ...initialFuelState, ...prev.fuels }}));
+        if(latestSession){
+            // If a session exists, use its data to pre-fill the form
+            setHallAF({
+                flowRate: latestSession.hallAF?.flowRate || 0,
+                fuels: { ...initialFuelState, ...(latestSession.hallAF?.fuels || {}) }
+            });
+             setAts({
+                flowRate: latestSession.ats?.flowRate || 0,
+                fuels: { ...initialFuelState, ...(latestSession.ats?.fuels || {}) }
+            });
+            toast({title: "Dernière session chargée", description: "La dernière configuration a été chargée."});
+        } else {
+            // Otherwise, initialize with empty state
+            setHallAF(prev => ({...prev, fuels: { ...initialFuelState, ...prev.fuels }}));
+            setAts(prev => ({...prev, fuels: { ...initialFuelState, ...prev.fuels }}));
+        }
+
     } catch (error) {
         console.error("Error fetching fuel data:", error);
         toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données des combustibles." });
@@ -564,7 +580,7 @@ export function MixtureCalculator() {
                         <Input id="pci_min" type="number" value={currentThresholds.pci_min} onChange={e => handleChange('pci_min', e.target.value)} />
                     </div>
                     <div className="space-y-2">
-                        <Label>Humidité Moyenne (max %)</Label>
+                        <Label htmlFor="humidity_max">Humidité Moyenne (max %)</Label>
                         <Input id="humidity_max" type="number" value={currentThresholds.humidity_max} onChange={e => handleChange('humidity_max', e.target.value)} />
                     </div>
                     <div className="space-y-2">
