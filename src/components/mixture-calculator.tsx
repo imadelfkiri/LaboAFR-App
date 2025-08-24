@@ -31,7 +31,7 @@ import { ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip as
 
 interface InstallationState {
   flowRate: number;
-  fuels: Record<string, { buckets: number, dateRange?: DateRange }>;
+  fuels: Record<string, { buckets: number }>;
 }
 
 interface AISuggestion {
@@ -111,6 +111,10 @@ export function MixtureCalculator() {
   const [historyDateRange, setHistoryDateRange] = useState<DateRange | undefined>({ from: subDays(new Date(), 30), to: new Date() });
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
+  // Global date range for fuel analysis
+  const [analysisDateRange, setAnalysisDateRange] = useState<DateRange | undefined>({ from: subDays(new Date(), 7), to: new Date() });
+
+
   // Cost state
   const [fuelCosts, setFuelCosts] = useState<Record<string, FuelCost>>({});
   
@@ -138,35 +142,35 @@ export function MixtureCalculator() {
     setIsThresholdModalOpen(false);
   }
 
-  const fetchData = useCallback(async (fuelName?: string, dateRange?: DateRange) => {
+ const fetchData = useCallback(async () => {
+    if (!analysisDateRange?.from || !analysisDateRange?.to) return;
+    setLoading(true);
     try {
-      if (fuelName && dateRange) { // Fetch specific fuel for custom range
-         const updatedFuelData = await getAverageAnalysisForFuels([fuelName], dateRange);
-         setAvailableFuels(prev => ({...prev, ...updatedFuelData}));
-      } else { // Initial load
-          setLoading(true);
-          const [initialFuels, costs] = await Promise.all([
-            getAverageAnalysisForFuels(null, { from: subDays(new Date(), 7), to: new Date() }),
+        const [fuels, costs] = await Promise.all([
+            getAverageAnalysisForFuels(null, analysisDateRange),
             getFuelCosts()
-          ]);
-          setAvailableFuels(initialFuels);
-          setFuelCosts(costs);
-          
-          const initialFuelState = Object.keys(initialFuels).reduce((acc, key) => {
-              acc[key] = { buckets: 0 };
-              return acc;
-          }, {} as InstallationState['fuels']);
+        ]);
+        setAvailableFuels(fuels);
+        setFuelCosts(costs);
 
-          setHallAF(prev => ({...prev, fuels: { ...initialFuelState, ...prev.fuels }}));
-          setAts(prev => ({...prev, fuels: { ...initialFuelState, ...prev.fuels }}));
-      }
+        const initialFuelState = Object.keys(fuels).reduce((acc, key) => {
+            acc[key] = { buckets: 0 };
+            return acc;
+        }, {} as InstallationState['fuels']);
+
+        setHallAF(prev => ({...prev, fuels: { ...initialFuelState, ...prev.fuels }}));
+        setAts(prev => ({...prev, fuels: { ...initialFuelState, ...prev.fuels }}));
     } catch (error) {
-      console.error("Error fetching fuel data:", error);
-      toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données des combustibles." });
+        console.error("Error fetching fuel data:", error);
+        toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données des combustibles." });
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
-  }, [toast]);
+  }, [analysisDateRange, toast]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
 
   const fetchHistoryData = useCallback(async () => {
@@ -184,24 +188,8 @@ export function MixtureCalculator() {
   }, [historyDateRange, toast]);
 
   useEffect(() => {
-    fetchData();
-  }, []); // Eslint-disable-line react-hooks/exhaustive-deps, initial fetch only
-
-  useEffect(() => {
     fetchHistoryData();
   }, [fetchHistoryData]);
-
-  const handleDateRangeChange = (fuelName: string, installation: 'hall' | 'ats', dateRange?: DateRange) => {
-    const setter = installation === 'hall' ? setHallAF : setAts;
-    setter(prev => {
-        const newFuels = { ...prev.fuels };
-        newFuels[fuelName] = { ...newFuels[fuelName], dateRange: dateRange };
-        return { ...prev, fuels: newFuels };
-    });
-    if (dateRange?.from && dateRange?.to) {
-        fetchData(fuelName, dateRange);
-    }
-  }
 
   const calculateMixture = useCallback((installationState: InstallationState) => {
     let totalWeight = 0;
@@ -393,28 +381,6 @@ export function MixtureCalculator() {
         {sortedFuelNames.map(fuelName => (
             <div key={fuelName} className="flex items-center gap-2">
             <Label htmlFor={`${installationName}-${fuelName}`} className="flex-1 text-sm">{fuelName}</Label>
-            <Popover>
-                <PopoverTrigger asChild>
-                    <Button 
-                        variant="outline" 
-                        size="icon" 
-                        className={cn("h-8 w-8",
-                            installationState.fuels[fuelName]?.dateRange && "bg-primary/10 border-primary text-primary hover:bg-primary/20"
-                        )}
-                    >
-                        <CalendarIcon className="h-4 w-4" />
-                    </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                    <Calendar
-                        mode="range"
-                        selected={installationState.fuels[fuelName]?.dateRange}
-                        onSelect={(range) => handleDateRangeChange(fuelName, installationName, range)}
-                        locale={fr}
-                        numberOfMonths={2}
-                    />
-                </PopoverContent>
-            </Popover>
             <Input
                 id={`${installationName}-${fuelName}`}
                 type="number"
@@ -646,6 +612,43 @@ export function MixtureCalculator() {
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold">Indicateurs Globaux</h1>
             <ThresholdSettingsModal />
+             <Popover>
+                <PopoverTrigger asChild>
+                    <Button
+                        id="date"
+                        variant={"outline"}
+                        className={cn(
+                            "w-[300px] justify-start text-left font-normal",
+                            !analysisDateRange && "text-muted-foreground"
+                        )}
+                    >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {analysisDateRange?.from ? (
+                        analysisDateRange.to ? (
+                            <>
+                            {format(analysisDateRange.from, "d MMM y", { locale: fr })} -{" "}
+                            {format(analysisDateRange.to, "d MMM y", { locale: fr })}
+                            </>
+                        ) : (
+                            format(analysisDateRange.from, "d MMM y", { locale: fr })
+                        )
+                        ) : (
+                        <span>Sélectionner une période d'analyse</span>
+                        )}
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                        initialFocus
+                        mode="range"
+                        defaultMonth={analysisDateRange?.from}
+                        selected={analysisDateRange}
+                        onSelect={setAnalysisDateRange}
+                        numberOfMonths={2}
+                        locale={fr}
+                    />
+                </PopoverContent>
+            </Popover>
           </div>
           <div className="flex items-center gap-2">
             <Button onClick={handleSaveSession} disabled={isSaving}>
@@ -673,7 +676,7 @@ export function MixtureCalculator() {
                 <Input id="flow-hall" type="number" className="w-32 h-9" value={hallAF.flowRate || ''} onChange={(e) => handleFlowRateChange(setHallAF, e.target.value)} />
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 p-6">
             <FuelInputList installationState={hallAF} setInstallationState={setHallAF} installationName="hall" />
           </CardContent>
         </Card>
@@ -686,7 +689,7 @@ export function MixtureCalculator() {
                 <Input id="flow-ats" type="number" className="w-32 h-9" value={ats.flowRate || ''} onChange={(e) => handleFlowRateChange(setAts, e.target.value)} />
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 p-6">
             <FuelInputList installationState={ats} setInstallationState={setAts} installationName="ats" />
           </CardContent>
         </Card>
