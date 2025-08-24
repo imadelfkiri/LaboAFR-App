@@ -17,7 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getAverageAnalysisForFuels, saveMixtureSession, getMixtureSessions, MixtureSession, getFuelCosts, FuelCost, getLatestMixtureSession } from '@/lib/data';
+import { getAverageAnalysisForFuels, saveMixtureSession, getMixtureSessions, MixtureSession, getFuelCosts, FuelCost, getLatestMixtureSession, getStocks } from '@/lib/data';
 import type { AverageAnalysis } from '@/lib/data';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -146,23 +146,28 @@ export function MixtureCalculator() {
     if (!analysisDateRange?.from || !analysisDateRange?.to) return;
     setLoading(true);
     try {
-        const [fuels, costs, latestSession] = await Promise.all([
-            getAverageAnalysisForFuels(null, analysisDateRange),
+        // Fetch all data concurrently
+        const [stocks, costs, latestSession] = await Promise.all([
+            getStocks(),
             getFuelCosts(),
             getLatestMixtureSession()
         ]);
-        
-        const initialFuelState = Object.keys(fuels).reduce((acc, key) => {
-            acc[key] = { buckets: 0 };
+
+        // Determine the list of fuels to get analysis for
+        const fuelNames = stocks.map(s => s.nom_combustible);
+
+        // Fetch average analysis for these specific fuels
+        const fuelsAnalysis = await getAverageAnalysisForFuels(fuelNames, analysisDateRange);
+
+        const initialFuelState = stocks.reduce((acc, stock) => {
+            acc[stock.nom_combustible] = { buckets: 0 };
             return acc;
         }, {} as InstallationState['fuels']);
 
-        setAvailableFuels(fuels);
+        setAvailableFuels(fuelsAnalysis);
         setFuelCosts(costs);
 
-
         if(latestSession){
-            // If a session exists, use its data to pre-fill the form
             setHallAF({
                 flowRate: latestSession.hallAF?.flowRate || 0,
                 fuels: { ...initialFuelState, ...(latestSession.hallAF?.fuels || {}) }
@@ -173,7 +178,6 @@ export function MixtureCalculator() {
             });
             toast({title: "Dernière session chargée", description: "La dernière configuration a été chargée."});
         } else {
-            // Otherwise, initialize with empty state for all available fuels
             setHallAF(prev => ({...prev, fuels: { ...initialFuelState }}));
             setAts(prev => ({...prev, fuels: { ...initialFuelState }}));
         }
@@ -231,25 +235,26 @@ export function MixtureCalculator() {
             const fuelInput = state.fuels[fuelName];
             const fuelData = availableFuels[fuelName];
             
-            if (!fuelData) continue; // Skip if fuel data not available
+            if (!fuelData || !fuelInput || fuelInput.buckets <= 0 || fuelData.density <= 0) {
+                continue;
+            }
             
             const costKey = Object.keys(fuelCosts).find(key => key.startsWith(`${fuelName}|`));
             const fuelCost = costKey ? fuelCosts[costKey]?.cost || 0 : 0;
 
-            if (fuelInput.buckets > 0 && fuelData.density > 0) {
-                const weight = fuelInput.buckets * BUCKET_VOLUME_M3 * fuelData.density;
-                tempTotalPci += weight * fuelData.pci_brut;
-                tempTotalHumidity += weight * fuelData.h2o;
-                tempTotalAsh += weight * fuelData.cendres;
-                tempTotalChlorine += weight * fuelData.chlore;
-                tempTotalCost += weight * fuelCost;
-                totalWeight += weight;
+            const weight = fuelInput.buckets * BUCKET_VOLUME_M3 * fuelData.density;
+            tempTotalPci += weight * fuelData.pci_brut;
+            tempTotalHumidity += weight * fuelData.h2o;
+            tempTotalAsh += weight * fuelData.cendres;
+            tempTotalChlorine += weight * fuelData.chlore;
+            tempTotalCost += weight * fuelCost;
+            totalWeight += weight;
 
-                if (fuelName.toLowerCase().includes('pneu')) {
-                    tempTotalTireWeight += weight;
-                }
+            if (fuelName.toLowerCase().includes('pneu')) {
+                tempTotalTireWeight += weight;
             }
         }
+
         return { 
             weight: totalWeight, 
             cost: totalWeight > 0 ? tempTotalCost / totalWeight : 0,
