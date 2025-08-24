@@ -224,7 +224,8 @@ export async function getAverageAnalysisForFuels(
   const q = query(
     collection(db, 'resultats'),
     where('date_arrivage', '>=', Timestamp.fromDate(dateRange.from)),
-    where('date_arrivage', '<=', Timestamp.fromDate(dateRange.to))
+    where('date_arrivage', '<=', Timestamp.fromDate(dateRange.to)),
+    where('type_combustible', 'in', fuelNames.length > 0 ? fuelNames : [' ']) // Firestore 'in' queries cannot be empty
   );
 
   const snapshot = await getDocs(q);
@@ -243,11 +244,10 @@ export async function getAverageAnalysisForFuels(
     analysis[name] = { pci_brut: [], h2o: [], chlore: [], cendres: [], density: [] };
   });
 
-  // Populate with data from the database, only for requested fuels
+  // Populate with data from the database
   dbResults.forEach(res => {
     const fuelName = res.type_combustible;
-    // Ensure we only process fuels that were explicitly requested
-    if (fuelNames.includes(fuelName)) {
+    if (analysis[fuelName]) { // Ensure we only process fuels that were explicitly requested
       const target = analysis[fuelName];
       if (typeof res.pci_brut === 'number') target.pci_brut.push(res.pci_brut);
       if (typeof res.h2o === 'number') target.h2o.push(res.h2o);

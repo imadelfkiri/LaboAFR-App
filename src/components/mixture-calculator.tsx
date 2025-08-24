@@ -235,24 +235,32 @@ export function MixtureCalculator() {
             const fuelInput = state.fuels[fuelName];
             const fuelData = availableFuels[fuelName];
             
-            if (!fuelData || !fuelInput || fuelInput.buckets <= 0 || fuelData.density <= 0) {
+            if (!fuelInput || fuelInput.buckets <= 0) {
                 continue;
             }
-            
-            const costKey = Object.keys(fuelCosts).find(key => key.startsWith(`${fuelName}|`));
-            const fuelCost = costKey ? fuelCosts[costKey]?.cost || 0 : 0;
 
-            const weight = fuelInput.buckets * BUCKET_VOLUME_M3 * fuelData.density;
-            tempTotalPci += weight * fuelData.pci_brut;
-            tempTotalHumidity += weight * fuelData.h2o;
-            tempTotalAsh += weight * fuelData.cendres;
-            tempTotalChlorine += weight * fuelData.chlore;
-            tempTotalCost += weight * fuelCost;
+            // Even if fuelData is missing, we must calculate weight for tire rate.
+            // A stock item should have a density, we'll assume a default if not present.
+            const density = fuelData?.density > 0 ? fuelData.density : 0.5; // Default density
+            const weight = fuelInput.buckets * BUCKET_VOLUME_M3 * density;
             totalWeight += weight;
 
             if (fuelName.toLowerCase().includes('pneu')) {
                 tempTotalTireWeight += weight;
             }
+
+            if (!fuelData || fuelData.count === 0) {
+                continue; // Skip fuels with no analysis data for other calculations
+            }
+            
+            const costKey = Object.keys(fuelCosts).find(key => key.startsWith(`${fuelName}|`));
+            const fuelCost = costKey ? fuelCosts[costKey]?.cost || 0 : 0;
+
+            tempTotalPci += weight * fuelData.pci_brut;
+            tempTotalHumidity += weight * fuelData.h2o;
+            tempTotalAsh += weight * fuelData.cendres;
+            tempTotalChlorine += weight * fuelData.chlore;
+            tempTotalCost += weight * fuelCost;
         }
 
         return { 
@@ -273,10 +281,13 @@ export function MixtureCalculator() {
     
     const pci = weightedAvg(pciHall, totalWeightHall, pciAts, totalWeightAts);
     const chlorine = weightedAvg(chlorineHall, totalWeightHall, chlorineAts, totalWeightAts);
-    const tireRate = weightedAvg(tireRateHall, totalWeightHall, tireRateAts, totalWeightAts);
     const humidity = weightedAvg(humidityHall, totalWeightHall, humidityAts, totalWeightAts);
     const ash = weightedAvg(ashHall, totalWeightHall, ashAts, totalWeightAts);
     const cost = weightedAvg(costHall, totalWeightHall, costAts, totalWeightAts);
+
+    // Tire rate needs to be calculated based on total weights directly
+    const totalTireWeight = (tireRateHall / 100 * totalWeightHall) + (tireRateAts / 100 * totalWeightAts);
+    const tireRate = totalWeight > 0 ? (totalTireWeight / totalWeight) * 100 : 0;
 
     const alerts = {
         pci: pci > 0 && thresholds.pci_min > 0 && pci < thresholds.pci_min,
@@ -350,7 +361,7 @@ export function MixtureCalculator() {
     if (loading) {
         return <Skeleton className="h-48 w-full" />;
     }
-     const sortedFuelNames = Object.keys(availableFuels)
+     const sortedFuelNames = Object.keys(installationState.fuels)
         .filter(name => name.toLowerCase() !== 'grignons')
         .sort((a, b) => {
             const indexA = fuelOrder.indexOf(a);
