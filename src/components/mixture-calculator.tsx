@@ -355,7 +355,7 @@ export function MixtureCalculator() {
         return <Skeleton className="h-48 w-full" />;
     }
     return (
-        <div className="space-y-3 pr-2">
+        <div className="space-y-3">
         {Object.keys(availableFuels).sort().map(fuelName => (
             <div key={fuelName} className="flex items-center gap-2">
             <Label htmlFor={`${installationName}-${fuelName}`} className="flex-1 text-sm">{fuelName}</Label>
@@ -640,11 +640,6 @@ export function MixtureCalculator() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="p-3 rounded-lg bg-muted/50 grid grid-cols-3 gap-2 text-center">
-              <IndicatorCard title="PCI Mélange" value={hallMixture.pci.toFixed(0)} tooltipText={`Basé sur ${hallMixture.analysisCount} analyses`} />
-              <IndicatorCard title="Chlorures" value={hallMixture.chlorine.toFixed(3)} tooltipText={`Basé sur ${hallMixture.analysisCount} analyses`} />
-              <IndicatorCard title="Taux Pneus" value={hallMixture.tireRate.toFixed(2)} unit="%" tooltipText={`Basé sur ${hallMixture.analysisCount} analyses`} />
-            </div>
             <FuelInputList installationState={hallAF} setInstallationState={setHallAF} installationName="hall" />
           </CardContent>
         </Card>
@@ -658,11 +653,6 @@ export function MixtureCalculator() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="p-3 rounded-lg bg-muted/50 grid grid-cols-3 gap-2 text-center">
-              <IndicatorCard title="PCI Mélange" value={atsMixture.pci.toFixed(0)} tooltipText={`Basé sur ${atsMixture.analysisCount} analyses`} />
-              <IndicatorCard title="Chlorures" value={atsMixture.chlorine.toFixed(3)} tooltipText={`Basé sur ${atsMixture.analysisCount} analyses`} />
-              <IndicatorCard title="Taux Pneus" value={atsMixture.tireRate.toFixed(2)} unit="%" tooltipText={`Basé sur ${atsMixture.analysisCount} analyses`} />
-            </div>
             <FuelInputList installationState={ats} setInstallationState={setAts} installationName="ats" />
           </CardContent>
         </Card>
