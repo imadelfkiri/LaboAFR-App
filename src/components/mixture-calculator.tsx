@@ -205,47 +205,35 @@ export function MixtureCalculator() {
 
   const calculateMixture = useCallback((installationState: InstallationState) => {
     let totalWeight = 0;
-    let totalPci = 0;
-    let totalChlorine = 0;
-    let totalTireWeight = 0;
     let totalAnalysisCount = 0;
+    let totalCost = 0;
 
     const weights: Record<string, number> = {};
 
     for (const fuelName in installationState.fuels) {
       const fuelInput = installationState.fuels[fuelName];
       const fuelData = availableFuels[fuelName];
+      
+      const costKey = Object.keys(fuelCosts).find(key => key.startsWith(`${fuelName}|`));
+      const fuelCost = costKey ? fuelCosts[costKey]?.cost || 0 : 0;
 
       if (fuelInput.buckets > 0 && fuelData && fuelData.density > 0) {
         const weight = fuelInput.buckets * BUCKET_VOLUME_M3 * fuelData.density;
         weights[fuelName] = weight;
         totalWeight += weight;
         totalAnalysisCount += fuelData.count;
-        if (fuelName.toLowerCase().includes('pneu')) {
-            totalTireWeight += weight;
-        }
+        totalCost += weight * fuelCost;
       }
     }
     
-    if (totalWeight === 0) return { pci: 0, chlorine: 0, tireRate: 0, analysisCount: 0, totalWeight: 0 };
-
-    for (const fuelName in weights) {
-      const weight = weights[fuelName];
-      const fuelData = availableFuels[fuelName];
-      if (fuelData) {
-        totalPci += weight * fuelData.pci_brut;
-        totalChlorine += weight * fuelData.chlore;
-      }
-    }
+    if (totalWeight === 0) return { analysisCount: 0, totalWeight: 0, cost: 0 };
 
     return {
-      pci: totalPci / totalWeight,
-      chlorine: totalChlorine / totalWeight,
-      tireRate: (totalTireWeight / totalWeight) * 100,
       totalWeight: totalWeight,
-      analysisCount: totalAnalysisCount
+      analysisCount: totalAnalysisCount,
+      cost: totalCost / totalWeight,
     };
-  }, [availableFuels]);
+  }, [availableFuels, fuelCosts]);
 
   const hallMixture = useMemo(() => calculateMixture(hallAF), [hallAF, calculateMixture]);
   const atsMixture = useMemo(() => calculateMixture(ats), [ats, calculateMixture]);
@@ -253,17 +241,27 @@ export function MixtureCalculator() {
   const globalIndicators = useMemo(() => {
     const totalFlow = (hallAF.flowRate || 0) + (ats.flowRate || 0);
 
-    const weightedAvg = (valHall: number, valAts: number) => {
-      if (totalFlow === 0) return 0;
-        return (valHall * (hallAF.flowRate || 0) + valAts * (ats.flowRate || 0)) / totalFlow;
+    const weightedAvg = (valHall: number, weightHall: number, valAts: number, weightAts: number) => {
+      const totalWeight = weightHall + weightAts;
+      if (totalWeight === 0) return 0;
+      return (valHall * weightHall + valAts * weightAts) / totalWeight;
     }
 
+    let totalPci = 0;
     let totalHumidity = 0;
     let totalAsh = 0;
+    let totalChlorine = 0;
+    let totalTireWeight = 0;
     
     const processInstallation = (state: InstallationState) => {
         let totalWeight = 0;
         let tempTotalCost = 0;
+        let tempTotalPci = 0;
+        let tempTotalHumidity = 0;
+        let tempTotalAsh = 0;
+        let tempTotalChlorine = 0;
+        let tempTotalTireWeight = 0;
+
         for(const fuelName in state.fuels) {
             const fuelInput = state.fuels[fuelName];
             const fuelData = availableFuels[fuelName];
@@ -273,25 +271,39 @@ export function MixtureCalculator() {
 
             if (fuelInput.buckets > 0 && fuelData && fuelData.density > 0) {
                 const weight = fuelInput.buckets * BUCKET_VOLUME_M3 * fuelData.density;
-                totalHumidity += weight * fuelData.h2o;
-                totalAsh += weight * fuelData.cendres;
+                tempTotalPci += weight * fuelData.pci_brut;
+                tempTotalHumidity += weight * fuelData.h2o;
+                tempTotalAsh += weight * fuelData.cendres;
+                tempTotalChlorine += weight * fuelData.chlore;
                 tempTotalCost += weight * fuelCost;
                 totalWeight += weight;
+
+                if (fuelName.toLowerCase().includes('pneu')) {
+                    tempTotalTireWeight += weight;
+                }
             }
         }
-        return { weight: totalWeight, cost: tempTotalCost };
+        return { 
+            weight: totalWeight, 
+            cost: totalWeight > 0 ? tempTotalCost / totalWeight : 0,
+            pci: totalWeight > 0 ? tempTotalPci / totalWeight : 0,
+            humidity: totalWeight > 0 ? tempTotalHumidity / totalWeight : 0,
+            ash: totalWeight > 0 ? tempTotalAsh / totalWeight : 0,
+            chlorine: totalWeight > 0 ? tempTotalChlorine / totalWeight : 0,
+            tireRate: totalWeight > 0 ? (tempTotalTireWeight / totalWeight) * 100 : 0
+        };
     };
 
-    const { weight: totalWeightHall, cost: totalCostHall } = processInstallation(hallAF);
-    const { weight: totalWeightAts, cost: totalCostAts } = processInstallation(ats);
+    const { weight: totalWeightHall, cost: costHall, pci: pciHall, humidity: humidityHall, ash: ashHall, chlorine: chlorineHall, tireRate: tireRateHall } = processInstallation(hallAF);
+    const { weight: totalWeightAts, cost: costAts, pci: pciAts, humidity: humidityAts, ash: ashAts, chlorine: chlorineAts, tireRate: tireRateAts } = processInstallation(ats);
     const totalWeight = totalWeightHall + totalWeightAts;
-    const totalCost = totalCostHall + totalCostAts;
-
-    const pci = weightedAvg(hallMixture.pci, atsMixture.pci);
-    const chlorine = weightedAvg(hallMixture.chlorine, atsMixture.tireRate);
-    const tireRate = weightedAvg(hallMixture.tireRate, atsMixture.tireRate);
-    const humidity = totalWeight > 0 ? totalHumidity / totalWeight : 0;
-    const ash = totalWeight > 0 ? totalAsh / totalWeight : 0;
+    
+    const pci = weightedAvg(pciHall, totalWeightHall, pciAts, totalWeightAts);
+    const chlorine = weightedAvg(chlorineHall, totalWeightHall, chlorineAts, totalWeightAts);
+    const tireRate = weightedAvg(tireRateHall, totalWeightHall, tireRateAts, totalWeightAts);
+    const humidity = weightedAvg(humidityHall, totalWeightHall, humidityAts, totalWeightAts);
+    const ash = weightedAvg(ashHall, totalWeightHall, ashAts, totalWeightAts);
+    const cost = weightedAvg(costHall, totalWeightHall, costAts, totalWeightAts);
 
     const alerts = {
         pci: pci > 0 && thresholds.pci_min > 0 && pci < thresholds.pci_min,
@@ -308,10 +320,10 @@ export function MixtureCalculator() {
       ash,
       chlorine,
       tireRate,
-      cost: totalWeight > 0 ? totalCost / totalWeight : 0,
+      cost,
       alerts,
     };
-  }, [hallAF, ats, hallMixture, atsMixture, availableFuels, fuelCosts, thresholds]);
+  }, [hallAF, ats, availableFuels, fuelCosts, thresholds]);
 
   const historyChartData = useMemo(() => {
     if (!historySessions || historySessions.length === 0) return [];
@@ -586,7 +598,7 @@ export function MixtureCalculator() {
                         <Input id="pci_min" type="number" value={currentThresholds.pci_min} onChange={e => handleChange('pci_min', e.target.value)} />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="humidity_max">Humidité Moyenne (max %)</Label>
+                        <Label>Humidité Moyenne (max %)</Label>
                         <Input id="humidity_max" type="number" value={currentThresholds.humidity_max} onChange={e => handleChange('humidity_max', e.target.value)} />
                     </div>
                     <div className="space-y-2">
@@ -631,13 +643,15 @@ export function MixtureCalculator() {
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6">
       <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Indicateurs Globaux</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold">Indicateurs Globaux</h1>
+            <ThresholdSettingsModal />
+          </div>
           <div className="flex items-center gap-2">
             <Button onClick={handleSaveSession} disabled={isSaving}>
                 <Save className="mr-2 h-4 w-4" />
                 {isSaving ? "Enregistrement..." : "Enregistrer la Session"}
             </Button>
-            <ThresholdSettingsModal />
           </div>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
