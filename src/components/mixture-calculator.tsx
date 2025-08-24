@@ -355,7 +355,7 @@ export function MixtureCalculator() {
         return <Skeleton className="h-48 w-full" />;
     }
     return (
-        <div className="space-y-3 pr-2 max-h-60 overflow-y-auto">
+        <div className="space-y-3 pr-2">
         {Object.keys(availableFuels).sort().map(fuelName => (
             <div key={fuelName} className="flex items-center gap-2">
             <Label htmlFor={`${installationName}-${fuelName}`} className="flex-1 text-sm">{fuelName}</Label>
