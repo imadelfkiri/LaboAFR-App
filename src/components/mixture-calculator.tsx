@@ -630,6 +630,44 @@ export function MixtureCalculator() {
         <IndicatorCard title="Coût du Mélange" value={globalIndicators.cost.toFixed(2)} unit="MAD/t" />
       </div>
 
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="shadow-sm rounded-xl">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Hall des AF</CardTitle>
+            <div className="flex items-center gap-2">
+                <Label htmlFor="flow-hall" className="text-sm">Débit (t/h)</Label>
+                <Input id="flow-hall" type="number" className="w-32 h-9" value={hallAF.flowRate || ''} onChange={(e) => handleFlowRateChange(setHallAF, e.target.value)} />
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="p-3 rounded-lg bg-muted/50 grid grid-cols-3 gap-2 text-center">
+              <IndicatorCard title="PCI Mélange" value={hallMixture.pci.toFixed(0)} tooltipText={`Basé sur ${hallMixture.analysisCount} analyses`} />
+              <IndicatorCard title="Chlorures" value={hallMixture.chlorine.toFixed(3)} tooltipText={`Basé sur ${hallMixture.analysisCount} analyses`} />
+              <IndicatorCard title="Taux Pneus" value={hallMixture.tireRate.toFixed(2)} unit="%" tooltipText={`Basé sur ${hallMixture.analysisCount} analyses`} />
+            </div>
+            <FuelInputList installationState={hallAF} setInstallationState={setHallAF} installationName="hall" />
+          </CardContent>
+        </Card>
+        
+        <Card className="shadow-sm rounded-xl">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>ATS</CardTitle>
+            <div className="flex items-center gap-2">
+                <Label htmlFor="flow-ats" className="text-sm">Débit (t/h)</Label>
+                <Input id="flow-ats" type="number" className="w-32 h-9" value={ats.flowRate || ''} onChange={(e) => handleFlowRateChange(setAts, e.target.value)} />
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="p-3 rounded-lg bg-muted/50 grid grid-cols-3 gap-2 text-center">
+              <IndicatorCard title="PCI Mélange" value={atsMixture.pci.toFixed(0)} tooltipText={`Basé sur ${atsMixture.analysisCount} analyses`} />
+              <IndicatorCard title="Chlorures" value={atsMixture.chlorine.toFixed(3)} tooltipText={`Basé sur ${atsMixture.analysisCount} analyses`} />
+              <IndicatorCard title="Taux Pneus" value={atsMixture.tireRate.toFixed(2)} unit="%" tooltipText={`Basé sur ${atsMixture.analysisCount} analyses`} />
+            </div>
+            <FuelInputList installationState={ats} setInstallationState={setAts} installationName="ats" />
+          </CardContent>
+        </Card>
+      </section>
+
       <Collapsible defaultOpen={false} className="rounded-xl border bg-card text-card-foreground shadow">
         <Card>
             <CardHeader>
@@ -712,46 +750,6 @@ export function MixtureCalculator() {
         </Card>
       </Collapsible>
 
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="shadow-sm rounded-xl">
-          <CardHeader>
-            <CardTitle>Hall des AF</CardTitle>
-            <div className="flex items-center gap-2 pt-2">
-                <Label htmlFor="flow-hall" className="text-sm">Débit (t/h)</Label>
-                <Input id="flow-hall" type="number" className="w-32 h-9" value={hallAF.flowRate || ''} onChange={(e) => handleFlowRateChange(setHallAF, e.target.value)} />
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="p-3 rounded-lg bg-muted/50 grid grid-cols-3 gap-2 text-center">
-              <IndicatorCard title="PCI Mélange" value={hallMixture.pci.toFixed(0)} tooltipText={`Basé sur ${hallMixture.analysisCount} analyses`} />
-              <IndicatorCard title="Chlorures" value={hallMixture.chlorine.toFixed(3)} tooltipText={`Basé sur ${hallMixture.analysisCount} analyses`} />
-              <IndicatorCard title="Taux Pneus" value={hallMixture.tireRate.toFixed(2)} unit="%" tooltipText={`Basé sur ${hallMixture.analysisCount} analyses`} />
-            </div>
-            <FuelInputList installationState={hallAF} setInstallationState={setHallAF} installationName="hall" />
-          </CardContent>
-        </Card>
-        
-        <Card className="shadow-sm rounded-xl">
-          <CardHeader>
-            <CardTitle>ATS</CardTitle>
-            <div className="flex items-center gap-2 pt-2">
-                <Label htmlFor="flow-ats" className="text-sm">Débit (t/h)</Label>
-                <Input id="flow-ats" type="number" className="w-32 h-9" value={ats.flowRate || ''} onChange={(e) => handleFlowRateChange(setAts, e.target.value)} />
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="p-3 rounded-lg bg-muted/50 grid grid-cols-3 gap-2 text-center">
-              <IndicatorCard title="PCI Mélange" value={atsMixture.pci.toFixed(0)} tooltipText={`Basé sur ${atsMixture.analysisCount} analyses`} />
-              <IndicatorCard title="Chlorures" value={atsMixture.chlorine.toFixed(3)} tooltipText={`Basé sur ${atsMixture.analysisCount} analyses`} />
-              <IndicatorCard title="Taux Pneus" value={atsMixture.tireRate.toFixed(2)} unit="%" tooltipText={`Basé sur ${atsMixture.analysisCount} analyses`} />
-            </div>
-            <FuelInputList installationState={ats} setInstallationState={setAts} installationName="ats" />
-          </CardContent>
-        </Card>
-      </section>
-
     </div>
   );
 }
-
-    
