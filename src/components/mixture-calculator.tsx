@@ -760,5 +760,3 @@ export function MixtureCalculator() {
     </div>
   );
 }
-
-    
