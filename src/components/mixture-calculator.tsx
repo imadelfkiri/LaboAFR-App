@@ -151,13 +151,15 @@ export function MixtureCalculator() {
             getFuelCosts(),
             getLatestMixtureSession()
         ]);
-        setAvailableFuels(fuels);
-        setFuelCosts(costs);
-
+        
         const initialFuelState = Object.keys(fuels).reduce((acc, key) => {
             acc[key] = { buckets: 0 };
             return acc;
         }, {} as InstallationState['fuels']);
+
+        setAvailableFuels(fuels);
+        setFuelCosts(costs);
+
 
         if(latestSession){
             // If a session exists, use its data to pre-fill the form
@@ -171,9 +173,9 @@ export function MixtureCalculator() {
             });
             toast({title: "Dernière session chargée", description: "La dernière configuration a été chargée."});
         } else {
-            // Otherwise, initialize with empty state
-            setHallAF(prev => ({...prev, fuels: { ...initialFuelState, ...prev.fuels }}));
-            setAts(prev => ({...prev, fuels: { ...initialFuelState, ...prev.fuels }}));
+            // Otherwise, initialize with empty state for all available fuels
+            setHallAF(prev => ({...prev, fuels: { ...initialFuelState }}));
+            setAts(prev => ({...prev, fuels: { ...initialFuelState }}));
         }
 
     } catch (error) {
@@ -207,41 +209,6 @@ export function MixtureCalculator() {
     fetchHistoryData();
   }, [fetchHistoryData]);
 
-  const calculateMixture = useCallback((installationState: InstallationState) => {
-    let totalWeight = 0;
-    let totalAnalysisCount = 0;
-    let totalCost = 0;
-
-    const weights: Record<string, number> = {};
-
-    for (const fuelName in installationState.fuels) {
-      const fuelInput = installationState.fuels[fuelName];
-      const fuelData = availableFuels[fuelName];
-      
-      const costKey = Object.keys(fuelCosts).find(key => key.startsWith(`${fuelName}|`));
-      const fuelCost = costKey ? fuelCosts[costKey]?.cost || 0 : 0;
-
-      if (fuelInput.buckets > 0 && fuelData && fuelData.density > 0) {
-        const weight = fuelInput.buckets * BUCKET_VOLUME_M3 * fuelData.density;
-        weights[fuelName] = weight;
-        totalWeight += weight;
-        totalAnalysisCount += fuelData.count;
-        totalCost += weight * fuelCost;
-      }
-    }
-    
-    if (totalWeight === 0) return { analysisCount: 0, totalWeight: 0, cost: 0 };
-
-    return {
-      totalWeight: totalWeight,
-      analysisCount: totalAnalysisCount,
-      cost: totalCost / totalWeight,
-    };
-  }, [availableFuels, fuelCosts]);
-
-  const hallMixture = useMemo(() => calculateMixture(hallAF), [hallAF, calculateMixture]);
-  const atsMixture = useMemo(() => calculateMixture(ats), [ats, calculateMixture]);
-
   const globalIndicators = useMemo(() => {
     const totalFlow = (hallAF.flowRate || 0) + (ats.flowRate || 0);
 
@@ -251,12 +218,6 @@ export function MixtureCalculator() {
       return (valHall * weightHall + valAts * weightAts) / totalWeight;
     }
 
-    let totalPci = 0;
-    let totalHumidity = 0;
-    let totalAsh = 0;
-    let totalChlorine = 0;
-    let totalTireWeight = 0;
-    
     const processInstallation = (state: InstallationState) => {
         let totalWeight = 0;
         let tempTotalCost = 0;
@@ -270,10 +231,12 @@ export function MixtureCalculator() {
             const fuelInput = state.fuels[fuelName];
             const fuelData = availableFuels[fuelName];
             
+            if (!fuelData) continue; // Skip if fuel data not available
+            
             const costKey = Object.keys(fuelCosts).find(key => key.startsWith(`${fuelName}|`));
             const fuelCost = costKey ? fuelCosts[costKey]?.cost || 0 : 0;
 
-            if (fuelInput.buckets > 0 && fuelData && fuelData.density > 0) {
+            if (fuelInput.buckets > 0 && fuelData.density > 0) {
                 const weight = fuelInput.buckets * BUCKET_VOLUME_M3 * fuelData.density;
                 tempTotalPci += weight * fuelData.pci_brut;
                 tempTotalHumidity += weight * fuelData.h2o;
@@ -300,6 +263,7 @@ export function MixtureCalculator() {
 
     const { weight: totalWeightHall, cost: costHall, pci: pciHall, humidity: humidityHall, ash: ashHall, chlorine: chlorineHall, tireRate: tireRateHall } = processInstallation(hallAF);
     const { weight: totalWeightAts, cost: costAts, pci: pciAts, humidity: humidityAts, ash: ashAts, chlorine: chlorineAts, tireRate: tireRateAts } = processInstallation(ats);
+    
     const totalWeight = totalWeightHall + totalWeightAts;
     
     const pci = weightedAvg(pciHall, totalWeightHall, pciAts, totalWeightAts);
@@ -382,7 +346,7 @@ export function MixtureCalculator() {
         return <Skeleton className="h-48 w-full" />;
     }
      const sortedFuelNames = Object.keys(availableFuels)
-        .filter(name => name !== 'Grignons')
+        .filter(name => name.toLowerCase() !== 'grignons')
         .sort((a, b) => {
             const indexA = fuelOrder.indexOf(a);
             const indexB = fuelOrder.indexOf(b);
@@ -796,3 +760,5 @@ export function MixtureCalculator() {
     </div>
   );
 }
+
+    
