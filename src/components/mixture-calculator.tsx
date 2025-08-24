@@ -2,10 +2,15 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { BrainCircuit, Calendar as CalendarIcon, Save, AlertCircle, DollarSign, Settings, Info } from 'lucide-react';
+import { BrainCircuit, Calendar as CalendarIcon, Save, Settings, ChevronDown } from 'lucide-react';
 import { DateRange } from "react-day-picker";
 import { format, subDays, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -56,15 +61,15 @@ const BUCKET_VOLUME_M3 = 3;
 function IndicatorCard({ title, value, unit, tooltipText, isAlert }: { title: string; value: string | number; unit?: string; tooltipText?: string, isAlert?: boolean }) {
   const cardContent = (
      <Card className={cn(
-        "bg-background text-center transition-colors",
+        "bg-background text-center transition-colors shadow-sm",
         isAlert && "border-red-500 bg-red-50"
         )}>
-      <CardHeader className="p-3 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+      <CardHeader className="p-2 pb-1">
+        <CardTitle className="text-xs font-medium text-muted-foreground">{title}</CardTitle>
       </CardHeader>
-      <CardContent className="p-3 pt-0">
-        <p className="text-2xl font-bold text-foreground">
-          {value} <span className="text-lg text-gray-500">{unit}</span>
+      <CardContent className="p-2 pt-0">
+        <p className="text-xl font-bold text-foreground">
+          {value} <span className="text-base text-gray-500">{unit}</span>
         </p>
       </CardContent>
     </Card>
@@ -141,8 +146,8 @@ export function MixtureCalculator() {
               return acc;
           }, {} as InstallationState['fuels']);
 
-          setHallAF(prev => ({...prev, fuels: { ...initialFuelState }}));
-          setAts(prev => ({...prev, fuels: { ...initialFuelState }}));
+          setHallAF(prev => ({...prev, fuels: { ...initialFuelState, ...prev.fuels }}));
+          setAts(prev => ({...prev, fuels: { ...initialFuelState, ...prev.fuels }}));
       }
     } catch (error) {
       console.error("Error fetching fuel data:", error);
@@ -380,7 +385,7 @@ export function MixtureCalculator() {
                 id={`${installationName}-${fuelName}`}
                 type="number"
                 placeholder="0"
-                className="w-24"
+                className="w-24 h-9"
                 value={installationState.fuels[fuelName]?.buckets || ''}
                 onChange={(e) => handleInputChange(setInstallationState, fuelName, e.target.value)}
                 min="0"
@@ -445,8 +450,9 @@ export function MixtureCalculator() {
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
-                <Button className="fixed bottom-6 right-24 rounded-full h-16 w-16 shadow-lg bg-primary hover:bg-primary/90 z-40">
-                    <BrainCircuit className="h-8 w-8" />
+                 <Button variant="outline" size="sm">
+                    <BrainCircuit className="h-4 w-4 mr-2" />
+                    Assistant IA
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[625px]">
@@ -602,98 +608,117 @@ export function MixtureCalculator() {
 
 
   return (
-    <div className="p-4 md:p-8 space-y-8">
-      <section>
-        <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold">Indicateurs Globaux</h1>
+    <div className="p-4 md:p-6 lg:p-8 space-y-6">
+      <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Indicateurs Globaux</h1>
+          <div className="flex items-center gap-2">
+            <AiAssistant />
+            <Button onClick={handleSaveSession} disabled={isSaving}>
+                <Save className="mr-2 h-4 w-4" />
+                {isSaving ? "Enregistrement..." : "Enregistrer la Session"}
+            </Button>
             <ThresholdSettingsModal />
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
-          <IndicatorCard title="Débit des AFs" value={globalIndicators.flow.toFixed(2)} unit="t/h" />
-          <IndicatorCard title="PCI moy" value={globalIndicators.pci.toFixed(0)} unit="kcal/kg" isAlert={globalIndicators.alerts.pci} />
-          <IndicatorCard title="% Humidité moy" value={globalIndicators.humidity.toFixed(2)} unit="%" isAlert={globalIndicators.alerts.humidity} />
-          <IndicatorCard title="% Cendres moy" value={globalIndicators.ash.toFixed(2)} unit="%" isAlert={globalIndicators.alerts.ash} />
-          <IndicatorCard title="% Chlorures moyens" value={globalIndicators.chlorine.toFixed(3)} unit="%" isAlert={globalIndicators.alerts.chlorine} />
-          <IndicatorCard title="Taux de pneus" value={globalIndicators.tireRate.toFixed(2)} unit="%" isAlert={globalIndicators.alerts.tireRate} />
-          <IndicatorCard title="Coût du Mélange" value={globalIndicators.cost.toFixed(2)} unit="MAD/t" />
-        </div>
-      </section>
+          </div>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+        <IndicatorCard title="Débit des AFs" value={globalIndicators.flow.toFixed(2)} unit="t/h" />
+        <IndicatorCard title="PCI moy" value={globalIndicators.pci.toFixed(0)} unit="kcal/kg" isAlert={globalIndicators.alerts.pci} />
+        <IndicatorCard title="% Humidité moy" value={globalIndicators.humidity.toFixed(2)} unit="%" isAlert={globalIndicators.alerts.humidity} />
+        <IndicatorCard title="% Cendres moy" value={globalIndicators.ash.toFixed(2)} unit="%" isAlert={globalIndicators.alerts.ash} />
+        <IndicatorCard title="% Chlorures" value={globalIndicators.chlorine.toFixed(3)} unit="%" isAlert={globalIndicators.alerts.chlorine} />
+        <IndicatorCard title="Taux de pneus" value={globalIndicators.tireRate.toFixed(2)} unit="%" isAlert={globalIndicators.alerts.tireRate} />
+        <IndicatorCard title="Coût du Mélange" value={globalIndicators.cost.toFixed(2)} unit="MAD/t" />
+      </div>
 
-      <Card className="shadow-md rounded-xl">
-          <CardHeader>
-              <CardTitle>Historique Global des Indicateurs</CardTitle>
-              <div className="pt-2">
-                   <Popover>
-                      <PopoverTrigger asChild>
-                      <Button
-                          id="date"
-                          variant={"outline"}
-                          className={cn(
-                              "w-[300px] justify-start text-left font-normal",
-                              !historyDateRange && "text-muted-foreground"
-                          )}
-                      >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {historyDateRange?.from ? (
-                          historyDateRange.to ? (
-                              <>
-                              {format(historyDateRange.from, "d MMM y", { locale: fr })} -{" "}
-                              {format(historyDateRange.to, "d MMM y", { locale: fr })}
-                              </>
-                          ) : (
-                              format(historyDateRange.from, "d MMM y", { locale: fr })
-                          )
-                          ) : (
-                          <span>Sélectionner une plage de dates</span>
-                          )}
-                      </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                          initialFocus
-                          mode="range"
-                          defaultMonth={historyDateRange?.from}
-                          selected={historyDateRange}
-                          onSelect={setHistoryDateRange}
-                          numberOfMonths={2}
-                          locale={fr}
-                      />
-                      </PopoverContent>
-                  </Popover>
-              </div>
-          </CardHeader>
-          <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                  {isHistoryLoading ? (
-                      <Skeleton className="h-full w-full" />
-                  ) : historyChartData.length > 0 ? (
-                      <LineChart data={historyChartData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                          <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                          <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} yAxisId="left" orientation="left" />
-                          <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} yAxisId="right" orientation="right" />
-                          <RechartsTooltip content={<CustomHistoryTooltip />} />
-                          <Legend />
-                          <Line yAxisId="left" type="monotone" dataKey="PCI moyen" stroke="hsl(var(--primary))" name="PCI" dot={false} strokeWidth={2} />
-                          <Line yAxisId="right" type="monotone" dataKey="Humidité moyenne" stroke="#82ca9d" name="Humidité (%)" dot={false} strokeWidth={2} />
-                          <Line yAxisId="right" type="monotone" dataKey="Chlorures moyens" stroke="#ffc658" name="Chlorures (%)" dot={false} strokeWidth={2}/>
-                      </LineChart>
-                  ) : (
-                      <div className="flex items-center justify-center h-full text-muted-foreground">
-                          Aucune donnée historique pour la période sélectionnée.
-                      </div>
-                  )}
-              </ResponsiveContainer>
-          </CardContent>
-      </Card>
+      <Collapsible defaultOpen={false} className="rounded-xl border bg-card text-card-foreground shadow">
+        <Card>
+            <CardHeader>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <CardTitle>Historique Global des Indicateurs</CardTitle>
+                        <CardDescription>Évolution des indicateurs basée sur les sessions enregistrées.</CardDescription>
+                    </div>
+                    <CollapsibleTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                            <ChevronDown className="h-5 w-5 transition-transform data-[state=open]:rotate-180" />
+                        </Button>
+                    </CollapsibleTrigger>
+                </div>
+                <div className="pt-4">
+                     <Popover>
+                        <PopoverTrigger asChild>
+                        <Button
+                            id="date"
+                            variant={"outline"}
+                            className={cn(
+                                "w-[300px] justify-start text-left font-normal",
+                                !historyDateRange && "text-muted-foreground"
+                            )}
+                        >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {historyDateRange?.from ? (
+                            historyDateRange.to ? (
+                                <>
+                                {format(historyDateRange.from, "d MMM y", { locale: fr })} -{" "}
+                                {format(historyDateRange.to, "d MMM y", { locale: fr })}
+                                </>
+                            ) : (
+                                format(historyDateRange.from, "d MMM y", { locale: fr })
+                            )
+                            ) : (
+                            <span>Sélectionner une plage de dates</span>
+                            )}
+                        </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                            initialFocus
+                            mode="range"
+                            defaultMonth={historyDateRange?.from}
+                            selected={historyDateRange}
+                            onSelect={setHistoryDateRange}
+                            numberOfMonths={2}
+                            locale={fr}
+                        />
+                        </PopoverContent>
+                    </Popover>
+                </div>
+            </CardHeader>
+             <CollapsibleContent>
+                <CardContent className="pt-0">
+                    <ResponsiveContainer width="100%" height={300}>
+                        {isHistoryLoading ? (
+                            <Skeleton className="h-full w-full" />
+                        ) : historyChartData.length > 0 ? (
+                            <LineChart data={historyChartData}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                                <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} yAxisId="left" orientation="left" />
+                                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} yAxisId="right" orientation="right" />
+                                <RechartsTooltip content={<CustomHistoryTooltip />} />
+                                <Legend />
+                                <Line yAxisId="left" type="monotone" dataKey="PCI moyen" stroke="hsl(var(--primary))" name="PCI" dot={false} strokeWidth={2} />
+                                <Line yAxisId="right" type="monotone" dataKey="Humidité moyenne" stroke="#82ca9d" name="Humidité (%)" dot={false} strokeWidth={2} />
+                                <Line yAxisId="right" type="monotone" dataKey="Chlorures moyens" stroke="#ffc658" name="Chlorures (%)" dot={false} strokeWidth={2}/>
+                            </LineChart>
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-muted-foreground">
+                                Aucune donnée historique pour la période sélectionnée.
+                            </div>
+                        )}
+                    </ResponsiveContainer>
+                </CardContent>
+            </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card className="shadow-md rounded-xl">
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="shadow-sm rounded-xl">
           <CardHeader>
             <CardTitle>Hall des AF</CardTitle>
             <div className="flex items-center gap-2 pt-2">
                 <Label htmlFor="flow-hall" className="text-sm">Débit (t/h)</Label>
-                <Input id="flow-hall" type="number" className="w-32" value={hallAF.flowRate || ''} onChange={(e) => handleFlowRateChange(setHallAF, e.target.value)} />
+                <Input id="flow-hall" type="number" className="w-32 h-9" value={hallAF.flowRate || ''} onChange={(e) => handleFlowRateChange(setHallAF, e.target.value)} />
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -706,12 +731,12 @@ export function MixtureCalculator() {
           </CardContent>
         </Card>
         
-        <Card className="shadow-md rounded-xl">
+        <Card className="shadow-sm rounded-xl">
           <CardHeader>
             <CardTitle>ATS</CardTitle>
             <div className="flex items-center gap-2 pt-2">
                 <Label htmlFor="flow-ats" className="text-sm">Débit (t/h)</Label>
-                <Input id="flow-ats" type="number" className="w-32" value={ats.flowRate || ''} onChange={(e) => handleFlowRateChange(setAts, e.target.value)} />
+                <Input id="flow-ats" type="number" className="w-32 h-9" value={ats.flowRate || ''} onChange={(e) => handleFlowRateChange(setAts, e.target.value)} />
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -725,14 +750,8 @@ export function MixtureCalculator() {
         </Card>
       </section>
 
-      <div className="fixed bottom-6 right-6 z-40">
-        <Button onClick={handleSaveSession} disabled={isSaving} size="lg" className="rounded-full shadow-lg">
-            <Save className="mr-2 h-5 w-5" />
-            {isSaving ? "Enregistrement..." : "Enregistrer la Session"}
-        </Button>
-      </div>
-
-      <AiAssistant />
     </div>
   );
 }
+
+    
