@@ -1,10 +1,45 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow read/write access to all documents for prototyping
+    // Allow read access on all collections by default
+    // Writes are disallowed unless a more specific rule allows them
     match /{document=**} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Allow writes on specific collections if needed in the future.
+    // For example, to allow any authenticated user to write to 'resultats':
+    // match /resultats/{resultId} {
+    //   allow write: if request.auth != null;
+    // }
+    
+    // The current application logic requires writes to these collections.
+    // For now, we will allow writes for any user, but this should be
+    // locked down with authentication rules in a real application.
+    match /resultats/{resultId} {
+      allow write: if true;
+    }
+    match /specifications/{specId} {
+        allow write: if true;
+    }
+    match /fuel_types/{fuelTypeId} {
+        allow write: if true;
+    }
+     match /fuel_supplier_map/{fuelType} {
+        allow write: if true;
+    }
+    match /sessions_melange/{sessionId} {
+        allow write: if true;
+    }
+     match /fuel_costs/{costId} {
+        allow write: if true;
+    }
+     match /stocks/{stockId} {
+        allow write: if true;
+    }
+     match /arrivages/{arrivageId} {
+        allow write: if true;
     }
   }
 }
