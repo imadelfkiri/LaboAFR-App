@@ -217,20 +217,18 @@ export async function deleteSpecification(id: string) {
 };
 
 export async function getAverageAnalysisForFuels(
-  fuelNames: string[] | null,
+  fuelNames: string[],
   dateRange: { from: Date, to: Date }
 ): Promise<Record<string, AverageAnalysis>> {
   
-  let q = query(
-    collection(db, 'resultats'), 
+  const q = query(
+    collection(db, 'resultats'),
     where('date_arrivage', '>=', Timestamp.fromDate(dateRange.from)),
     where('date_arrivage', '<=', Timestamp.fromDate(dateRange.to))
   );
 
   const snapshot = await getDocs(q);
-  const results = snapshot.docs.map(doc => doc.data());
-
-  const fuelNamesToProcess = fuelNames ?? [...new Set(results.map(r => r.type_combustible))];
+  const dbResults = snapshot.docs.map(doc => doc.data());
 
   const analysis: Record<string, {
     pci_brut: number[];
@@ -240,15 +238,17 @@ export async function getAverageAnalysisForFuels(
     density: number[];
   }> = {};
 
-  // Initialize
-  fuelNamesToProcess.forEach(name => {
+  // Initialize analysis object for all requested fuel names
+  fuelNames.forEach(name => {
     analysis[name] = { pci_brut: [], h2o: [], chlore: [], cendres: [], density: [] };
   });
 
-  // Populate
-  results.forEach(res => {
-    if (fuelNamesToProcess.includes(res.type_combustible)) {
-      const target = analysis[res.type_combustible];
+  // Populate with data from the database, only for requested fuels
+  dbResults.forEach(res => {
+    const fuelName = res.type_combustible;
+    // Ensure we only process fuels that were explicitly requested
+    if (fuelNames.includes(fuelName)) {
+      const target = analysis[fuelName];
       if (typeof res.pci_brut === 'number') target.pci_brut.push(res.pci_brut);
       if (typeof res.h2o === 'number') target.h2o.push(res.h2o);
       if (typeof res.chlore === 'number') target.chlore.push(res.chlore);
@@ -258,10 +258,9 @@ export async function getAverageAnalysisForFuels(
   });
 
   const finalAverages: Record<string, AverageAnalysis> = {};
-
   const avg = (arr: number[]) => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
 
-  for (const name in analysis) {
+  for (const name of fuelNames) {
     const data = analysis[name];
     finalAverages[name] = {
       pci_brut: avg(data.pci_brut),
