@@ -55,7 +55,7 @@ import {
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator";
 import { calculerPCI } from '@/lib/pci';
-import { getFuelTypes, type FuelType, H_MAP, getFuelSupplierMap, addSupplierToFuel, SPEC_MAP, getSpecifications, Specification } from '@/lib/data';
+import { getFuelTypes, type FuelType, H_MAP, getFuelSupplierMap, addSupplierToFuel, SPEC_MAP, getSpecifications, addFuelType } from '@/lib/data';
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from './ui/skeleton';
 
@@ -75,6 +75,7 @@ const formSchema = z.object({
 
 const newFuelTypeSchema = z.object({
     name: z.string().nonempty({ message: "Le nom du combustible est requis."}),
+    hValue: z.coerce.number({required_error: "La valeur H est requise.", invalid_type_error: "Veuillez entrer un nombre."}).min(0, {message: "La valeur H doit être positive."})
 });
 
 const newFournisseurSchema = z.object({
@@ -101,6 +102,8 @@ export function PciCalculator() {
   
   const [isFuelModalOpen, setIsFuelModalOpen] = useState(false);
   const [newFuelTypeName, setNewFuelTypeName] = useState("");
+  const [newFuelTypeHValue, setNewFuelTypeHValue] = useState<number | string>("");
+
 
   const [isFournisseurModalOpen, setIsFournisseurModalOpen] = useState(false);
   const [newFournisseurName, setNewFournisseurName] = useState("");
@@ -251,30 +254,39 @@ export function PciCalculator() {
   };
 
   const handleAddFuelType = async () => {
-      try {
-        newFuelTypeSchema.parse({ 
-            name: newFuelTypeName, 
+    try {
+        const validatedData = newFuelTypeSchema.parse({
+            name: newFuelTypeName,
+            hValue: newFuelTypeHValue,
         });
 
-        console.warn("Adding fuel types dynamically is not fully supported with current data structure.");
+        await addFuelType(validatedData);
+        
         toast({
-            title: "Fonctionnalité limitée",
-            description: "L'ajout de nouveaux types de combustible n'est pas encore pris en charge.",
+            title: "Succès",
+            description: `Le type de combustible "${validatedData.name}" a été ajouté.`,
         });
 
-      } catch (error) {
+        await fetchAndSetData(); // Refetch all data
+        setValue("type_combustible", validatedData.name, { shouldValidate: true });
+
+        setIsFuelModalOpen(false);
+        setNewFuelTypeName("");
+        setNewFuelTypeHValue("");
+        
+    } catch (error) {
         if (error instanceof z.ZodError) {
-             toast({
+            toast({
                 variant: "destructive",
                 title: "Erreur de validation",
                 description: error.errors.map(e => e.message).join('\n'),
             });
         } else {
-            console.error("Erreur lors de l'ajout du type:", error);
+            const errorMessage = error instanceof Error ? error.message : "Impossible d'ajouter le nouveau type de combustible.";
             toast({
                 variant: "destructive",
                 title: "Erreur",
-                description: "Impossible d'ajouter le nouveau type de combustible.",
+                description: errorMessage
             });
         }
     }
@@ -672,10 +684,14 @@ export function PciCalculator() {
                         Entrez les informations pour le nouveau type.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="name" className="text-right">Nom</Label>
-                        <Input id="name" value={newFuelTypeName} onChange={(e) => setNewFuelTypeName(e.target.value)} className="col-span-3" />
+                <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="name">Nom</Label>
+                        <Input id="name" value={newFuelTypeName} onChange={(e) => setNewFuelTypeName(e.target.value)} placeholder="Ex: CSR DD" />
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="hValue">Valeur H (%)</Label>
+                        <Input id="hValue" type="number" value={newFuelTypeHValue} onChange={(e) => setNewFuelTypeHValue(e.target.value)} placeholder="Ex: 5.5" />
                     </div>
                 </div>
                 <DialogFooter>

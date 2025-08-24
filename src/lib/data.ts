@@ -122,6 +122,17 @@ export async function getFuelTypes(): Promise<FuelType[]> {
     return [...new Map(fuelTypes.map(item => [item.name, item])).values()];
 };
 
+export async function addFuelType(fuelType: Omit<FuelType, 'id'>): Promise<void> {
+    const q = query(collection(db, 'fuel_types'), where("name", "==", fuelType.name));
+    const existing = await getDocs(q);
+
+    if (!existing.empty) {
+        throw new Error("Un type de combustible avec ce nom existe déjà.");
+    }
+    
+    await addDoc(collection(db, 'fuel_types'), fuelType);
+}
+
 export async function getFournisseurs(): Promise<string[]> {
     // This function can be improved by fetching from a dedicated 'fournisseurs' collection
     // For now, we get it from existing results to ensure we only list suppliers with data.
