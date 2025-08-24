@@ -55,8 +55,19 @@ const defaultThresholds: MixtureThresholds = {
     tireRate_max: 100,
 };
 
-
 const BUCKET_VOLUME_M3 = 3;
+
+// Define the custom order for fuels
+const fuelOrder = [
+    "Pneus",
+    "CSR",
+    "DMB",
+    "Plastiques",
+    "CSR DD",
+    "Bois",
+    "Mélange"
+];
+
 
 function IndicatorCard({ title, value, unit, tooltipText, isAlert }: { title: string; value: string | number; unit?: string; tooltipText?: string, isAlert?: boolean }) {
   const cardContent = (
@@ -354,9 +365,20 @@ export function MixtureCalculator() {
     if (loading) {
         return <Skeleton className="h-48 w-full" />;
     }
+     const sortedFuelNames = Object.keys(availableFuels)
+        .filter(name => name !== 'Grignons')
+        .sort((a, b) => {
+            const indexA = fuelOrder.indexOf(a);
+            const indexB = fuelOrder.indexOf(b);
+            if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+            if (indexA !== -1) return -1;
+            if (indexB !== -1) return 1;
+            return a.localeCompare(b);
+        });
+
     return (
         <div className="space-y-3">
-        {Object.keys(availableFuels).sort().map(fuelName => (
+        {sortedFuelNames.map(fuelName => (
             <div key={fuelName} className="flex items-center gap-2">
             <Label htmlFor={`${installationName}-${fuelName}`} className="flex-1 text-sm">{fuelName}</Label>
             <Popover>
