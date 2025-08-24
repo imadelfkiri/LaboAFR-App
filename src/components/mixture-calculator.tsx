@@ -288,7 +288,7 @@ export function MixtureCalculator() {
     const totalCost = totalCostHall + totalCostAts;
 
     const pci = weightedAvg(hallMixture.pci, atsMixture.pci);
-    const chlorine = weightedAvg(hallMixture.chlorine, atsMixture.chlorine);
+    const chlorine = weightedAvg(hallMixture.chlorine, atsMixture.tireRate);
     const tireRate = weightedAvg(hallMixture.tireRate, atsMixture.tireRate);
     const humidity = totalWeight > 0 ? totalHumidity / totalWeight : 0;
     const ash = totalWeight > 0 ? totalAsh / totalWeight : 0;
@@ -472,9 +472,8 @@ export function MixtureCalculator() {
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
-                 <Button variant="outline" size="sm">
-                    <BrainCircuit className="h-4 w-4 mr-2" />
-                    Assistant IA
+                <Button variant="outline" size="icon" className="fixed bottom-6 right-6 rounded-full h-14 w-14 shadow-lg bg-primary text-primary-foreground hover:bg-primary/90">
+                    <BrainCircuit className="h-6 w-6" />
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[625px]">
@@ -634,7 +633,6 @@ export function MixtureCalculator() {
       <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Indicateurs Globaux</h1>
           <div className="flex items-center gap-2">
-            <AiAssistant />
             <Button onClick={handleSaveSession} disabled={isSaving}>
                 <Save className="mr-2 h-4 w-4" />
                 {isSaving ? "Enregistrement..." : "Enregistrer la Session"}
@@ -761,7 +759,7 @@ export function MixtureCalculator() {
             </CollapsibleContent>
         </Card>
       </Collapsible>
-
+      <AiAssistant />
     </div>
   );
 }
