@@ -23,6 +23,7 @@ const pageTitles: { [key: string]: string } = {
   '/specifications': 'Spécifications Techniques',
   '/calcul-melange': 'Calcul de Mélange',
   '/gestion-couts': 'Gestion des Coûts',
+  '/gestion-stock': 'Gestion du Stock',
   '/indicateurs': 'Indicateurs',
   '/calcul-impact': "Calcul d'Impact",
 };
