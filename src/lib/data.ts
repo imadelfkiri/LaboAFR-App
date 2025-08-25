@@ -4,8 +4,6 @@ import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, que
 import { db } from './firebase';
 import { startOfDay, endOfDay } from 'date-fns';
 
-export const H_MAP: Record<string, number> = {};
-
 export interface FuelType {
     id?: string;
     name: string;
@@ -28,7 +26,6 @@ export interface AverageAnalysis {
     h2o: number;
     chlore: number;
     cendres: number;
-    density: number;
     count: number;
 }
 
@@ -61,15 +58,15 @@ export interface Arrivage {
     date_arrivage: Timestamp;
 }
 
+export interface FuelData {
+    id: string;
+    nom_combustible: string;
+    densite: number;
+    teneur_hydrogene: number;
+}
+
 
 export const SPEC_MAP = new Map<string, Specification>();
-
-function populateHMap(fuelTypes: FuelType[]) {
-    H_MAP['default'] = 6.0; // Default fallback
-    fuelTypes.forEach(ft => {
-        H_MAP[ft.name] = ft.hValue;
-    });
-}
 
 export async function getFuelSupplierMap(): Promise<Record<string, string[]>> {
     const mapCollection = collection(db, 'fuel_supplier_map');
@@ -116,8 +113,6 @@ export async function getFuelTypes(): Promise<FuelType[]> {
     if (snapshot.empty) return [];
     
     const fuelTypes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FuelType));
-    
-    populateHMap(fuelTypes);
     
     // Return unique fuel types by name
     return [...new Map(fuelTypes.map(item => [item.name, item])).values()];
@@ -221,11 +216,15 @@ export async function getAverageAnalysisForFuels(
   dateRange: { from: Date, to: Date }
 ): Promise<Record<string, AverageAnalysis>> {
   
+  if (fuelNames.length === 0) {
+    return {};
+  }
+  
   const q = query(
     collection(db, 'resultats'),
     where('date_arrivage', '>=', Timestamp.fromDate(dateRange.from)),
     where('date_arrivage', '<=', Timestamp.fromDate(dateRange.to)),
-    where('type_combustible', 'in', fuelNames.length > 0 ? fuelNames : [' ']) // Firestore 'in' queries cannot be empty
+    where('type_combustible', 'in', fuelNames)
   );
 
   const snapshot = await getDocs(q);
@@ -236,24 +235,22 @@ export async function getAverageAnalysisForFuels(
     h2o: number[];
     chlore: number[];
     cendres: number[];
-    density: number[];
   }> = {};
 
   // Initialize analysis object for all requested fuel names
   fuelNames.forEach(name => {
-    analysis[name] = { pci_brut: [], h2o: [], chlore: [], cendres: [], density: [] };
+    analysis[name] = { pci_brut: [], h2o: [], chlore: [], cendres: [] };
   });
 
   // Populate with data from the database
   dbResults.forEach(res => {
     const fuelName = res.type_combustible;
-    if (analysis[fuelName]) { // Ensure we only process fuels that were explicitly requested
+    if (analysis[fuelName]) {
       const target = analysis[fuelName];
       if (typeof res.pci_brut === 'number') target.pci_brut.push(res.pci_brut);
       if (typeof res.h2o === 'number') target.h2o.push(res.h2o);
       if (typeof res.chlore === 'number') target.chlore.push(res.chlore);
       if (typeof res.cendres === 'number') target.cendres.push(res.cendres);
-      if (typeof res.densite === 'number') target.density.push(res.densite);
     }
   });
 
@@ -267,7 +264,6 @@ export async function getAverageAnalysisForFuels(
       h2o: avg(data.h2o),
       chlore: avg(data.chlore),
       cendres: avg(data.cendres),
-      density: avg(data.density),
       count: data.pci_brut.length
     };
   }
@@ -340,7 +336,6 @@ export async function getStocks(): Promise<Stock[]> {
     const q = query(stocksCollection, orderBy("nom_combustible"));
     const snapshot = await getDocs(q);
     if (snapshot.empty) {
-        // If empty, let's create initial stock documents from fuel_types
         const fuelTypes = await getFuelTypes();
         const batch = writeBatch(db);
         fuelTypes.forEach(ft => {
@@ -348,7 +343,6 @@ export async function getStocks(): Promise<Stock[]> {
             batch.set(stockRef, { nom_combustible: ft.name, stock_actuel_tonnes: 0 });
         });
         await batch.commit();
-        // Re-fetch
         const newSnapshot = await getDocs(q);
         return newSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Stock));
     }
@@ -471,4 +465,42 @@ export async function calculateAndApplyYesterdayConsumption(): Promise<Record<st
 
     await batch.commit();
     return totalConsumptionByFuel;
+}
+
+
+// --- Fuel Data (donnees_combustibles) Functions ---
+
+export async function getFuelData(): Promise<FuelData[]> {
+    const fuelDataCollection = collection(db, 'donnees_combustibles');
+    const snapshot = await getDocs(fuelDataCollection);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FuelData));
+}
+
+export async function addFuelData(data: Omit<FuelData, 'id'>): Promise<void> {
+    const q = query(collection(db, 'donnees_combustibles'), where("nom_combustible", "==", data.nom_combustible));
+    const existing = await getDocs(q);
+
+    if (!existing.empty) {
+        throw new Error("Des données pour ce combustible existent déjà.");
+    }
+    await addDoc(collection(db, 'donnees_combustibles'), data);
+}
+
+export async function updateFuelData(id: string, data: Partial<Omit<FuelData, 'id'>>): Promise<void> {
+    const fuelDataRef = doc(db, 'donnees_combustibles', id);
+    await updateDoc(fuelDataRef, data);
+}
+
+export async function deleteFuelData(id: string): Promise<void> {
+    const fuelDataRef = doc(db, 'donnees_combustibles', id);
+    await deleteDoc(fuelDataRef);
+}
+
+export async function getUniqueFuelTypesFromResultats(): Promise<string[]> {
+    const resultsCollection = collection(db, 'resultats');
+    const snapshot = await getDocs(resultsCollection);
+    if (snapshot.empty) return [];
+
+    const fuelTypes = snapshot.docs.map(doc => doc.data().type_combustible as string);
+    return [...new Set(fuelTypes)];
 }

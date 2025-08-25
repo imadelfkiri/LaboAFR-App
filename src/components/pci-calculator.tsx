@@ -55,7 +55,7 @@ import {
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator";
 import { calculerPCI } from '@/lib/pci';
-import { getFuelTypes, type FuelType, H_MAP, getFuelSupplierMap, addSupplierToFuel, SPEC_MAP, getSpecifications, addFuelType } from '@/lib/data';
+import { getFuelTypes, type FuelType, getFuelSupplierMap, addSupplierToFuel, SPEC_MAP, getSpecifications, addFuelType, getFuelData, FuelData } from '@/lib/data';
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from './ui/skeleton';
 
@@ -97,14 +97,10 @@ export function PciCalculator() {
   const [loading, setLoading] = useState(true);
   const [allFuelTypes, setAllFuelTypes] = useState<FuelType[]>([]);
   const [fuelSupplierMap, setFuelSupplierMap] = useState<Record<string, string[]>>({});
+  const [fuelDataMap, setFuelDataMap] = useState<Map<string, FuelData>>(new Map());
   
   const [filteredFournisseurs, setFilteredFournisseurs] = useState<string[]>([]);
   
-  const [isFuelModalOpen, setIsFuelModalOpen] = useState(false);
-  const [newFuelTypeName, setNewFuelTypeName] = useState("");
-  const [newFuelTypeHValue, setNewFuelTypeHValue] = useState<number | string>("");
-
-
   const [isFournisseurModalOpen, setIsFournisseurModalOpen] = useState(false);
   const [newFournisseurName, setNewFournisseurName] = useState("");
 
@@ -156,14 +152,16 @@ export function PciCalculator() {
   const fetchAndSetData = useCallback(async () => {
       setLoading(true);
       try {
-        const [fetchedFuelTypes, map, _specs] = await Promise.all([
+        const [fetchedFuelTypes, map, _specs, fuelData] = await Promise.all([
           getFuelTypes(),
           getFuelSupplierMap(),
-          getSpecifications() 
+          getSpecifications(),
+          getFuelData()
         ]);
         
         setAllFuelTypes(fetchedFuelTypes);
         setFuelSupplierMap(map);
+        setFuelDataMap(new Map(fuelData.map(fd => [fd.nom_combustible, fd])));
       } catch (e) {
           console.error(e);
           toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données de configuration." });
@@ -184,22 +182,29 @@ export function PciCalculator() {
   const watchedCendres = watch("cendres");
 
   useEffect(() => {
-    if (watchedPcs !== undefined && watchedH2o !== undefined && watchedTypeCombustible) {
-      const result = calculerPCI(Number(watchedPcs), Number(watchedH2o), watchedTypeCombustible);
+    if (watchedPcs !== undefined && watchedH2o !== undefined && hValue !== null) {
+      const result = calculerPCI(Number(watchedPcs), Number(watchedH2o), hValue);
       setPciResult(result);
     } else {
       setPciResult(null);
     }
-  }, [watchedPcs, watchedH2o, watchedTypeCombustible]);
+  }, [watchedPcs, watchedH2o, hValue]);
 
   useEffect(() => {
     if (watchedTypeCombustible) {
-        const h = H_MAP[watchedTypeCombustible];
-        setHValue(h ?? null);
+        const fuelData = fuelDataMap.get(watchedTypeCombustible);
+        if (fuelData) {
+            setHValue(fuelData.teneur_hydrogene);
+            setValue('densite', fuelData.densite); // Auto-fill density
+        } else {
+            setHValue(null);
+            setValue('densite', '');
+        }
     } else {
         setHValue(null);
     }
-  }, [watchedTypeCombustible]);
+  }, [watchedTypeCombustible, fuelDataMap, setValue]);
+
 
   useEffect(() => {
     if (watchedTypeCombustible && fuelSupplierMap) {
@@ -253,45 +258,6 @@ export function PciCalculator() {
     }
   };
 
-  const handleAddFuelType = async () => {
-    try {
-        const validatedData = newFuelTypeSchema.parse({
-            name: newFuelTypeName,
-            hValue: newFuelTypeHValue,
-        });
-
-        await addFuelType(validatedData);
-        
-        toast({
-            title: "Succès",
-            description: `Le type de combustible "${validatedData.name}" a été ajouté.`,
-        });
-
-        await fetchAndSetData(); // Refetch all data
-        setValue("type_combustible", validatedData.name, { shouldValidate: true });
-
-        setIsFuelModalOpen(false);
-        setNewFuelTypeName("");
-        setNewFuelTypeHValue("");
-        
-    } catch (error) {
-        if (error instanceof z.ZodError) {
-            toast({
-                variant: "destructive",
-                title: "Erreur de validation",
-                description: error.errors.map(e => e.message).join('\n'),
-            });
-        } else {
-            const errorMessage = error instanceof Error ? error.message : "Impossible d'ajouter le nouveau type de combustible.";
-            toast({
-                variant: "destructive",
-                title: "Erreur",
-                description: errorMessage
-            });
-        }
-    }
-  };
-
   const handleAddFournisseur = async () => {
     const selectedFuelType = getValues("type_combustible");
     if (!selectedFuelType) return;
@@ -337,7 +303,12 @@ export function PciCalculator() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSaving(true);
     try {
-      const pci_brut = calculerPCI(values.pcs, values.h2o, values.type_combustible);
+      if (hValue === null) {
+          toast({ variant: "destructive", title: "Donnée manquante", description: "La teneur en hydrogène pour ce combustible n'est pas définie. Veuillez l'ajouter dans la page 'Données Combustibles'."});
+          setIsSaving(false);
+          return;
+      }
+      const pci_brut = calculerPCI(values.pcs, values.h2o, hValue);
 
       if (pci_brut === null) {
           toast({
@@ -471,15 +442,6 @@ export function PciCalculator() {
                                                         {fuel.name}
                                                     </SelectItem>
                                                 ))}
-                                                <Separator className="my-1" />
-                                                <div
-                                                    onSelect={(e) => e.preventDefault()}
-                                                    onClick={() => setIsFuelModalOpen(true)}
-                                                    className="relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground"
-                                                >
-                                                    <PlusCircle className="mr-2 h-4 w-4" />
-                                                    Ajouter un type
-                                                </div>
                                             </SelectContent>
                                         </Select>
                                         <FormMessage />
@@ -599,7 +561,7 @@ export function PciCalculator() {
                                     disabled 
                                     value={hValue !== null ? hValue.toFixed(2) : ''} 
                                     className="rounded-lg h-11 px-4 text-sm bg-gray-100" 
-                                    placeholder="-"
+                                    placeholder={watchedTypeCombustible ? (hValue === null ? 'Non défini' : '') : '-'}
                                 />
                                 </FormControl>
                             </FormItem>
@@ -675,33 +637,6 @@ export function PciCalculator() {
             </Button>
         </form>
       </Form>
-
-       <Dialog open={isFuelModalOpen} onOpenChange={setIsFuelModalOpen}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Ajouter un nouveau type de combustible</DialogTitle>
-                    <DialogDescription>
-                        Entrez les informations pour le nouveau type.
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="name">Nom</Label>
-                        <Input id="name" value={newFuelTypeName} onChange={(e) => setNewFuelTypeName(e.target.value)} placeholder="Ex: CSR DD" />
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="hValue">Valeur H (%)</Label>
-                        <Input id="hValue" type="number" value={newFuelTypeHValue} onChange={(e) => setNewFuelTypeHValue(e.target.value)} placeholder="Ex: 5.5" />
-                    </div>
-                </div>
-                <DialogFooter>
-                    <DialogClose asChild>
-                        <Button type="button" variant="secondary">Annuler</Button>
-                    </DialogClose>
-                    <Button type="button" onClick={handleAddFuelType}>Ajouter</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
 
         <Dialog open={isFournisseurModalOpen} onOpenChange={setIsFournisseurModalOpen}>
             <DialogContent>
