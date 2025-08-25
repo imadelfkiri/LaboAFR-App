@@ -1,40 +1,41 @@
-
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Règle par défaut : refuser toutes les lectures/écritures
-    match /{document=**} {
+    // Allow reading of configuration and results data
+    match /resultats/{document=**} {
+      allow read: if true;
+      allow write: if false; // Keep write restricted for now
+    }
+    match /fuel_types/{document=**} {
+       allow read: if true;
+       allow write: if false;
+    }
+     match /specifications/{document=**} {
+       allow read: if true;
+       allow write: if false;
+    }
+     match /fuel_supplier_map/{document=**} {
+       allow read: if true;
+       allow write: if false;
+    }
+     match /stocks/{document=**} {
+       allow read: if true;
+       allow write: if false;
+    }
+     match /fuel_costs/{document=**} {
+       allow read: if true;
+       allow write: if false;
+    }
+
+    // Allow writing and reading of mixture sessions
+    match /sessions_melange/{sessionId} {
+      allow read, write: if true; // Allow saving and reading sessions
+    }
+
+    // Default rule: deny all reads and writes to other collections
+    match /{path=**} {
       allow read, write: if false;
-    }
-
-    // Règle spécifique pour autoriser la lecture publique de la collection 'resultats'
-    match /resultats/{resultatId} {
-      allow read: if true;
-      allow write: if false; // L'écriture reste protégée
-    }
-
-    // Règles pour les autres collections nécessaires à l'application
-    match /fuel_types/{docId} {
-      allow read: if true;
-    }
-    match /specifications/{docId} {
-      allow read: if true;
-    }
-    match /fuel_supplier_map/{docId} {
-      allow read: if true;
-    }
-    match /sessions_melange/{docId} {
-      allow read: if true;
-    }
-    match /fuel_costs/{docId} {
-      allow read: if true;
-    }
-    match /stocks/{docId} {
-      allow read: if true;
-    }
-    match /arrivages/{docId} {
-      allow read: if true;
     }
   }
 }
