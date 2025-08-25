@@ -1,51 +1,40 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Allow public read for collections needed by the app
+    // Règle par défaut : refuser toutes les lectures/écritures
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Règle spécifique pour autoriser la lecture publique de la collection 'resultats'
+    match /resultats/{resultatId} {
+      allow read: if true;
+      allow write: if false; // L'écriture reste protégée
+    }
+
+    // Règles pour les autres collections nécessaires à l'application
     match /fuel_types/{docId} {
       allow read: if true;
-      allow write: if false; // Secure by default
     }
-    
-    match /fuel_supplier_map/{docId} {
-      allow read: if true;
-      allow write: if false; // Secure by default
-    }
-    
     match /specifications/{docId} {
       allow read: if true;
-      allow write: if false; // Secure by default
     }
-
-    match /resultats/{docId} {
+    match /fuel_supplier_map/{docId} {
       allow read: if true;
-      allow write: if false; // Secure by default
     }
-    
     match /sessions_melange/{docId} {
       allow read: if true;
-      allow write: if false; // Secure by default
     }
-
     match /fuel_costs/{docId} {
       allow read: if true;
-      allow write: if false; // Secure by default
     }
-    
     match /stocks/{docId} {
       allow read: if true;
-      allow write: if false; // Secure by default
     }
-    
     match /arrivages/{docId} {
       allow read: if true;
-      allow write: if false; // Secure by default
-    }
-
-    // Default deny for any other collections
-    match /{path=**}/{docId} {
-        allow read, write: if false;
     }
   }
 }
