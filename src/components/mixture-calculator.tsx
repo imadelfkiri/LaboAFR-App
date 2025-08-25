@@ -287,19 +287,18 @@ export function MixtureCalculator() {
         };
     };
 
-    const { weight: totalWeightHall, cost: costHall, pci: pciHall, humidity: humidityHall, ash: ashHall, chlorine: chlorineHall, tireRate: tireRateHall } = processInstallation(hallAF);
-    const { weight: totalWeightAts, cost: costAts, pci: pciAts, humidity: humidityAts, ash: ashAts, chlorine: chlorineAts, tireRate: tireRateAts } = processInstallation(ats);
+    const hallIndicators = processInstallation(hallAF);
+    const atsIndicators = processInstallation(ats);
     
-    const totalWeight = totalWeightHall + totalWeightAts;
-    
-    const pci = weightedAvg(pciHall, totalWeightHall, pciAts, totalWeightAts);
-    const chlorine = weightedAvg(chlorineHall, totalWeightHall, chlorineAts, totalWeightAts);
-    const humidity = weightedAvg(humidityHall, totalWeightHall, humidityAts, totalWeightAts);
-    const ash = weightedAvg(ashHall, totalWeightHall, ashAts, totalWeightAts);
-    const cost = weightedAvg(costHall, totalWeightHall, costAts, totalWeightAts);
+    const flowHall = hallAF.flowRate || 0;
+    const flowAts = ats.flowRate || 0;
 
-    const totalTireWeight = (tireRateHall / 100 * totalWeightHall) + (tireRateAts / 100 * totalWeightAts);
-    const tireRate = totalWeight > 0 ? (totalTireWeight / totalWeight) * 100 : 0;
+    const pci = weightedAvg(hallIndicators.pci, flowHall, atsIndicators.pci, flowAts);
+    const chlorine = weightedAvg(hallIndicators.chlorine, flowHall, atsIndicators.chlorine, flowAts);
+    const humidity = weightedAvg(hallIndicators.humidity, flowHall, atsIndicators.humidity, flowAts);
+    const ash = weightedAvg(hallIndicators.ash, flowHall, atsIndicators.ash, flowAts);
+    const cost = weightedAvg(hallIndicators.cost, flowHall, atsIndicators.cost, flowAts);
+    const tireRate = weightedAvg(hallIndicators.tireRate, flowHall, atsIndicators.tireRate, flowAts);
 
     const getStatus = (value: number, min: number | undefined, max: number | undefined): IndicatorStatus => {
         if (min === undefined && max === undefined) return 'neutral';
