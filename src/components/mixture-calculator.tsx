@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { BrainCircuit, Calendar as CalendarIcon, Save, Settings, ChevronDown } from 'lucide-react';
+import { BrainCircuit, Calendar as CalendarIcon, Save, Settings, ChevronDown, CheckCircle, AlertTriangle } from 'lucide-react';
 import { DateRange } from "react-day-picker";
 import { format, subDays, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -68,19 +68,27 @@ const fuelOrder = [
     "Mélange"
 ];
 
+type IndicatorStatus = 'alert' | 'conform' | 'neutral';
 
-function IndicatorCard({ title, value, unit, tooltipText, isAlert }: { title: string; value: string | number; unit?: string; tooltipText?: string, isAlert?: boolean }) {
+function IndicatorCard({ title, value, unit, tooltipText, status = 'neutral' }: { title: string; value: string | number; unit?: string; tooltipText?: string, status?: IndicatorStatus }) {
   const cardContent = (
      <Card className={cn(
-        "bg-background text-center transition-colors shadow-sm",
-        isAlert && "border-red-500 bg-red-50"
+        "bg-white text-center transition-colors shadow-sm",
+        status === 'alert' && "border-red-500 bg-red-50 text-red-900",
+        status === 'conform' && "border-green-500 bg-green-50 text-green-900",
         )}>
       <CardHeader className="p-2 pb-1">
-        <CardTitle className="text-xs font-medium text-muted-foreground">{title}</CardTitle>
+        <CardTitle className={cn("text-xs font-medium", status === 'neutral' ? 'text-muted-foreground' : 'text-inherit')}>
+          <div className="flex items-center justify-center gap-1.5">
+            {status === 'alert' && <AlertTriangle className="h-3 w-3" />}
+            {status === 'conform' && <CheckCircle className="h-3 w-3" />}
+            {title}
+          </div>
+        </CardTitle>
       </CardHeader>
       <CardContent className="p-2 pt-0">
-        <p className="text-xl font-bold text-foreground">
-          {value} <span className="text-base text-gray-500">{unit}</span>
+        <p className={cn("text-xl font-bold", status === 'neutral' ? 'text-foreground' : 'text-inherit')}>
+          {value} <span className="text-base opacity-70">{unit}</span>
         </p>
       </CardContent>
     </Card>
@@ -148,10 +156,11 @@ export function MixtureCalculator() {
     setLoading(true);
     try {
         // Fetch all data concurrently
-        const [allFuelData, costs, latestSession] = await Promise.all([
+        const [allFuelData, costs, latestSession, allStocks] = await Promise.all([
             getFuelData(),
             getFuelCosts(),
-            getLatestMixtureSession()
+            getLatestMixtureSession(),
+            getStocks(),
         ]);
 
         const fuelDataMap = allFuelData.reduce((acc, fd) => {
@@ -160,11 +169,11 @@ export function MixtureCalculator() {
         }, {} as Record<string, FuelData>);
         setFuelData(fuelDataMap);
         
-        const fuelNames = allFuelData.map(s => s.nom_combustible);
+        const fuelNames = allStocks.map(s => s.nom_combustible);
 
         const fuelsAnalysis = await getAverageAnalysisForFuels(fuelNames, analysisDateRange);
 
-        const initialFuelState = allFuelData.reduce((acc, stock) => {
+        const initialFuelState = allStocks.reduce((acc, stock) => {
             acc[stock.nom_combustible] = { buckets: 0 };
             return acc;
         }, {} as InstallationState['fuels']);
@@ -238,7 +247,6 @@ export function MixtureCalculator() {
 
         for(const fuelName in state.fuels) {
             const fuelInput = state.fuels[fuelName];
-            const analysisData = availableFuels[fuelName];
             const baseFuelData = fuelData[fuelName];
             
             if (!fuelInput || fuelInput.buckets <= 0 || !baseFuelData) {
@@ -252,7 +260,8 @@ export function MixtureCalculator() {
             if (fuelName.toLowerCase().includes('pneu')) {
                 tempTotalTireWeight += weight;
             }
-
+            
+            const analysisData = availableFuels[fuelName];
             if (!analysisData || analysisData.count === 0) {
                 continue; 
             }
@@ -289,17 +298,25 @@ export function MixtureCalculator() {
     const ash = weightedAvg(ashHall, totalWeightHall, ashAts, totalWeightAts);
     const cost = weightedAvg(costHall, totalWeightHall, costAts, totalWeightAts);
 
-    // Tire rate needs to be calculated based on total weights directly
     const totalTireWeight = (tireRateHall / 100 * totalWeightHall) + (tireRateAts / 100 * totalWeightAts);
     const tireRate = totalWeight > 0 ? (totalTireWeight / totalWeight) * 100 : 0;
 
-    const alerts = {
-        pci: pci > 0 && thresholds.pci_min > 0 && pci < thresholds.pci_min,
-        humidity: humidity > thresholds.humidity_max,
-        ash: ash > thresholds.ash_max,
-        chlorine: chlorine > thresholds.chlorine_max,
-        tireRate: tireRate > thresholds.tireRate_max,
+    const getStatus = (value: number, min: number | undefined, max: number | undefined): IndicatorStatus => {
+        if (min === undefined && max === undefined) return 'neutral';
+        if (value === 0) return 'neutral';
+        if (min !== undefined && value < min) return 'alert';
+        if (max !== undefined && value > max) return 'alert';
+        return 'conform';
     };
+
+    const status = {
+        pci: getStatus(pci, thresholds.pci_min > 0 ? thresholds.pci_min : undefined, undefined),
+        humidity: getStatus(humidity, undefined, thresholds.humidity_max < 100 ? thresholds.humidity_max : undefined),
+        ash: getStatus(ash, undefined, thresholds.ash_max < 100 ? thresholds.ash_max : undefined),
+        chlorine: getStatus(chlorine, undefined, thresholds.chlorine_max < 100 ? thresholds.chlorine_max : undefined),
+        tireRate: getStatus(tireRate, undefined, thresholds.tireRate_max < 100 ? thresholds.tireRate_max : undefined),
+    };
+
 
     return {
       flow: totalFlow,
@@ -309,7 +326,7 @@ export function MixtureCalculator() {
       chlorine,
       tireRate,
       cost,
-      alerts,
+      status,
     };
   }, [hallAF, ats, availableFuels, fuelData, fuelCosts, thresholds]);
 
@@ -661,17 +678,17 @@ export function MixtureCalculator() {
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
         <IndicatorCard title="Débit des AFs" value={globalIndicators.flow.toFixed(2)} unit="t/h" />
-        <IndicatorCard title="PCI moy" value={globalIndicators.pci.toFixed(0)} unit="kcal/kg" isAlert={globalIndicators.alerts.pci} />
-        <IndicatorCard title="% Humidité moy" value={globalIndicators.humidity.toFixed(2)} unit="%" isAlert={globalIndicators.alerts.humidity} />
-        <IndicatorCard title="% Cendres moy" value={globalIndicators.ash.toFixed(2)} unit="%" isAlert={globalIndicators.alerts.ash} />
-        <IndicatorCard title="% Chlorures" value={globalIndicators.chlorine.toFixed(3)} unit="%" isAlert={globalIndicators.alerts.chlorine} />
-        <IndicatorCard title="Taux de pneus" value={globalIndicators.tireRate.toFixed(2)} unit="%" isAlert={globalIndicators.alerts.tireRate} />
+        <IndicatorCard title="PCI moy" value={globalIndicators.pci.toFixed(0)} unit="kcal/kg" status={globalIndicators.status.pci} />
+        <IndicatorCard title="% Humidité moy" value={globalIndicators.humidity.toFixed(2)} unit="%" status={globalIndicators.status.humidity} />
+        <IndicatorCard title="% Cendres moy" value={globalIndicators.ash.toFixed(2)} unit="%" status={globalIndicators.status.ash} />
+        <IndicatorCard title="% Chlorures" value={globalIndicators.chlorine.toFixed(3)} unit="%" status={globalIndicators.status.chlorine} />
+        <IndicatorCard title="Taux de pneus" value={globalIndicators.tireRate.toFixed(2)} unit="%" status={globalIndicators.status.tireRate} />
         <IndicatorCard title="Coût du Mélange" value={globalIndicators.cost.toFixed(2)} unit="MAD/t" />
       </div>
 
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="shadow-md rounded-xl bg-white">
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-row items-center justify-between p-6">
             <CardTitle className='text-gray-800'>Hall des AF</CardTitle>
             <div className="flex items-center gap-2">
                 <Label htmlFor="flow-hall" className="text-sm text-gray-600">Débit (t/h)</Label>
@@ -684,7 +701,7 @@ export function MixtureCalculator() {
         </Card>
         
         <Card className="shadow-md rounded-xl bg-white">
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-row items-center justify-between p-6">
             <CardTitle className='text-gray-800'>ATS</CardTitle>
             <div className="flex items-center gap-2">
                 <Label htmlFor="flow-ats" className="text-sm text-gray-600">Débit (t/h)</Label>
@@ -699,7 +716,7 @@ export function MixtureCalculator() {
 
       <Collapsible defaultOpen={false} className="rounded-xl border bg-white text-card-foreground shadow-md">
         <Card>
-            <CardHeader>
+            <CardHeader className="p-6">
                 <div className="flex items-center justify-between">
                     <div>
                         <CardTitle className='text-gray-800'>Historique Global des Indicateurs</CardTitle>
@@ -752,7 +769,7 @@ export function MixtureCalculator() {
                 </div>
             </CardHeader>
              <CollapsibleContent>
-                <CardContent className="pt-0">
+                <CardContent className="pt-0 p-6">
                     <ResponsiveContainer width="100%" height={300}>
                         {isHistoryLoading ? (
                             <Skeleton className="h-full w-full" />
@@ -782,3 +799,6 @@ export function MixtureCalculator() {
     </div>
   );
 }
+
+
+    
