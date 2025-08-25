@@ -4,30 +4,42 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Allow read and write access to results
-    match /resultats/{resultatId} {
+    // Allow public read access to 'fuel_types' for dropdowns.
+    match /fuel_types/{fuelTypeId} {
+      allow read: if true;
+      allow write: if false; // Block writes for now
+    }
+
+    // Allow public read access to 'fuel_supplier_map'
+    match /fuel_supplier_map/{fuelType} {
+        allow read: if true;
+        allow write: if true; 
+    }
+    
+    // Allow public read access to 'specifications'
+    match /specifications/{specId} {
+        allow read: if true;
+        allow write: if true; // Allow adding/editing specs
+    }
+
+    match /resultats/{resultId} {
       allow read: if true;
       allow write: if true;
     }
     
-    match /fuel_types/{fuelId} {
-        allow read: if true;
-        allow write: if true;
+    match /sessions_melange/{sessionId} {
+      allow read: if true;
+      allow write: if true;
     }
 
-    match /fuel_supplier_map/{fuelName} {
-        allow read: if true;
-        allow write: if true; 
+    match /donnees_combustibles/{dataId} {
+      allow read: if true;
+      allow write: if true;
     }
 
-    match /specifications/{specId} {
-        allow read: if true;
-        allow write: if true;
-    }
-    
     match /stocks/{stockId} {
-        allow read: if true;
-        allow write: if true;
+      allow read: if true;
+      allow write: if true;
     }
 
     match /arrivages/{arrivageId} {
@@ -35,19 +47,9 @@ service cloud.firestore {
         allow write: if true;
     }
 
-    match /sessions_melange/{sessionId} {
-      allow read: if true;
-      allow write: if true;
-    }
-
     match /fuel_costs/{costId} {
       allow read: if true;
       allow write: if true;
-    }
-
-    // Default deny all other collections/documents
-    match /{document=**} {
-      allow read, write: if false;
     }
   }
 }
