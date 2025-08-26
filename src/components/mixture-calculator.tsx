@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { BrainCircuit, Calendar as CalendarIcon, Save, Settings, ChevronDown } from 'lucide-react';
+import { BrainCircuit, Calendar as CalendarIcon, Save, Settings, ChevronDown, CheckCircle, AlertTriangle } from 'lucide-react';
 import { DateRange } from "react-day-picker";
 import { format, subDays, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -17,7 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getAverageAnalysisForFuels, saveMixtureSession, getMixtureSessions, MixtureSession, getFuelCosts, FuelCost, getLatestMixtureSession, getStocks } from '@/lib/data';
+import { getAverageAnalysisForFuels, saveMixtureSession, getMixtureSessions, MixtureSession, getFuelCosts, FuelCost, getLatestMixtureSession, getStocks, getFuelData, FuelData } from '@/lib/data';
 import type { AverageAnalysis } from '@/lib/data';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -68,19 +68,27 @@ const fuelOrder = [
     "Mélange"
 ];
 
+type IndicatorStatus = 'alert' | 'conform' | 'neutral';
 
-function IndicatorCard({ title, value, unit, tooltipText, isAlert }: { title: string; value: string | number; unit?: string; tooltipText?: string, isAlert?: boolean }) {
+function IndicatorCard({ title, value, unit, tooltipText, status = 'neutral' }: { title: string; value: string | number; unit?: string; tooltipText?: string, status?: IndicatorStatus }) {
   const cardContent = (
      <Card className={cn(
-        "bg-background text-center transition-colors shadow-sm",
-        isAlert && "border-red-500 bg-red-50"
+        "bg-white text-center transition-colors shadow-sm",
+        status === 'alert' && "border-red-500 bg-red-50 text-red-900",
+        status === 'conform' && "border-green-500 bg-green-50 text-green-900",
         )}>
       <CardHeader className="p-2 pb-1">
-        <CardTitle className="text-xs font-medium text-muted-foreground">{title}</CardTitle>
+        <CardTitle className={cn("text-xs font-medium", status === 'neutral' ? 'text-muted-foreground' : 'text-inherit')}>
+          <div className="flex items-center justify-center gap-1.5">
+            {status === 'alert' && <AlertTriangle className="h-3 w-3" />}
+            {status === 'conform' && <CheckCircle className="h-3 w-3" />}
+            {title}
+          </div>
+        </CardTitle>
       </CardHeader>
       <CardContent className="p-2 pt-0">
-        <p className="text-xl font-bold text-foreground">
-          {value} <span className="text-base text-gray-500">{unit}</span>
+        <p className={cn("text-xl font-bold", status === 'neutral' ? 'text-foreground' : 'text-inherit')}>
+          {value} <span className="text-base opacity-70">{unit}</span>
         </p>
       </CardContent>
     </Card>
@@ -102,6 +110,7 @@ export function MixtureCalculator() {
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [availableFuels, setAvailableFuels] = useState<Record<string, AverageAnalysis>>({});
+  const [fuelData, setFuelData] = useState<Record<string, FuelData>>({});
   
   const [hallAF, setHallAF] = useState<InstallationState>({ flowRate: 0, fuels: {} });
   const [ats, setAts] = useState<InstallationState>({ flowRate: 0, fuels: {} });
@@ -147,19 +156,24 @@ export function MixtureCalculator() {
     setLoading(true);
     try {
         // Fetch all data concurrently
-        const [stocks, costs, latestSession] = await Promise.all([
-            getStocks(),
+        const [allFuelData, costs, latestSession, allStocks] = await Promise.all([
+            getFuelData(),
             getFuelCosts(),
-            getLatestMixtureSession()
+            getLatestMixtureSession(),
+            getStocks(),
         ]);
 
-        // Determine the list of fuels to get analysis for
-        const fuelNames = stocks.map(s => s.nom_combustible);
+        const fuelDataMap = allFuelData.reduce((acc, fd) => {
+            acc[fd.nom_combustible] = fd;
+            return acc;
+        }, {} as Record<string, FuelData>);
+        setFuelData(fuelDataMap);
+        
+        const fuelNames = allStocks.map(s => s.nom_combustible);
 
-        // Fetch average analysis for these specific fuels
         const fuelsAnalysis = await getAverageAnalysisForFuels(fuelNames, analysisDateRange);
 
-        const initialFuelState = stocks.reduce((acc, stock) => {
+        const initialFuelState = allStocks.reduce((acc, stock) => {
             acc[stock.nom_combustible] = { buckets: 0 };
             return acc;
         }, {} as InstallationState['fuels']);
@@ -233,33 +247,32 @@ export function MixtureCalculator() {
 
         for(const fuelName in state.fuels) {
             const fuelInput = state.fuels[fuelName];
-            const fuelData = availableFuels[fuelName];
+            const baseFuelData = fuelData[fuelName];
             
-            if (!fuelInput || fuelInput.buckets <= 0) {
+            if (!fuelInput || fuelInput.buckets <= 0 || !baseFuelData) {
                 continue;
             }
 
-            // Even if fuelData is missing, we must calculate weight for tire rate.
-            // A stock item should have a density, we'll assume a default if not present.
-            const density = fuelData?.density > 0 ? fuelData.density : 0.5; // Default density
+            const density = baseFuelData.densite > 0 ? baseFuelData.densite : 0.5;
             const weight = fuelInput.buckets * BUCKET_VOLUME_M3 * density;
             totalWeight += weight;
 
             if (fuelName.toLowerCase().includes('pneu')) {
                 tempTotalTireWeight += weight;
             }
-
-            if (!fuelData || fuelData.count === 0) {
-                continue; // Skip fuels with no analysis data for other calculations
+            
+            const analysisData = availableFuels[fuelName];
+            if (!analysisData || analysisData.count === 0) {
+                continue; 
             }
             
             const costKey = Object.keys(fuelCosts).find(key => key.startsWith(`${fuelName}|`));
             const fuelCost = costKey ? fuelCosts[costKey]?.cost || 0 : 0;
 
-            tempTotalPci += weight * fuelData.pci_brut;
-            tempTotalHumidity += weight * fuelData.h2o;
-            tempTotalAsh += weight * fuelData.cendres;
-            tempTotalChlorine += weight * fuelData.chlore;
+            tempTotalPci += weight * analysisData.pci_brut;
+            tempTotalHumidity += weight * analysisData.h2o;
+            tempTotalAsh += weight * analysisData.cendres;
+            tempTotalChlorine += weight * analysisData.chlore;
             tempTotalCost += weight * fuelCost;
         }
 
@@ -274,28 +287,35 @@ export function MixtureCalculator() {
         };
     };
 
-    const { weight: totalWeightHall, cost: costHall, pci: pciHall, humidity: humidityHall, ash: ashHall, chlorine: chlorineHall, tireRate: tireRateHall } = processInstallation(hallAF);
-    const { weight: totalWeightAts, cost: costAts, pci: pciAts, humidity: humidityAts, ash: ashAts, chlorine: chlorineAts, tireRate: tireRateAts } = processInstallation(ats);
+    const hallIndicators = processInstallation(hallAF);
+    const atsIndicators = processInstallation(ats);
     
-    const totalWeight = totalWeightHall + totalWeightAts;
-    
-    const pci = weightedAvg(pciHall, totalWeightHall, pciAts, totalWeightAts);
-    const chlorine = weightedAvg(chlorineHall, totalWeightHall, chlorineAts, totalWeightAts);
-    const humidity = weightedAvg(humidityHall, totalWeightHall, humidityAts, totalWeightAts);
-    const ash = weightedAvg(ashHall, totalWeightHall, ashAts, totalWeightAts);
-    const cost = weightedAvg(costHall, totalWeightHall, costAts, totalWeightAts);
+    const flowHall = hallAF.flowRate || 0;
+    const flowAts = ats.flowRate || 0;
 
-    // Tire rate needs to be calculated based on total weights directly
-    const totalTireWeight = (tireRateHall / 100 * totalWeightHall) + (tireRateAts / 100 * totalWeightAts);
-    const tireRate = totalWeight > 0 ? (totalTireWeight / totalWeight) * 100 : 0;
+    const pci = weightedAvg(hallIndicators.pci, flowHall, atsIndicators.pci, flowAts);
+    const chlorine = weightedAvg(hallIndicators.chlorine, flowHall, atsIndicators.chlorine, flowAts);
+    const humidity = weightedAvg(hallIndicators.humidity, flowHall, atsIndicators.humidity, flowAts);
+    const ash = weightedAvg(hallIndicators.ash, flowHall, atsIndicators.ash, flowAts);
+    const cost = weightedAvg(hallIndicators.cost, flowHall, atsIndicators.cost, flowAts);
+    const tireRate = weightedAvg(hallIndicators.tireRate, flowHall, atsIndicators.tireRate, flowAts);
 
-    const alerts = {
-        pci: pci > 0 && thresholds.pci_min > 0 && pci < thresholds.pci_min,
-        humidity: humidity > thresholds.humidity_max,
-        ash: ash > thresholds.ash_max,
-        chlorine: chlorine > thresholds.chlorine_max,
-        tireRate: tireRate > thresholds.tireRate_max,
+    const getStatus = (value: number, min: number | undefined, max: number | undefined): IndicatorStatus => {
+        if (min === undefined && max === undefined) return 'neutral';
+        if (value === 0) return 'neutral';
+        if (min !== undefined && value < min) return 'alert';
+        if (max !== undefined && value > max) return 'alert';
+        return 'conform';
     };
+
+    const status = {
+        pci: getStatus(pci, thresholds.pci_min > 0 ? thresholds.pci_min : undefined, undefined),
+        humidity: getStatus(humidity, undefined, thresholds.humidity_max < 100 ? thresholds.humidity_max : undefined),
+        ash: getStatus(ash, undefined, thresholds.ash_max < 100 ? thresholds.ash_max : undefined),
+        chlorine: getStatus(chlorine, undefined, thresholds.chlorine_max < 100 ? thresholds.chlorine_max : undefined),
+        tireRate: getStatus(tireRate, undefined, thresholds.tireRate_max < 100 ? thresholds.tireRate_max : undefined),
+    };
+
 
     return {
       flow: totalFlow,
@@ -305,9 +325,9 @@ export function MixtureCalculator() {
       chlorine,
       tireRate,
       cost,
-      alerts,
+      status,
     };
-  }, [hallAF, ats, availableFuels, fuelCosts, thresholds]);
+  }, [hallAF, ats, availableFuels, fuelData, fuelCosts, thresholds]);
 
   const historyChartData = useMemo(() => {
     if (!historySessions || historySessions.length === 0) return [];
@@ -603,18 +623,20 @@ export function MixtureCalculator() {
 
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 space-y-6">
+    <div className="p-4 md:p-6 lg:p-8 space-y-6 bg-gray-50">
       <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold">Indicateurs Globaux</h1>
-            <ThresholdSettingsModal />
+          <div className="flex items-center gap-4">
+            <div className='flex items-center gap-2'>
+              <h1 className="text-2xl font-bold text-gray-800">Indicateurs Globaux</h1>
+              <ThresholdSettingsModal />
+            </div>
              <Popover>
                 <PopoverTrigger asChild>
                     <Button
                         id="date"
                         variant={"outline"}
                         className={cn(
-                            "w-[300px] justify-start text-left font-normal",
+                            "w-[300px] justify-start text-left font-normal bg-white",
                             !analysisDateRange && "text-muted-foreground"
                         )}
                     >
@@ -655,20 +677,20 @@ export function MixtureCalculator() {
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
         <IndicatorCard title="Débit des AFs" value={globalIndicators.flow.toFixed(2)} unit="t/h" />
-        <IndicatorCard title="PCI moy" value={globalIndicators.pci.toFixed(0)} unit="kcal/kg" isAlert={globalIndicators.alerts.pci} />
-        <IndicatorCard title="% Humidité moy" value={globalIndicators.humidity.toFixed(2)} unit="%" isAlert={globalIndicators.alerts.humidity} />
-        <IndicatorCard title="% Cendres moy" value={globalIndicators.ash.toFixed(2)} unit="%" isAlert={globalIndicators.alerts.ash} />
-        <IndicatorCard title="% Chlorures" value={globalIndicators.chlorine.toFixed(3)} unit="%" isAlert={globalIndicators.alerts.chlorine} />
-        <IndicatorCard title="Taux de pneus" value={globalIndicators.tireRate.toFixed(2)} unit="%" isAlert={globalIndicators.alerts.tireRate} />
+        <IndicatorCard title="PCI moy" value={globalIndicators.pci.toFixed(0)} unit="kcal/kg" status={globalIndicators.status.pci} />
+        <IndicatorCard title="% Humidité moy" value={globalIndicators.humidity.toFixed(2)} unit="%" status={globalIndicators.status.humidity} />
+        <IndicatorCard title="% Cendres moy" value={globalIndicators.ash.toFixed(2)} unit="%" status={globalIndicators.status.ash} />
+        <IndicatorCard title="% Chlorures" value={globalIndicators.chlorine.toFixed(3)} unit="%" status={globalIndicators.status.chlorine} />
+        <IndicatorCard title="Taux de pneus" value={globalIndicators.tireRate.toFixed(2)} unit="%" status={globalIndicators.status.tireRate} />
         <IndicatorCard title="Coût du Mélange" value={globalIndicators.cost.toFixed(2)} unit="MAD/t" />
       </div>
 
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="shadow-sm rounded-xl">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Hall des AF</CardTitle>
+        <Card className="shadow-md rounded-xl bg-white">
+          <CardHeader className="flex flex-row items-center justify-between p-6">
+            <CardTitle className='text-gray-800'>Hall des AF</CardTitle>
             <div className="flex items-center gap-2">
-                <Label htmlFor="flow-hall" className="text-sm">Débit (t/h)</Label>
+                <Label htmlFor="flow-hall" className="text-sm text-gray-600">Débit (t/h)</Label>
                 <Input id="flow-hall" type="number" className="w-32 h-9" value={hallAF.flowRate || ''} onChange={(e) => handleFlowRateChange(setHallAF, e.target.value)} />
             </div>
           </CardHeader>
@@ -677,11 +699,11 @@ export function MixtureCalculator() {
           </CardContent>
         </Card>
         
-        <Card className="shadow-sm rounded-xl">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>ATS</CardTitle>
+        <Card className="shadow-md rounded-xl bg-white">
+          <CardHeader className="flex flex-row items-center justify-between p-6">
+            <CardTitle className='text-gray-800'>ATS</CardTitle>
             <div className="flex items-center gap-2">
-                <Label htmlFor="flow-ats" className="text-sm">Débit (t/h)</Label>
+                <Label htmlFor="flow-ats" className="text-sm text-gray-600">Débit (t/h)</Label>
                 <Input id="flow-ats" type="number" className="w-32 h-9" value={ats.flowRate || ''} onChange={(e) => handleFlowRateChange(setAts, e.target.value)} />
             </div>
           </CardHeader>
@@ -691,12 +713,12 @@ export function MixtureCalculator() {
         </Card>
       </section>
 
-      <Collapsible defaultOpen={false} className="rounded-xl border bg-card text-card-foreground shadow">
+      <Collapsible defaultOpen={false} className="rounded-xl border bg-white text-card-foreground shadow-md">
         <Card>
-            <CardHeader>
+            <CardHeader className="p-6">
                 <div className="flex items-center justify-between">
                     <div>
-                        <CardTitle>Historique Global des Indicateurs</CardTitle>
+                        <CardTitle className='text-gray-800'>Historique Global des Indicateurs</CardTitle>
                         <CardDescription>Évolution des indicateurs basée sur les sessions enregistrées.</CardDescription>
                     </div>
                     <CollapsibleTrigger asChild>
@@ -746,7 +768,7 @@ export function MixtureCalculator() {
                 </div>
             </CardHeader>
              <CollapsibleContent>
-                <CardContent className="pt-0">
+                <CardContent className="pt-0 p-6">
                     <ResponsiveContainer width="100%" height={300}>
                         {isHistoryLoading ? (
                             <Skeleton className="h-full w-full" />
@@ -777,3 +799,5 @@ export function MixtureCalculator() {
   );
 }
 
+
+    
