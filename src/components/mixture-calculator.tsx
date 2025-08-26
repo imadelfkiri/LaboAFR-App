@@ -278,8 +278,7 @@ export function MixtureCalculator() {
                 continue; 
             }
             
-            const costKey = Object.keys(fuelCosts).find(key => key.startsWith(`${fuelName}|`));
-            const fuelCost = costKey ? fuelCosts[costKey]?.cost || 0 : 0;
+            const fuelCost = fuelCosts[fuelName]?.cost || 0;
 
             tempTotalPci += weight * analysisData.pci_brut;
             tempTotalHumidity += weight * analysisData.h2o;
@@ -810,6 +809,3 @@ export function MixtureCalculator() {
     </div>
   );
 }
-
-
-    

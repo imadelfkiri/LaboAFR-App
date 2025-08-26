@@ -146,25 +146,13 @@ export async function getFournisseurs(): Promise<string[]> {
     return [...new Set(suppliers)].sort(); // Return unique sorted suppliers
 };
 
-export async function getFuelSupplierCombinations(): Promise<{ fuel: string, supplier: string }[]> {
-    const resultsCollection = collection(db, 'resultats');
-    const snapshot = await getDocs(resultsCollection);
+export async function getUniqueFuelTypes(): Promise<string[]> {
+    const stocksCollection = collection(db, 'stocks');
+    const snapshot = await getDocs(stocksCollection);
     if (snapshot.empty) return [];
 
-    const combinations = new Map<string, { fuel: string, supplier: string }>();
-    snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        const key = `${data.type_combustible}|${data.fournisseur}`;
-        if (!combinations.has(key)) {
-            combinations.set(key, { fuel: data.type_combustible, supplier: data.fournisseur });
-        }
-    });
-
-    return Array.from(combinations.values()).sort((a, b) => {
-        const fuelCompare = a.fuel.localeCompare(b.fuel);
-        if (fuelCompare !== 0) return fuelCompare;
-        return a.supplier.localeCompare(b.supplier);
-    });
+    const fuelTypes = snapshot.docs.map(doc => doc.data().nom_combustible as string);
+    return [...new Set(fuelTypes)];
 }
 
 async function updateSpecMap() {
@@ -328,9 +316,8 @@ export async function getFuelCosts(): Promise<Record<string, FuelCost>> {
     return costs;
 }
 
-export async function saveFuelCost(fuelName: string, supplierName: string, cost: number): Promise<void> {
-    const costId = `${fuelName}|${supplierName}`;
-    const costRef = doc(db, 'fuel_costs', costId);
+export async function saveFuelCost(fuelName: string, cost: number): Promise<void> {
+    const costRef = doc(db, 'fuel_costs', fuelName);
     await setDoc(costRef, { cost }, { merge: true });
 }
 
