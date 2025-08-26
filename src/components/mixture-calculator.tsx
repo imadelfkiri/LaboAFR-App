@@ -17,7 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getAverageAnalysisForFuels, saveMixtureSession, getMixtureSessions, MixtureSession, getFuelCosts, FuelCost, getLatestMixtureSession, getStocks, getFuelData, FuelData } from '@/lib/data';
+import { getAverageAnalysisForFuels, saveMixtureSession, getMixtureSessions, MixtureSession, getFuelCosts, FuelCost, getLatestMixtureSession, getStocks, getFuelData, FuelData, getGlobalMixtureSpecification, saveGlobalMixtureSpecification, Specification } from '@/lib/data';
 import type { AverageAnalysis } from '@/lib/data';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -133,22 +133,23 @@ export function MixtureCalculator() {
 
   const { toast } = useToast();
 
-  useEffect(() => {
+  const handleSaveThresholds = async (newThresholds: MixtureThresholds) => {
     try {
-        const savedThresholds = localStorage.getItem('mixtureThresholds');
-        if (savedThresholds) {
-            setThresholds(JSON.parse(savedThresholds));
+        const specToSave: Partial<Specification> = {
+            pci_min: newThresholds.pci_min,
+            humidity_max: newThresholds.humidity_max,
+            ash_max: newThresholds.ash_max,
+            chlorine_max: newThresholds.chlorine_max,
+            tireRate_max: newThresholds.tireRate_max,
         }
+        await saveGlobalMixtureSpecification(specToSave);
+        setThresholds(newThresholds);
+        toast({ title: "Succès", description: "Les seuils d'alerte ont été enregistrés."});
+        setIsThresholdModalOpen(false);
     } catch (error) {
-        console.error("Could not load thresholds from localStorage", error);
+        console.error("Could not save thresholds to Firestore", error);
+        toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer les seuils." });
     }
-  }, []);
-
-  const handleSaveThresholds = (newThresholds: MixtureThresholds) => {
-    setThresholds(newThresholds);
-    localStorage.setItem('mixtureThresholds', JSON.stringify(newThresholds));
-    toast({ title: "Succès", description: "Les seuils d'alerte ont été enregistrés."});
-    setIsThresholdModalOpen(false);
   }
 
  const fetchData = useCallback(async () => {
@@ -156,12 +157,23 @@ export function MixtureCalculator() {
     setLoading(true);
     try {
         // Fetch all data concurrently
-        const [allFuelData, costs, latestSession, allStocks] = await Promise.all([
+        const [allFuelData, costs, latestSession, allStocks, globalSpec] = await Promise.all([
             getFuelData(),
             getFuelCosts(),
             getLatestMixtureSession(),
             getStocks(),
+            getGlobalMixtureSpecification(),
         ]);
+
+        if (globalSpec) {
+             setThresholds({
+                pci_min: globalSpec.pci_min ?? defaultThresholds.pci_min,
+                humidity_max: globalSpec.humidity_max ?? defaultThresholds.humidity_max,
+                ash_max: globalSpec.ash_max ?? defaultThresholds.ash_max,
+                chlorine_max: globalSpec.chlorine_max ?? defaultThresholds.chlorine_max,
+                tireRate_max: globalSpec.tireRate_max ?? defaultThresholds.tireRate_max,
+            });
+        }
 
         const fuelDataMap = allFuelData.reduce((acc, fd) => {
             acc[fd.nom_combustible] = fd;
@@ -546,7 +558,7 @@ export function MixtureCalculator() {
 
     useEffect(() => {
         setCurrentThresholds(thresholds);
-    }, [isThresholdModalOpen]);
+    }, [isThresholdModalOpen, thresholds]);
 
     const handleChange = (key: keyof MixtureThresholds, value: string) => {
         const numValue = parseFloat(value);

@@ -19,6 +19,12 @@ export interface Specification {
     Cl_max?: number | null;
     Cendres_max?: number | null;
     Soufre_max?: number | null;
+    // Adding new fields for global mixture spec
+    pci_min?: number | null;
+    humidity_max?: number | null;
+    ash_max?: number | null;
+    chlorine_max?: number | null;
+    tireRate_max?: number | null;
 }
 
 export interface AverageAnalysis {
@@ -503,4 +509,28 @@ export async function getUniqueFuelTypesFromResultats(): Promise<string[]> {
 
     const fuelTypes = snapshot.docs.map(doc => doc.data().type_combustible as string);
     return [...new Set(fuelTypes)];
+}
+
+const GLOBAL_MIXTURE_SPEC_ID = "_GLOBAL_MIXTURE_";
+
+export async function getGlobalMixtureSpecification(): Promise<Specification | null> {
+    const specRef = doc(db, 'specifications', GLOBAL_MIXTURE_SPEC_ID);
+    const docSnap = await getDoc(specRef);
+
+    if (docSnap.exists()) {
+        return { id: docSnap.id, ...docSnap.data() } as Specification;
+    } else {
+        console.log("No global mixture specification found.");
+        return null;
+    }
+}
+
+export async function saveGlobalMixtureSpecification(spec: Partial<Specification>): Promise<void> {
+    const specRef = doc(db, 'specifications', GLOBAL_MIXTURE_SPEC_ID);
+    // Use setDoc with merge to create the document if it doesn't exist, or update it if it does.
+    await setDoc(specRef, {
+        ...spec,
+        type_combustible: "Mélange Global", // Add identifiers to distinguish it
+        fournisseur: "Système"
+    }, { merge: true });
 }
