@@ -1,8 +1,8 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { BrainCircuit, Calendar as CalendarIcon, Save, Settings, ChevronDown, CheckCircle, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { BrainCircuit, Calendar as CalendarIcon, Save, Settings, ChevronDown, CheckCircle, AlertTriangle, Copy } from 'lucide-react';
 import { DateRange } from "react-day-picker";
 import { format, subDays, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -17,9 +17,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getAverageAnalysisForFuels, saveMixtureSession, getMixtureSessions, MixtureSession, getFuelCosts, FuelCost, getLatestMixtureSession, getStocks, getFuelData, FuelData } from '@/lib/data';
+import { getAverageAnalysisForFuels, saveMixtureSession, getMixtureSessions, MixtureSession, getFuelCosts, FuelCost, getLatestMixtureSession, getStocks, getFuelData, FuelData, getGlobalMixtureSpecification, saveGlobalMixtureSpecification, Specification } from '@/lib/data';
 import type { AverageAnalysis } from '@/lib/data';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -28,6 +28,8 @@ import { optimizeMixture, MixtureOptimizerOutput, MixtureOptimizerInput } from '
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip, Legend, Line } from 'recharts';
+import { Separator } from './ui/separator';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 
 interface InstallationState {
   flowRate: number;
@@ -46,6 +48,16 @@ interface MixtureThresholds {
     chlorine_max: number;
     tireRate_max: number;
 }
+
+interface MixtureSummary {
+    globalIndicators: ReturnType<typeof useMixtureCalculations>['globalIndicators'];
+    composition: { 
+        name: string; 
+        percentage: number;
+        totalBuckets: number;
+    }[];
+}
+
 
 const defaultThresholds: MixtureThresholds = {
     pci_min: 0,
@@ -73,7 +85,8 @@ type IndicatorStatus = 'alert' | 'conform' | 'neutral';
 function IndicatorCard({ title, value, unit, tooltipText, status = 'neutral' }: { title: string; value: string | number; unit?: string; tooltipText?: string, status?: IndicatorStatus }) {
   const cardContent = (
      <Card className={cn(
-        "bg-white text-center transition-colors shadow-sm",
+        "text-center transition-colors",
+        "bg-white shadow-md rounded-xl",
         status === 'alert' && "border-red-500 bg-red-50 text-red-900",
         status === 'conform' && "border-green-500 bg-green-50 text-green-900",
         )}>
@@ -106,6 +119,122 @@ function IndicatorCard({ title, value, unit, tooltipText, status = 'neutral' }: 
   )
 }
 
+function useMixtureCalculations(hallAF: InstallationState, ats: InstallationState, availableFuels: Record<string, AverageAnalysis>, fuelData: Record<string, FuelData>, fuelCosts: Record<string, FuelCost>, thresholds: MixtureThresholds) {
+   return useMemo(() => {
+    const processInstallation = (state: InstallationState) => {
+        let totalWeight = 0;
+        let tempTotalCost = 0;
+        let tempTotalPci = 0;
+        let tempTotalHumidity = 0;
+        let tempTotalAsh = 0;
+        let tempTotalChlorine = 0;
+        let tempTotalTireWeight = 0;
+        const fuelWeights: Record<string, number> = {};
+
+        for(const fuelName in state.fuels) {
+            const fuelInput = state.fuels[fuelName];
+            const baseFuelData = fuelData[fuelName];
+            
+            if (!fuelInput || fuelInput.buckets <= 0 || !baseFuelData) {
+                continue;
+            }
+
+            const density = baseFuelData.densite > 0 ? baseFuelData.densite : 0.5;
+            const weight = fuelInput.buckets * BUCKET_VOLUME_M3 * density;
+            totalWeight += weight;
+            fuelWeights[fuelName] = (fuelWeights[fuelName] || 0) + weight;
+
+            if (fuelName.toLowerCase().includes('pneu')) {
+                tempTotalTireWeight += weight;
+            }
+            
+            const analysisData = availableFuels[fuelName];
+            if (!analysisData || analysisData.count === 0) {
+                continue; 
+            }
+            
+            const fuelCost = fuelCosts[fuelName]?.cost || 0;
+
+            tempTotalPci += weight * analysisData.pci_brut;
+            tempTotalHumidity += weight * analysisData.h2o;
+            tempTotalAsh += weight * analysisData.cendres;
+            tempTotalChlorine += weight * analysisData.chlore;
+            tempTotalCost += weight * fuelCost;
+        }
+
+        return { 
+            weight: totalWeight, 
+            cost: totalWeight > 0 ? tempTotalCost / totalWeight : 0,
+            pci: totalWeight > 0 ? tempTotalPci / totalWeight : 0,
+            humidity: totalWeight > 0 ? tempTotalHumidity / totalWeight : 0,
+            ash: totalWeight > 0 ? tempTotalAsh / totalWeight : 0,
+            chlorine: totalWeight > 0 ? tempTotalChlorine / totalWeight : 0,
+            tireRate: totalWeight > 0 ? (tempTotalTireWeight / totalWeight) * 100 : 0,
+            fuelWeights
+        };
+    };
+
+    const hallIndicators = processInstallation(hallAF);
+    const atsIndicators = processInstallation(ats);
+    
+    const flowHall = hallAF.flowRate || 0;
+    const flowAts = ats.flowRate || 0;
+    const totalFlow = flowHall + flowAts;
+
+    const weightedAvg = (valHall: number, weightHall: number, valAts: number, weightAts: number) => {
+      const totalWeight = weightHall + weightAts;
+      if (totalWeight === 0) return 0;
+      return (valHall * weightHall + valAts * weightAts) / totalWeight;
+    }
+
+    const pci = weightedAvg(hallIndicators.pci, flowHall, atsIndicators.pci, flowAts);
+    const chlorine = weightedAvg(hallIndicators.chlorine, flowHall, atsIndicators.chlorine, flowAts);
+    const humidity = weightedAvg(hallIndicators.humidity, flowHall, atsIndicators.humidity, flowAts);
+    const ash = weightedAvg(hallIndicators.ash, flowHall, atsIndicators.ash, flowAts);
+    const cost = weightedAvg(hallIndicators.cost, flowHall, atsIndicators.cost, flowAts);
+    const tireRate = weightedAvg(hallIndicators.tireRate, flowHall, atsIndicators.tireRate, flowAts);
+
+    const getStatus = (value: number, min: number | undefined, max: number | undefined): IndicatorStatus => {
+        if (min === undefined && max === undefined) return 'neutral';
+        if (value === 0) return 'neutral';
+        if (min !== undefined && value < min) return 'alert';
+        if (max !== undefined && value > max) return 'alert';
+        return 'conform';
+    };
+
+    const status = {
+        pci: getStatus(pci, thresholds.pci_min > 0 ? thresholds.pci_min : undefined, undefined),
+        humidity: getStatus(humidity, undefined, thresholds.humidity_max < 100 ? thresholds.humidity_max : undefined),
+        ash: getStatus(ash, undefined, thresholds.ash_max < 100 ? thresholds.ash_max : undefined),
+        chlorine: getStatus(chlorine, undefined, thresholds.chlorine_max < 100 ? thresholds.chlorine_max : undefined),
+        tireRate: getStatus(tireRate, undefined, thresholds.tireRate_max < 100 ? thresholds.tireRate_max : undefined),
+    };
+
+    const globalFuelWeights: Record<string, number> = {};
+    Object.entries(hallIndicators.fuelWeights).forEach(([fuel, weight]) => {
+        globalFuelWeights[fuel] = (globalFuelWeights[fuel] || 0) + weight;
+    });
+     Object.entries(atsIndicators.fuelWeights).forEach(([fuel, weight]) => {
+        globalFuelWeights[fuel] = (globalFuelWeights[fuel] || 0) + weight;
+    });
+
+    return {
+      globalIndicators: {
+        flow: totalFlow,
+        pci,
+        humidity,
+        ash,
+        chlorine,
+        tireRate,
+        cost,
+        status,
+      },
+      globalFuelWeights
+    };
+  }, [hallAF, ats, availableFuels, fuelData, fuelCosts, thresholds]);
+}
+
+
 export function MixtureCalculator() {
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -130,25 +259,30 @@ export function MixtureCalculator() {
   // Thresholds state
   const [thresholds, setThresholds] = useState<MixtureThresholds>(defaultThresholds);
   const [isThresholdModalOpen, setIsThresholdModalOpen] = useState(false);
+  
+  // Save confirmation modal state
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [mixtureSummary, setMixtureSummary] = useState<MixtureSummary | null>(null);
 
   const { toast } = useToast();
 
-  useEffect(() => {
+  const handleSaveThresholds = async (newThresholds: MixtureThresholds) => {
     try {
-        const savedThresholds = localStorage.getItem('mixtureThresholds');
-        if (savedThresholds) {
-            setThresholds(JSON.parse(savedThresholds));
+        const specToSave: Partial<Specification> = {
+            pci_min: newThresholds.pci_min,
+            humidity_max: newThresholds.humidity_max,
+            ash_max: newThresholds.ash_max,
+            chlorine_max: newThresholds.chlorine_max,
+            tireRate_max: newThresholds.tireRate_max,
         }
+        await saveGlobalMixtureSpecification(specToSave);
+        setThresholds(newThresholds);
+        toast({ title: "Succès", description: "Les seuils d'alerte ont été enregistrés."});
+        setIsThresholdModalOpen(false);
     } catch (error) {
-        console.error("Could not load thresholds from localStorage", error);
+        console.error("Could not save thresholds to Firestore", error);
+        toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer les seuils." });
     }
-  }, []);
-
-  const handleSaveThresholds = (newThresholds: MixtureThresholds) => {
-    setThresholds(newThresholds);
-    localStorage.setItem('mixtureThresholds', JSON.stringify(newThresholds));
-    toast({ title: "Succès", description: "Les seuils d'alerte ont été enregistrés."});
-    setIsThresholdModalOpen(false);
   }
 
  const fetchData = useCallback(async () => {
@@ -156,12 +290,23 @@ export function MixtureCalculator() {
     setLoading(true);
     try {
         // Fetch all data concurrently
-        const [allFuelData, costs, latestSession, allStocks] = await Promise.all([
+        const [allFuelData, costs, latestSession, allStocks, globalSpec] = await Promise.all([
             getFuelData(),
             getFuelCosts(),
             getLatestMixtureSession(),
             getStocks(),
+            getGlobalMixtureSpecification(),
         ]);
+
+        if (globalSpec) {
+             setThresholds({
+                pci_min: globalSpec.pci_min ?? defaultThresholds.pci_min,
+                humidity_max: globalSpec.humidity_max ?? defaultThresholds.humidity_max,
+                ash_max: globalSpec.ash_max ?? defaultThresholds.ash_max,
+                chlorine_max: globalSpec.chlorine_max ?? defaultThresholds.chlorine_max,
+                tireRate_max: globalSpec.tireRate_max ?? defaultThresholds.tireRate_max,
+            });
+        }
 
         const fuelDataMap = allFuelData.reduce((acc, fd) => {
             acc[fd.nom_combustible] = fd;
@@ -227,107 +372,7 @@ export function MixtureCalculator() {
     fetchHistoryData();
   }, [fetchHistoryData]);
 
-  const globalIndicators = useMemo(() => {
-    const totalFlow = (hallAF.flowRate || 0) + (ats.flowRate || 0);
-
-    const weightedAvg = (valHall: number, weightHall: number, valAts: number, weightAts: number) => {
-      const totalWeight = weightHall + weightAts;
-      if (totalWeight === 0) return 0;
-      return (valHall * weightHall + valAts * weightAts) / totalWeight;
-    }
-
-    const processInstallation = (state: InstallationState) => {
-        let totalWeight = 0;
-        let tempTotalCost = 0;
-        let tempTotalPci = 0;
-        let tempTotalHumidity = 0;
-        let tempTotalAsh = 0;
-        let tempTotalChlorine = 0;
-        let tempTotalTireWeight = 0;
-
-        for(const fuelName in state.fuels) {
-            const fuelInput = state.fuels[fuelName];
-            const baseFuelData = fuelData[fuelName];
-            
-            if (!fuelInput || fuelInput.buckets <= 0 || !baseFuelData) {
-                continue;
-            }
-
-            const density = baseFuelData.densite > 0 ? baseFuelData.densite : 0.5;
-            const weight = fuelInput.buckets * BUCKET_VOLUME_M3 * density;
-            totalWeight += weight;
-
-            if (fuelName.toLowerCase().includes('pneu')) {
-                tempTotalTireWeight += weight;
-            }
-            
-            const analysisData = availableFuels[fuelName];
-            if (!analysisData || analysisData.count === 0) {
-                continue; 
-            }
-            
-            const costKey = Object.keys(fuelCosts).find(key => key.startsWith(`${fuelName}|`));
-            const fuelCost = costKey ? fuelCosts[costKey]?.cost || 0 : 0;
-
-            tempTotalPci += weight * analysisData.pci_brut;
-            tempTotalHumidity += weight * analysisData.h2o;
-            tempTotalAsh += weight * analysisData.cendres;
-            tempTotalChlorine += weight * analysisData.chlore;
-            tempTotalCost += weight * fuelCost;
-        }
-
-        return { 
-            weight: totalWeight, 
-            cost: totalWeight > 0 ? tempTotalCost / totalWeight : 0,
-            pci: totalWeight > 0 ? tempTotalPci / totalWeight : 0,
-            humidity: totalWeight > 0 ? tempTotalHumidity / totalWeight : 0,
-            ash: totalWeight > 0 ? tempTotalAsh / totalWeight : 0,
-            chlorine: totalWeight > 0 ? tempTotalChlorine / totalWeight : 0,
-            tireRate: totalWeight > 0 ? (tempTotalTireWeight / totalWeight) * 100 : 0
-        };
-    };
-
-    const hallIndicators = processInstallation(hallAF);
-    const atsIndicators = processInstallation(ats);
-    
-    const flowHall = hallAF.flowRate || 0;
-    const flowAts = ats.flowRate || 0;
-
-    const pci = weightedAvg(hallIndicators.pci, flowHall, atsIndicators.pci, flowAts);
-    const chlorine = weightedAvg(hallIndicators.chlorine, flowHall, atsIndicators.chlorine, flowAts);
-    const humidity = weightedAvg(hallIndicators.humidity, flowHall, atsIndicators.humidity, flowAts);
-    const ash = weightedAvg(hallIndicators.ash, flowHall, atsIndicators.ash, flowAts);
-    const cost = weightedAvg(hallIndicators.cost, flowHall, atsIndicators.cost, flowAts);
-    const tireRate = weightedAvg(hallIndicators.tireRate, flowHall, atsIndicators.tireRate, flowAts);
-
-    const getStatus = (value: number, min: number | undefined, max: number | undefined): IndicatorStatus => {
-        if (min === undefined && max === undefined) return 'neutral';
-        if (value === 0) return 'neutral';
-        if (min !== undefined && value < min) return 'alert';
-        if (max !== undefined && value > max) return 'alert';
-        return 'conform';
-    };
-
-    const status = {
-        pci: getStatus(pci, thresholds.pci_min > 0 ? thresholds.pci_min : undefined, undefined),
-        humidity: getStatus(humidity, undefined, thresholds.humidity_max < 100 ? thresholds.humidity_max : undefined),
-        ash: getStatus(ash, undefined, thresholds.ash_max < 100 ? thresholds.ash_max : undefined),
-        chlorine: getStatus(chlorine, undefined, thresholds.chlorine_max < 100 ? thresholds.chlorine_max : undefined),
-        tireRate: getStatus(tireRate, undefined, thresholds.tireRate_max < 100 ? thresholds.tireRate_max : undefined),
-    };
-
-
-    return {
-      flow: totalFlow,
-      pci,
-      humidity,
-      ash,
-      chlorine,
-      tireRate,
-      cost,
-      status,
-    };
-  }, [hallAF, ats, availableFuels, fuelData, fuelCosts, thresholds]);
+  const { globalIndicators, globalFuelWeights } = useMixtureCalculations(hallAF, ats, availableFuels, fuelData, fuelCosts, thresholds);
 
   const historyChartData = useMemo(() => {
     if (!historySessions || historySessions.length === 0) return [];
@@ -357,8 +402,31 @@ export function MixtureCalculator() {
     setter(prev => ({ ...prev, flowRate: isNaN(flowRate) ? 0 : flowRate }));
   };
 
-  const handleSaveSession = async () => {
+  const handlePrepareSave = () => {
+    const totalWeight = Object.values(globalFuelWeights).reduce((sum, weight) => sum + weight, 0);
+
+    const composition = Object.entries(globalFuelWeights)
+      .filter(([, weight]) => weight > 0)
+      .map(([name, weight]) => {
+        const totalBuckets = (hallAF.fuels[name]?.buckets || 0) + (ats.fuels[name]?.buckets || 0);
+        return {
+            name,
+            percentage: totalWeight > 0 ? (weight / totalWeight) * 100 : 0,
+            totalBuckets,
+        }
+      })
+      .sort((a, b) => b.percentage - a.percentage);
+
+    setMixtureSummary({
+      globalIndicators,
+      composition,
+    });
+    setIsSaveModalOpen(true);
+  };
+  
+  const handleConfirmSave = async () => {
     setIsSaving(true);
+    setIsSaveModalOpen(false);
     try {
         const sessionData: Omit<MixtureSession, 'id' | 'timestamp'> = {
             hallAF,
@@ -374,6 +442,7 @@ export function MixtureCalculator() {
         toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer la session." });
     } finally {
         setIsSaving(false);
+        setMixtureSummary(null);
     }
   };
 
@@ -546,7 +615,7 @@ export function MixtureCalculator() {
 
     useEffect(() => {
         setCurrentThresholds(thresholds);
-    }, [isThresholdModalOpen]);
+    }, [isThresholdModalOpen, thresholds]);
 
     const handleChange = (key: keyof MixtureThresholds, value: string) => {
         const numValue = parseFloat(value);
@@ -604,6 +673,133 @@ export function MixtureCalculator() {
         </Dialog>
     );
   };
+  
+  const SaveConfirmationModal = () => {
+    if (!mixtureSummary) return null;
+
+    const { globalIndicators: summaryIndicators, composition } = mixtureSummary;
+
+    const handleCopySummary = () => {
+        // Find maximum length for each column to calculate padding
+        const headers = ["Combustible", "Nb Godets", "% Poids"];
+        const col1Width = Math.max(headers[0].length, ...composition.map(item => item.name.length));
+        const col2Width = Math.max(headers[1].length, ...composition.map(item => item.totalBuckets.toString().length));
+        
+        let textToCopy = "";
+
+        // Introduction
+        textToCopy += "Voici le résumé de la nouvelle composition du mélange et de ses indicateurs clés pour la journée :\n\n";
+
+        // Key Indicators
+        textToCopy += "Indicateurs Clés\n";
+        textToCopy += `- PCI moyen: ${summaryIndicators.pci.toFixed(0)} kcal/kg\n`;
+        textToCopy += `- % Chlorures: ${summaryIndicators.chlorine.toFixed(3)} %\n`;
+        textToCopy += `- Taux de pneus: ${summaryIndicators.tireRate.toFixed(2)} %\n\n`;
+
+        // Composition
+        textToCopy += "Composition du Mélange\n";
+        
+        // Table Header
+        const headerRow = [
+            headers[0].padEnd(col1Width),
+            headers[1].padEnd(col2Width),
+            headers[2]
+        ].join('  ');
+        textToCopy += headerRow + '\n';
+        textToCopy += '-'.repeat(headerRow.length) + '\n';
+        
+        // Table Rows
+        composition.forEach(item => {
+            const row = [
+                item.name.padEnd(col1Width),
+                item.totalBuckets.toString().padEnd(col2Width),
+                `${item.percentage.toFixed(2)} %`
+            ];
+            textToCopy += row.join('  ') + '\n';
+        });
+
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            toast({ title: "Copié !", description: "Le résumé a été copié dans le presse-papiers." });
+        }).catch(err => {
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible de copier le résumé." });
+            console.error('Could not copy text: ', err);
+        });
+    };
+
+
+    const keyIndicators = [
+      { label: 'PCI moyen:', value: summaryIndicators.pci.toFixed(0), unit: 'kcal/kg' },
+      { label: '% Chlorures:', value: summaryIndicators.chlorine.toFixed(3), unit: '%' },
+      { label: 'Taux de pneus:', value: summaryIndicators.tireRate.toFixed(2), unit: '%' },
+    ];
+
+    return (
+      <Dialog open={isSaveModalOpen} onOpenChange={setIsSaveModalOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Résumé et Confirmation du Mélange</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-6 py-4 text-sm">
+            <p>
+              Voici le résumé de la nouvelle composition du mélange et de ses indicateurs clés pour la journée :
+            </p>
+            
+            <div>
+                <h3 className="font-semibold text-foreground mb-2">Indicateurs Clés</h3>
+                <div className="rounded-lg border p-4 grid grid-cols-1 gap-2">
+                    {keyIndicators.map(item => (
+                        <div key={item.label} className="flex justify-between items-baseline">
+                            <span className="text-muted-foreground">{item.label}</span>
+                            <span className="font-medium text-foreground">{item.value} <span className="text-xs text-muted-foreground">{item.unit}</span></span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+            
+            <div>
+                 <h3 className="font-semibold text-foreground mb-2">Composition du Mélange</h3>
+                {composition.length > 0 ? (
+                    <div className="rounded-lg border">
+                       <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Combustible</TableHead>
+                                    <TableHead className="text-center">Nb Godets</TableHead>
+                                    <TableHead className="text-right">% Poids</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {composition.map(item => (
+                                    <TableRow key={item.name}>
+                                        <TableCell className="font-medium">{item.name}</TableCell>
+                                        <TableCell className="text-center">{item.totalBuckets}</TableCell>
+                                        <TableCell className="text-right">{item.percentage.toFixed(2)} %</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                ) : (
+                    <p className="text-muted-foreground text-center py-4">Le mélange est vide.</p>
+                )}
+            </div>
+
+          </div>
+          <DialogFooter className="gap-2 sm:justify-end">
+            <Button type="button" variant="secondary" onClick={() => setIsSaveModalOpen(false)}>Annuler</Button>
+            <Button type="button" variant="outline" onClick={handleCopySummary}>
+                <Copy className="mr-2 h-4 w-4" />
+                Copier le résumé
+            </Button>
+            <Button type="button" onClick={handleConfirmSave} disabled={isSaving}>
+              {isSaving ? "Enregistrement..." : "Confirmer et Enregistrer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  };
+
 
   const CustomHistoryTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -669,7 +865,7 @@ export function MixtureCalculator() {
             </Popover>
           </div>
           <div className="flex items-center gap-2">
-            <Button onClick={handleSaveSession} disabled={isSaving}>
+            <Button onClick={handlePrepareSave} disabled={isSaving}>
                 <Save className="mr-2 h-4 w-4" />
                 {isSaving ? "Enregistrement..." : "Enregistrer la Session"}
             </Button>
@@ -795,9 +991,7 @@ export function MixtureCalculator() {
         </Card>
       </Collapsible>
       <AiAssistant />
+      <SaveConfirmationModal />
     </div>
   );
 }
-
-
-    

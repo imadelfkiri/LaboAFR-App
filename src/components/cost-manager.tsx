@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { getFuelSupplierCombinations, getFuelCosts, saveFuelCost, FuelCost } from '@/lib/data';
+import { getUniqueFuelTypes, getFuelCosts, saveFuelCost, FuelCost } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -12,33 +12,25 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { DollarSign, Save } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 
-interface FuelCombination {
-    fuel: string;
-    supplier: string;
-}
-
 export function CostManager() {
     const [costs, setCosts] = useState<Record<string, number>>({});
-    const [combinations, setCombinations] = useState<FuelCombination[]>([]);
+    const [fuelTypes, setFuelTypes] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState<Record<string, boolean>>({});
     const { toast } = useToast();
 
-    const getCostKey = (fuel: string, supplier: string) => `${fuel}|${supplier}`;
-
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const [fetchedCombinations, fetchedCosts] = await Promise.all([
-                getFuelSupplierCombinations(),
+            const [fetchedFuelTypes, fetchedCosts] = await Promise.all([
+                getUniqueFuelTypes(),
                 getFuelCosts()
             ]);
-            setCombinations(fetchedCombinations);
+            setFuelTypes(fetchedFuelTypes.sort());
             
             const initialCosts: Record<string, number> = {};
-            fetchedCombinations.forEach(({ fuel, supplier }) => {
-                const key = getCostKey(fuel, supplier);
-                initialCosts[key] = fetchedCosts[key]?.cost || 0;
+            fetchedFuelTypes.forEach((fuel) => {
+                initialCosts[fuel] = fetchedCosts[fuel]?.cost || 0;
             });
             setCosts(initialCosts);
 
@@ -54,26 +46,25 @@ export function CostManager() {
         fetchData();
     }, [fetchData]);
 
-    const handleCostChange = (key: string, value: string) => {
+    const handleCostChange = (fuelType: string, value: string) => {
         const newCost = parseFloat(value);
         setCosts(prev => ({
             ...prev,
-            [key]: isNaN(newCost) ? 0 : newCost
+            [fuelType]: isNaN(newCost) ? 0 : newCost
         }));
     };
 
-    const handleSaveCost = async (fuel: string, supplier: string) => {
-        const key = getCostKey(fuel, supplier);
-        setSaving(prev => ({...prev, [key]: true}));
+    const handleSaveCost = async (fuelType: string) => {
+        setSaving(prev => ({...prev, [fuelType]: true}));
         try {
-            const costToSave = costs[key];
-            await saveFuelCost(fuel, supplier, costToSave);
-            toast({ title: "Succès", description: `Le coût pour ${fuel} (${supplier}) a été enregistré.` });
+            const costToSave = costs[fuelType];
+            await saveFuelCost(fuelType, costToSave);
+            toast({ title: "Succès", description: `Le coût pour ${fuelType} a été enregistré.` });
         } catch (error) {
              console.error("Error saving cost:", error);
-            toast({ variant: "destructive", title: "Erreur", description: `Impossible d'enregistrer le coût pour ${fuel} (${supplier}).` });
+            toast({ variant: "destructive", title: "Erreur", description: `Impossible d'enregistrer le coût pour ${fuelType}.` });
         } finally {
-            setSaving(prev => ({...prev, [key]: false}));
+            setSaving(prev => ({...prev, [fuelType]: false}));
         }
     };
 
@@ -94,32 +85,29 @@ export function CostManager() {
                         Gestion des Coûts des Combustibles
                     </CardTitle>
                     <CardDescription>
-                        Définissez ici le coût en dirhams par tonne (MAD/t) pour chaque combinaison combustible/fournisseur.
+                        Définissez ici le coût en dirhams par tonne (MAD/t) pour chaque type de combustible.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <ScrollArea className="h-[60vh]">
+                    <ScrollArea className="h-[60vh] border rounded-md">
                         <Table>
                             <TableHeader className="sticky top-0 bg-background z-10">
                                 <TableRow>
                                     <TableHead>Type de Combustible</TableHead>
-                                    <TableHead>Fournisseur</TableHead>
                                     <TableHead>Coût (MAD/t)</TableHead>
                                     <TableHead className="text-right">Action</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {combinations.map(({ fuel, supplier }) => {
-                                    const key = getCostKey(fuel, supplier);
+                                {fuelTypes.map((fuelType) => {
                                     return (
-                                        <TableRow key={key}>
-                                            <TableCell className="font-medium">{fuel}</TableCell>
-                                            <TableCell>{supplier}</TableCell>
+                                        <TableRow key={fuelType}>
+                                            <TableCell className="font-medium">{fuelType}</TableCell>
                                             <TableCell>
                                                 <Input 
                                                     type="number"
-                                                    value={costs[key] || ''}
-                                                    onChange={(e) => handleCostChange(key, e.target.value)}
+                                                    value={costs[fuelType] || ''}
+                                                    onChange={(e) => handleCostChange(fuelType, e.target.value)}
                                                     className="max-w-xs"
                                                     placeholder="0.00"
                                                 />
@@ -127,11 +115,11 @@ export function CostManager() {
                                             <TableCell className="text-right">
                                                 <Button 
                                                     size="sm"
-                                                    onClick={() => handleSaveCost(fuel, supplier)}
-                                                    disabled={saving[key]}
+                                                    onClick={() => handleSaveCost(fuelType)}
+                                                    disabled={saving[fuelType]}
                                                 >
                                                     <Save className="mr-2 h-4 w-4" />
-                                                    {saving[key] ? 'En cours...' : 'Enregistrer'}
+                                                    {saving[fuelType] ? 'En cours...' : 'Enregistrer'}
                                                 </Button>
                                             </TableCell>
                                         </TableRow>
