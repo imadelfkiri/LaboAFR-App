@@ -1,8 +1,8 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { BrainCircuit, Calendar as CalendarIcon, Save, Settings, ChevronDown, CheckCircle, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { BrainCircuit, Calendar as CalendarIcon, Save, Settings, ChevronDown, CheckCircle, AlertTriangle, Copy } from 'lucide-react';
 import { DateRange } from "react-day-picker";
 import { format, subDays, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -29,6 +29,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip, Legend, Line } from 'recharts';
 import { Separator } from './ui/separator';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 
 interface InstallationState {
   flowRate: number;
@@ -50,8 +51,13 @@ interface MixtureThresholds {
 
 interface MixtureSummary {
     globalIndicators: ReturnType<typeof useMixtureCalculations>['globalIndicators'];
-    composition: { name: string; percentage: number }[];
+    composition: { 
+        name: string; 
+        percentage: number;
+        totalBuckets: number;
+    }[];
 }
+
 
 const defaultThresholds: MixtureThresholds = {
     pci_min: 0,
@@ -79,7 +85,8 @@ type IndicatorStatus = 'alert' | 'conform' | 'neutral';
 function IndicatorCard({ title, value, unit, tooltipText, status = 'neutral' }: { title: string; value: string | number; unit?: string; tooltipText?: string, status?: IndicatorStatus }) {
   const cardContent = (
      <Card className={cn(
-        "bg-white text-center transition-colors shadow-sm",
+        "text-center transition-colors",
+        "bg-white shadow-md rounded-xl",
         status === 'alert' && "border-red-500 bg-red-50 text-red-900",
         status === 'conform' && "border-green-500 bg-green-50 text-green-900",
         )}>
@@ -400,10 +407,14 @@ export function MixtureCalculator() {
 
     const composition = Object.entries(globalFuelWeights)
       .filter(([, weight]) => weight > 0)
-      .map(([name, weight]) => ({
-        name,
-        percentage: totalWeight > 0 ? (weight / totalWeight) * 100 : 0,
-      }))
+      .map(([name, weight]) => {
+        const totalBuckets = (hallAF.fuels[name]?.buckets || 0) + (ats.fuels[name]?.buckets || 0);
+        return {
+            name,
+            percentage: totalWeight > 0 ? (weight / totalWeight) * 100 : 0,
+            totalBuckets,
+        }
+      })
       .sort((a, b) => b.percentage - a.percentage);
 
     setMixtureSummary({
@@ -664,65 +675,111 @@ export function MixtureCalculator() {
   };
   
     const SaveConfirmationModal = () => {
+    const summaryRef = useRef<HTMLDivElement>(null);
     if (!mixtureSummary) return null;
 
     const { globalIndicators: summaryIndicators, composition } = mixtureSummary;
 
-    const summaryItems = [
-      { label: 'Débit des AFs', value: summaryIndicators.flow.toFixed(2), unit: 't/h' },
-      { label: 'PCI moyen', value: summaryIndicators.pci.toFixed(0), unit: 'kcal/kg' },
-      { label: '% Humidité moy', value: summaryIndicators.humidity.toFixed(2), unit: '%' },
-      { label: '% Cendres moy', value: summaryIndicators.ash.toFixed(2), unit: '%' },
-      { label: '% Chlorures', value: summaryIndicators.chlorine.toFixed(3), unit: '%' },
-      { label: 'Taux de pneus', value: summaryIndicators.tireRate.toFixed(2), unit: '%' },
-      { label: 'Coût du Mélange', value: summaryIndicators.cost.toFixed(2), unit: 'MAD/t' },
+    const handleCopySummary = () => {
+        if (summaryRef.current) {
+            let textToCopy = "";
+            const intro = summaryRef.current.querySelector('[data-summary="intro"]')?.textContent || "";
+            const indicatorsHeader = summaryRef.current.querySelector('[data-summary="indicators-header"]')?.textContent || "";
+            const indicators = Array.from(summaryRef.current.querySelectorAll('[data-summary="indicator"]'));
+            const compositionHeader = summaryRef.current.querySelector('[data-summary="composition-header"]')?.textContent || "";
+            const table = summaryRef.current.querySelector('table');
+
+            textToCopy += intro + "\n\n";
+            textToCopy += indicatorsHeader + "\n";
+            indicators.forEach(ind => {
+                const label = ind.querySelector('span:first-child')?.textContent || "";
+                const value = ind.querySelector('span:last-child')?.textContent || "";
+                textToCopy += `- ${label} ${value}\n`;
+            });
+
+            textToCopy += "\n" + compositionHeader + "\n";
+            if (table) {
+                const headers = Array.from(table.querySelectorAll('th')).map(th => th.textContent).join('\t');
+                const rows = Array.from(table.querySelectorAll('tbody tr')).map(row => 
+                    Array.from(row.querySelectorAll('td')).map(td => td.textContent).join('\t')
+                ).join('\n');
+                textToCopy += headers + "\n" + rows;
+            }
+
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                toast({ title: "Copié !", description: "Le résumé a été copié dans le presse-papiers." });
+            }).catch(err => {
+                toast({ variant: "destructive", title: "Erreur", description: "Impossible de copier le résumé." });
+                console.error('Could not copy text: ', err);
+            });
+        }
+    };
+
+
+    const keyIndicators = [
+      { label: 'PCI moyen:', value: summaryIndicators.pci.toFixed(0), unit: 'kcal/kg' },
+      { label: '% Chlorures:', value: summaryIndicators.chlorine.toFixed(3), unit: '%' },
+      { label: 'Taux de pneus:', value: summaryIndicators.tireRate.toFixed(2), unit: '%' },
     ];
 
     return (
       <Dialog open={isSaveModalOpen} onOpenChange={setIsSaveModalOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Résumé et Confirmation du Mélange</DialogTitle>
-            <DialogDescription>
-              Veuillez vérifier les détails du mélange avant de l'enregistrer.
-            </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-6 py-4">
+          <div ref={summaryRef} className="grid gap-6 py-4 text-sm">
+            <p data-summary="intro">
+              Voici le résumé de la nouvelle composition du mélange et de ses indicateurs clés pour la journée :
+            </p>
+            
             <div>
-                <h3 className="font-semibold text-foreground mb-2">Indicateurs Globaux</h3>
-                <div className="rounded-lg border p-4 grid grid-cols-2 gap-x-4 gap-y-2">
-                    {summaryItems.map(item => (
-                        <div key={item.label} className="flex justify-between items-baseline text-sm">
-                            <span className="text-muted-foreground">{item.label}:</span>
+                <h3 data-summary="indicators-header" className="font-semibold text-foreground mb-2">Indicateurs Clés</h3>
+                <div className="rounded-lg border p-4 grid grid-cols-1 gap-2">
+                    {keyIndicators.map(item => (
+                        <div key={item.label} data-summary="indicator" className="flex justify-between items-baseline">
+                            <span className="text-muted-foreground">{item.label}</span>
                             <span className="font-medium text-foreground">{item.value} <span className="text-xs text-muted-foreground">{item.unit}</span></span>
                         </div>
                     ))}
                 </div>
             </div>
             
-            <Separator />
-            
             <div>
-                 <h3 className="font-semibold text-foreground mb-2">Composition du Mélange</h3>
+                 <h3 data-summary="composition-header" className="font-semibold text-foreground mb-2">Composition du Mélange</h3>
                 {composition.length > 0 ? (
-                    <div className="rounded-lg border p-4 space-y-2">
-                        {composition.map(item => (
-                            <div key={item.name} className="flex justify-between items-baseline text-sm">
-                                <span className="text-muted-foreground">{item.name}:</span>
-                                <span className="font-medium text-foreground">{item.percentage.toFixed(2)} %</span>
-                            </div>
-                        ))}
+                    <div className="rounded-lg border">
+                       <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Combustible</TableHead>
+                                    <TableHead className="text-center">Nb Godets</TableHead>
+                                    <TableHead className="text-right">% Poids</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {composition.map(item => (
+                                    <TableRow key={item.name}>
+                                        <TableCell className="font-medium">{item.name}</TableCell>
+                                        <TableCell className="text-center">{item.totalBuckets}</TableCell>
+                                        <TableCell className="text-right">{item.percentage.toFixed(2)} %</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
                     </div>
                 ) : (
-                    <p className="text-sm text-muted-foreground text-center py-4">Le mélange est vide.</p>
+                    <p className="text-muted-foreground text-center py-4">Le mélange est vide.</p>
                 )}
             </div>
 
           </div>
-          <DialogFooter>
-            <DialogClose asChild>
-                <Button type="button" variant="secondary">Annuler</Button>
-            </DialogClose>
+          <DialogFooter className="gap-2 sm:justify-end">
+            <Button type="button" variant="secondary" onClick={() => setIsSaveModalOpen(false)}>Annuler</Button>
+            <Button type="button" variant="outline" onClick={handleCopySummary}>
+                <Copy className="mr-2 h-4 w-4" />
+                Copier le résumé
+            </Button>
             <Button type="button" onClick={handleConfirmSave} disabled={isSaving}>
               {isSaving ? "Enregistrement..." : "Confirmer et Enregistrer"}
             </Button>
