@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { BrainCircuit, Calendar as CalendarIcon, Save, Settings, ChevronDown, CheckCircle, AlertTriangle, Copy } from 'lucide-react';
+import { BrainCircuit, Calendar as CalendarIcon, Save, Settings, ChevronDown, CheckCircle, AlertTriangle, Copy, Mail } from 'lucide-react';
 import { DateRange } from "react-day-picker";
 import { format, subDays, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -679,7 +679,7 @@ export function MixtureCalculator() {
 
     const { globalIndicators: summaryIndicators, composition } = mixtureSummary;
 
-    const handleCopySummary = () => {
+    const generateSummaryText = () => {
         // Find maximum length for each column to calculate padding
         const headers = ["Combustible", "Nb Godets", "% Poids"];
         const col1Width = Math.max(headers[0].length, ...composition.map(item => item.name.length));
@@ -718,12 +718,25 @@ export function MixtureCalculator() {
             textToCopy += row.join('  ') + '\n';
         });
 
+        return textToCopy;
+    };
+
+
+    const handleCopySummary = () => {
+        const textToCopy = generateSummaryText();
         navigator.clipboard.writeText(textToCopy).then(() => {
             toast({ title: "Copié !", description: "Le résumé a été copié dans le presse-papiers." });
         }).catch(err => {
             toast({ variant: "destructive", title: "Erreur", description: "Impossible de copier le résumé." });
             console.error('Could not copy text: ', err);
         });
+    };
+
+    const handleEmailSummary = () => {
+        const summaryText = generateSummaryText();
+        const subject = `Rapport de Mélange du ${format(new Date(), 'dd/MM/yyyy', { locale: fr })}`;
+        const body = encodeURIComponent(summaryText);
+        window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${body}`;
     };
 
 
@@ -785,11 +798,15 @@ export function MixtureCalculator() {
             </div>
 
           </div>
-          <DialogFooter className="gap-2 sm:justify-end">
+          <DialogFooter className="gap-2 sm:justify-end flex-wrap">
             <Button type="button" variant="secondary" onClick={() => setIsSaveModalOpen(false)}>Annuler</Button>
             <Button type="button" variant="outline" onClick={handleCopySummary}>
                 <Copy className="mr-2 h-4 w-4" />
                 Copier le résumé
+            </Button>
+             <Button type="button" variant="outline" onClick={handleEmailSummary}>
+                <Mail className="mr-2 h-4 w-4" />
+                Envoyer par Email
             </Button>
             <Button type="button" onClick={handleConfirmSave} disabled={isSaving}>
               {isSaving ? "Enregistrement..." : "Confirmer et Enregistrer"}
