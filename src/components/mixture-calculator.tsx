@@ -680,6 +680,11 @@ export function MixtureCalculator() {
     const { globalIndicators: summaryIndicators, composition } = mixtureSummary;
 
     const handleCopySummary = () => {
+        // Find maximum length for each column to calculate padding
+        const headers = ["Combustible", "Nb Godets", "% Poids"];
+        const col1Width = Math.max(headers[0].length, ...composition.map(item => item.name.length));
+        const col2Width = Math.max(headers[1].length, ...composition.map(item => item.totalBuckets.toString().length));
+        
         let textToCopy = "";
 
         // Introduction
@@ -695,17 +700,22 @@ export function MixtureCalculator() {
         textToCopy += "Composition du Mélange\n";
         
         // Table Header
-        const headers = ["Combustible", "Nb Godets", "% Poids"];
-        textToCopy += headers.join('\t') + '\n';
+        const headerRow = [
+            headers[0].padEnd(col1Width),
+            headers[1].padEnd(col2Width),
+            headers[2]
+        ].join('  ');
+        textToCopy += headerRow + '\n';
+        textToCopy += '-'.repeat(headerRow.length) + '\n';
         
         // Table Rows
         composition.forEach(item => {
             const row = [
-                item.name,
-                item.totalBuckets,
+                item.name.padEnd(col1Width),
+                item.totalBuckets.toString().padEnd(col2Width),
                 `${item.percentage.toFixed(2)} %`
             ];
-            textToCopy += row.join('\t') + '\n';
+            textToCopy += row.join('  ') + '\n';
         });
 
         navigator.clipboard.writeText(textToCopy).then(() => {
@@ -985,9 +995,3 @@ export function MixtureCalculator() {
     </div>
   );
 }
-
-    
-
-    
-
-    
