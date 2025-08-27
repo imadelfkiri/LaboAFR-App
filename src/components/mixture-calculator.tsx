@@ -674,45 +674,46 @@ export function MixtureCalculator() {
     );
   };
   
-    const SaveConfirmationModal = () => {
-    const summaryRef = useRef<HTMLDivElement>(null);
+  const SaveConfirmationModal = () => {
     if (!mixtureSummary) return null;
 
     const { globalIndicators: summaryIndicators, composition } = mixtureSummary;
 
     const handleCopySummary = () => {
-        if (summaryRef.current) {
-            let textToCopy = "";
-            const intro = summaryRef.current.querySelector('[data-summary="intro"]')?.textContent || "";
-            const indicatorsHeader = summaryRef.current.querySelector('[data-summary="indicators-header"]')?.textContent || "";
-            const indicators = Array.from(summaryRef.current.querySelectorAll('[data-summary="indicator"]'));
-            const compositionHeader = summaryRef.current.querySelector('[data-summary="composition-header"]')?.textContent || "";
-            const table = summaryRef.current.querySelector('table');
+        let textToCopy = "";
 
-            textToCopy += intro + "\n\n";
-            textToCopy += indicatorsHeader + "\n";
-            indicators.forEach(ind => {
-                const label = ind.querySelector('span:first-child')?.textContent || "";
-                const value = ind.querySelector('span:last-child')?.textContent || "";
-                textToCopy += `- ${label} ${value}\n`;
-            });
+        // Introduction
+        textToCopy += "Voici le résumé de la nouvelle composition du mélange et de ses indicateurs clés pour la journée :\n\n";
 
-            textToCopy += "\n" + compositionHeader + "\n";
-            if (table) {
-                const headers = Array.from(table.querySelectorAll('th')).map(th => th.textContent).join('\t');
-                const rows = Array.from(table.querySelectorAll('tbody tr')).map(row => 
-                    Array.from(row.querySelectorAll('td')).map(td => td.textContent).join('\t')
-                ).join('\n');
-                textToCopy += headers + "\n" + rows;
-            }
+        // Key Indicators
+        textToCopy += "Indicateurs Clés\n";
+        textToCopy += `- PCI moyen: ${summaryIndicators.pci.toFixed(0)} kcal/kg\n`;
+        textToCopy += `- % Chlorures: ${summaryIndicators.chlorine.toFixed(3)} %\n`;
+        textToCopy += `- Taux de pneus: ${summaryIndicators.tireRate.toFixed(2)} %\n\n`;
 
-            navigator.clipboard.writeText(textToCopy).then(() => {
-                toast({ title: "Copié !", description: "Le résumé a été copié dans le presse-papiers." });
-            }).catch(err => {
-                toast({ variant: "destructive", title: "Erreur", description: "Impossible de copier le résumé." });
-                console.error('Could not copy text: ', err);
-            });
-        }
+        // Composition
+        textToCopy += "Composition du Mélange\n";
+        
+        // Table Header
+        const headers = ["Combustible", "Nb Godets", "% Poids"];
+        textToCopy += headers.join('\t') + '\n';
+        
+        // Table Rows
+        composition.forEach(item => {
+            const row = [
+                item.name,
+                item.totalBuckets,
+                `${item.percentage.toFixed(2)} %`
+            ];
+            textToCopy += row.join('\t') + '\n';
+        });
+
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            toast({ title: "Copié !", description: "Le résumé a été copié dans le presse-papiers." });
+        }).catch(err => {
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible de copier le résumé." });
+            console.error('Could not copy text: ', err);
+        });
     };
 
 
@@ -728,16 +729,16 @@ export function MixtureCalculator() {
           <DialogHeader>
             <DialogTitle>Résumé et Confirmation du Mélange</DialogTitle>
           </DialogHeader>
-          <div ref={summaryRef} className="grid gap-6 py-4 text-sm">
-            <p data-summary="intro">
+          <div className="grid gap-6 py-4 text-sm">
+            <p>
               Voici le résumé de la nouvelle composition du mélange et de ses indicateurs clés pour la journée :
             </p>
             
             <div>
-                <h3 data-summary="indicators-header" className="font-semibold text-foreground mb-2">Indicateurs Clés</h3>
+                <h3 className="font-semibold text-foreground mb-2">Indicateurs Clés</h3>
                 <div className="rounded-lg border p-4 grid grid-cols-1 gap-2">
                     {keyIndicators.map(item => (
-                        <div key={item.label} data-summary="indicator" className="flex justify-between items-baseline">
+                        <div key={item.label} className="flex justify-between items-baseline">
                             <span className="text-muted-foreground">{item.label}</span>
                             <span className="font-medium text-foreground">{item.value} <span className="text-xs text-muted-foreground">{item.unit}</span></span>
                         </div>
@@ -746,7 +747,7 @@ export function MixtureCalculator() {
             </div>
             
             <div>
-                 <h3 data-summary="composition-header" className="font-semibold text-foreground mb-2">Composition du Mélange</h3>
+                 <h3 className="font-semibold text-foreground mb-2">Composition du Mélange</h3>
                 {composition.length > 0 ? (
                     <div className="rounded-lg border">
                        <Table>
@@ -984,6 +985,8 @@ export function MixtureCalculator() {
     </div>
   );
 }
+
+    
 
     
 
