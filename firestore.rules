@@ -2,41 +2,16 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow read access to all documents for authenticated users
+    // Allow read/write access to most collections for authenticated users
+    // This is a very permissive rule for development.
+    // Consider tightening security for production.
     match /{document=**} {
-      allow read: if request.auth != null;
+      allow read, write: if request.auth != null;
     }
-    
-    // Allow write access only to specific collections for authenticated users
-    match /resultats/{resultId} {
-        allow write: if request.auth != null;
-    }
-    match /fuel_types/{fuelTypeId} {
-        allow write: if request.auth != null;
-    }
-    match /fuel_supplier_map/{mapId} {
-        allow write: if request.auth != null;
-    }
-    match /specifications/{specId} {
-        allow write: if request.auth != null;
-    }
-    match /sessions_melange/{sessionId} {
-        allow write: if request.auth != null;
-    }
-    match /fuel_costs/{costId} {
-        allow write: if request.auth != null;
-    }
-    match /stocks/{stockId} {
-        allow write: if request.auth != null;
-    }
-    match /arrivages/{arrivageId} {
-        allow write: if request.auth != null;
-    }
-    match /donnees_combustibles/{dataId} {
-        allow write: if request.auth != null;
-    }
+
+    // Add specific rule for scenarios_melange collection
     match /scenarios_melange/{scenarioId} {
-        allow write: if request.auth != null;
+      allow read, write: if request.auth != null;
     }
   }
 }
