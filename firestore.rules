@@ -1,55 +1,42 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Allow public read access to 'fuel_types' for dropdowns.
-    match /fuel_types/{fuelTypeId} {
-      allow read: if true;
-      allow write: if false; // Block writes for now
-    }
-
-    // Allow public read access to 'fuel_supplier_map'
-    match /fuel_supplier_map/{fuelType} {
-        allow read: if true;
-        allow write: if true; 
+    // Allow read access to all documents for authenticated users
+    match /{document=**} {
+      allow read: if request.auth != null;
     }
     
-    // Allow public read access to 'specifications'
-    match /specifications/{specId} {
-        allow read: if true;
-        allow write: if true; // Allow adding/editing specs
-    }
-
+    // Allow write access only to specific collections for authenticated users
     match /resultats/{resultId} {
-      allow read: if true;
-      allow write: if true;
+        allow write: if request.auth != null;
     }
-    
+    match /fuel_types/{fuelTypeId} {
+        allow write: if request.auth != null;
+    }
+    match /fuel_supplier_map/{mapId} {
+        allow write: if request.auth != null;
+    }
+    match /specifications/{specId} {
+        allow write: if request.auth != null;
+    }
     match /sessions_melange/{sessionId} {
-      allow read: if true;
-      allow write: if true;
+        allow write: if request.auth != null;
     }
-
-    match /donnees_combustibles/{dataId} {
-      allow read: if true;
-      allow write: if true;
-    }
-
-    match /stocks/{stockId} {
-      allow read: if true;
-      allow write: if true;
-    }
-
-    match /arrivages/{arrivageId} {
-        allow read: if true;
-        allow write: if true;
-    }
-
     match /fuel_costs/{costId} {
-      allow read: if true;
-      allow write: if true;
+        allow write: if request.auth != null;
+    }
+    match /stocks/{stockId} {
+        allow write: if request.auth != null;
+    }
+    match /arrivages/{arrivageId} {
+        allow write: if request.auth != null;
+    }
+    match /donnees_combustibles/{dataId} {
+        allow write: if request.auth != null;
+    }
+    match /scenarios_melange/{scenarioId} {
+        allow write: if request.auth != null;
     }
   }
 }

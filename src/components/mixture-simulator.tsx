@@ -136,7 +136,7 @@ function useMixtureCalculations(hallAF: InstallationState, ats: InstallationStat
     }
 
     const pci = weightedAvg(hallIndicators.pci, flowHall, atsIndicators.pci, flowAts);
-    const chlorine = weightedAvg(hallIndicators.chlorine, flowHall, atsIndicators.chlorine);
+    const chlorine = weightedAvg(hallIndicators.chlorine, flowHall, atsIndicators.chlorine, flowAts);
     const humidity = weightedAvg(hallIndicators.humidity, flowHall, atsIndicators.humidity, flowAts);
     const ash = weightedAvg(hallIndicators.ash, flowHall, atsIndicators.ash, flowAts);
     const tireRate = weightedAvg(hallIndicators.tireRate, flowHall, atsIndicators.tireRate, flowAts);
