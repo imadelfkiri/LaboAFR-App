@@ -22,6 +22,7 @@ const pageTitles: { [key: string]: string } = {
   '/statistiques': 'Tableau de Bord des Statistiques',
   '/specifications': 'Spécifications Techniques',
   '/calcul-melange': 'Calcul de Mélange',
+  '/simulation-melange': 'Simulation de Mélange',
   '/gestion-couts': 'Gestion des Coûts',
   '/gestion-stock': 'Gestion du Stock',
   '/indicateurs': 'Indicateurs',
