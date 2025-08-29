@@ -151,7 +151,8 @@ function useMixtureCalculations(hallAF: InstallationState, ats: InstallationStat
         tireRate,
       }
     };
-  }, [hallAF, ats]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hallAF, ats, hallAF.flowRate, ats.flowRate, ...Object.values(hallAF.fuels), ...Object.values(ats.fuels)]);
 }
 
 const FuelInputSimulator = ({ 
@@ -516,3 +517,5 @@ export function MixtureSimulator() {
     </div>
   );
 }
+
+    
