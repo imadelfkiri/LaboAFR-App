@@ -71,6 +71,14 @@ export interface FuelData {
     teneur_hydrogene: number;
 }
 
+export interface MixtureScenario {
+    id: string;
+    nom_scenario: string;
+    date_creation: Timestamp;
+    donnees_hall: any;
+    donnees_ats: any;
+}
+
 
 export const SPEC_MAP = new Map<string, Specification>();
 
@@ -520,4 +528,24 @@ export async function saveGlobalMixtureSpecification(spec: Partial<Specification
         type_combustible: "Mélange Global", // Add identifiers to distinguish it
         fournisseur: "Système"
     }, { merge: true });
+}
+
+// --- Mixture Scenarios (for simulator) ---
+
+export async function saveMixtureScenario(scenario: Omit<MixtureScenario, 'id' | 'date_creation'>): Promise<void> {
+    const dataToSave = {
+        ...scenario,
+        date_creation: Timestamp.now(),
+    };
+    await addDoc(collection(db, 'scenarios_melange'), dataToSave);
+}
+
+export async function getMixtureScenarios(): Promise<MixtureScenario[]> {
+    const scenariosCollection = collection(db, 'scenarios_melange');
+    const q = query(scenariosCollection, orderBy("date_creation", "desc"));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) return [];
+
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MixtureScenario));
 }

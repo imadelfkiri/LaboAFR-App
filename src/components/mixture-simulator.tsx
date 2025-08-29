@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { RefreshCcw } from 'lucide-react';
+import { RefreshCcw, Save, Download } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,6 +17,11 @@ import {
 } from "@/components/ui/collapsible";
 import { ChevronDown } from 'lucide-react';
 import { Separator } from './ui/separator';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
+import { saveMixtureScenario, getMixtureScenarios, type MixtureScenario } from '@/lib/data';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
 const BUCKET_VOLUME_M3 = 3;
 const FUEL_TYPES = [ "Pneus", "CSR", "DMB", "Plastiques", "CSR DD", "Bois", "Mélange"];
@@ -152,6 +157,7 @@ function useMixtureCalculations(hallAF: InstallationState, ats: InstallationStat
 export function MixtureSimulator() {
   const [hallAF, setHallAF] = useState<InstallationState>(createInitialInstallationState());
   const [ats, setAts] = useState<InstallationState>(createInitialInstallationState());
+  const { toast } = useToast();
 
   const { globalIndicators } = useMixtureCalculations(hallAF, ats);
 
@@ -177,6 +183,12 @@ export function MixtureSimulator() {
   const handleFlowRateChange = (setter: React.Dispatch<React.SetStateAction<InstallationState>>, value: string) => {
     const flowRate = parseFloat(value);
     setter(prev => ({ ...prev, flowRate: isNaN(flowRate) ? 0 : flowRate }));
+  };
+
+  const handleScenarioLoad = (scenario: MixtureScenario) => {
+    setHallAF(scenario.donnees_hall);
+    setAts(scenario.donnees_ats);
+    toast({ title: "Succès", description: `Le scénario "${scenario.nom_scenario}" a été chargé.`});
   };
 
   const FuelInputSimulator = ({ installationState, setInstallationState, installationName }: { installationState: InstallationState, setInstallationState: React.Dispatch<React.SetStateAction<InstallationState>>, installationName: 'hall' | 'ats' }) => {
@@ -236,6 +248,119 @@ export function MixtureSimulator() {
     );
   };
   
+  const SaveScenarioDialog = () => {
+    const [scenarioName, setScenarioName] = useState("");
+    const [isSaving, setIsSaving] = useState(false);
+    const [isOpen, setIsOpen] = useState(false);
+
+    const handleSave = async () => {
+        if (!scenarioName.trim()) {
+            toast({ variant: "destructive", title: "Erreur", description: "Veuillez donner un nom à votre scénario."});
+            return;
+        }
+        setIsSaving(true);
+        try {
+            await saveMixtureScenario({
+                nom_scenario: scenarioName,
+                donnees_hall: hallAF,
+                donnees_ats: ats,
+            });
+            toast({ title: "Succès", description: "Le scénario a été sauvegardé."});
+            setIsOpen(false);
+            setScenarioName("");
+        } catch (error) {
+            console.error("Error saving scenario:", error);
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible de sauvegarder le scénario." });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline"><Save className="mr-2 h-4 w-4" /> Sauvegarder le scénario</Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Sauvegarder le Scénario de Simulation</DialogTitle>
+                    <DialogDescription>
+                        Donnez un nom à votre scénario pour le retrouver plus tard.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                    <Label htmlFor="scenario-name">Nom du scénario</Label>
+                    <Input id="scenario-name" value={scenarioName} onChange={e => setScenarioName(e.target.value)} placeholder="Ex: Scénario PCI Élevé" />
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild><Button variant="secondary">Annuler</Button></DialogClose>
+                    <Button onClick={handleSave} disabled={isSaving}>{isSaving ? "Enregistrement..." : "Enregistrer"}</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+  };
+
+  const LoadScenarioDialog = () => {
+      const [scenarios, setScenarios] = useState<MixtureScenario[]>([]);
+      const [isLoading, setIsLoading] = useState(false);
+      const [isOpen, setIsOpen] = useState(false);
+
+      const fetchScenarios = useCallback(async () => {
+          setIsLoading(true);
+          try {
+              const fetchedScenarios = await getMixtureScenarios();
+              setScenarios(fetchedScenarios);
+          } catch(error) {
+              console.error("Error fetching scenarios:", error);
+              toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les scénarios." });
+          } finally {
+              setIsLoading(false);
+          }
+      }, []);
+
+      React.useEffect(() => {
+        if (isOpen) {
+            fetchScenarios();
+        }
+      }, [isOpen, fetchScenarios]);
+      
+      return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline"><Download className="mr-2 h-4 w-4" /> Charger un scénario</Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>Charger un Scénario</DialogTitle>
+                    <DialogDescription>
+                        Sélectionnez un scénario sauvegardé pour remplir les champs de simulation.
+                    </DialogDescription>
+                </DialogHeader>
+                 <div className="py-4 max-h-[60vh] overflow-y-auto">
+                    {isLoading ? <p>Chargement...</p> : (
+                        <div className="space-y-2">
+                            {scenarios.length > 0 ? scenarios.map(scenario => (
+                                <div key={scenario.id} className="flex justify-between items-center p-3 border rounded-md">
+                                    <div>
+                                        <p className="font-semibold">{scenario.nom_scenario}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            Créé le {format(scenario.date_creation.toDate(), "d MMM yyyy 'à' HH:mm", { locale: fr })}
+                                        </p>
+                                    </div>
+                                    <Button size="sm" onClick={() => { handleScenarioLoad(scenario); setIsOpen(false); }}>
+                                        Charger
+                                    </Button>
+                                </div>
+                            )) : <p className="text-center text-muted-foreground">Aucun scénario sauvegardé.</p>}
+                        </div>
+                    )}
+                 </div>
+            </DialogContent>
+        </Dialog>
+      );
+  }
+
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6 bg-gray-50">
@@ -244,6 +369,8 @@ export function MixtureSimulator() {
             <h1 className="text-2xl font-bold text-gray-800">Indicateurs Globaux (Simulation)</h1>
           </div>
           <div className="flex items-center gap-2">
+            <LoadScenarioDialog />
+            <SaveScenarioDialog />
             <Button onClick={handleReset} variant="outline">
                 <RefreshCcw className="mr-2 h-4 w-4" />
                 Réinitialiser
