@@ -186,16 +186,49 @@ export function MixtureSimulator() {
   };
 
   const handleScenarioLoad = (scenario: MixtureScenario) => {
-    setHallAF(scenario.donnees_hall);
-    setAts(scenario.donnees_ats);
+    // We create a full default state and then merge the loaded data
+    const fullHallState = createInitialInstallationState();
+    const fullAtsState = createInitialInstallationState();
+
+    if (scenario.donnees_hall) {
+        fullHallState.flowRate = scenario.donnees_hall.flowRate || 0;
+        for (const fuel in fullHallState.fuels) {
+            if (scenario.donnees_hall.fuels[fuel]) {
+                fullHallState.fuels[fuel] = { ...fullHallState.fuels[fuel], ...scenario.donnees_hall.fuels[fuel] };
+            }
+        }
+    }
+    
+    if (scenario.donnees_ats) {
+        fullAtsState.flowRate = scenario.donnees_ats.flowRate || 0;
+        for (const fuel in fullAtsState.fuels) {
+            if (scenario.donnees_ats.fuels[fuel]) {
+                fullAtsState.fuels[fuel] = { ...fullAtsState.fuels[fuel], ...scenario.donnees_ats.fuels[fuel] };
+            }
+        }
+    }
+    
+    setHallAF(fullHallState);
+    setAts(fullAtsState);
     toast({ title: "Succès", description: `Le scénario "${scenario.nom_scenario}" a été chargé.`});
   };
 
   const FuelInputSimulator = ({ installationState, setInstallationState, installationName }: { installationState: InstallationState, setInstallationState: React.Dispatch<React.SetStateAction<InstallationState>>, installationName: 'hall' | 'ats' }) => {
+    const [openItem, setOpenItem] = useState<string | null>(null);
+
+    const handleOpenChange = (fuelName: string, isOpen: boolean) => {
+      setOpenItem(isOpen ? fuelName : null);
+    };
+
     return (
         <div className="space-y-4">
         {FUEL_TYPES.map(fuelName => (
-            <Collapsible key={fuelName} className="border rounded-lg px-4">
+            <Collapsible 
+                key={fuelName} 
+                className="border rounded-lg px-4"
+                open={openItem === fuelName}
+                onOpenChange={(isOpen) => handleOpenChange(fuelName, isOpen)}
+            >
                 <CollapsibleTrigger className="flex items-center justify-between w-full py-3">
                      <Label htmlFor={`${installationName}-${fuelName}-buckets`} className="text-md font-semibold">{fuelName}</Label>
                      <div className='flex items-center gap-2'>
@@ -317,7 +350,7 @@ export function MixtureSimulator() {
           } finally {
               setIsLoading(false);
           }
-      }, []);
+      }, [toast]);
 
       React.useEffect(() => {
         if (isOpen) {
@@ -348,9 +381,11 @@ export function MixtureSimulator() {
                                             Créé le {format(scenario.date_creation.toDate(), "d MMM yyyy 'à' HH:mm", { locale: fr })}
                                         </p>
                                     </div>
-                                    <Button size="sm" onClick={() => { handleScenarioLoad(scenario); setIsOpen(false); }}>
-                                        Charger
-                                    </Button>
+                                    <DialogClose asChild>
+                                        <Button size="sm" onClick={() => handleScenarioLoad(scenario)}>
+                                            Charger
+                                        </Button>
+                                    </DialogClose>
                                 </div>
                             )) : <p className="text-center text-muted-foreground">Aucun scénario sauvegardé.</p>}
                         </div>
