@@ -153,10 +153,105 @@ function useMixtureCalculations(hallAF: InstallationState, ats: InstallationStat
   }, [hallAF, ats]);
 }
 
+const FuelInputSimulator = ({ 
+    installationState, 
+    setInstallationState, 
+    installationName,
+    openAccordion,
+    setOpenAccordion
+}: { 
+    installationState: InstallationState, 
+    setInstallationState: React.Dispatch<React.SetStateAction<InstallationState>>, 
+    installationName: 'hall' | 'ats',
+    openAccordion: string | null,
+    setOpenAccordion: (value: string | null) => void
+}) => {
+    
+    const handleOpenChange = (accordionId: string) => {
+        setOpenAccordion(openAccordion === accordionId ? null : accordionId);
+    };
+
+    const handleInputChange = (
+        fuelName: string, 
+        field: keyof FuelAnalysis,
+        value: string
+    ) => {
+        const numValue = parseFloat(value);
+        setInstallationState(prev => {
+            const newFuels = { ...prev.fuels };
+            newFuels[fuelName] = { ...newFuels[fuelName], [field]: isNaN(numValue) ? 0 : numValue };
+            return { ...prev, fuels: newFuels };
+        });
+    };
+
+    return (
+        <div className="space-y-4">
+        {FUEL_TYPES.map(fuelName => {
+            const accordionId = `${installationName}-${fuelName}`;
+            return (
+                <Collapsible 
+                    key={accordionId} 
+                    className="border rounded-lg px-4"
+                    open={openAccordion === accordionId}
+                    onOpenChange={() => handleOpenChange(accordionId)}
+                >
+                    <CollapsibleTrigger className="flex items-center justify-between w-full py-3">
+                         <Label htmlFor={`${installationName}-${fuelName}-buckets`} className="text-md font-semibold">{fuelName}</Label>
+                         <div className='flex items-center gap-2'>
+                            <Input
+                                id={`${installationName}-${fuelName}-buckets`}
+                                type="number"
+                                placeholder="Godets"
+                                className="w-28 h-9 text-center font-bold"
+                                value={installationState.fuels[fuelName]?.buckets || ''}
+                                onChange={(e) => handleInputChange(fuelName, 'buckets', e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                min="0"
+                            />
+                            <ChevronDown className="h-5 w-5 transition-transform data-[state=open]:rotate-180" />
+                         </div>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                        <Separator className="my-2" />
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-3 pb-4">
+                            {(Object.keys(installationState.fuels[fuelName]) as Array<keyof FuelAnalysis>)
+                                .filter(key => key !== 'buckets')
+                                .map(key => {
+                                    const labels = {
+                                        pci: 'PCI (kcal/kg)',
+                                        humidity: 'Humidité (%)',
+                                        chlorine: 'Chlorures (%)',
+                                        ash: 'Cendres (%)',
+                                        density: 'Densité (t/m³)',
+                                    };
+                                    return (
+                                        <div key={key} className="flex items-center gap-2">
+                                            <Label htmlFor={`${installationName}-${fuelName}-${key}`} className="flex-1 text-sm text-muted-foreground">{labels[key]}</Label>
+                                            <Input
+                                                id={`${installationName}-${fuelName}-${key}`}
+                                                type="number"
+                                                placeholder="0"
+                                                className="w-24 h-8"
+                                                value={installationState.fuels[fuelName]?.[key] || ''}
+                                                onChange={(e) => handleInputChange(fuelName, key, e.target.value)}
+                                                min="0"
+                                            />
+                                        </div>
+                                    );
+                                })}
+                        </div>
+                    </CollapsibleContent>
+                </Collapsible>
+            )
+        })}
+        </div>
+    );
+};
 
 export function MixtureSimulator() {
   const [hallAF, setHallAF] = useState<InstallationState>(createInitialInstallationState());
   const [ats, setAts] = useState<InstallationState>(createInitialInstallationState());
+  const [openAccordion, setOpenAccordion] = useState<string | null>(null);
   const { toast } = useToast();
 
   const { globalIndicators } = useMixtureCalculations(hallAF, ats);
@@ -164,20 +259,7 @@ export function MixtureSimulator() {
   const handleReset = () => {
     setHallAF(createInitialInstallationState());
     setAts(createInitialInstallationState());
-  };
-
-  const handleInputChange = (
-    setter: React.Dispatch<React.SetStateAction<InstallationState>>, 
-    fuelName: string, 
-    field: keyof FuelAnalysis,
-    value: string
-) => {
-    const numValue = parseFloat(value);
-    setter(prev => {
-      const newFuels = { ...prev.fuels };
-      newFuels[fuelName] = { ...newFuels[fuelName], [field]: isNaN(numValue) ? 0 : numValue };
-      return { ...prev, fuels: newFuels };
-    });
+    setOpenAccordion(null);
   };
 
   const handleFlowRateChange = (setter: React.Dispatch<React.SetStateAction<InstallationState>>, value: string) => {
@@ -211,74 +293,6 @@ export function MixtureSimulator() {
     setHallAF(fullHallState);
     setAts(fullAtsState);
     toast({ title: "Succès", description: `Le scénario "${scenario.nom_scenario}" a été chargé.`});
-  };
-
-  const FuelInputSimulator = ({ installationState, setInstallationState, installationName }: { installationState: InstallationState, setInstallationState: React.Dispatch<React.SetStateAction<InstallationState>>, installationName: 'hall' | 'ats' }) => {
-    const [openItem, setOpenItem] = useState<string | null>(null);
-
-    const handleOpenChange = (fuelName: string, isOpen: boolean) => {
-      setOpenItem(isOpen ? fuelName : null);
-    };
-
-    return (
-        <div className="space-y-4">
-        {FUEL_TYPES.map(fuelName => (
-            <Collapsible 
-                key={fuelName} 
-                className="border rounded-lg px-4"
-                open={openItem === fuelName}
-                onOpenChange={(isOpen) => handleOpenChange(fuelName, isOpen)}
-            >
-                <CollapsibleTrigger className="flex items-center justify-between w-full py-3">
-                     <Label htmlFor={`${installationName}-${fuelName}-buckets`} className="text-md font-semibold">{fuelName}</Label>
-                     <div className='flex items-center gap-2'>
-                        <Input
-                            id={`${installationName}-${fuelName}-buckets`}
-                            type="number"
-                            placeholder="Godets"
-                            className="w-28 h-9 text-center font-bold"
-                            value={installationState.fuels[fuelName]?.buckets || ''}
-                            onChange={(e) => handleInputChange(setInstallationState, fuelName, 'buckets', e.target.value)}
-                            onClick={(e) => e.stopPropagation()}
-                            min="0"
-                        />
-                        <ChevronDown className="h-5 w-5 transition-transform data-[state=open]:rotate-180" />
-                     </div>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                    <Separator className="my-2" />
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-3 pb-4">
-                        {(Object.keys(installationState.fuels[fuelName]) as Array<keyof FuelAnalysis>)
-                            .filter(key => key !== 'buckets')
-                            .map(key => {
-                                const labels = {
-                                    pci: 'PCI (kcal/kg)',
-                                    humidity: 'Humidité (%)',
-                                    chlorine: 'Chlorures (%)',
-                                    ash: 'Cendres (%)',
-                                    density: 'Densité (t/m³)',
-                                };
-                                return (
-                                    <div key={key} className="flex items-center gap-2">
-                                        <Label htmlFor={`${installationName}-${fuelName}-${key}`} className="flex-1 text-sm text-muted-foreground">{labels[key]}</Label>
-                                        <Input
-                                            id={`${installationName}-${fuelName}-${key}`}
-                                            type="number"
-                                            placeholder="0"
-                                            className="w-24 h-8"
-                                            value={installationState.fuels[fuelName]?.[key] || ''}
-                                            onChange={(e) => handleInputChange(setInstallationState, fuelName, key, e.target.value)}
-                                            min="0"
-                                        />
-                                    </div>
-                                );
-                            })}
-                    </div>
-                </CollapsibleContent>
-            </Collapsible>
-        ))}
-        </div>
-    );
   };
   
   const SaveScenarioDialog = () => {
@@ -430,7 +444,13 @@ export function MixtureSimulator() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4 p-6">
-            <FuelInputSimulator installationState={hallAF} setInstallationState={setHallAF} installationName="hall" />
+            <FuelInputSimulator 
+                installationState={hallAF} 
+                setInstallationState={setHallAF} 
+                installationName="hall"
+                openAccordion={openAccordion}
+                setOpenAccordion={setOpenAccordion}
+            />
           </CardContent>
         </Card>
         
@@ -443,7 +463,13 @@ export function MixtureSimulator() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4 p-6">
-            <FuelInputSimulator installationState={ats} setInstallationState={setAts} installationName="ats" />
+             <FuelInputSimulator 
+                installationState={ats} 
+                setInstallationState={setAts} 
+                installationName="ats"
+                openAccordion={openAccordion}
+                setOpenAccordion={setOpenAccordion}
+            />
           </CardContent>
         </Card>
       </section>
