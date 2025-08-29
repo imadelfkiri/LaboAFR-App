@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { RefreshCcw, Save, Download } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,7 @@ import { fr } from 'date-fns/locale';
 
 const BUCKET_VOLUME_M3 = 3;
 const FUEL_TYPES = [ "Pneus", "CSR", "DMB", "Plastiques", "CSR DD", "Bois", "Mélange"];
+const LOCAL_STORAGE_KEY = 'mixtureSimulatorState';
 
 interface FuelAnalysis {
     buckets: number;
@@ -135,7 +136,7 @@ function useMixtureCalculations(hallAF: InstallationState, ats: InstallationStat
     }
 
     const pci = weightedAvg(hallIndicators.pci, flowHall, atsIndicators.pci, flowAts);
-    const chlorine = weightedAvg(hallIndicators.chlorine, flowHall, atsIndicators.chlorine, flowAts);
+    const chlorine = weightedAvg(hallIndicators.chlorine, flowHall, atsIndicators.chlorine);
     const humidity = weightedAvg(hallIndicators.humidity, flowHall, atsIndicators.humidity, flowAts);
     const ash = weightedAvg(hallIndicators.ash, flowHall, atsIndicators.ash, flowAts);
     const tireRate = weightedAvg(hallIndicators.tireRate, flowHall, atsIndicators.tireRate, flowAts);
@@ -254,12 +255,52 @@ export function MixtureSimulator() {
   const [openAccordion, setOpenAccordion] = useState<string | null>(null);
   const { toast } = useToast();
 
+  // Load state from localStorage on initial render
+  useEffect(() => {
+    try {
+        const savedStateJSON = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (savedStateJSON) {
+            const savedState = JSON.parse(savedStateJSON);
+            const initialHallState = createInitialInstallationState();
+            const initialAtsState = createInitialInstallationState();
+            
+            // Deep merge to avoid errors if state shape changes
+            if (savedState.hallAF) {
+                setHallAF({ ...initialHallState, ...savedState.hallAF, fuels: { ...initialHallState.fuels, ...savedState.hallAF.fuels } });
+            }
+            if (savedState.ats) {
+                 setAts({ ...initialAtsState, ...savedState.ats, fuels: { ...initialAtsState.fuels, ...savedState.ats.fuels } });
+            }
+        }
+    } catch (error) {
+        console.error("Could not load simulator state from localStorage", error);
+        toast({ variant: "destructive", title: "Erreur", description: "Impossible de restaurer la session de simulation."});
+    }
+  }, [toast]);
+
+  // Save state to localStorage on every change
+  useEffect(() => {
+    try {
+        const stateToSave = JSON.stringify({ hallAF, ats });
+        localStorage.setItem(LOCAL_STORAGE_KEY, stateToSave);
+    } catch (error) {
+        console.error("Could not save simulator state to localStorage", error);
+    }
+  }, [hallAF, ats]);
+
+
   const { globalIndicators } = useMixtureCalculations(hallAF, ats);
 
   const handleReset = () => {
     setHallAF(createInitialInstallationState());
     setAts(createInitialInstallationState());
     setOpenAccordion(null);
+    try {
+        localStorage.removeItem(LOCAL_STORAGE_KEY);
+        toast({ title: "Réinitialisé", description: "La simulation a été réinitialisée." });
+    } catch (error) {
+        console.error("Could not remove simulator state from localStorage", error);
+    }
   };
 
   const handleFlowRateChange = (setter: React.Dispatch<React.SetStateAction<InstallationState>>, value: string) => {
@@ -268,7 +309,6 @@ export function MixtureSimulator() {
   };
 
   const handleScenarioLoad = (scenario: MixtureScenario) => {
-    // We create a full default state and then merge the loaded data
     const fullHallState = createInitialInstallationState();
     const fullAtsState = createInitialInstallationState();
 
