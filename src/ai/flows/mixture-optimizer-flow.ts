@@ -45,11 +45,9 @@ export type MixtureOptimizerOutput = z.infer<typeof MixtureOptimizerOutputSchema
 const mixtureOptimizerPrompt = ai.definePrompt({
     name: 'mixtureOptimizerPrompt',
     input: { schema: MixtureOptimizerInputSchema },
-    output: { schema: MixtureOptimizerOutputSchema },
-    config: {
-      response: {
-        format: 'json',
-      },
+    output: { 
+      schema: MixtureOptimizerOutputSchema,
+      format: 'json',
     },
     prompt: `Tu es un expert en optimisation de combustibles pour une cimenterie. Ton rôle est de proposer une recette de mélange (nombre de godets pour chaque combustible) pour deux installations (Hall des AF et ATS) afin d'atteindre un objectif précis défini par l'utilisateur.
 
