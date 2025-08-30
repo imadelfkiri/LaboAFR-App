@@ -136,9 +136,9 @@ function useMixtureCalculations(hallAF: InstallationState, ats: InstallationStat
     }
 
     const pci = weightedAvg(hallIndicators.pci, flowHall, atsIndicators.pci, flowAts);
-    const chlorine = weightedAvg(hallIndicators.chlorine, flowHall, atsIndicators.chlorine, flowAts);
     const humidity = weightedAvg(hallIndicators.humidity, flowHall, atsIndicators.humidity, flowAts);
     const ash = weightedAvg(hallIndicators.ash, flowHall, atsIndicators.ash, flowAts);
+    const chlorine = weightedAvg(hallIndicators.chlorine, flowHall, atsIndicators.chlorine, flowAts);
     const tireRate = weightedAvg(hallIndicators.tireRate, flowHall, atsIndicators.tireRate, flowAts);
 
     return {
@@ -151,8 +151,7 @@ function useMixtureCalculations(hallAF: InstallationState, ats: InstallationStat
         tireRate,
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hallAF, ats, hallAF.flowRate, ats.flowRate, ...Object.values(hallAF.fuels), ...Object.values(ats.fuels)]);
+  }, [hallAF, ats]);
 }
 
 const FuelInputSimulator = ({ 
@@ -517,5 +516,3 @@ export function MixtureSimulator() {
     </div>
   );
 }
-
-    
