@@ -96,10 +96,13 @@ function useMixtureCalculations(hallAF: InstallationState, ats: InstallationStat
         for(const fuelName in state.fuels) {
             const fuelInput = state.fuels[fuelName];
             
-            if (!fuelInput || fuelInput.buckets <= 0 || fuelInput.density <= 0) {
+            if (!fuelInput || fuelInput.buckets <= 0) {
                 continue;
             }
-            const weight = fuelInput.buckets * BUCKET_VOLUME_M3 * fuelInput.density;
+            
+            // If density is not entered or 0, use a default value to allow calculation
+            const density = (fuelInput.density || 0) > 0 ? fuelInput.density : 0.5;
+            const weight = fuelInput.buckets * BUCKET_VOLUME_M3 * density;
             totalWeight += weight;
 
             if (fuelName.toLowerCase().includes('pneu')) {
