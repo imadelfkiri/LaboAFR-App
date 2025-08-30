@@ -837,65 +837,67 @@ export function MixtureCalculator() {
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6 bg-gray-50">
-      <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className='flex items-center gap-2'>
-              <h1 className="text-2xl font-bold text-gray-800">Indicateurs Globaux</h1>
-              <ThresholdSettingsModal />
+      <div className="sticky top-0 z-10 bg-gray-50/95 backdrop-blur-sm py-4 space-y-4">
+        <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className='flex items-center gap-2'>
+                <h1 className="text-2xl font-bold text-gray-800">Indicateurs Globaux</h1>
+                <ThresholdSettingsModal />
+              </div>
+               <Popover>
+                  <PopoverTrigger asChild>
+                      <Button
+                          id="date"
+                          variant={"outline"}
+                          className={cn(
+                              "w-[300px] justify-start text-left font-normal bg-white",
+                              !analysisDateRange && "text-muted-foreground"
+                          )}
+                      >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {analysisDateRange?.from ? (
+                          analysisDateRange.to ? (
+                              <>
+                              {format(analysisDateRange.from, "d MMM y", { locale: fr })} -{" "}
+                              {format(analysisDateRange.to, "d MMM y", { locale: fr })}
+                              </>
+                          ) : (
+                              format(analysisDateRange.from, "d MMM y", { locale: fr })
+                          )
+                          ) : (
+                          <span>Sélectionner une période d'analyse</span>
+                          )}
+                      </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                          initialFocus
+                          mode="range"
+                          defaultMonth={analysisDateRange?.from}
+                          selected={analysisDateRange}
+                          onSelect={setAnalysisDateRange}
+                          numberOfMonths={2}
+                          locale={fr}
+                      />
+                  </PopoverContent>
+              </Popover>
             </div>
-             <Popover>
-                <PopoverTrigger asChild>
-                    <Button
-                        id="date"
-                        variant={"outline"}
-                        className={cn(
-                            "w-[300px] justify-start text-left font-normal bg-white",
-                            !analysisDateRange && "text-muted-foreground"
-                        )}
-                    >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {analysisDateRange?.from ? (
-                        analysisDateRange.to ? (
-                            <>
-                            {format(analysisDateRange.from, "d MMM y", { locale: fr })} -{" "}
-                            {format(analysisDateRange.to, "d MMM y", { locale: fr })}
-                            </>
-                        ) : (
-                            format(analysisDateRange.from, "d MMM y", { locale: fr })
-                        )
-                        ) : (
-                        <span>Sélectionner une période d'analyse</span>
-                        )}
-                    </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                        initialFocus
-                        mode="range"
-                        defaultMonth={analysisDateRange?.from}
-                        selected={analysisDateRange}
-                        onSelect={setAnalysisDateRange}
-                        numberOfMonths={2}
-                        locale={fr}
-                    />
-                </PopoverContent>
-            </Popover>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button onClick={handlePrepareSave} disabled={isSaving}>
-                <Save className="mr-2 h-4 w-4" />
-                {isSaving ? "Enregistrement..." : "Enregistrer la Session"}
-            </Button>
-          </div>
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-        <IndicatorCard title="Débit des AFs" value={globalIndicators.flow.toFixed(2)} unit="t/h" />
-        <IndicatorCard title="PCI moy" value={globalIndicators.pci.toFixed(0)} unit="kcal/kg" status={globalIndicators.status.pci} />
-        <IndicatorCard title="% Humidité moy" value={globalIndicators.humidity.toFixed(2)} unit="%" status={globalIndicators.status.humidity} />
-        <IndicatorCard title="% Cendres moy" value={globalIndicators.ash.toFixed(2)} unit="%" status={globalIndicators.status.ash} />
-        <IndicatorCard title="% Chlorures" value={globalIndicators.chlorine.toFixed(3)} unit="%" status={globalIndicators.status.chlorine} />
-        <IndicatorCard title="Taux de pneus" value={globalIndicators.tireRate.toFixed(2)} unit="%" status={globalIndicators.status.tireRate} />
-        <IndicatorCard title="Coût du Mélange" value={globalIndicators.cost.toFixed(2)} unit="MAD/t" />
+            <div className="flex items-center gap-2">
+              <Button onClick={handlePrepareSave} disabled={isSaving}>
+                  <Save className="mr-2 h-4 w-4" />
+                  {isSaving ? "Enregistrement..." : "Enregistrer la Session"}
+              </Button>
+            </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+          <IndicatorCard title="Débit des AFs" value={globalIndicators.flow.toFixed(2)} unit="t/h" />
+          <IndicatorCard title="PCI moy" value={globalIndicators.pci.toFixed(0)} unit="kcal/kg" status={globalIndicators.status.pci} />
+          <IndicatorCard title="% Humidité moy" value={globalIndicators.humidity.toFixed(2)} unit="%" status={globalIndicators.status.humidity} />
+          <IndicatorCard title="% Cendres moy" value={globalIndicators.ash.toFixed(2)} unit="%" status={globalIndicators.status.ash} />
+          <IndicatorCard title="% Chlorures" value={globalIndicators.chlorine.toFixed(3)} unit="%" status={globalIndicators.status.chlorine} />
+          <IndicatorCard title="Taux de pneus" value={globalIndicators.tireRate.toFixed(2)} unit="%" status={globalIndicators.status.tireRate} />
+          <IndicatorCard title="Coût du Mélange" value={globalIndicators.cost.toFixed(2) } unit="MAD/t" />
+        </div>
       </div>
 
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
