@@ -24,12 +24,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import { optimizeMixture, MixtureOptimizerOutput, MixtureOptimizerInput } from '@/ai/flows/mixture-optimizer-flow';
+import { MixtureOptimizerOutput, MixtureOptimizerInput } from '@/ai/flows/mixture-optimizer-flow';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip, Legend, Line } from 'recharts';
 import { Separator } from './ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { handleGenerateSuggestion } from '@/lib/actions';
+
 
 interface InstallationState {
   flowRate: number;
@@ -481,20 +483,6 @@ export function MixtureCalculator() {
     );
   };
   
-  async function handleGenerateSuggestion(input: MixtureOptimizerInput) {
-    'use server';
-    try {
-      const result = await optimizeMixture(input);
-      return result;
-    } catch (error) {
-      console.error('Server action error:', error);
-      // We can't return the error object directly, but we can return its message
-      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-      throw new Error(errorMessage);
-    }
-  }
-
-
   const AiAssistant = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [objective, setObjective] = useState('');
@@ -528,10 +516,16 @@ export function MixtureCalculator() {
         try {
             
             const enrichedAvailableFuels: MixtureOptimizerInput['availableFuels'] = {};
+            const allFuelData = await getFuelData();
+            const fuelDataMap = allFuelData.reduce((acc, fd) => {
+                acc[fd.nom_combustible] = fd;
+                return acc;
+            }, {} as Record<string, FuelData>);
+
 
             for (const fuelName in availableFuels) {
                 const analysis = availableFuels[fuelName];
-                const data = fuelData[fuelName];
+                const data = fuelDataMap[fuelName];
                 enrichedAvailableFuels[fuelName] = {
                     ...analysis,
                     density: data?.densite || 0,
@@ -544,8 +538,12 @@ export function MixtureCalculator() {
                 userObjective: objective,
             };
             const result = await handleGenerateSuggestion(input);
-            setSuggestion(result);
-            saveSuggestionToHistory(objective, result);
+            if (result) {
+              setSuggestion(result);
+              saveSuggestionToHistory(objective, result);
+            } else {
+               throw new Error("L'assistant IA n'a pas pu générer de suggestion.");
+            }
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "La génération de suggestion a échoué.";
             console.error("Error generating suggestion:", error);
