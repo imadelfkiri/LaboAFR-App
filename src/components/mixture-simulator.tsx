@@ -24,7 +24,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 const BUCKET_VOLUME_M3 = 3;
-const FUEL_TYPES = [ "Pneus", "CSR", "DMB", "Plastiques", "CSR DD", "Bois", "Mélange"];
+const FUEL_TYPES = [ "Pneus", "CSR", "DMB", "Plastiques", "CSR DD", "Bois", "Mélange", "Boues", "Caoutchouc"];
 const LOCAL_STORAGE_KEY = 'mixtureSimulatorState';
 
 interface FuelAnalysis {
@@ -106,10 +106,10 @@ function useMixtureCalculations(hallAF: InstallationState, ats: InstallationStat
                 tempTotalTireWeight += weight;
             }
             
-            tempTotalPci += weight * fuelInput.pci;
-            tempTotalHumidity += weight * fuelInput.humidity;
-            tempTotalAsh += weight * fuelInput.ash;
-            tempTotalChlorine += weight * fuelInput.chlorine;
+            tempTotalPci += weight * (fuelInput.pci || 0);
+            tempTotalHumidity += weight * (fuelInput.humidity || 0);
+            tempTotalAsh += weight * (fuelInput.ash || 0);
+            tempTotalChlorine += weight * (fuelInput.chlorine || 0);
         }
 
         return { 
@@ -516,3 +516,5 @@ export function MixtureSimulator() {
     </div>
   );
 }
+
+    
