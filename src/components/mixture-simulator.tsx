@@ -456,25 +456,27 @@ export function MixtureSimulator() {
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6 bg-gray-50">
-      <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-gray-800">Indicateurs Globaux (Simulation)</h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <LoadScenarioDialog />
-            <SaveScenarioDialog />
-            <Button onClick={handleReset} variant="outline">
-                <RefreshCcw className="mr-2 h-4 w-4" />
-                Réinitialiser
-            </Button>
-          </div>
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        <IndicatorCard title="Débit des AFs" value={globalIndicators.flow.toFixed(2)} unit="t/h" />
-        <IndicatorCard title="PCI moy" value={globalIndicators.pci.toFixed(0)} unit="kcal/kg" />
-        <IndicatorCard title="% Humidité moy" value={globalIndicators.humidity.toFixed(2)} unit="%" />
-        <IndicatorCard title="% Cendres moy" value={globalIndicators.ash.toFixed(2)} unit="%" />
-        <IndicatorCard title="% Chlorures" value={globalIndicators.chlorine.toFixed(3)} unit="%" />
+      <div className="sticky top-0 z-10 bg-gray-50 py-4">
+        <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-4">
+              <h1 className="text-2xl font-bold text-gray-800">Indicateurs Globaux (Simulation)</h1>
+            </div>
+            <div className="flex items-center gap-2">
+              <LoadScenarioDialog />
+              <SaveScenarioDialog />
+              <Button onClick={handleReset} variant="outline">
+                  <RefreshCcw className="mr-2 h-4 w-4" />
+                  Réinitialiser
+              </Button>
+            </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <IndicatorCard title="Débit des AFs" value={globalIndicators.flow.toFixed(2)} unit="t/h" />
+          <IndicatorCard title="PCI moy" value={globalIndicators.pci.toFixed(0)} unit="kcal/kg" />
+          <IndicatorCard title="% Humidité moy" value={globalIndicators.humidity.toFixed(2)} unit="%" />
+          <IndicatorCard title="% Cendres moy" value={globalIndicators.ash.toFixed(2)} unit="%" />
+          <IndicatorCard title="% Chlorures" value={globalIndicators.chlorine.toFixed(3)} unit="%" />
+        </div>
       </div>
 
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
