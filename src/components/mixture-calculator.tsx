@@ -512,8 +512,28 @@ export function MixtureCalculator() {
         setIsGenerating(true);
         setSuggestion(null);
         try {
+
+            // The bug is likely here. `availableFuels` might not have density.
+            // We need to fetch fuelData and merge it.
+            const allFuelData = await getFuelData();
+            const fuelDataMap = allFuelData.reduce((acc, fd) => {
+                acc[fd.nom_combustible] = fd;
+                return acc;
+            }, {} as Record<string, FuelData>);
+            
+            const enrichedAvailableFuels: MixtureOptimizerInput['availableFuels'] = {};
+
+            for (const fuelName in availableFuels) {
+                const analysis = availableFuels[fuelName];
+                const data = fuelDataMap[fuelName];
+                enrichedAvailableFuels[fuelName] = {
+                    ...analysis,
+                    density: data?.densite || 0, // Ensure density is present
+                };
+            }
+
             const input: MixtureOptimizerInput = {
-                availableFuels,
+                availableFuels: enrichedAvailableFuels,
                 userObjective: objective,
             };
             const result = await optimizeMixture(input);
