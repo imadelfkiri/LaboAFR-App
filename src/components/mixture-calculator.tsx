@@ -481,6 +481,20 @@ export function MixtureCalculator() {
     );
   };
   
+  async function handleGenerateSuggestion(input: MixtureOptimizerInput) {
+    'use server';
+    try {
+      const result = await optimizeMixture(input);
+      return result;
+    } catch (error) {
+      console.error('Server action error:', error);
+      // We can't return the error object directly, but we can return its message
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+      throw new Error(errorMessage);
+    }
+  }
+
+
   const AiAssistant = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [objective, setObjective] = useState('');
@@ -512,23 +526,16 @@ export function MixtureCalculator() {
         setIsGenerating(true);
         setSuggestion(null);
         try {
-
-            // The bug is likely here. `availableFuels` might not have density.
-            // We need to fetch fuelData and merge it.
-            const allFuelData = await getFuelData();
-            const fuelDataMap = allFuelData.reduce((acc, fd) => {
-                acc[fd.nom_combustible] = fd;
-                return acc;
-            }, {} as Record<string, FuelData>);
             
             const enrichedAvailableFuels: MixtureOptimizerInput['availableFuels'] = {};
 
             for (const fuelName in availableFuels) {
                 const analysis = availableFuels[fuelName];
-                const data = fuelDataMap[fuelName];
+                const data = fuelData[fuelName];
                 enrichedAvailableFuels[fuelName] = {
                     ...analysis,
-                    density: data?.densite || 0, // Ensure density is present
+                    density: data?.densite || 0,
+                    count: data?.densite ? analysis.count : 0
                 };
             }
 
@@ -536,12 +543,13 @@ export function MixtureCalculator() {
                 availableFuels: enrichedAvailableFuels,
                 userObjective: objective,
             };
-            const result = await optimizeMixture(input);
+            const result = await handleGenerateSuggestion(input);
             setSuggestion(result);
             saveSuggestionToHistory(objective, result);
         } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "La génération de suggestion a échoué.";
             console.error("Error generating suggestion:", error);
-            toast({ variant: "destructive", title: "Erreur IA", description: "La génération de suggestion a échoué." });
+            toast({ variant: "destructive", title: "Erreur IA", description: errorMessage });
         } finally {
             setIsGenerating(false);
         }
