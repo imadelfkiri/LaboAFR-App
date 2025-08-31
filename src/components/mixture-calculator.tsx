@@ -1035,7 +1035,7 @@ export function MixtureCalculator() {
             </CollapsibleContent>
         </Card>
       </Collapsible>
-      <AiAssistant />
+      
       <SaveConfirmationModal />
     </div>
   );
