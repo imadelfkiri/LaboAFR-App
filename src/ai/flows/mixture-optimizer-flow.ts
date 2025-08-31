@@ -60,7 +60,7 @@ const mixtureOptimizerPrompt = ai.definePrompt({
 
     DONNÉES DISPONIBLES :
     Voici les caractéristiques moyennes des combustibles disponibles :
-    {{#each availableFuels}}
+    {{#each input.availableFuels}}
     - Combustible: {{@key}}
       - PCI moyen: {{this.pci_brut}} kcal/kg
       - Humidité moyenne: {{this.h2o}}%
@@ -70,7 +70,7 @@ const mixtureOptimizerPrompt = ai.definePrompt({
     {{/each}}
 
     OBJECTIF DE L'UTILISATEUR :
-    "{{userObjective}}"
+    "{{input.userObjective}}"
 
     TA MISSION :
     1.  **Raisonnement :** Explique clairement ta stratégie. Par exemple, comment tu comptes combiner les combustibles à haut et bas PCI, comment tu gères le chlore, etc. Sois concis mais précis.
