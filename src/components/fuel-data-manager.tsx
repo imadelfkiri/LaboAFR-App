@@ -105,8 +105,8 @@ export function FuelDataManager() {
                 getUniqueFuelTypesFromResultats(),
             ]);
 
-            const existingFuelNames = fetchedFuelData.map(fd => fd.nom_combustible);
-            const newAvailableTypes = resultatsFuelTypes.filter(type => !existingFuelNames.includes(type));
+            const existingFuelNames = new Set(fetchedFuelData.map(fd => fd.nom_combustible));
+            const newAvailableTypes = resultatsFuelTypes.filter(type => !existingFuelNames.has(type));
             
             setFuelDataList(fetchedFuelData.sort((a, b) => a.nom_combustible.localeCompare(b.nom_combustible)));
             setAvailableFuelTypes(newAvailableTypes.sort());
