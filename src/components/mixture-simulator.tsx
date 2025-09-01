@@ -19,11 +19,10 @@ import { ChevronDown } from 'lucide-react';
 import { Separator } from './ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { saveMixtureScenario, getMixtureScenarios, type MixtureScenario } from '@/lib/data';
+import { saveMixtureScenario, getMixtureScenarios, type MixtureScenario, getFuelData, type FuelData } from '@/lib/data';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
-const BUCKET_VOLUME_M3 = 3;
 const FUEL_TYPES = [ "Pneus", "CSR", "DMB", "Plastiques", "CSR DD", "Bois", "Mélange", "Boues", "Caoutchouc"];
 const LOCAL_STORAGE_KEY = 'mixtureSimulatorState';
 
@@ -33,7 +32,6 @@ interface FuelAnalysis {
     humidity: number;
     chlorine: number;
     ash: number;
-    density: number;
 }
 
 interface InstallationState {
@@ -43,7 +41,7 @@ interface InstallationState {
 
 const createInitialFuelState = (): Record<string, FuelAnalysis> => {
     return FUEL_TYPES.reduce((acc, fuelType) => {
-        acc[fuelType] = { buckets: 0, pci: 0, humidity: 0, chlorine: 0, ash: 0, density: 0 };
+        acc[fuelType] = { buckets: 0, pci: 0, humidity: 0, chlorine: 0, ash: 0 };
         return acc;
     }, {} as Record<string, FuelAnalysis>);
 };
@@ -83,7 +81,7 @@ function IndicatorCard({ title, value, unit, tooltipText }: { title: string; val
   )
 }
 
-function useMixtureCalculations(hallAF: InstallationState, ats: InstallationState) {
+function useMixtureCalculations(hallAF: InstallationState, ats: InstallationState, fuelData: Record<string, FuelData>) {
    return useMemo(() => {
     const processInstallation = (state: InstallationState) => {
         let totalWeight = 0;
@@ -95,14 +93,14 @@ function useMixtureCalculations(hallAF: InstallationState, ats: InstallationStat
         
         for(const fuelName in state.fuels) {
             const fuelInput = state.fuels[fuelName];
-            
-            if (!fuelInput || fuelInput.buckets <= 0) {
+            const baseFuelData = fuelData[fuelName];
+
+            if (!fuelInput || fuelInput.buckets <= 0 || !baseFuelData) {
                 continue;
             }
             
-            // If density is not entered or 0, use a default value to allow calculation
-            const density = (fuelInput.density || 0) > 0 ? fuelInput.density : 0.5;
-            const weight = fuelInput.buckets * BUCKET_VOLUME_M3 * density;
+            const poidsGodet = baseFuelData.poids_godet > 0 ? baseFuelData.poids_godet : 1.5; // Default 1.5 tonnes if not set
+            const weight = fuelInput.buckets * poidsGodet;
             totalWeight += weight;
 
             if (fuelName.toLowerCase().includes('pneu')) {
@@ -154,7 +152,7 @@ function useMixtureCalculations(hallAF: InstallationState, ats: InstallationStat
         tireRate,
       }
     };
-  }, [hallAF, ats]);
+  }, [hallAF, ats, fuelData]);
 }
 
 const FuelInputSimulator = ({ 
@@ -221,12 +219,11 @@ const FuelInputSimulator = ({
                             {(Object.keys(installationState.fuels[fuelName]) as Array<keyof FuelAnalysis>)
                                 .filter(key => key !== 'buckets')
                                 .map(key => {
-                                    const labels = {
+                                    const labels: Record<keyof Omit<FuelAnalysis, 'buckets'>, string> = {
                                         pci: 'PCI (kcal/kg)',
                                         humidity: 'Humidité (%)',
                                         chlorine: 'Chlorures (%)',
                                         ash: 'Cendres (%)',
-                                        density: 'Densité (t/m³)',
                                     };
                                     return (
                                         <div key={key} className="flex items-center gap-2">
@@ -256,6 +253,7 @@ export function MixtureSimulator() {
   const [hallAF, setHallAF] = useState<InstallationState>(createInitialInstallationState());
   const [ats, setAts] = useState<InstallationState>(createInitialInstallationState());
   const [openAccordion, setOpenAccordion] = useState<string | null>(null);
+  const [fuelData, setFuelData] = useState<Record<string, FuelData>>({});
   const { toast } = useToast();
 
   // Load state from localStorage on initial render
@@ -281,6 +279,25 @@ export function MixtureSimulator() {
     }
   }, [toast]);
 
+  // Fetch reference fuel data
+  useEffect(() => {
+    const fetchReferenceData = async () => {
+        try {
+            const allFuelData = await getFuelData();
+            const fuelDataMap = allFuelData.reduce((acc, fd) => {
+                acc[fd.nom_combustible] = fd;
+                return acc;
+            }, {} as Record<string, FuelData>);
+            setFuelData(fuelDataMap);
+        } catch (error) {
+            console.error("Could not load fuel data", error);
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données de référence des combustibles."});
+        }
+    }
+    fetchReferenceData();
+  }, [toast]);
+
+
   // Save state to localStorage on every change
   useEffect(() => {
     try {
@@ -292,7 +309,7 @@ export function MixtureSimulator() {
   }, [hallAF, ats]);
 
 
-  const { globalIndicators } = useMixtureCalculations(hallAF, ats);
+  const { globalIndicators } = useMixtureCalculations(hallAF, ats, fuelData);
 
   const handleReset = () => {
     setHallAF(createInitialInstallationState());
@@ -521,5 +538,3 @@ export function MixtureSimulator() {
     </div>
   );
 }
-
-    
