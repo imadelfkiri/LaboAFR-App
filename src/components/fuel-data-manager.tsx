@@ -104,12 +104,9 @@ export function FuelDataManager() {
                 getFuelData(),
                 getUniqueFuelTypesFromResultats(),
             ]);
-
-            const existingFuelNames = new Set(fetchedFuelData.map(fd => fd.nom_combustible));
-            const newAvailableTypes = resultatsFuelTypes.filter(type => !existingFuelNames.has(type));
             
             setFuelDataList(fetchedFuelData.sort((a, b) => a.nom_combustible.localeCompare(b.nom_combustible)));
-            setAvailableFuelTypes(newAvailableTypes.sort());
+            setAvailableFuelTypes(resultatsFuelTypes.sort());
         } catch (error) {
             console.error("Erreur de chargement des données :", error);
             toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données." });
@@ -151,6 +148,18 @@ export function FuelDataManager() {
                 await updateFuelData(editingFuelData.id, values);
                 toast({ title: "Succès", description: "Données du combustible mises à jour." });
             } else {
+                 // Check if data for this fuel already exists
+                const existingFuel = fuelDataList.find(
+                    (fuel) => fuel.nom_combustible === values.nom_combustible
+                );
+                if (existingFuel) {
+                    toast({
+                        variant: "destructive",
+                        title: "Erreur : Doublon",
+                        description: `Des données de référence existent déjà pour "${values.nom_combustible}". Veuillez les modifier.`,
+                    });
+                    return; // Prevent adding a duplicate
+                }
                 await addFuelData(values);
                 toast({ title: "Succès", description: "Données du combustible ajoutées." });
             }
@@ -179,6 +188,14 @@ export function FuelDataManager() {
         if (num === null || num === undefined) return 'N/A';
         return num.toLocaleString('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
     };
+
+    const fuelTypesForDropdown = useMemo(() => {
+        if (editingFuelData) {
+             return [editingFuelData.nom_combustible];
+        }
+        const existingFuelNames = new Set(fuelDataList.map(fd => fd.nom_combustible));
+        return availableFuelTypes.filter(type => !existingFuelNames.has(type));
+    }, [editingFuelData, availableFuelTypes, fuelDataList]);
 
     return (
         <Card>
@@ -266,8 +283,7 @@ export function FuelDataManager() {
                                                 <SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                {editingFuelData && <SelectItem value={editingFuelData.nom_combustible}>{editingFuelData.nom_combustible}</SelectItem>}
-                                                {availableFuelTypes.map(ft => <SelectItem key={ft} value={ft}>{ft}</SelectItem>)}
+                                                {fuelTypesForDropdown.map(ft => <SelectItem key={ft} value={ft}>{ft}</SelectItem>)}
                                             </SelectContent>
                                         </Select>
                                         <FormMessage />
@@ -296,7 +312,7 @@ export function FuelDataManager() {
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setDeletingFuelDataId(null)}>Annuler</AlertDialogCancel>
+                        <AlertDialogCancel onClick={() => setDeletingSpecId(null)}>Annuler</AlertDialogCancel>
                         <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Supprimer</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
