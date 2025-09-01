@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { RefreshCcw, Save, Download } from 'lucide-react';
+import { RefreshCcw, Save, Download, Edit, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,8 +18,19 @@ import {
 import { ChevronDown } from 'lucide-react';
 import { Separator } from './ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 import { useToast } from '@/hooks/use-toast';
-import { saveMixtureScenario, getMixtureScenarios, type MixtureScenario, getFuelData, type FuelData } from '@/lib/data';
+import { saveMixtureScenario, getMixtureScenarios, deleteMixtureScenario, updateMixtureScenario, type MixtureScenario, getFuelData, type FuelData } from '@/lib/data';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -437,6 +448,11 @@ export function MixtureSimulator() {
       const [isLoading, setIsLoading] = useState(false);
       const [isOpen, setIsOpen] = useState(false);
 
+      const [editingScenario, setEditingScenario] = useState<MixtureScenario | null>(null);
+      const [newScenarioName, setNewScenarioName] = useState("");
+      
+      const [deletingScenario, setDeletingScenario] = useState<MixtureScenario | null>(null);
+      
       const fetchScenarios = useCallback(async () => {
           setIsLoading(true);
           try {
@@ -450,47 +466,119 @@ export function MixtureSimulator() {
           }
       }, [toast]);
 
-      React.useEffect(() => {
+      useEffect(() => {
         if (isOpen) {
             fetchScenarios();
         }
       }, [isOpen, fetchScenarios]);
+
+      const handleStartEdit = (scenario: MixtureScenario) => {
+        setEditingScenario(scenario);
+        setNewScenarioName(scenario.nom_scenario);
+      };
+
+      const handleConfirmEdit = async () => {
+        if (!editingScenario || !newScenarioName.trim()) return;
+        try {
+            await updateMixtureScenario(editingScenario.id, { nom_scenario: newScenarioName });
+            toast({ title: "Succès", description: "Le scénario a été renommé."});
+            setEditingScenario(null);
+            fetchScenarios();
+        } catch (error) {
+            console.error("Error updating scenario:", error);
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible de renommer le scénario." });
+        }
+      };
       
+      const handleConfirmDelete = async () => {
+        if (!deletingScenario) return;
+        try {
+            await deleteMixtureScenario(deletingScenario.id);
+            toast({ title: "Succès", description: `Le scénario "${deletingScenario.nom_scenario}" a été supprimé.` });
+            setDeletingScenario(null);
+            fetchScenarios();
+        } catch (error) {
+            console.error("Error deleting scenario:", error);
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer le scénario." });
+        }
+      };
+
       return (
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>
-                <Button variant="outline"><Download className="mr-2 h-4 w-4" /> Charger un scénario</Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg">
-                <DialogHeader>
-                    <DialogTitle>Charger un Scénario</DialogTitle>
-                    <DialogDescription>
-                        Sélectionnez un scénario sauvegardé pour remplir les champs de simulation.
-                    </DialogDescription>
-                </DialogHeader>
-                 <div className="py-4 max-h-[60vh] overflow-y-auto">
-                    {isLoading ? <p>Chargement...</p> : (
-                        <div className="space-y-2">
-                            {scenarios.length > 0 ? scenarios.map(scenario => (
-                                <div key={scenario.id} className="flex justify-between items-center p-3 border rounded-md">
-                                    <div>
-                                        <p className="font-semibold">{scenario.nom_scenario}</p>
-                                        <p className="text-xs text-muted-foreground">
-                                            Créé le {format(scenario.date_creation.toDate(), "d MMM yyyy 'à' HH:mm", { locale: fr })}
-                                        </p>
+        <>
+            <Dialog open={isOpen} onOpenChange={setIsOpen}>
+                <DialogTrigger asChild>
+                    <Button variant="outline"><Download className="mr-2 h-4 w-4" /> Charger un scénario</Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Charger un Scénario</DialogTitle>
+                        <DialogDescription>
+                            Sélectionnez un scénario sauvegardé pour remplir les champs de simulation.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4 max-h-[60vh] overflow-y-auto">
+                        {isLoading ? <p>Chargement...</p> : (
+                            <div className="space-y-2">
+                                {scenarios.length > 0 ? scenarios.map(scenario => (
+                                    <div key={scenario.id} className="flex justify-between items-center p-3 border rounded-md">
+                                        <div>
+                                            <p className="font-semibold">{scenario.nom_scenario}</p>
+                                            <p className="text-xs text-muted-foreground">
+                                                Créé le {format(scenario.date_creation.toDate(), "d MMM yyyy 'à' HH:mm", { locale: fr })}
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <Button variant="ghost" size="icon" onClick={() => handleStartEdit(scenario)}>
+                                                <Edit className="h-4 w-4 text-muted-foreground" />
+                                            </Button>
+                                            <Button variant="ghost" size="icon" onClick={() => setDeletingScenario(scenario)}>
+                                                <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                                            </Button>
+                                            <DialogClose asChild>
+                                                <Button size="sm" onClick={() => handleScenarioLoad(scenario)}>
+                                                    Charger
+                                                </Button>
+                                            </DialogClose>
+                                        </div>
                                     </div>
-                                    <DialogClose asChild>
-                                        <Button size="sm" onClick={() => handleScenarioLoad(scenario)}>
-                                            Charger
-                                        </Button>
-                                    </DialogClose>
-                                </div>
-                            )) : <p className="text-center text-muted-foreground">Aucun scénario sauvegardé.</p>}
-                        </div>
-                    )}
-                 </div>
-            </DialogContent>
-        </Dialog>
+                                )) : <p className="text-center text-muted-foreground">Aucun scénario sauvegardé.</p>}
+                            </div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={!!editingScenario} onOpenChange={(open) => !open && setEditingScenario(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Renommer le scénario</DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <Label htmlFor="edit-scenario-name">Nouveau nom</Label>
+                        <Input id="edit-scenario-name" value={newScenarioName} onChange={(e) => setNewScenarioName(e.target.value)} />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="secondary" onClick={() => setEditingScenario(null)}>Annuler</Button>
+                        <Button onClick={handleConfirmEdit}>Enregistrer</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <AlertDialog open={!!deletingScenario} onOpenChange={(open) => !open && setDeletingScenario(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Êtes-vous sûr ?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Cette action est irréversible et supprimera définitivement le scénario "{deletingScenario?.nom_scenario}".
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Annuler</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90">Supprimer</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </>
       );
   }
 

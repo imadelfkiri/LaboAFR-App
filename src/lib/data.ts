@@ -549,3 +549,13 @@ export async function getMixtureScenarios(): Promise<MixtureScenario[]> {
 
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MixtureScenario));
 }
+
+export async function updateMixtureScenario(id: string, data: Partial<Omit<MixtureScenario, 'id'>>): Promise<void> {
+    const scenarioRef = doc(db, 'scenarios_melange', id);
+    await updateDoc(scenarioRef, data);
+}
+
+export async function deleteMixtureScenario(id: string): Promise<void> {
+    const scenarioRef = doc(db, 'scenarios_melange', id);
+    await deleteDoc(scenarioRef);
+}
