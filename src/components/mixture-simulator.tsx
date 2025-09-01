@@ -216,30 +216,54 @@ const FuelInputSimulator = ({
                     <CollapsibleContent>
                         <Separator className="my-2" />
                         <div className="grid grid-cols-2 gap-x-4 gap-y-3 pb-4">
-                            {(Object.keys(installationState.fuels[fuelName]) as Array<keyof FuelAnalysis>)
-                                .filter(key => key !== 'buckets')
-                                .map(key => {
-                                    const labels: Record<keyof Omit<FuelAnalysis, 'buckets'>, string> = {
-                                        pci: 'PCI (kcal/kg)',
-                                        humidity: 'Humidité (%)',
-                                        chlorine: 'Chlorures (%)',
-                                        ash: 'Cendres (%)',
-                                    };
-                                    return (
-                                        <div key={key} className="flex items-center gap-2">
-                                            <Label htmlFor={`${installationName}-${fuelName}-${key}`} className="flex-1 text-sm text-muted-foreground">{labels[key]}</Label>
-                                            <Input
-                                                id={`${installationName}-${fuelName}-${key}`}
-                                                type="number"
-                                                placeholder="0"
-                                                className="w-24 h-8"
-                                                value={installationState.fuels[fuelName]?.[key] || ''}
-                                                onChange={(e) => handleInputChange(fuelName, key, e.target.value)}
-                                                min="0"
-                                            />
-                                        </div>
-                                    );
-                                })}
+                            <div className="flex items-center gap-2">
+                                <Label htmlFor={`${installationName}-${fuelName}-pci`} className="flex-1 text-sm text-muted-foreground">PCI (kcal/kg)</Label>
+                                <Input
+                                    id={`${installationName}-${fuelName}-pci`}
+                                    type="number"
+                                    placeholder="0"
+                                    className="w-24 h-8"
+                                    value={installationState.fuels[fuelName]?.pci || ''}
+                                    onChange={(e) => handleInputChange(fuelName, 'pci', e.target.value)}
+                                    min="0"
+                                />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Label htmlFor={`${installationName}-${fuelName}-humidity`} className="flex-1 text-sm text-muted-foreground">Humidité (%)</Label>
+                                <Input
+                                    id={`${installationName}-${fuelName}-humidity`}
+                                    type="number"
+                                    placeholder="0"
+                                    className="w-24 h-8"
+                                    value={installationState.fuels[fuelName]?.humidity || ''}
+                                    onChange={(e) => handleInputChange(fuelName, 'humidity', e.target.value)}
+                                    min="0"
+                                />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Label htmlFor={`${installationName}-${fuelName}-chlorine`} className="flex-1 text-sm text-muted-foreground">Chlorures (%)</Label>
+                                <Input
+                                    id={`${installationName}-${fuelName}-chlorine`}
+                                    type="number"
+                                    placeholder="0"
+                                    className="w-24 h-8"
+                                    value={installationState.fuels[fuelName]?.chlorine || ''}
+                                    onChange={(e) => handleInputChange(fuelName, 'chlorine', e.target.value)}
+                                    min="0"
+                                />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Label htmlFor={`${installationName}-${fuelName}-ash`} className="flex-1 text-sm text-muted-foreground">Cendres (%)</Label>
+                                <Input
+                                    id={`${installationName}-${fuelName}-ash`}
+                                    type="number"
+                                    placeholder="0"
+                                    className="w-24 h-8"
+                                    value={installationState.fuels[fuelName]?.ash || ''}
+                                    onChange={(e) => handleInputChange(fuelName, 'ash', e.target.value)}
+                                    min="0"
+                                />
+                            </div>
                         </div>
                     </CollapsibleContent>
                 </Collapsible>
