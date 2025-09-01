@@ -72,7 +72,7 @@ import { Edit, Trash2, Database, PlusCircle } from 'lucide-react';
 
 const fuelDataSchema = z.object({
   nom_combustible: z.string().nonempty({ message: "Le nom du combustible est requis." }),
-  densite: z.coerce.number().positive({ message: "La densité doit être un nombre positif." }),
+  poids_godet: z.coerce.number().positive({ message: "Le poids par godet doit être un nombre positif." }),
   teneur_hydrogene: z.coerce.number().min(0, "La teneur en hydrogène doit être positive.").max(100, "La teneur ne peut dépasser 100%"),
 });
 
@@ -92,7 +92,7 @@ export function FuelDataManager() {
         resolver: zodResolver(fuelDataSchema),
         defaultValues: {
             nom_combustible: '',
-            densite: undefined,
+            poids_godet: undefined,
             teneur_hydrogene: undefined,
         },
     });
@@ -127,13 +127,13 @@ export function FuelDataManager() {
         if (data) {
             form.reset({
                 nom_combustible: data.nom_combustible,
-                densite: data.densite,
+                poids_godet: data.poids_godet,
                 teneur_hydrogene: data.teneur_hydrogene
             });
         } else {
             form.reset({
                 nom_combustible: '',
-                densite: undefined,
+                poids_godet: undefined,
                 teneur_hydrogene: undefined
             });
         }
@@ -203,7 +203,7 @@ export function FuelDataManager() {
                         <TableHeader className="sticky top-0 bg-muted/50">
                             <TableRow>
                                 <TableHead>Nom du Combustible</TableHead>
-                                <TableHead className="text-right">Densité (t/m³)</TableHead>
+                                <TableHead className="text-right">Poids par Godet (tonnes)</TableHead>
                                 <TableHead className="text-right">Teneur en Hydrogène (%)</TableHead>
                                 <TableHead className="text-right w-[120px]">Actions</TableHead>
                             </TableRow>
@@ -221,7 +221,7 @@ export function FuelDataManager() {
                                 fuelDataList.map((data) => (
                                     <TableRow key={data.id}>
                                         <TableCell className="font-medium">{data.nom_combustible}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(data.densite, 2)}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(data.poids_godet, 2)}</TableCell>
                                         <TableCell className="text-right">{formatNumber(data.teneur_hydrogene, 2)}</TableCell>
                                         <TableCell className="text-right">
                                             <Button variant="ghost" size="icon" onClick={() => handleModalOpen(data)}>
@@ -274,7 +274,7 @@ export function FuelDataManager() {
                                     </FormItem>
                                 )}
                             />
-                            <FormField control={form.control} name="densite" render={({ field }) => (<FormItem><FormLabel>Densité (t/m³)</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                            <FormField control={form.control} name="poids_godet" render={({ field }) => (<FormItem><FormLabel>Poids par Godet (tonnes)</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                             <FormField control={form.control} name="teneur_hydrogene" render={({ field }) => (<FormItem><FormLabel>Teneur en Hydrogène (%)</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                             <DialogFooter>
                                 <DialogClose asChild>

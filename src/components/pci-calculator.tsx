@@ -69,7 +69,7 @@ const formSchema = z.object({
   h2o: z.coerce.number({required_error: "Le taux d'humidité est requis.", invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "L'humidité ne peut être négative." }).max(100, { message: "L'humidité ne peut dépasser 100%." }),
   chlore: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le chlore ne peut être négatif." }).optional().or(z.literal('')),
   cendres: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le % de cendres ne peut être négatif." }).optional().or(z.literal('')),
-  densite: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).positive({ message: "La densité doit être un nombre positif." }).optional().or(z.literal('')),
+  poids_godet: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).positive({ message: "Le poids doit être un nombre positif." }).optional().or(z.literal('')),
   remarques: z.string().optional(),
 });
 
@@ -122,7 +122,7 @@ export function PciCalculator() {
       h2o: undefined,
       chlore: '',
       cendres: '',
-      densite: '',
+      poids_godet: '',
       remarques: "",
     },
   });
@@ -143,7 +143,7 @@ export function PciCalculator() {
         h2o: '' as any,
         chlore: '' as any,
         cendres: '' as any,
-        densite: '' as any,
+        poids_godet: '' as any,
         remarques: "",
     });
     setPciResult(null);
@@ -195,10 +195,10 @@ export function PciCalculator() {
         const fuelData = fuelDataMap.get(watchedTypeCombustible);
         if (fuelData) {
             setHValue(fuelData.teneur_hydrogene);
-            setValue('densite', fuelData.densite); // Auto-fill density
+            setValue('poids_godet', fuelData.poids_godet); // Auto-fill
         } else {
             setHValue(null);
-            setValue('densite', '');
+            setValue('poids_godet', '');
         }
     } else {
         setHValue(null);
@@ -325,7 +325,7 @@ export function PciCalculator() {
         pci_brut,
         chlore: values.chlore ? Number(values.chlore) : null,
         cendres: values.cendres ? Number(values.cendres) : null,
-        densite: values.densite ? Number(values.densite) : null,
+        poids_godet: values.poids_godet ? Number(values.poids_godet) : null,
         remarques: values.remarques || "",
         date_creation: serverTimestamp(),
       };
@@ -593,10 +593,10 @@ export function PciCalculator() {
                             />
                              <FormField
                                 control={form.control}
-                                name="densite"
+                                name="poids_godet"
                                 render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Densité (t/m³)</FormLabel>
+                                    <FormLabel>Poids par Godet (t)</FormLabel>
                                     <FormControl>
                                     <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className="rounded-lg h-11 px-4 text-sm"/>
                                     </FormControl>

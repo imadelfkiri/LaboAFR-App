@@ -92,7 +92,7 @@ interface Result {
   chlore: number | null;
   pci_brut: number;
   pcs: number;
-  densite: number | null;
+  poids_godet: number | null;
   remarques: string;
 }
 
@@ -103,7 +103,7 @@ interface AggregatedResult {
   h2o: number | null;
   chlore: number | null;
   cendres: number | null;
-  densite: number | null;
+  poids_godet: number | null;
   count: number;
   alerts: {
     text: string;
@@ -309,7 +309,7 @@ export function ResultsTable() {
       "% H2O",
       "% Cl-",
       "% Cendres",
-      "Densité (t/m³)",
+      "Poids Godet (t)",
       "Alertes",
       "Remarques",
     ];
@@ -356,7 +356,7 @@ export function ResultsTable() {
         { v: result.h2o, s: dataStyleCenter, t: "n" },
         { v: result.chlore ?? "N/A", s: dataStyleCenter, t: result.chlore === null ? "s" : "n" },
         { v: result.cendres ?? "N/A", s: dataStyleCenter, t: result.cendres === null ? "s" : "n" },
-        { v: result.densite ?? "N/A", s: dataStyleCenter, t: result.densite === null ? "s" : "n" },
+        { v: result.poids_godet ?? "N/A", s: dataStyleCenter, t: result.poids_godet === null ? "s" : "n" },
         { v: cleanAlertText(alert.text), s: dataStyleLeft, t: "s" },
         { v: result.remarques || "", s: dataStyleLeft, t: "s" },
       ];
@@ -468,11 +468,11 @@ export function ResultsTable() {
     data.forEach((r) => {
       const key = `${r.type_combustible}|${r.fournisseur}`;
       if (!grouped.has(key)) {
-        grouped.set(key, { pci_brut: [], h2o: [], chlore: [], cendres: [], pcs: [], densite: [], count: 0 } as any);
+        grouped.set(key, { pci_brut: [], h2o: [], chlore: [], cendres: [], pcs: [], poids_godet: [], count: 0 } as any);
       }
       const group = grouped.get(key)!;
       group.count++;
-      ["pci_brut", "h2o", "chlore", "cendres", "pcs", "densite"].forEach((metric) => {
+      ["pci_brut", "h2o", "chlore", "cendres", "pcs", "poids_godet"].forEach((metric) => {
         const value = (r as any)[metric];
         (group as any)[metric].push(typeof value === "number" ? value : null);
       });
@@ -493,7 +493,7 @@ export function ResultsTable() {
         h2o: avg(value.h2o),
         chlore: avg(value.chlore),
         cendres: avg(value.cendres),
-        densite: avg(value.densite),
+        poids_godet: avg(value.poids_godet),
         count: value.count,
         alerts: { text: "", isConform: false, details: { pci: true, h2o: true, chlore: true, cendres: true } },
       };

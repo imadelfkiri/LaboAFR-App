@@ -38,11 +38,6 @@ interface InstallationState {
   fuels: Record<string, { buckets: number }>;
 }
 
-interface AISuggestion {
-    prompt: string;
-    output: MixtureOptimizerOutput;
-}
-
 interface MixtureThresholds {
     pci_min: number;
     humidity_max: number;
@@ -68,19 +63,6 @@ const defaultThresholds: MixtureThresholds = {
     chlorine_max: 100,
     tireRate_max: 100,
 };
-
-const BUCKET_VOLUME_M3 = 3;
-
-// Define the custom order for fuels
-const fuelOrder = [
-    "Pneus",
-    "CSR",
-    "DMB",
-    "Plastiques",
-    "CSR DD",
-    "Bois",
-    "Mélange"
-];
 
 type IndicatorStatus = 'alert' | 'conform' | 'neutral';
 
@@ -141,8 +123,8 @@ function useMixtureCalculations(hallAF: InstallationState, ats: InstallationStat
                 continue;
             }
 
-            const density = baseFuelData.densite > 0 ? baseFuelData.densite : 0.5;
-            const weight = fuelInput.buckets * BUCKET_VOLUME_M3 * density;
+            const poidsGodet = baseFuelData.poids_godet > 0 ? baseFuelData.poids_godet : 1.5; // Default 1.5 tonnes if not set
+            const weight = fuelInput.buckets * poidsGodet;
             totalWeight += weight;
             fuelWeights[fuelName] = (fuelWeights[fuelName] || 0) + weight;
 
@@ -483,158 +465,16 @@ export function MixtureCalculator() {
     );
   };
   
-  const AiAssistant = () => {
-    const [isOpen, setIsOpen] = useState(false);
-    const [objective, setObjective] = useState('');
-    const [isGenerating, setIsGenerating] = useState(false);
-    const [suggestion, setSuggestion] = useState<MixtureOptimizerOutput | null>(null);
-    const [suggestionHistory, setSuggestionHistory] = useState<AISuggestion[]>([]);
-
-    useEffect(() => {
-        if (isOpen) {
-            try {
-                const storedHistory = localStorage.getItem('aiSuggestionHistory');
-                if (storedHistory) {
-                    setSuggestionHistory(JSON.parse(storedHistory));
-                }
-            } catch (error) {
-                console.error("Could not load AI suggestion history", error);
-            }
-        }
-    }, [isOpen]);
-
-    const saveSuggestionToHistory = (prompt: string, output: MixtureOptimizerOutput) => {
-        const newSuggestion = { prompt, output };
-        const updatedHistory = [newSuggestion, ...suggestionHistory].slice(0, 3); // Keep last 3
-        setSuggestionHistory(updatedHistory);
-        localStorage.setItem('aiSuggestionHistory', JSON.stringify(updatedHistory));
-    }
-
-    const handleGenerate = async () => {
-        setIsGenerating(true);
-        setSuggestion(null);
-        try {
-            
-            const enrichedAvailableFuels: MixtureOptimizerInput['availableFuels'] = {};
-            const allFuelData = await getFuelData();
-            const fuelDataMap = allFuelData.reduce((acc, fd) => {
-                acc[fd.nom_combustible] = fd;
-                return acc;
-            }, {} as Record<string, FuelData>);
-
-
-            for (const fuelName in availableFuels) {
-                const analysis = availableFuels[fuelName];
-                const data = fuelDataMap[fuelName];
-                enrichedAvailableFuels[fuelName] = {
-                    ...analysis,
-                    density: data?.densite || 0,
-                    count: data?.densite ? analysis.count : 0
-                };
-            }
-
-            const input: MixtureOptimizerInput = {
-                availableFuels: enrichedAvailableFuels,
-                userObjective: objective,
-            };
-            const result = await handleGenerateSuggestion(input);
-            if (result) {
-              setSuggestion(result);
-              saveSuggestionToHistory(objective, result);
-            } else {
-               throw new Error("L'assistant IA n'a pas pu générer de suggestion.");
-            }
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "La génération de suggestion a échoué.";
-            console.error("Error generating suggestion:", error);
-            toast({ variant: "destructive", title: "Erreur IA", description: errorMessage });
-        } finally {
-            setIsGenerating(false);
-        }
-    };
-    
-    const reusePrompt = (prompt: string) => {
-        setObjective(prompt);
-        setSuggestion(null);
-    };
-
-    return (
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>
-                <Button variant="outline" size="icon" className="fixed bottom-6 right-6 rounded-full h-14 w-14 shadow-lg bg-primary text-primary-foreground hover:bg-primary/90">
-                    <BrainCircuit className="h-6 w-6" />
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[625px]">
-                <DialogHeader>
-                    <DialogTitle>Assistant d'Optimisation de Mélange</DialogTitle>
-                    <DialogDescription>
-                        Décrivez votre objectif et l'IA vous proposera une recette.
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <Label htmlFor="objective">Objectif</Label>
-                    <Textarea
-                        id="objective"
-                        value={objective}
-                        onChange={(e) => setObjective(e.target.value)}
-                        placeholder="Ex: obtenir un PCI de 3500 kcal/kg avec un taux de chlore inférieur à 0.8%"
-                    />
-                </div>
-                <DialogFooter>
-                    <Button onClick={handleGenerate} disabled={isGenerating || !objective}>
-                        {isGenerating ? "Génération en cours..." : "Générer la suggestion"}
-                    </Button>
-                </DialogFooter>
-                {isGenerating && <Skeleton className="h-32 w-full" />}
-                {suggestion && (
-                    <Card className="mt-4">
-                        <CardHeader>
-                            <CardTitle>Suggestion de l'IA</CardTitle>
-                        </CardHeader>
-                        <CardContent className="text-sm space-y-4">
-                             <p className="font-semibold">Raisonnement :</p>
-                             <p className="text-gray-600 whitespace-pre-wrap">{suggestion.reasoning}</p>
-                             <div>
-                                <p className="font-semibold mt-4">Recette proposée :</p>
-                                <div className="grid grid-cols-2 gap-4 mt-2">
-                                    <div>
-                                        <p className="font-medium">Hall des AF</p>
-                                        <ul className="list-disc pl-5 text-gray-600">
-                                            {Object.keys(suggestion.recipe.hallAF).length > 0 ? Object.entries(suggestion.recipe.hallAF).map(([fuel, buckets]) => (
-                                                <li key={`hall-${fuel}`}>{fuel}: {buckets} godets</li>
-                                            )) : <li>Aucun</li>}
-                                        </ul>
-                                    </div>
-                                    <div>
-                                        <p className="font-medium">ATS</p>
-                                        <ul className="list-disc pl-5 text-gray-600">
-                                            {Object.keys(suggestion.recipe.ats).length > 0 ? Object.entries(suggestion.recipe.ats).map(([fuel, buckets]) => (
-                                                <li key={`ats-${fuel}`}>{fuel}: {buckets} godets</li>
-                                            )) : <li>Aucun</li>}
-                                        </ul>
-                                    </div>
-                                </div>
-                             </div>
-                        </CardContent>
-                    </Card>
-                )}
-                {suggestionHistory.length > 0 && (
-                    <div className="mt-6">
-                        <h3 className="text-sm font-medium text-gray-500 mb-2">Historique des suggestions</h3>
-                        <div className="space-y-2">
-                            {suggestionHistory.map((item, index) => (
-                                <button key={index} onClick={() => reusePrompt(item.prompt)} className="w-full text-left p-2 bg-muted rounded-md hover:bg-accent">
-                                    <p className="text-xs text-muted-foreground truncate">{item.prompt}</p>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                )}
-            </DialogContent>
-        </Dialog>
-    );
-  };
+  // Define the custom order for fuels
+const fuelOrder = [
+    "Pneus",
+    "CSR",
+    "DMB",
+    "Plastiques",
+    "CSR DD",
+    "Bois",
+    "Mélange"
+];
 
   const ThresholdSettingsModal = () => {
     const [currentThresholds, setCurrentThresholds] = useState(thresholds);

@@ -67,7 +67,7 @@ export interface Arrivage {
 export interface FuelData {
     id: string;
     nom_combustible: string;
-    densite: number;
+    poids_godet: number;
     teneur_hydrogene: number;
 }
 
