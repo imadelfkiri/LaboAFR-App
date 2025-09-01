@@ -190,12 +190,10 @@ export function FuelDataManager() {
     };
 
     const fuelTypesForDropdown = useMemo(() => {
-        if (editingFuelData) {
-             return [editingFuelData.nom_combustible];
-        }
-        const existingFuelNames = new Set(fuelDataList.map(fd => fd.nom_combustible));
-        return availableFuelTypes.filter(type => !existingFuelNames.has(type));
-    }, [editingFuelData, availableFuelTypes, fuelDataList]);
+        // Always return all available fuel types from the results.
+        // The logic to prevent duplicates is now handled in onSubmit.
+        return availableFuelTypes;
+    }, [availableFuelTypes]);
 
     return (
         <Card>
@@ -312,7 +310,7 @@ export function FuelDataManager() {
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setDeletingSpecId(null)}>Annuler</AlertDialogCancel>
+                        <AlertDialogCancel>Annuler</AlertDialogCancel>
                         <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Supprimer</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
