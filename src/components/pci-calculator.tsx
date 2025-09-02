@@ -71,6 +71,7 @@ const formSchema = z.object({
   cendres: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le % de cendres ne peut être négatif." }).optional().or(z.literal('')),
   poids_godet: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).positive({ message: "Le poids doit être un nombre positif." }).optional().or(z.literal('')),
   remarques: z.string().optional(),
+  taux_fils_metalliques: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, "Le taux doit être positif.").max(100, "Le taux ne peut dépasser 100%").optional().or(z.literal('')),
 });
 
 const newFuelTypeSchema = z.object({
@@ -124,10 +125,14 @@ export function PciCalculator() {
       cendres: '',
       poids_godet: '',
       remarques: "",
+      taux_fils_metalliques: '',
     },
   });
 
   const { watch, reset, getValues, setValue } = form;
+
+  const watchedTypeCombustible = watch("type_combustible");
+  const showTauxFilsMetalliques = watchedTypeCombustible && watchedTypeCombustible.toLowerCase().includes('pneu');
 
   useEffect(() => {
     // Set the default date only on the client side to avoid hydration errors
@@ -145,6 +150,7 @@ export function PciCalculator() {
         cendres: '' as any,
         poids_godet: '' as any,
         remarques: "",
+        taux_fils_metalliques: '' as any,
     });
     setPciResult(null);
   };
@@ -176,19 +182,27 @@ export function PciCalculator() {
 
   const watchedPcs = watch("pcs");
   const watchedH2o = watch("h2o");
-  const watchedTypeCombustible = watch("type_combustible");
+  
   const watchedFournisseur = watch("fournisseur");
   const watchedChlore = watch("chlore");
   const watchedCendres = watch("cendres");
+  const watchedTauxFilsMetalliques = watch("taux_fils_metalliques");
 
   useEffect(() => {
     if (watchedPcs !== undefined && watchedH2o !== undefined && hValue !== null) {
-      const result = calculerPCI(Number(watchedPcs), Number(watchedH2o), hValue);
+      let pcsToUse = Number(watchedPcs);
+      if (showTauxFilsMetalliques && watchedTauxFilsMetalliques) {
+          const taux = Number(watchedTauxFilsMetalliques);
+          if (taux >= 0 && taux < 100) {
+            pcsToUse = pcsToUse / (1 - taux / 100);
+          }
+      }
+      const result = calculerPCI(pcsToUse, Number(watchedH2o), hValue);
       setPciResult(result);
     } else {
       setPciResult(null);
     }
-  }, [watchedPcs, watchedH2o, hValue]);
+  }, [watchedPcs, watchedH2o, hValue, showTauxFilsMetalliques, watchedTauxFilsMetalliques]);
 
   useEffect(() => {
     if (watchedTypeCombustible) {
@@ -308,7 +322,15 @@ export function PciCalculator() {
           setIsSaving(false);
           return;
       }
-      const pci_brut = calculerPCI(values.pcs, values.h2o, hValue);
+      
+      let pcsToUse = values.pcs;
+      if (showTauxFilsMetalliques && values.taux_fils_metalliques) {
+          const taux = Number(values.taux_fils_metalliques);
+          if (taux >= 0 && taux < 100) {
+            pcsToUse = pcsToUse / (1 - taux / 100);
+          }
+      }
+      const pci_brut = calculerPCI(pcsToUse, values.h2o, hValue);
 
       if (pci_brut === null) {
           toast({
@@ -326,6 +348,7 @@ export function PciCalculator() {
         chlore: values.chlore ? Number(values.chlore) : null,
         cendres: values.cendres ? Number(values.cendres) : null,
         poids_godet: values.poids_godet ? Number(values.poids_godet) : null,
+        taux_fils_metalliques: values.taux_fils_metalliques ? Number(values.taux_fils_metalliques) : null,
         remarques: values.remarques || "",
         date_creation: serverTimestamp(),
       };
@@ -604,6 +627,21 @@ export function PciCalculator() {
                                 </FormItem>
                                 )}
                             />
+                            {showTauxFilsMetalliques && (
+                                <FormField
+                                    control={form.control}
+                                    name="taux_fils_metalliques"
+                                    render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Taux Fils Métalliques (%)</FormLabel>
+                                        <FormControl>
+                                        <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className="rounded-lg h-11 px-4 text-sm"/>
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
+                            )}
                             <div className={cn("p-4 rounded-lg border text-center md:col-span-2", 
                                 validationStatus.pci === 'conform' && 'bg-green-50 border-green-200',
                                 validationStatus.pci === 'non-conform' && 'bg-red-50 border-red-200',
@@ -663,3 +701,5 @@ export function PciCalculator() {
     </div>
   );
 }
+
+    

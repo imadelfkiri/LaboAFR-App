@@ -32,6 +32,7 @@ export interface AverageAnalysis {
     h2o: number;
     chlore: number;
     cendres: number;
+    taux_fils_metalliques?: number;
     count: number;
 }
 
@@ -237,11 +238,12 @@ export async function getAverageAnalysisForFuels(
     h2o: number[];
     chlore: number[];
     cendres: number[];
+    taux_fils_metalliques: number[];
   }> = {};
 
   // Initialize analysis object for all requested fuel names
   fuelNames.forEach(name => {
-    analysis[name] = { pci_brut: [], h2o: [], chlore: [], cendres: [] };
+    analysis[name] = { pci_brut: [], h2o: [], chlore: [], cendres: [], taux_fils_metalliques: [] };
   });
 
   // Populate with data from the database
@@ -253,6 +255,7 @@ export async function getAverageAnalysisForFuels(
       if (typeof res.h2o === 'number') target.h2o.push(res.h2o);
       if (typeof res.chlore === 'number') target.chlore.push(res.chlore);
       if (typeof res.cendres === 'number') target.cendres.push(res.cendres);
+      if (typeof res.taux_fils_metalliques === 'number') target.taux_fils_metalliques.push(res.taux_fils_metalliques);
     }
   });
 
@@ -266,6 +269,7 @@ export async function getAverageAnalysisForFuels(
       h2o: avg(data.h2o),
       chlore: avg(data.chlore),
       cendres: avg(data.cendres),
+      taux_fils_metalliques: avg(data.taux_fils_metalliques),
       count: data.pci_brut.length
     };
   }
@@ -559,3 +563,5 @@ export async function deleteMixtureScenario(id: string): Promise<void> {
     const scenarioRef = doc(db, 'scenarios_melange', id);
     await deleteDoc(scenarioRef);
 }
+
+    

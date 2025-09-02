@@ -136,10 +136,18 @@ function useMixtureCalculations(hallAF: InstallationState, ats: InstallationStat
             if (!analysisData || analysisData.count === 0) {
                 continue; 
             }
+
+            let correctedPciBrut = analysisData.pci_brut;
+            // Correction pour les pneus
+            if (fuelName.toLowerCase().includes('pneu') && analysisData.taux_fils_metalliques && analysisData.taux_fils_metalliques > 0 && analysisData.taux_fils_metalliques < 100) {
+                const correctionFactor = 1 - (analysisData.taux_fils_metalliques / 100);
+                // We assume pci_brut from DB is based on sample with wires. We want PCI of combustible part.
+                correctedPciBrut = analysisData.pci_brut / correctionFactor;
+            }
             
             const fuelCost = fuelCosts[fuelName]?.cost || 0;
 
-            tempTotalPci += weight * analysisData.pci_brut;
+            tempTotalPci += weight * correctedPciBrut;
             tempTotalHumidity += weight * analysisData.h2o;
             tempTotalAsh += weight * analysisData.cendres;
             tempTotalChlorine += weight * analysisData.chlore;
@@ -880,3 +888,5 @@ const fuelOrder = [
     </div>
   );
 }
+
+    
