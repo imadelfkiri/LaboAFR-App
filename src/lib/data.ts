@@ -1,4 +1,3 @@
-
 // src/lib/data.ts
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, arrayUnion, orderBy, Timestamp, setDoc,getCountFromServer, limit } from 'firebase/firestore';
 import { db } from './firebase';
@@ -78,6 +77,26 @@ export interface MixtureScenario {
     date_creation: Timestamp;
     donnees_hall: any;
     donnees_ats: any;
+}
+
+export interface AshAnalysis {
+    id: string;
+    date_arrivage: Timestamp;
+    type_combustible: string;
+    fournisseur: string;
+    pourcentage_cendres?: number | null;
+    paf?: number | null;
+    sio2?: number | null;
+    al2o3?: number | null;
+    fe2o3?: number | null;
+    cao?: number | null;
+    mgo?: number | null;
+    so3?: number | null;
+    k2o?: number | null;
+    tio2?: number | null;
+    mno?: number | null;
+    p2o5?: number | null;
+    observations?: string | null;
 }
 
 
@@ -564,4 +583,27 @@ export async function deleteMixtureScenario(id: string): Promise<void> {
     await deleteDoc(scenarioRef);
 }
 
-    
+// --- Ash Analysis Functions ---
+
+export async function getAshAnalyses(): Promise<AshAnalysis[]> {
+    const analysesCollection = collection(db, 'analyses_cendres');
+    const q = query(analysesCollection, orderBy("date_arrivage", "desc"));
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return [];
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AshAnalysis));
+}
+
+export async function addAshAnalysis(data: Omit<AshAnalysis, 'id'>): Promise<string> {
+    const docRef = await addDoc(collection(db, 'analyses_cendres'), data);
+    return docRef.id;
+}
+
+export async function updateAshAnalysis(id: string, data: Partial<Omit<AshAnalysis, 'id'>>): Promise<void> {
+    const analysisRef = doc(db, 'analyses_cendres', id);
+    await updateDoc(analysisRef, data);
+}
+
+export async function deleteAshAnalysis(id: string): Promise<void> {
+    const analysisRef = doc(db, 'analyses_cendres', id);
+    await deleteDoc(analysisRef);
+}

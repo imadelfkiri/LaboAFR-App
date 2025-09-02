@@ -21,6 +21,7 @@ const pageTitles: { [key: string]: string } = {
   '/resultats': 'Historique des Résultats',
   '/statistiques': 'Tableau de Bord des Statistiques',
   '/specifications': 'Spécifications Techniques',
+  '/analyses-cendres': 'Suivi Analyses des Cendres',
   '/calcul-melange': 'Calcul de Mélange',
   '/simulation-melange': 'Simulation de Mélange',
   '/gestion-couts': 'Gestion des Coûts',
