@@ -69,7 +69,6 @@ const formSchema = z.object({
   h2o: z.coerce.number({required_error: "Le taux d'humidité est requis.", invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "L'humidité ne peut être négative." }).max(100, { message: "L'humidité ne peut dépasser 100%." }),
   chlore: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le chlore ne peut être négatif." }).optional().or(z.literal('')),
   cendres: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le % de cendres ne peut être négatif." }).optional().or(z.literal('')),
-  poids_godet: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).positive({ message: "Le poids doit être un nombre positif." }).optional().or(z.literal('')),
   remarques: z.string().optional(),
   taux_fils_metalliques: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, "Le taux doit être positif.").max(100, "Le taux ne peut dépasser 100%").optional().or(z.literal('')),
 });
@@ -123,7 +122,6 @@ export function PciCalculator() {
       h2o: undefined,
       chlore: '',
       cendres: '',
-      poids_godet: '',
       remarques: "",
       taux_fils_metalliques: '',
     },
@@ -148,7 +146,6 @@ export function PciCalculator() {
         h2o: '' as any,
         chlore: '' as any,
         cendres: '' as any,
-        poids_godet: '' as any,
         remarques: "",
         taux_fils_metalliques: '' as any,
     });
@@ -211,15 +208,13 @@ export function PciCalculator() {
         const fuelData = fuelDataMap.get(watchedTypeCombustible);
         if (fuelData) {
             setHValue(fuelData.teneur_hydrogene);
-            setValue('poids_godet', fuelData.poids_godet); // Auto-fill
         } else {
             setHValue(null);
-            setValue('poids_godet', '');
         }
     } else {
         setHValue(null);
     }
-  }, [watchedTypeCombustible, fuelDataMap, setValue]);
+  }, [watchedTypeCombustible, fuelDataMap]);
 
 
   useEffect(() => {
@@ -349,7 +344,6 @@ export function PciCalculator() {
         pci_brut,
         chlore: values.chlore ? Number(values.chlore) : null,
         cendres: values.cendres ? Number(values.cendres) : null,
-        poids_godet: values.poids_godet ? Number(values.poids_godet) : null,
         taux_fils_metalliques: values.taux_fils_metalliques ? Number(values.taux_fils_metalliques) : null,
         remarques: values.remarques || "",
         date_creation: serverTimestamp(),
@@ -616,20 +610,7 @@ export function PciCalculator() {
                                 </FormItem>
                                 )}
                             />
-                             <FormField
-                                control={form.control}
-                                name="poids_godet"
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Poids par Godet (t)</FormLabel>
-                                    <FormControl>
-                                    <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className="rounded-lg h-11 px-4 text-sm"/>
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
-                            {showTauxFilsMetalliques && (
+                            {showTauxFilsMetalliques ? (
                                 <FormField
                                     control={form.control}
                                     name="taux_fils_metalliques"
@@ -643,7 +624,7 @@ export function PciCalculator() {
                                     </FormItem>
                                     )}
                                 />
-                            )}
+                            ) : <div />}
                             <div className={cn("p-4 rounded-lg border text-center md:col-span-2", 
                                 validationStatus.pci === 'conform' && 'bg-green-50 border-green-200',
                                 validationStatus.pci === 'non-conform' && 'bg-red-50 border-red-200',
