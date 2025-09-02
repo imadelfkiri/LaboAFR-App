@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useForm, useFieldArray, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import {
@@ -13,13 +13,14 @@ import {
     getFournisseurs,
     type AshAnalysis
 } from '@/lib/data';
-import { db } from '@/lib/firebase';
 import { Timestamp } from 'firebase/firestore';
+import { DateRange } from "react-day-picker";
+import { format, startOfDay, endOfDay } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import {
     Select,
     SelectContent,
@@ -39,13 +40,27 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+  FormLabel,
+} from "@/components/ui/form";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ClipboardList, PlusCircle, Trash2, Edit, Save, CalendarIcon, Filter } from 'lucide-react';
-import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { ClipboardList, PlusCircle, Trash2, Edit, Save, CalendarIcon, Filter, Search } from 'lucide-react';
 import { cn } from "@/lib/utils";
-import { ScrollArea, ScrollBar } from './ui/scroll-area';
 
 const analysisSchema = z.object({
   id: z.string().optional(),
@@ -64,12 +79,9 @@ const analysisSchema = z.object({
   tio2: z.coerce.number().optional().nullable(),
   mno: z.coerce.number().optional().nullable(),
   p2o5: z.coerce.number().optional().nullable(),
-  observations: z.string().optional().nullable(),
 });
 
-type FormValues = {
-  analyses: z.infer<typeof analysisSchema>[];
-};
+type FormValues = z.infer<typeof analysisSchema>;
 
 const calculateModules = (sio2?: number | null, al2o3?: number | null, fe2o3?: number | null, cao?: number | null) => {
     const s = sio2 || 0;
@@ -94,42 +106,121 @@ const formatNumber = (num: number | null | undefined, digits: number = 2) => {
     return num.toLocaleString('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 };
 
+const AnalysisForm = ({
+  form,
+  onSubmit,
+  fuelTypes,
+  fournisseurs,
+  isSubmitting,
+}: {
+  form: any;
+  onSubmit: (values: FormValues) => void;
+  fuelTypes: string[];
+  fournisseurs: string[];
+  isSubmitting: boolean;
+}) => (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <FormField control={form.control} name="date_arrivage" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Date Arrivage</FormLabel>
+              <Popover>
+                  <PopoverTrigger asChild>
+                  <FormControl>
+                      <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal",!field.value && "text-muted-foreground")}>
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {field.value ? (format(field.value, "PPP", { locale: fr })) : (<span>Choisir une date</span>)}
+                      </Button>
+                  </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus locale={fr} /></PopoverContent>
+              </Popover>
+              <FormMessage />
+            </FormItem>
+          )}/>
+          <FormField control={form.control} name="type_combustible" render={({ field }) => (
+            <FormItem><FormLabel>Type Combustible</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl><SelectContent>{fuelTypes.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+          )}/>
+          <FormField control={form.control} name="fournisseur" render={({ field }) => (
+            <FormItem><FormLabel>Fournisseur</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl><SelectContent>{fournisseurs.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+          )}/>
+        </div>
+        <Card><CardContent className="pt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <FormField control={form.control} name="pourcentage_cendres" render={({ field }) => (<FormItem><FormLabel>% Cendres</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="paf" render={({ field }) => (<FormItem><FormLabel>PAF</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="sio2" render={({ field }) => (<FormItem><FormLabel>SiO2</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="al2o3" render={({ field }) => (<FormItem><FormLabel>Al2O3</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="fe2o3" render={({ field }) => (<FormItem><FormLabel>Fe2O3</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="cao" render={({ field }) => (<FormItem><FormLabel>CaO</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="mgo" render={({ field }) => (<FormItem><FormLabel>MgO</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="so3" render={({ field }) => (<FormItem><FormLabel>SO3</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="k2o" render={({ field }) => (<FormItem><FormLabel>K2O</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="tio2" render={({ field }) => (<FormItem><FormLabel>TiO2</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="mno" render={({ field }) => (<FormItem><FormLabel>MnO</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="p2o5" render={({ field }) => (<FormItem><FormLabel>P2O5</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
+        </CardContent></Card>
+        <DialogFooter>
+            <DialogClose asChild><Button type="button" variant="secondary">Annuler</Button></DialogClose>
+            <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Enregistrement..." : "Enregistrer"}</Button>
+        </DialogFooter>
+      </form>
+    </Form>
+);
+
+const ModuleDisplay = ({ analysis }: { analysis: FormValues }) => {
+    const { ms, af, lsf } = calculateModules(analysis.sio2, analysis.al2o3, analysis.fe2o3, analysis.cao);
+    return (
+        <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="bg-blue-50 rounded-lg p-2">
+                <p className="text-xs font-semibold text-blue-800">MS</p>
+                <p className="text-lg font-bold text-blue-900">{formatNumber(ms)}</p>
+            </div>
+            <div className="bg-green-50 rounded-lg p-2">
+                <p className="text-xs font-semibold text-green-800">A/F</p>
+                <p className="text-lg font-bold text-green-900">{formatNumber(af)}</p>
+            </div>
+            <div className="bg-orange-50 rounded-lg p-2">
+                <p className="text-xs font-semibold text-orange-800">LSF</p>
+                <p className="text-lg font-bold text-orange-900">{formatNumber(lsf)}</p>
+            </div>
+        </div>
+    );
+};
+
 export function AshAnalysisManager() {
+    const [analyses, setAnalyses] = useState<AshAnalysis[]>([]);
     const [loading, setLoading] = useState(true);
-    const [editingRowId, setEditingRowId] = useState<string | null>(null);
     const [deletingRowId, setDeletingRowId] = useState<string | null>(null);
+    const [editingAnalysis, setEditingAnalysis] = useState<AshAnalysis | null>(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
     
+    // Filters
+    const [fuelTypeFilter, setFuelTypeFilter] = useState('all');
+    const [fournisseurFilter, setFournisseurFilter] = useState('all');
+    const [dateRangeFilter, setDateRangeFilter] = useState<DateRange | undefined>();
+    const [searchQuery, setSearchQuery] = useState('');
+
     const [fuelTypes, setFuelTypes] = useState<string[]>([]);
     const [fournisseurs, setFournisseurs] = useState<string[]>([]);
 
     const { toast } = useToast();
 
-    const { control, handleSubmit, reset, watch, formState: { isSubmitting } } = useForm<FormValues>({
-        defaultValues: { analyses: [] },
+    const form = useForm<FormValues>({
+        resolver: zodResolver(analysisSchema),
     });
-
-    const { fields, append, remove, update } = useFieldArray({
-        control,
-        name: "analyses",
-    });
-    
-    const watchedAnalyses = watch("analyses");
+    const { reset, handleSubmit, formState: { isSubmitting } } = form;
 
     const fetchInitialData = useCallback(async () => {
         setLoading(true);
         try {
-            const [analyses, fTypes, founisseursList] = await Promise.all([
+            const [analysesData, fTypes, founisseursList] = await Promise.all([
                 getAshAnalyses(),
                 getUniqueFuelTypesFromResultats(),
                 getFournisseurs()
             ]);
             
-            const formattedAnalyses = analyses.map(a => ({
-                ...a,
-                date_arrivage: a.date_arrivage.toDate(),
-            }));
-            
-            reset({ analyses: formattedAnalyses });
+            setAnalyses(analysesData);
             setFuelTypes(fTypes);
             setFournisseurs(founisseursList);
 
@@ -139,29 +230,44 @@ export function AshAnalysisManager() {
         } finally {
             setLoading(false);
         }
-    }, [reset, toast]);
+    }, [toast]);
 
     useEffect(() => {
         fetchInitialData();
     }, [fetchInitialData]);
 
-    const onSave = async (data: z.infer<typeof analysisSchema>, index: number) => {
-        const { id, ...dataToSave } = data;
+    const handleModalOpen = (analysis: AshAnalysis | null = null) => {
+        setEditingAnalysis(analysis);
+        if (analysis) {
+            reset({ ...analysis, date_arrivage: analysis.date_arrivage.toDate() });
+        } else {
+            reset({
+                date_arrivage: new Date(),
+                type_combustible: '',
+                fournisseur: '',
+                pourcentage_cendres: null, paf: null, sio2: null, al2o3: null, fe2o3: null,
+                cao: null, mgo: null, so3: null, k2o: null, tio2: null, mno: null, p2o5: null,
+            });
+        }
+        setIsModalOpen(true);
+    };
+
+    const onSubmit = async (data: FormValues) => {
         const dataWithTimestamp = {
-            ...dataToSave,
+            ...data,
             date_arrivage: Timestamp.fromDate(data.date_arrivage),
         };
-        
+
         try {
-            if (id && id.startsWith('new-')) { // It's a new record
-                const newId = await addAshAnalysis(dataWithTimestamp);
-                update(index, { ...data, id: newId });
-                toast({ title: "Succès", description: "Analyse ajoutée." });
-            } else if (id) { // It's an existing record
-                await updateAshAnalysis(id, dataWithTimestamp);
+            if (editingAnalysis) {
+                await updateAshAnalysis(editingAnalysis.id, dataWithTimestamp);
                 toast({ title: "Succès", description: "Analyse mise à jour." });
+            } else {
+                await addAshAnalysis(dataWithTimestamp);
+                toast({ title: "Succès", description: "Analyse ajoutée." });
             }
-            setEditingRowId(null);
+            setIsModalOpen(false);
+            fetchInitialData(); // Refresh data
         } catch (error) {
             console.error("Error saving data:", error);
             toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer l'analyse." });
@@ -171,15 +277,9 @@ export function AshAnalysisManager() {
     const handleDelete = async () => {
         if (!deletingRowId) return;
         try {
-            const indexToDelete = fields.findIndex(f => f.id === deletingRowId);
-            if (indexToDelete > -1) {
-                const idToDeleteInDb = fields[indexToDelete].id;
-                if(idToDeleteInDb && !idToDeleteInDb.startsWith('new-')) {
-                   await deleteAshAnalysis(idToDeleteInDb);
-                }
-                remove(indexToDelete);
-                toast({ title: "Succès", description: "Analyse supprimée." });
-            }
+            await deleteAshAnalysis(deletingRowId);
+            toast({ title: "Succès", description: "Analyse supprimée." });
+            fetchInitialData(); // Refresh data
         } catch (error) {
             console.error("Error deleting data:", error);
             toast({ variant: "destructive", title: "Erreur", description: "Impossible de supprimer l'analyse." });
@@ -187,188 +287,139 @@ export function AshAnalysisManager() {
             setDeletingRowId(null);
         }
     };
+    
+    const filteredAnalyses = useMemo(() => {
+        return analyses.filter(a => {
+            const date = a.date_arrivage.toDate();
+            const fuelTypeMatch = fuelTypeFilter === 'all' || a.type_combustible === fuelTypeFilter;
+            const fournisseurMatch = fournisseurFilter === 'all' || a.fournisseur === fournisseurFilter;
+            const dateMatch = !dateRangeFilter || (
+                (!dateRangeFilter.from || date >= startOfDay(dateRangeFilter.from)) &&
+                (!dateRangeFilter.to || date <= endOfDay(dateRangeFilter.to))
+            );
+            const searchMatch = !searchQuery || 
+                a.type_combustible.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                a.fournisseur.toLowerCase().includes(searchQuery.toLowerCase());
+            
+            return fuelTypeMatch && fournisseurMatch && dateMatch && searchMatch;
+        });
+    }, [analyses, fuelTypeFilter, fournisseurFilter, dateRangeFilter, searchQuery]);
 
-    const handleAddNew = () => {
-        const newId = `new-${Date.now()}`;
-        append({
-            id: newId,
-            date_arrivage: new Date(),
-            type_combustible: '',
-            fournisseur: '',
-            pourcentage_cendres: null, paf: null, sio2: null, al2o3: null, fe2o3: null,
-            cao: null, mgo: null, so3: null, k2o: null, tio2: null, mno: null, p2o5: null,
-            observations: ''
-        }, { shouldFocus: true });
-        setEditingRowId(newId);
-    };
 
     return (
+      <div className="space-y-4">
         <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                    <CardTitle className="flex items-center gap-2">
-                        <ClipboardList className="h-6 w-6 text-primary" />
-                        Suivi des Analyses de Cendres des AF
-                    </CardTitle>
-                    <CardDescription>
-                        Saisir, consulter et modifier les analyses chimiques des cendres.
-                    </CardDescription>
+            <CardHeader>
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <CardTitle className="flex items-center gap-2">
+                            <ClipboardList className="h-6 w-6 text-primary" />
+                            Suivi des Analyses de Cendres des AF
+                        </CardTitle>
+                        <CardDescription>
+                            Saisir, consulter et modifier les analyses chimiques des cendres.
+                        </CardDescription>
+                    </div>
+                    <Button onClick={() => handleModalOpen()}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Ajouter une analyse
+                    </Button>
                 </div>
-                <Button onClick={handleAddNew}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Ajouter une analyse
-                </Button>
             </CardHeader>
             <CardContent>
-                <ScrollArea className="w-full whitespace-nowrap rounded-lg border">
-                    <Table className="min-w-max">
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="sticky left-0 bg-muted/50 z-20 w-32">Actions</TableHead>
-                                <TableHead>Date Arrivage</TableHead>
-                                <TableHead>Type Combustible</TableHead>
-                                <TableHead>Fournisseur</TableHead>
-                                <TableHead>% Cendres</TableHead>
-                                <TableHead>PAF</TableHead>
-                                <TableHead>SiO2</TableHead>
-                                <TableHead>Al2O3</TableHead>
-                                <TableHead>Fe2O3</TableHead>
-                                <TableHead>CaO</TableHead>
-                                <TableHead>MgO</TableHead>
-                                <TableHead>SO3</TableHead>
-                                <TableHead>K2O</TableHead>
-                                <TableHead>TiO2</TableHead>
-                                <TableHead>MnO</TableHead>
-                                <TableHead>P2O5</TableHead>
-                                <TableHead className="bg-blue-100">MS</TableHead>
-                                <TableHead className="bg-blue-100">A/F</TableHead>
-                                <TableHead className="bg-blue-100">LSF</TableHead>
-                                <TableHead>Observations</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {loading ? (
-                                <TableRow>
-                                    <TableCell colSpan={20}>
-                                        <Skeleton className="h-48 w-full" />
-                                    </TableCell>
-                                </TableRow>
-                            ) : fields.length > 0 ? (
-                                fields.map((field, index) => {
-                                    const isEditing = editingRowId === field.id;
-                                    const analysis = watchedAnalyses[index];
-                                    const { ms, af, lsf } = calculateModules(analysis.sio2, analysis.al2o3, analysis.fe2o3, analysis.cao);
-                                    
-                                    return (
-                                        <TableRow key={field.id}>
-                                            <TableCell className="sticky left-0 bg-background z-10">
-                                                <div className="flex items-center gap-1">
-                                                    {isEditing ? (
-                                                         <Button size="icon" variant="ghost" onClick={handleSubmit(() => onSave(watchedAnalyses[index], index))} disabled={isSubmitting}>
-                                                            <Save className="h-4 w-4 text-green-600"/>
-                                                        </Button>
-                                                    ) : (
-                                                        <Button size="icon" variant="ghost" onClick={() => setEditingRowId(field.id)}>
-                                                            <Edit className="h-4 w-4 text-muted-foreground" />
-                                                        </Button>
-                                                    )}
-                                                    <Button size="icon" variant="ghost" onClick={() => setDeletingRowId(field.id)}>
-                                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                                    </Button>
-                                                </div>
-                                            </TableCell>
-                                            
-                                            {/* Data Cells */}
-                                            {[
-                                                { name: "date_arrivage", type: 'date'},
-                                                { name: "type_combustible", type: 'select', options: fuelTypes},
-                                                { name: "fournisseur", type: 'select', options: fournisseurs },
-                                                { name: "pourcentage_cendres", type: 'number'},
-                                                { name: "paf", type: 'number'},
-                                                { name: "sio2", type: 'number'},
-                                                { name: "al2o3", type: 'number'},
-                                                { name: "fe2o3", type: 'number'},
-                                                { name: "cao", type: 'number'},
-                                                { name: "mgo", type: 'number'},
-                                                { name: "so3", type: 'number'},
-                                                { name: "k2o", type: 'number'},
-                                                { name: "tio2", type: 'number'},
-                                                { name: "mno", type: 'number'},
-                                                { name: "p2o5", type: 'number'},
-                                            ].map(col => (
-                                                <TableCell key={col.name}>
-                                                    <Controller
-                                                        name={`analyses.${index}.${col.name as any}`}
-                                                        control={control}
-                                                        render={({ field: controllerField }) => {
-                                                            if (!isEditing) {
-                                                                if (col.type === 'date') return format(controllerField.value, 'dd/MM/yyyy');
-                                                                return formatNumber(controllerField.value, 2) || 'N/A';
-                                                            }
-                                                            if (col.type === 'date') return (
-                                                                <Popover>
-                                                                    <PopoverTrigger asChild>
-                                                                        <Button variant="outline" className="w-36 justify-start text-left font-normal">
-                                                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                                                            {format(controllerField.value, "dd/MM/yy")}
-                                                                        </Button>
-                                                                    </PopoverTrigger>
-                                                                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={controllerField.value} onSelect={controllerField.onChange} initialFocus /></PopoverContent>
-                                                                </Popover>
-                                                            );
-                                                            if (col.type === 'select') return (
-                                                                <Select onValueChange={controllerField.onChange} value={controllerField.value}>
-                                                                    <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
-                                                                    <SelectContent>{col.options?.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
-                                                                </Select>
-                                                            );
-                                                            return <Input type="number" step="any" {...controllerField} value={controllerField.value ?? ''} className="w-24" />;
-                                                        }}
-                                                    />
-                                                </TableCell>
-                                            ))}
-
-                                            {/* Calculated and Observation cells */}
-                                            <TableCell className="font-bold bg-blue-50">{formatNumber(ms)}</TableCell>
-                                            <TableCell className="font-bold bg-blue-50">{formatNumber(af)}</TableCell>
-                                            <TableCell className="font-bold bg-blue-50">{formatNumber(lsf)}</TableCell>
-                                            <TableCell>
-                                                <Controller
-                                                    name={`analyses.${index}.observations`}
-                                                    control={control}
-                                                    render={({ field: controllerField }) => isEditing 
-                                                        ? <Input {...controllerField} value={controllerField.value ?? ''} className="w-48" />
-                                                        : (controllerField.value || 'N/A')}
-                                                />
-                                            </TableCell>
-                                        </TableRow>
-                                    )
-                                })
-                            ) : (
-                                <TableRow>
-                                    <TableCell colSpan={20} className="h-24 text-center">Aucune analyse de cendre trouvée.</TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                <ScrollBar orientation="horizontal" />
-                </ScrollArea>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 border rounded-lg">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input placeholder="Rechercher..." className="pl-10" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                    </div>
+                    <Select value={fuelTypeFilter} onValueChange={setFuelTypeFilter}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent><SelectItem value="all">Tous les combustibles</SelectItem>{fuelTypes.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
+                    </Select>
+                    <Select value={fournisseurFilter} onValueChange={setFournisseurFilter}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent><SelectItem value="all">Tous les fournisseurs</SelectItem>{fournisseurs.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
+                    </Select>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                          <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !dateRangeFilter && "text-muted-foreground")}>
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {dateRangeFilter?.from ? (dateRangeFilter.to ? `${format(dateRangeFilter.from, "d MMM y", {locale:fr})} - ${format(dateRangeFilter.to, "d MMM y", {locale:fr})}` : format(dateRangeFilter.from, "d MMM y", {locale:fr})) : <span>Filtrer par date</span>}
+                          </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start"><Calendar initialFocus mode="range" defaultMonth={dateRangeFilter?.from} selected={dateRangeFilter} onSelect={setDateRangeFilter} numberOfMonths={2} locale={fr}/></PopoverContent>
+                    </Popover>
+                </div>
             </CardContent>
-
-            <AlertDialog open={!!deletingRowId} onOpenChange={(open) => !open && setDeletingRowId(null)}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Êtes-vous sûr ?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Cette action est irréversible et supprimera définitivement cette analyse.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Annuler</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Supprimer</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
         </Card>
+
+        {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <Skeleton className="h-96 w-full" /><Skeleton className="h-96 w-full" /><Skeleton className="h-96 w-full" />
+            </div>
+        ) : filteredAnalyses.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredAnalyses.map(analysis => (
+                    <Card key={analysis.id}>
+                        <CardHeader>
+                            <CardTitle className="text-base">{analysis.type_combustible} <span className="font-light text-muted-foreground">/ {analysis.fournisseur}</span></CardTitle>
+                            <CardDescription>{format(analysis.date_arrivage.toDate(), "d MMMM yyyy", {locale: fr})}</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                           <div className="grid grid-cols-3 gap-2 text-sm">
+                              {Object.entries({
+                                '% Cendres': analysis.pourcentage_cendres, PAF: analysis.paf, SiO2: analysis.sio2, Al2O3: analysis.al2o3, Fe2O3: analysis.fe2o3, CaO: analysis.cao, MgO: analysis.mgo, SO3: analysis.so3, K2O: analysis.k2o, TiO2: analysis.tio2, MnO: analysis.mno, P2O5: analysis.p2o5
+                              }).map(([key, value]) => (
+                                <div key={key} className="bg-gray-50 p-2 rounded-md text-center">
+                                  <p className="text-xs text-muted-foreground">{key}</p>
+                                  <p className="font-semibold">{formatNumber(value) || '-'}</p>
+                                </div>
+                              ))}
+                           </div>
+                           <ModuleDisplay analysis={analysis} />
+                        </CardContent>
+                        <CardFooter className="flex justify-end gap-2">
+                            <Button size="icon" variant="ghost" onClick={() => handleModalOpen(analysis)}><Edit className="h-4 w-4 text-muted-foreground" /></Button>
+                            <Button size="icon" variant="ghost" onClick={() => setDeletingRowId(analysis.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        </CardFooter>
+                    </Card>
+                ))}
+            </div>
+        ) : (
+            <Card><CardContent className="h-48 flex items-center justify-center"><p className="text-muted-foreground">Aucune analyse trouvée pour les filtres sélectionnés.</p></CardContent></Card>
+        )}
+
+        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+            <DialogContent className="max-w-3xl">
+                <DialogHeader>
+                    <DialogTitle>{editingAnalysis ? "Modifier" : "Ajouter"} une Analyse de Cendres</DialogTitle>
+                </DialogHeader>
+                <div className="py-4">
+                  <AnalysisForm 
+                    form={form} 
+                    onSubmit={onSubmit} 
+                    fuelTypes={fuelTypes} 
+                    fournisseurs={fournisseurs}
+                    isSubmitting={isSubmitting}
+                  />
+                </div>
+            </DialogContent>
+        </Dialog>
+
+        <AlertDialog open={!!deletingRowId} onOpenChange={(open) => !open && setDeletingRowId(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Êtes-vous sûr ?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Cette action est irréversible et supprimera définitivement cette analyse.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Annuler</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Supprimer</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+      </div>
     );
 }

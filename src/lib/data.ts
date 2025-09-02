@@ -96,7 +96,6 @@ export interface AshAnalysis {
     tio2?: number | null;
     mno?: number | null;
     p2o5?: number | null;
-    observations?: string | null;
 }
 
 
