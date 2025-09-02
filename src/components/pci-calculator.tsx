@@ -191,10 +191,12 @@ export function PciCalculator() {
   useEffect(() => {
     if (watchedPcs !== undefined && watchedH2o !== undefined && hValue !== null) {
       let pcsToUse = Number(watchedPcs);
+      // If taux_fils_metalliques is provided, it reduces the overall PCS of the sample.
       if (showTauxFilsMetalliques && watchedTauxFilsMetalliques) {
           const taux = Number(watchedTauxFilsMetalliques);
-          if (taux >= 0 && taux < 100) {
-            pcsToUse = pcsToUse / (1 - taux / 100);
+          if (taux > 0 && taux < 100) {
+            // The metal part has no caloric value, so we reduce the PCS by that percentage.
+            pcsToUse = pcsToUse * (1 - taux / 100);
           }
       }
       const result = calculerPCI(pcsToUse, Number(watchedH2o), hValue);
@@ -326,8 +328,8 @@ export function PciCalculator() {
       let pcsToUse = values.pcs;
       if (showTauxFilsMetalliques && values.taux_fils_metalliques) {
           const taux = Number(values.taux_fils_metalliques);
-          if (taux >= 0 && taux < 100) {
-            pcsToUse = pcsToUse / (1 - taux / 100);
+          if (taux > 0 && taux < 100) {
+            pcsToUse = pcsToUse * (1 - taux / 100);
           }
       }
       const pci_brut = calculerPCI(pcsToUse, values.h2o, hValue);
