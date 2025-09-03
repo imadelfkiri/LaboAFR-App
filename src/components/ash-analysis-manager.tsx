@@ -177,25 +177,6 @@ const AnalysisForm = ({
     </Form>
 );
 
-const ModuleDisplay = ({ ms, af, lsf }: { ms: number, af: number, lsf: number }) => {
-    return (
-        <div className="flex gap-2 text-center text-sm">
-            <div className="p-1 min-w-[50px] rounded-md bg-blue-50 text-blue-900">
-                <span className="font-semibold">{formatNumber(ms)}</span>
-                <span className="text-xs block">MS</span>
-            </div>
-            <div className="p-1 min-w-[50px] rounded-md bg-green-50 text-green-900">
-                <span className="font-semibold">{formatNumber(af)}</span>
-                <span className="text-xs block">A/F</span>
-            </div>
-            <div className="p-1 min-w-[50px] rounded-md bg-orange-50 text-orange-900">
-                <span className="font-semibold">{formatNumber(lsf)}</span>
-                <span className="text-xs block">LSF</span>
-            </div>
-        </div>
-    );
-};
-
 export function AshAnalysisManager() {
     const [analyses, setAnalyses] = useState<AshAnalysis[]>([]);
     const [loading, setLoading] = useState(true);
@@ -381,14 +362,16 @@ export function AshAnalysisManager() {
                             <TableHead className="text-right">TiO2</TableHead>
                             <TableHead className="text-right">MnO</TableHead>
                             <TableHead className="text-right">P2O5</TableHead>
-                            <TableHead className="w-[200px]">Modules</TableHead>
+                            <TableHead className="text-right">MS</TableHead>
+                            <TableHead className="text-right">A/F</TableHead>
+                            <TableHead className="text-right">LSF</TableHead>
                             <TableHead className="text-right w-[100px] sticky right-0 bg-muted/50">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {loading ? (
                             Array.from({ length: 5 }).map((_, i) => (
-                                <TableRow key={i}><TableCell colSpan={18}><Skeleton className="h-12 w-full" /></TableCell></TableRow>
+                                <TableRow key={i}><TableCell colSpan={19}><Skeleton className="h-12 w-full" /></TableCell></TableRow>
                             ))
                         ) : filteredAnalyses.length > 0 ? (
                             filteredAnalyses.map(analysis => {
@@ -410,9 +393,9 @@ export function AshAnalysisManager() {
                                         <TableCell className="text-right">{formatNumber(analysis.tio2, 1)}</TableCell>
                                         <TableCell className="text-right">{formatNumber(analysis.mno, 1)}</TableCell>
                                         <TableCell className="text-right">{formatNumber(analysis.p2o5, 1)}</TableCell>
-                                        <TableCell>
-                                            <ModuleDisplay ms={ms} af={af} lsf={lsf} />
-                                        </TableCell>
+                                        <TableCell className="text-right font-medium text-blue-600">{formatNumber(ms)}</TableCell>
+                                        <TableCell className="text-right font-medium text-green-600">{formatNumber(af)}</TableCell>
+                                        <TableCell className="text-right font-medium text-orange-600">{formatNumber(lsf)}</TableCell>
                                         <TableCell className="text-right sticky right-0 bg-background">
                                             <Button size="icon" variant="ghost" onClick={() => handleModalOpen(analysis)}><Edit className="h-4 w-4" /></Button>
                                             <Button size="icon" variant="ghost" onClick={() => setDeletingRowId(analysis.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
@@ -421,7 +404,7 @@ export function AshAnalysisManager() {
                                 )
                             })
                         ) : (
-                             <TableRow><TableCell colSpan={18} className="h-24 text-center">Aucune analyse trouvée.</TableCell></TableRow>
+                             <TableRow><TableCell colSpan={19} className="h-24 text-center">Aucune analyse trouvée.</TableCell></TableRow>
                         )}
                     </TableBody>
                 </Table>
