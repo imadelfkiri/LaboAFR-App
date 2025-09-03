@@ -69,7 +69,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ClipboardList, PlusCircle, Trash2, Edit, Save, CalendarIcon, Filter, Search } from 'lucide-react';
 import { cn } from "@/lib/utils";
-import { ScrollArea } from './ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 const analysisSchema = z.object({
   id: z.string().optional(),
@@ -110,7 +110,7 @@ const calculateModules = (sio2?: number | null, al2o3?: number | null, fe2o3?: n
 };
 
 const formatNumber = (num: number | null | undefined, digits: number = 2) => {
-    if (num === null || num === undefined) return '';
+    if (num === null || num === undefined) return '-';
     if (!isFinite(num)) return "∞";
     return num.toLocaleString('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 };
@@ -179,18 +179,18 @@ const AnalysisForm = ({
 
 const ModuleDisplay = ({ ms, af, lsf }: { ms: number, af: number, lsf: number }) => {
     return (
-        <div className="grid grid-cols-3 gap-2 text-center text-sm">
-            <div className="p-1 rounded-md bg-blue-50 text-blue-900">
+        <div className="flex gap-2 text-center text-sm">
+            <div className="p-1 min-w-[50px] rounded-md bg-blue-50 text-blue-900">
                 <span className="font-semibold">{formatNumber(ms)}</span>
-                <span className="text-xs"> MS</span>
+                <span className="text-xs block">MS</span>
             </div>
-            <div className="p-1 rounded-md bg-green-50 text-green-900">
+            <div className="p-1 min-w-[50px] rounded-md bg-green-50 text-green-900">
                 <span className="font-semibold">{formatNumber(af)}</span>
-                <span className="text-xs"> A/F</span>
+                <span className="text-xs block">A/F</span>
             </div>
-            <div className="p-1 rounded-md bg-orange-50 text-orange-900">
+            <div className="p-1 min-w-[50px] rounded-md bg-orange-50 text-orange-900">
                 <span className="font-semibold">{formatNumber(lsf)}</span>
-                <span className="text-xs"> LSF</span>
+                <span className="text-xs block">LSF</span>
             </div>
         </div>
     );
@@ -360,49 +360,60 @@ export function AshAnalysisManager() {
                 </div>
             </CardContent>
         </Card>
-
+        
         <div className="flex-grow rounded-lg border">
-            <ScrollArea className="h-[calc(100vh-320px)]">
-                <Table>
+            <ScrollArea className="h-[calc(100vh-320px)] w-full">
+                <Table className="min-w-max">
                     <TableHeader className="sticky top-0 bg-muted/50 z-10">
                         <TableRow>
-                            <TableHead className="w-[120px]">Date Arrivage</TableHead>
-                            <TableHead>Combustible</TableHead>
-                            <TableHead>Fournisseur</TableHead>
-                            <TableHead className="w-[300px]">Analyses Chimiques</TableHead>
+                            <TableHead className="w-[120px] sticky left-0 bg-muted/50">Date Arrivage</TableHead>
+                            <TableHead className="w-[150px] sticky left-[120px] bg-muted/50">Combustible</TableHead>
+                            <TableHead className="w-[150px]">Fournisseur</TableHead>
+                            <TableHead className="text-right">% Cendres</TableHead>
+                            <TableHead className="text-right">PAF</TableHead>
+                            <TableHead className="text-right">SiO2</TableHead>
+                            <TableHead className="text-right">Al2O3</TableHead>
+                            <TableHead className="text-right">Fe2O3</TableHead>
+                            <TableHead className="text-right">CaO</TableHead>
+                            <TableHead className="text-right">MgO</TableHead>
+                            <TableHead className="text-right">SO3</TableHead>
+                            <TableHead className="text-right">K2O</TableHead>
+                            <TableHead className="text-right">TiO2</TableHead>
+                            <TableHead className="text-right">MnO</TableHead>
+                            <TableHead className="text-right">P2O5</TableHead>
                             <TableHead className="w-[200px]">Modules</TableHead>
-                            <TableHead className="text-right w-[100px]">Actions</TableHead>
+                            <TableHead className="text-right w-[100px] sticky right-0 bg-muted/50">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {loading ? (
                             Array.from({ length: 5 }).map((_, i) => (
-                                <TableRow key={i}><TableCell colSpan={6}><Skeleton className="h-12 w-full" /></TableCell></TableRow>
+                                <TableRow key={i}><TableCell colSpan={18}><Skeleton className="h-12 w-full" /></TableCell></TableRow>
                             ))
                         ) : filteredAnalyses.length > 0 ? (
                             filteredAnalyses.map(analysis => {
                                 const { ms, af, lsf } = calculateModules(analysis.sio2, analysis.al2o3, analysis.fe2o3, analysis.cao);
                                 return (
                                     <TableRow key={analysis.id}>
-                                        <TableCell>{format(analysis.date_arrivage.toDate(), "d MMM yyyy", {locale: fr})}</TableCell>
-                                        <TableCell className="font-medium">{analysis.type_combustible}</TableCell>
+                                        <TableCell className="sticky left-0 bg-background">{format(analysis.date_arrivage.toDate(), "d MMM yyyy", {locale: fr})}</TableCell>
+                                        <TableCell className="font-medium sticky left-[120px] bg-background">{analysis.type_combustible}</TableCell>
                                         <TableCell>{analysis.fournisseur}</TableCell>
-                                        <TableCell>
-                                            <div className="grid grid-cols-4 gap-x-2 gap-y-1 text-xs">
-                                                {Object.entries({
-                                                    '% Cendres': analysis.pourcentage_cendres, PAF: analysis.paf, SiO2: analysis.sio2, Al2O3: analysis.al2o3, Fe2O3: analysis.fe2o3, CaO: analysis.cao, MgO: analysis.mgo, SO3: analysis.so3, K2O: analysis.k2o, TiO2: analysis.tio2, MnO: analysis.mno, P2O5: analysis.p2o5
-                                                }).map(([key, value]) => (
-                                                    <div key={key} className="flex justify-between items-baseline">
-                                                        <span className="text-muted-foreground">{key}:</span>
-                                                        <span className="font-semibold">{formatNumber(value) || '-'}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </TableCell>
+                                        <TableCell className="text-right">{formatNumber(analysis.pourcentage_cendres)}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(analysis.paf)}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(analysis.sio2)}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(analysis.al2o3)}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(analysis.fe2o3)}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(analysis.cao)}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(analysis.mgo)}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(analysis.so3)}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(analysis.k2o)}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(analysis.tio2)}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(analysis.mno)}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(analysis.p2o5)}</TableCell>
                                         <TableCell>
                                             <ModuleDisplay ms={ms} af={af} lsf={lsf} />
                                         </TableCell>
-                                        <TableCell className="text-right">
+                                        <TableCell className="text-right sticky right-0 bg-background">
                                             <Button size="icon" variant="ghost" onClick={() => handleModalOpen(analysis)}><Edit className="h-4 w-4" /></Button>
                                             <Button size="icon" variant="ghost" onClick={() => setDeletingRowId(analysis.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                                         </TableCell>
@@ -410,10 +421,11 @@ export function AshAnalysisManager() {
                                 )
                             })
                         ) : (
-                             <TableRow><TableCell colSpan={6} className="h-24 text-center">Aucune analyse trouvée.</TableCell></TableRow>
+                             <TableRow><TableCell colSpan={18} className="h-24 text-center">Aucune analyse trouvée.</TableCell></TableRow>
                         )}
                     </TableBody>
                 </Table>
+                <ScrollBar orientation="horizontal" />
             </ScrollArea>
         </div>
 
