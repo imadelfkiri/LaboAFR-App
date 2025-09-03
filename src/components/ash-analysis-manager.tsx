@@ -365,40 +365,40 @@ export function AshAnalysisManager() {
                             <TableHead className="text-right">MS</TableHead>
                             <TableHead className="text-right">A/F</TableHead>
                             <TableHead className="text-right">LSF</TableHead>
-                            <TableHead className="text-right w-[100px] sticky right-0 bg-muted/50">Actions</TableHead>
+                            <TableHead className="text-center w-[100px] sticky right-0 bg-muted/50">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {loading ? (
                             Array.from({ length: 5 }).map((_, i) => (
-                                <TableRow key={i}><TableCell colSpan={19}><Skeleton className="h-12 w-full" /></TableCell></TableRow>
+                                <TableRow key={i}><TableCell colSpan={19} className="py-2"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
                             ))
                         ) : filteredAnalyses.length > 0 ? (
                             filteredAnalyses.map(analysis => {
                                 const { ms, af, lsf } = calculateModules(analysis.sio2, analysis.al2o3, analysis.fe2o3, analysis.cao);
                                 return (
-                                    <TableRow key={analysis.id}>
-                                        <TableCell className="sticky left-0 bg-background">{format(analysis.date_arrivage.toDate(), "d MMM yyyy", {locale: fr})}</TableCell>
-                                        <TableCell className="font-medium sticky left-[120px] bg-background">{analysis.type_combustible}</TableCell>
-                                        <TableCell>{analysis.fournisseur}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(analysis.pourcentage_cendres, 1)}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(analysis.paf, 1)}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(analysis.sio2, 1)}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(analysis.al2o3, 1)}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(analysis.fe2o3, 1)}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(analysis.cao, 1)}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(analysis.mgo, 1)}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(analysis.so3, 1)}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(analysis.k2o, 1)}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(analysis.tio2, 1)}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(analysis.mno, 1)}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(analysis.p2o5, 1)}</TableCell>
-                                        <TableCell className="text-right font-medium text-blue-600">{formatNumber(ms)}</TableCell>
-                                        <TableCell className="text-right font-medium text-green-600">{formatNumber(af)}</TableCell>
-                                        <TableCell className="text-right font-medium text-orange-600">{formatNumber(lsf)}</TableCell>
-                                        <TableCell className="text-right sticky right-0 bg-background">
-                                            <Button size="icon" variant="ghost" onClick={() => handleModalOpen(analysis)}><Edit className="h-4 w-4" /></Button>
-                                            <Button size="icon" variant="ghost" onClick={() => setDeletingRowId(analysis.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                    <TableRow key={analysis.id} className="h-auto">
+                                        <TableCell className="sticky left-0 bg-background py-1.5">{format(analysis.date_arrivage.toDate(), "d MMM yyyy", {locale: fr})}</TableCell>
+                                        <TableCell className="font-medium sticky left-[120px] bg-background py-1.5">{analysis.type_combustible}</TableCell>
+                                        <TableCell className="py-1.5">{analysis.fournisseur}</TableCell>
+                                        <TableCell className="text-right py-1.5">{formatNumber(analysis.pourcentage_cendres, 1)}</TableCell>
+                                        <TableCell className="text-right py-1.5">{formatNumber(analysis.paf, 1)}</TableCell>
+                                        <TableCell className="text-right py-1.5">{formatNumber(analysis.sio2, 1)}</TableCell>
+                                        <TableCell className="text-right py-1.5">{formatNumber(analysis.al2o3, 1)}</TableCell>
+                                        <TableCell className="text-right py-1.5">{formatNumber(analysis.fe2o3, 1)}</TableCell>
+                                        <TableCell className="text-right py-1.5">{formatNumber(analysis.cao, 1)}</TableCell>
+                                        <TableCell className="text-right py-1.5">{formatNumber(analysis.mgo, 1)}</TableCell>
+                                        <TableCell className="text-right py-1.5">{formatNumber(analysis.so3, 1)}</TableCell>
+                                        <TableCell className="text-right py-1.5">{formatNumber(analysis.k2o, 1)}</TableCell>
+                                        <TableCell className="text-right py-1.5">{formatNumber(analysis.tio2, 1)}</TableCell>
+                                        <TableCell className="text-right py-1.5">{formatNumber(analysis.mno, 1)}</TableCell>
+                                        <TableCell className="text-right py-1.5">{formatNumber(analysis.p2o5, 1)}</TableCell>
+                                        <TableCell className="text-right font-medium text-blue-600 py-1.5">{formatNumber(ms)}</TableCell>
+                                        <TableCell className="text-right font-medium text-green-600 py-1.5">{formatNumber(af)}</TableCell>
+                                        <TableCell className="text-right font-medium text-orange-600 py-1.5">{formatNumber(lsf)}</TableCell>
+                                        <TableCell className="sticky right-0 bg-background py-1.5 text-center">
+                                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleModalOpen(analysis)}><Edit className="h-4 w-4" /></Button>
+                                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDeletingRowId(analysis.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                                         </TableCell>
                                     </TableRow>
                                 )
