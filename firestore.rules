@@ -1,14 +1,53 @@
 
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Allow read/write access to all collections for any signed-in user.
-    // This is a basic rule, you might want to restrict access further
-    // based on user roles or specific document data in a production environment.
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    
+    // Règles pour les collections existantes
+    match /resultats/{resultatId} {
+      allow read, write: if true;
     }
+    
+    match /fuel_types/{fuelTypeId} {
+      allow read, write: if true;
+    }
+    
+    match /fuel_supplier_map/{fuelType} {
+      allow read, write: if true;
+    }
+    
+    match /specifications/{specId} {
+      allow read, write: if true;
+    }
+    
+    match /sessions_melange/{sessionId} {
+      allow read, write: if true;
+    }
+    
+    match /fuel_costs/{costId} {
+      allow read, write: if true;
+    }
+    
+    match /stocks/{stockId} {
+      allow read, write: if true;
+    }
+    
+    match /arrivages/{arrivageId} {
+      allow read, write: if true;
+    }
+    
+    match /donnees_combustibles/{dataId} {
+        allow read, write: if true;
+    }
+    
+    match /scenarios_melange/{scenarioId} {
+        allow read, write: if true;
+    }
+    
+    // Règle pour la nouvelle collection d'analyses de cendres
+    match /analyses_cendres/{analysisId} {
+      allow read, write: if true;
+    }
+    
   }
 }
