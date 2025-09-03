@@ -398,18 +398,18 @@ export function AshAnalysisManager() {
                                         <TableCell className="sticky left-0 bg-background">{format(analysis.date_arrivage.toDate(), "d MMM yyyy", {locale: fr})}</TableCell>
                                         <TableCell className="font-medium sticky left-[120px] bg-background">{analysis.type_combustible}</TableCell>
                                         <TableCell>{analysis.fournisseur}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(analysis.pourcentage_cendres)}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(analysis.paf)}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(analysis.sio2)}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(analysis.al2o3)}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(analysis.fe2o3)}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(analysis.cao)}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(analysis.mgo)}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(analysis.so3)}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(analysis.k2o)}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(analysis.tio2)}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(analysis.mno)}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(analysis.p2o5)}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(analysis.pourcentage_cendres, 1)}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(analysis.paf, 1)}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(analysis.sio2, 1)}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(analysis.al2o3, 1)}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(analysis.fe2o3, 1)}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(analysis.cao, 1)}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(analysis.mgo, 1)}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(analysis.so3, 1)}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(analysis.k2o, 1)}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(analysis.tio2, 1)}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(analysis.mno, 1)}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(analysis.p2o5, 1)}</TableCell>
                                         <TableCell>
                                             <ModuleDisplay ms={ms} af={af} lsf={lsf} />
                                         </TableCell>
