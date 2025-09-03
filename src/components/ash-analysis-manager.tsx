@@ -20,7 +20,15 @@ import { fr } from 'date-fns/locale';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
 import {
     Select,
     SelectContent,
@@ -61,6 +69,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ClipboardList, PlusCircle, Trash2, Edit, Save, CalendarIcon, Filter, Search } from 'lucide-react';
 import { cn } from "@/lib/utils";
+import { ScrollArea } from './ui/scroll-area';
 
 const analysisSchema = z.object({
   id: z.string().optional(),
@@ -168,21 +177,20 @@ const AnalysisForm = ({
     </Form>
 );
 
-const ModuleDisplay = ({ analysis }: { analysis: FormValues }) => {
-    const { ms, af, lsf } = calculateModules(analysis.sio2, analysis.al2o3, analysis.fe2o3, analysis.cao);
+const ModuleDisplay = ({ ms, af, lsf }: { ms: number, af: number, lsf: number }) => {
     return (
-        <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="bg-blue-50 rounded-lg p-2">
-                <p className="text-xs font-semibold text-blue-800">MS</p>
-                <p className="text-lg font-bold text-blue-900">{formatNumber(ms)}</p>
+        <div className="grid grid-cols-3 gap-2 text-center text-sm">
+            <div className="p-1 rounded-md bg-blue-50 text-blue-900">
+                <span className="font-semibold">{formatNumber(ms)}</span>
+                <span className="text-xs"> MS</span>
             </div>
-            <div className="bg-green-50 rounded-lg p-2">
-                <p className="text-xs font-semibold text-green-800">A/F</p>
-                <p className="text-lg font-bold text-green-900">{formatNumber(af)}</p>
+            <div className="p-1 rounded-md bg-green-50 text-green-900">
+                <span className="font-semibold">{formatNumber(af)}</span>
+                <span className="text-xs"> A/F</span>
             </div>
-            <div className="bg-orange-50 rounded-lg p-2">
-                <p className="text-xs font-semibold text-orange-800">LSF</p>
-                <p className="text-lg font-bold text-orange-900">{formatNumber(lsf)}</p>
+            <div className="p-1 rounded-md bg-orange-50 text-orange-900">
+                <span className="font-semibold">{formatNumber(lsf)}</span>
+                <span className="text-xs"> LSF</span>
             </div>
         </div>
     );
@@ -307,7 +315,7 @@ export function AshAnalysisManager() {
 
 
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 h-full flex flex-col">
         <Card>
             <CardHeader>
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -353,41 +361,62 @@ export function AshAnalysisManager() {
             </CardContent>
         </Card>
 
-        {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <Skeleton className="h-96 w-full" /><Skeleton className="h-96 w-full" /><Skeleton className="h-96 w-full" />
-            </div>
-        ) : filteredAnalyses.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredAnalyses.map(analysis => (
-                    <Card key={analysis.id}>
-                        <CardHeader>
-                            <CardTitle className="text-base">{analysis.type_combustible} <span className="font-light text-muted-foreground">/ {analysis.fournisseur}</span></CardTitle>
-                            <CardDescription>{format(analysis.date_arrivage.toDate(), "d MMMM yyyy", {locale: fr})}</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                           <div className="grid grid-cols-3 gap-2 text-sm">
-                              {Object.entries({
-                                '% Cendres': analysis.pourcentage_cendres, PAF: analysis.paf, SiO2: analysis.sio2, Al2O3: analysis.al2o3, Fe2O3: analysis.fe2o3, CaO: analysis.cao, MgO: analysis.mgo, SO3: analysis.so3, K2O: analysis.k2o, TiO2: analysis.tio2, MnO: analysis.mno, P2O5: analysis.p2o5
-                              }).map(([key, value]) => (
-                                <div key={key} className="bg-gray-50 p-2 rounded-md text-center">
-                                  <p className="text-xs text-muted-foreground">{key}</p>
-                                  <p className="font-semibold">{formatNumber(value) || '-'}</p>
-                                </div>
-                              ))}
-                           </div>
-                           <ModuleDisplay analysis={analysis} />
-                        </CardContent>
-                        <CardFooter className="flex justify-end gap-2">
-                            <Button size="icon" variant="ghost" onClick={() => handleModalOpen(analysis)}><Edit className="h-4 w-4 text-muted-foreground" /></Button>
-                            <Button size="icon" variant="ghost" onClick={() => setDeletingRowId(analysis.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                        </CardFooter>
-                    </Card>
-                ))}
-            </div>
-        ) : (
-            <Card><CardContent className="h-48 flex items-center justify-center"><p className="text-muted-foreground">Aucune analyse trouvée pour les filtres sélectionnés.</p></CardContent></Card>
-        )}
+        <div className="flex-grow rounded-lg border">
+            <ScrollArea className="h-[calc(100vh-320px)]">
+                <Table>
+                    <TableHeader className="sticky top-0 bg-muted/50 z-10">
+                        <TableRow>
+                            <TableHead className="w-[120px]">Date Arrivage</TableHead>
+                            <TableHead>Combustible</TableHead>
+                            <TableHead>Fournisseur</TableHead>
+                            <TableHead className="w-[300px]">Analyses Chimiques</TableHead>
+                            <TableHead className="w-[200px]">Modules</TableHead>
+                            <TableHead className="text-right w-[100px]">Actions</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {loading ? (
+                            Array.from({ length: 5 }).map((_, i) => (
+                                <TableRow key={i}><TableCell colSpan={6}><Skeleton className="h-12 w-full" /></TableCell></TableRow>
+                            ))
+                        ) : filteredAnalyses.length > 0 ? (
+                            filteredAnalyses.map(analysis => {
+                                const { ms, af, lsf } = calculateModules(analysis.sio2, analysis.al2o3, analysis.fe2o3, analysis.cao);
+                                return (
+                                    <TableRow key={analysis.id}>
+                                        <TableCell>{format(analysis.date_arrivage.toDate(), "d MMM yyyy", {locale: fr})}</TableCell>
+                                        <TableCell className="font-medium">{analysis.type_combustible}</TableCell>
+                                        <TableCell>{analysis.fournisseur}</TableCell>
+                                        <TableCell>
+                                            <div className="grid grid-cols-4 gap-x-2 gap-y-1 text-xs">
+                                                {Object.entries({
+                                                    '% Cendres': analysis.pourcentage_cendres, PAF: analysis.paf, SiO2: analysis.sio2, Al2O3: analysis.al2o3, Fe2O3: analysis.fe2o3, CaO: analysis.cao, MgO: analysis.mgo, SO3: analysis.so3, K2O: analysis.k2o, TiO2: analysis.tio2, MnO: analysis.mno, P2O5: analysis.p2o5
+                                                }).map(([key, value]) => (
+                                                    <div key={key} className="flex justify-between items-baseline">
+                                                        <span className="text-muted-foreground">{key}:</span>
+                                                        <span className="font-semibold">{formatNumber(value) || '-'}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <ModuleDisplay ms={ms} af={af} lsf={lsf} />
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <Button size="icon" variant="ghost" onClick={() => handleModalOpen(analysis)}><Edit className="h-4 w-4" /></Button>
+                                            <Button size="icon" variant="ghost" onClick={() => setDeletingRowId(analysis.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                        </TableCell>
+                                    </TableRow>
+                                )
+                            })
+                        ) : (
+                             <TableRow><TableCell colSpan={6} className="h-24 text-center">Aucune analyse trouvée.</TableCell></TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </ScrollArea>
+        </div>
+
 
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
             <DialogContent className="max-w-3xl">
