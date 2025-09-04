@@ -359,13 +359,16 @@ export async function getStocks(): Promise<Stock[]> {
     const q = query(stocksCollection, orderBy("nom_combustible"));
     const snapshot = await getDocs(q);
     if (snapshot.empty) {
-        const fuelTypes = await getFuelTypes();
+        const fuelTypes = await getUniqueFuelTypesFromResultats();
+        if (fuelTypes.length === 0) return []; // No fuels to create stocks for
+        
         const batch = writeBatch(db);
         fuelTypes.forEach(ft => {
-            const stockRef = doc(db, 'stocks', ft.name);
-            batch.set(stockRef, { nom_combustible: ft.name, stock_actuel_tonnes: 0 });
+            const stockRef = doc(collection(db, 'stocks'));
+            batch.set(stockRef, { nom_combustible: ft, stock_actuel_tonnes: 0 });
         });
         await batch.commit();
+
         const newSnapshot = await getDocs(q);
         return newSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Stock));
     }

@@ -10,7 +10,7 @@ import {
     addFuelData, 
     updateFuelData, 
     deleteFuelData,
-    getUniqueFuelTypesFromResultats,
+    getUniqueFuelTypes,
     type FuelData
 } from '@/lib/data';
 
@@ -100,13 +100,13 @@ export function FuelDataManager() {
     const fetchAllData = useCallback(async () => {
         setLoading(true);
         try {
-            const [fetchedFuelData, resultatsFuelTypes] = await Promise.all([
+            const [fetchedFuelData, masterFuelTypes] = await Promise.all([
                 getFuelData(),
-                getUniqueFuelTypesFromResultats(),
+                getUniqueFuelTypes(),
             ]);
             
             setFuelDataList(fetchedFuelData.sort((a, b) => a.nom_combustible.localeCompare(b.nom_combustible)));
-            setAvailableFuelTypes(resultatsFuelTypes.sort());
+            setAvailableFuelTypes(masterFuelTypes.sort());
         } catch (error) {
             console.error("Erreur de chargement des données :", error);
             toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données." });
