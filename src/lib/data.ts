@@ -600,6 +600,19 @@ export async function addAshAnalysis(data: Omit<AshAnalysis, 'id'>): Promise<str
     return docRef.id;
 }
 
+export async function addManyAshAnalyses(data: Omit<AshAnalysis, 'id'>[]): Promise<void> {
+    const batch = writeBatch(db);
+    const analysesCollection = collection(db, 'analyses_cendres');
+
+    data.forEach(analysis => {
+        const docRef = doc(analysesCollection);
+        batch.set(docRef, analysis);
+    });
+
+    await batch.commit();
+}
+
+
 export async function updateAshAnalysis(id: string, data: Partial<Omit<AshAnalysis, 'id'>>): Promise<void> {
     const analysisRef = doc(db, 'analyses_cendres', id);
     await updateDoc(analysisRef, data);

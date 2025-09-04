@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -11,11 +11,13 @@ import {
     deleteAshAnalysis,
     getUniqueFuelTypesFromResultats,
     getFournisseurs,
-    type AshAnalysis
+    type AshAnalysis,
+    addManyAshAnalyses,
 } from '@/lib/data';
+import * as XLSX from 'xlsx';
 import { Timestamp } from 'firebase/firestore';
 import { DateRange } from "react-day-picker";
-import { format, startOfDay, endOfDay } from 'date-fns';
+import { format, startOfDay, endOfDay, isValid, parse } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 import { Button } from '@/components/ui/button';
@@ -67,7 +69,7 @@ import {
 } from "@/components/ui/form";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ClipboardList, PlusCircle, Trash2, Edit, Save, CalendarIcon, Filter, Search } from 'lucide-react';
+import { ClipboardList, PlusCircle, Trash2, Edit, Save, CalendarIcon, Filter, Search, FileUp } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
@@ -194,6 +196,8 @@ export function AshAnalysisManager() {
     const [fournisseurs, setFournisseurs] = useState<string[]>([]);
 
     const { toast } = useToast();
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
 
     const form = useForm<FormValues>({
         resolver: zodResolver(analysisSchema),
@@ -277,6 +281,50 @@ export function AshAnalysisManager() {
         }
     };
     
+    const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const data = new Uint8Array(e.target?.result as ArrayBuffer);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const json = XLSX.utils.sheet_to_json<any>(worksheet);
+
+                const parsedAnalyses = json.map(row => {
+                    const parsedDate = parse(row.date_arrivage, 'dd/MM/yyyy', new Date());
+                     if (!isValid(parsedDate)) {
+                        throw new Error(`Date invalide à la ligne : ${JSON.stringify(row)}`);
+                    }
+                    const validatedData = analysisSchema.omit({id: true}).parse({
+                        ...row,
+                        date_arrivage: parsedDate,
+                    });
+                    return { ...validatedData, date_arrivage: Timestamp.fromDate(validatedData.date_arrivage) };
+                });
+
+                await addManyAshAnalyses(parsedAnalyses);
+                toast({ title: "Succès", description: `${parsedAnalyses.length} analyses ont été importées.` });
+                fetchInitialData(); // Refresh data
+            } catch (error) {
+                 console.error("Error importing file:", error);
+                const errorMessage = error instanceof z.ZodError ? 
+                    `Erreur de validation: ${error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}` :
+                    error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
+                toast({ variant: "destructive", title: "Erreur d'importation", description: errorMessage });
+            } finally {
+                // Reset file input
+                if(fileInputRef.current) {
+                    fileInputRef.current.value = "";
+                }
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    };
+
     const filteredAnalyses = useMemo(() => {
         return analyses.filter(a => {
             const date = a.date_arrivage.toDate();
@@ -309,10 +357,23 @@ export function AshAnalysisManager() {
                             Saisir, consulter et modifier les analyses chimiques des cendres.
                         </CardDescription>
                     </div>
-                    <Button onClick={() => handleModalOpen()}>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Ajouter une analyse
-                    </Button>
+                     <div className='flex gap-2'>
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            className="hidden"
+                            onChange={handleFileImport}
+                            accept=".xlsx, .xls"
+                        />
+                        <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                            <FileUp className="mr-2 h-4 w-4" />
+                            Importer depuis Excel
+                        </Button>
+                        <Button onClick={() => handleModalOpen()}>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Ajouter une analyse
+                        </Button>
+                    </div>
                 </div>
             </CardHeader>
             <CardContent>
