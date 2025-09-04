@@ -30,11 +30,11 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import { useToast } from '@/hooks/use-toast';
-import { saveMixtureScenario, getMixtureScenarios, deleteMixtureScenario, updateMixtureScenario, type MixtureScenario, getFuelData, type FuelData } from '@/lib/data';
+import { saveMixtureScenario, getMixtureScenarios, deleteMixtureScenario, updateMixtureScenario, type MixtureScenario, getFuelData, type FuelData, getUniqueFuelTypes } from '@/lib/data';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
-const FUEL_TYPES = [ "Pneus", "CSR", "DMB", "Plastiques", "CSR DD", "Bois", "Mélange", "Boues", "Caoutchouc"];
+
 const LOCAL_STORAGE_KEY = 'mixtureSimulatorState';
 
 interface FuelAnalysis {
@@ -50,16 +50,16 @@ interface InstallationState {
   fuels: Record<string, FuelAnalysis>;
 }
 
-const createInitialFuelState = (): Record<string, FuelAnalysis> => {
-    return FUEL_TYPES.reduce((acc, fuelType) => {
+const createInitialFuelState = (fuelTypes: string[]): Record<string, FuelAnalysis> => {
+    return fuelTypes.reduce((acc, fuelType) => {
         acc[fuelType] = { buckets: 0, pci: 0, humidity: 0, chlorine: 0, ash: 0 };
         return acc;
     }, {} as Record<string, FuelAnalysis>);
 };
 
-const createInitialInstallationState = (): InstallationState => ({
+const createInitialInstallationState = (fuelTypes: string[]): InstallationState => ({
     flowRate: 0,
-    fuels: createInitialFuelState(),
+    fuels: createInitialFuelState(fuelTypes),
 });
 
 function IndicatorCard({ title, value, unit, tooltipText }: { title: string; value: string | number; unit?: string; tooltipText?: string }) {
@@ -196,10 +196,12 @@ const FuelInputSimulator = ({
             return { ...prev, fuels: newFuels };
         });
     };
+    
+    const fuelTypes = Object.keys(installationState.fuels).sort();
 
     return (
         <div className="space-y-4">
-        {FUEL_TYPES.map(fuelName => {
+        {fuelTypes.map(fuelName => {
             const accordionId = `${installationName}-${fuelName}`;
             return (
                 <Collapsible 
@@ -285,51 +287,58 @@ const FuelInputSimulator = ({
 };
 
 export function MixtureSimulator() {
-  const [hallAF, setHallAF] = useState<InstallationState>(createInitialInstallationState());
-  const [ats, setAts] = useState<InstallationState>(createInitialInstallationState());
+  const [fuelTypes, setFuelTypes] = useState<string[]>([]);
+  const [hallAF, setHallAF] = useState<InstallationState>(createInitialInstallationState([]));
+  const [ats, setAts] = useState<InstallationState>(createInitialInstallationState([]));
   const [openAccordion, setOpenAccordion] = useState<string | null>(null);
   const [fuelData, setFuelData] = useState<Record<string, FuelData>>({});
   const { toast } = useToast();
 
-  // Load state from localStorage on initial render
   useEffect(() => {
-    try {
-        const savedStateJSON = localStorage.getItem(LOCAL_STORAGE_KEY);
-        if (savedStateJSON) {
-            const savedState = JSON.parse(savedStateJSON);
-            const initialHallState = createInitialInstallationState();
-            const initialAtsState = createInitialInstallationState();
-            
-            // Deep merge to avoid errors if state shape changes
-            if (savedState.hallAF) {
-                setHallAF({ ...initialHallState, ...savedState.hallAF, fuels: { ...initialHallState.fuels, ...savedState.hallAF.fuels } });
-            }
-            if (savedState.ats) {
-                 setAts({ ...initialAtsState, ...savedState.ats, fuels: { ...initialAtsState.fuels, ...savedState.ats.fuels } });
-            }
-        }
-    } catch (error) {
-        console.error("Could not load simulator state from localStorage", error);
-        toast({ variant: "destructive", title: "Erreur", description: "Impossible de restaurer la session de simulation."});
-    }
-  }, [toast]);
-
-  // Fetch reference fuel data
-  useEffect(() => {
-    const fetchReferenceData = async () => {
+    const fetchMasterData = async () => {
         try {
-            const allFuelData = await getFuelData();
+            const [allFuelTypes, allFuelData] = await Promise.all([
+                getUniqueFuelTypes(),
+                getFuelData()
+            ]);
+
+            setFuelTypes(allFuelTypes);
+            
             const fuelDataMap = allFuelData.reduce((acc, fd) => {
                 acc[fd.nom_combustible] = fd;
                 return acc;
             }, {} as Record<string, FuelData>);
             setFuelData(fuelDataMap);
+
+            const initialHallState = createInitialInstallationState(allFuelTypes);
+            const initialAtsState = createInitialInstallationState(allFuelTypes);
+            
+            setHallAF(initialHallState);
+            setAts(initialAtsState);
+
+            // Load from localStorage after setting initial state based on DB
+             try {
+                const savedStateJSON = localStorage.getItem(LOCAL_STORAGE_KEY);
+                if (savedStateJSON) {
+                    const savedState = JSON.parse(savedStateJSON);
+                    if (savedState.hallAF) {
+                        setHallAF(prev => ({ ...prev, ...savedState.hallAF, fuels: { ...prev.fuels, ...savedState.hallAF.fuels } }));
+                    }
+                    if (savedState.ats) {
+                        setAts(prev => ({ ...prev, ...savedState.ats, fuels: { ...prev.fuels, ...savedState.ats.fuels } }));
+                    }
+                }
+            } catch (error) {
+                console.error("Could not load simulator state from localStorage", error);
+                toast({ variant: "destructive", title: "Erreur", description: "Impossible de restaurer la session de simulation."});
+            }
+
         } catch (error) {
-            console.error("Could not load fuel data", error);
-            toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données de référence des combustibles."});
+            console.error("Could not load master data", error);
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données de référence."});
         }
-    }
-    fetchReferenceData();
+    };
+    fetchMasterData();
   }, [toast]);
 
 
@@ -347,8 +356,8 @@ export function MixtureSimulator() {
   const { globalIndicators } = useMixtureCalculations(hallAF, ats, fuelData);
 
   const handleReset = () => {
-    setHallAF(createInitialInstallationState());
-    setAts(createInitialInstallationState());
+    setHallAF(createInitialInstallationState(fuelTypes));
+    setAts(createInitialInstallationState(fuelTypes));
     setOpenAccordion(null);
     try {
         localStorage.removeItem(LOCAL_STORAGE_KEY);
@@ -364,8 +373,8 @@ export function MixtureSimulator() {
   };
 
   const handleScenarioLoad = (scenario: MixtureScenario) => {
-    const fullHallState = createInitialInstallationState();
-    const fullAtsState = createInitialInstallationState();
+    const fullHallState = createInitialInstallationState(fuelTypes);
+    const fullAtsState = createInitialInstallationState(fuelTypes);
 
     if (scenario.donnees_hall) {
         fullHallState.flowRate = scenario.donnees_hall.flowRate || 0;
@@ -651,3 +660,4 @@ export function MixtureSimulator() {
     </div>
   );
 }
+
