@@ -281,6 +281,19 @@ export function AshAnalysisManager() {
         }
     };
     
+    const excelDateToJSDate = (serial: number) => {
+        const utc_days  = Math.floor(serial - 25569);
+        const utc_value = utc_days * 86400;                                        
+        const date_info = new Date(utc_value * 1000);
+        const fractional_day = serial - Math.floor(serial) + 0.0000001;
+        let total_seconds = Math.floor(86400 * fractional_day);
+        const seconds = total_seconds % 60;
+        total_seconds -= seconds;
+        const hours = Math.floor(total_seconds / (60 * 60));
+        const minutes = Math.floor(total_seconds / 60) % 60;
+        return new Date(date_info.getFullYear(), date_info.getMonth(), date_info.getDate(), hours, minutes, seconds);
+    }
+    
     const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
@@ -294,11 +307,26 @@ export function AshAnalysisManager() {
                 const worksheet = workbook.Sheets[sheetName];
                 const json = XLSX.utils.sheet_to_json<any>(worksheet);
 
-                const parsedAnalyses = json.map(row => {
-                    const parsedDate = parse(row.date_arrivage, 'dd/MM/yyyy', new Date());
-                     if (!isValid(parsedDate)) {
-                        throw new Error(`Date invalide à la ligne : ${JSON.stringify(row)}`);
+                if (!json || json.length === 0) {
+                    throw new Error("Le fichier Excel est vide ou mal formaté.");
+                }
+
+                const parsedAnalyses = json.map((row, index) => {
+                    let parsedDate;
+                    const dateValue = row.date_arrivage;
+
+                    if (typeof dateValue === 'number') {
+                        parsedDate = excelDateToJSDate(dateValue);
+                    } else if (typeof dateValue === 'string') {
+                         parsedDate = parse(dateValue, 'dd/MM/yyyy', new Date());
+                    } else {
+                        throw new Error(`Format de date non reconnu à la ligne ${index + 2}.`);
                     }
+
+                    if (!isValid(parsedDate)) {
+                        throw new Error(`Date invalide à la ligne ${index + 2} pour la valeur "${dateValue}"`);
+                    }
+
                     const validatedData = analysisSchema.omit({id: true}).parse({
                         ...row,
                         date_arrivage: parsedDate,
@@ -314,7 +342,7 @@ export function AshAnalysisManager() {
                 const errorMessage = error instanceof z.ZodError ? 
                     `Erreur de validation: ${error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}` :
                     error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
-                toast({ variant: "destructive", title: "Erreur d'importation", description: errorMessage });
+                toast({ variant: "destructive", title: "Erreur d'importation", description: errorMessage, duration: 9000 });
             } finally {
                 // Reset file input
                 if(fileInputRef.current) {
