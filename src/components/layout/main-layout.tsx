@@ -22,6 +22,7 @@ const pageTitles: { [key: string]: string } = {
   '/statistiques': 'Tableau de Bord des Statistiques',
   '/specifications': 'Spécifications Techniques',
   '/analyses-cendres': 'Suivi Analyses des Cendres',
+  '/donnees-combustibles': 'Données de Référence',
   '/calcul-melange': 'Calcul de Mélange',
   '/simulation-melange': 'Simulation de Mélange',
   '/gestion-couts': 'Gestion des Coûts',
@@ -31,13 +32,8 @@ const pageTitles: { [key: string]: string } = {
 };
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
-  const [isClient, setIsClient] = React.useState(false);
   const pathname = usePathname();
   const title = pageTitles[pathname] || 'FuelTrack AFR';
-
-  React.useEffect(() => {
-    setIsClient(true);
-  }, []);
 
   return (
     <SidebarProvider>
@@ -65,10 +61,10 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
             <SidebarTrigger />
           </div>
           <div className="flex-1 text-center">
-            {isClient && title && <h1 className="text-xl font-bold tracking-tight">{title}</h1>}
+            <h1 className="text-xl font-bold tracking-tight">{title}</h1>
           </div>
            <div className="flex items-center justify-end" style={{ minWidth: '180px' }}>
-             {isClient && pathname === '/resultats' && (
+             {pathname === '/resultats' && (
                 <Button asChild size="sm" className="bg-green-600 hover:bg-green-700 text-white">
                   <Link href="/calculateur">
                     <Plus className="mr-2 h-4 w-4" />
@@ -76,7 +72,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                   </Link>
                 </Button>
             )}
-             {isClient && pathname === '/specifications' && (
+             {pathname === '/specifications' && (
                 <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={() => (window as any).openSpecModal()}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Ajouter une spécification
