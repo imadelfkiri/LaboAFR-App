@@ -622,3 +622,19 @@ export async function deleteAshAnalysis(id: string): Promise<void> {
     const analysisRef = doc(db, 'analyses_cendres', id);
     await deleteDoc(analysisRef);
 }
+
+export async function deleteAllResults(): Promise<void> {
+    const resultsCollection = collection(db, 'resultats');
+    const snapshot = await getDocs(resultsCollection);
+
+    if (snapshot.empty) {
+        return;
+    }
+
+    const batch = writeBatch(db);
+    snapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+    });
+
+    await batch.commit();
+}

@@ -53,8 +53,9 @@ import {
   AlertTriangle,
   CheckCircle2,
   ChevronDown,
+  Trash,
 } from "lucide-react";
-import { getSpecifications, SPEC_MAP, getFuelSupplierMap } from "@/lib/data";
+import { getSpecifications, SPEC_MAP, getFuelSupplierMap, deleteAllResults } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
 import {
@@ -76,7 +77,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { MultiSelect } from "@/components/ui/multi-select";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -131,6 +131,8 @@ export function ResultsTable() {
   const [fournisseurFilter, setFournisseurFilter] = useState<string[]>([]);
   const [dateFilter, setDateFilter] = useState<DateRange | undefined>();
   const [resultToDelete, setResultToDelete] = useState<string | null>(null);
+  const [isDeleteAllConfirmOpen, setIsDeleteAllConfirmOpen] = useState(false);
+
 
   const [fuelSupplierMap, setFuelSupplierMap] = useState<Record<string, string[]>>({});
   const [availableFournisseurs, setAvailableFournisseurs] = useState<string[]>([]);
@@ -271,6 +273,23 @@ export function ResultsTable() {
       setResultToDelete(null);
     }
   };
+
+  const handleDeleteAll = async () => {
+    try {
+      await deleteAllResults();
+      toast({ title: "Succès", description: "Tous les résultats ont été supprimés." });
+    } catch (error) {
+      console.error("Erreur lors de la suppression de tous les résultats :", error);
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "La suppression de l'historique a échoué.",
+      });
+    } finally {
+      setIsDeleteAllConfirmOpen(false);
+    }
+  };
+
 
   const formatNumber = (num: number | null | undefined, fractionDigits: number = 0) => {
     if (num === null || num === undefined || Number.isNaN(num)) return "";
@@ -854,6 +873,8 @@ export function ResultsTable() {
               <XCircle className="mr-2 h-4 w-4" />
               Réinitialiser
             </Button>
+            
+            <div className="flex-grow" />
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -874,22 +895,49 @@ export function ResultsTable() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            <AlertDialog onOpenChange={setIsDeleteAllConfirmOpen} open={isDeleteAllConfirmOpen}>
+                <AlertDialogTrigger asChild>
+                    <Button variant="destructive" className="w-full sm:w-auto">
+                        <Trash className="mr-2 h-4 w-4" />
+                        Tout Supprimer
+                    </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                    <AlertDialogTitle>Êtes-vous absolument sûr ?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Cette action est irréversible et supprimera définitivement
+                        TOUT l'historique des résultats.
+                    </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                    <AlertDialogCancel>Annuler</AlertDialogCancel>
+                    <AlertDialogAction
+                        onClick={handleDeleteAll}
+                        className="bg-destructive hover:bg-destructive/90"
+                    >
+                        Oui, tout supprimer
+                    </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
           </div>
 
           <div className="flex-grow rounded-lg border overflow-auto max-h-[calc(100vh-220px)]">
-            <Table className="min-w-[1200px] border-separate border-spacing-0">
+            <table className="min-w-[1200px] w-full border-separate border-spacing-0">
               <TableHeader>
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
-                  <TableHead className="w-[120px] px-4 sticky left-0 bg-muted/50 z-10">Date Arrivage</TableHead>
-                  <TableHead className="px-4 sticky left-[120px] bg-muted/50 z-10">Type Combustible</TableHead>
-                  <TableHead className="px-4 sticky top-0 bg-muted/50">Fournisseur</TableHead>
-                  <TableHead className="text-right text-primary font-bold px-4 sticky top-0 bg-muted/50">PCI sur Brut</TableHead>
-                  <TableHead className="text-right px-4 sticky top-0 bg-muted/50">% H2O</TableHead>
-                  <TableHead className="text-right px-4 sticky top-0 bg-muted/50">% Cl-</TableHead>
-                  <TableHead className="text-right px-4 sticky top-0 bg-muted/50">% Cendres</TableHead>
-                  <TableHead className="px-4 font-bold sticky top-0 bg-muted/50">Alertes</TableHead>
-                  <TableHead className="px-4 sticky top-0 bg-muted/50">Remarques</TableHead>
-                  <TableHead className="w-[50px] text-right px-4 sticky right-0 bg-muted/50 z-10">Action</TableHead>
+                  <TableHead className="w-[120px] px-4 sticky left-0 bg-muted/50 z-20">Date Arrivage</TableHead>
+                  <TableHead className="px-4 sticky left-[120px] bg-muted/50 z-20">Type Combustible</TableHead>
+                  <TableHead className="px-4 sticky top-0 bg-muted/50 z-10">Fournisseur</TableHead>
+                  <TableHead className="text-right text-primary font-bold px-4 sticky top-0 bg-muted/50 z-10">PCI sur Brut</TableHead>
+                  <TableHead className="text-right px-4 sticky top-0 bg-muted/50 z-10">% H2O</TableHead>
+                  <TableHead className="text-right px-4 sticky top-0 bg-muted/50 z-10">% Cl-</TableHead>
+                  <TableHead className="text-right px-4 sticky top-0 bg-muted/50 z-10">% Cendres</TableHead>
+                  <TableHead className="px-4 font-bold sticky top-0 bg-muted/50 z-10">Alertes</TableHead>
+                  <TableHead className="px-4 sticky top-0 bg-muted/50 z-10">Remarques</TableHead>
+                  <TableHead className="w-[50px] text-right px-4 sticky right-0 bg-muted/50 z-20">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -899,10 +947,10 @@ export function ResultsTable() {
                       const alert = generateAlerts(result);
                       return (
                         <TableRow key={result.id}>
-                          <TableCell className="font-medium px-4 sticky left-0 bg-background">
+                          <TableCell className="font-medium px-4 sticky left-0 bg-background z-10">
                             {formatDate(result.date_arrivage)}
                           </TableCell>
-                          <TableCell className="px-4 sticky left-[120px] bg-background">
+                          <TableCell className="px-4 sticky left-[120px] bg-background z-10">
                             {result.type_combustible}
                           </TableCell>
                           <TableCell className="px-4">{result.fournisseur}</TableCell>
@@ -946,8 +994,8 @@ export function ResultsTable() {
                         </TableRow>
                       );
                     })}
-                    <TableRow className="bg-muted/40 font-semibold">
-                      <TableCell colSpan={3} className="px-4 sticky left-0 bg-muted/40">
+                    <TableRow className="bg-muted/40 font-semibold hover:bg-muted/40">
+                      <TableCell colSpan={3} className="px-4 sticky left-0 bg-muted/40 z-10">
                         Moyenne de la sélection
                       </TableCell>
                       <TableCell className="text-right text-primary px-4">
@@ -962,7 +1010,7 @@ export function ResultsTable() {
                       <TableCell className="text-right px-4">
                         {formatNumber(calculateAverage(filteredResults, "cendres"), 1)}
                       </TableCell>
-                      <TableCell colSpan={3} className="sticky right-0 bg-muted/40" />
+                      <TableCell colSpan={3} className="sticky right-0 bg-muted/40 z-10" />
                     </TableRow>
                   </>
                 ) : (
@@ -973,7 +1021,7 @@ export function ResultsTable() {
                   </TableRow>
                 )}
               </TableBody>
-            </Table>
+            </table>
           </div>
 
           <AlertDialogContent>
