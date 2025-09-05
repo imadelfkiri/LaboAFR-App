@@ -614,10 +614,10 @@ export function AshAnalysisManager() {
         <div className="flex-grow rounded-lg border">
             <ScrollArea className="w-full">
                 <Table className="min-w-max">
-                    <TableHeader className="sticky top-0 bg-muted/50 z-10">
+                    <TableHeader className="sticky top-0 bg-muted/50 z-20">
                         <TableRow>
-                            <TableHead className="w-[120px] sticky left-0 bg-muted/50">Date Arrivage</TableHead>
-                            <TableHead className="w-[150px] sticky left-[120px] bg-muted/50">Combustible</TableHead>
+                            <TableHead className="w-[120px] sticky left-0 bg-muted/50 z-30">Date Arrivage</TableHead>
+                            <TableHead className="w-[150px] sticky left-[120px] bg-muted/50 z-30">Combustible</TableHead>
                             <TableHead className="w-[150px]">Fournisseur</TableHead>
                             <TableHead className="text-right">% Cendres</TableHead>
                             <TableHead className="text-right">PAF</TableHead>
@@ -634,7 +634,7 @@ export function AshAnalysisManager() {
                             <TableHead className="text-right">MS</TableHead>
                             <TableHead className="text-right">A/F</TableHead>
                             <TableHead className="text-right">LSF</TableHead>
-                            <TableHead className="text-center w-[100px] sticky right-0 bg-muted/50">Actions</TableHead>
+                            <TableHead className="text-center w-[100px] sticky right-0 bg-muted/50 z-30">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -647,8 +647,8 @@ export function AshAnalysisManager() {
                                 const { ms, af, lsf } = calculateModules(analysis.sio2, analysis.al2o3, analysis.fe2o3, analysis.cao);
                                 return (
                                     <TableRow key={analysis.id} className="h-auto">
-                                        <TableCell className="sticky left-0 bg-background py-1.5">{format(analysis.date_arrivage.toDate(), "d MMM yyyy", {locale: fr})}</TableCell>
-                                        <TableCell className="font-medium sticky left-[120px] bg-background py-1.5">{analysis.type_combustible}</TableCell>
+                                        <TableCell className="sticky left-0 bg-background py-1.5 z-10">{format(analysis.date_arrivage.toDate(), "d MMM yyyy", {locale: fr})}</TableCell>
+                                        <TableCell className="font-medium sticky left-[120px] bg-background py-1.5 z-10">{analysis.type_combustible}</TableCell>
                                         <TableCell className="py-1.5">{analysis.fournisseur}</TableCell>
                                         <TableCell className="text-right py-1.5">{formatNumber(analysis.pourcentage_cendres, 1)}</TableCell>
                                         <TableCell className="text-right py-1.5">{formatNumber(analysis.paf, 1)}</TableCell>
@@ -665,7 +665,7 @@ export function AshAnalysisManager() {
                                         <TableCell className="text-right font-medium text-blue-600 py-1.5">{modulesFormatNumber(ms)}</TableCell>
                                         <TableCell className="text-right font-medium text-green-600 py-1.5">{modulesFormatNumber(af)}</TableCell>
                                         <TableCell className="text-right font-medium text-orange-600 py-1.5">{modulesFormatNumber(lsf)}</TableCell>
-                                        <TableCell className="sticky right-0 bg-background py-1.5 text-center">
+                                        <TableCell className="sticky right-0 bg-background py-1.5 text-center z-10">
                                             <div className="flex justify-center items-center">
                                                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleModalOpen(analysis)}><Edit className="h-4 w-4" /></Button>
                                                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDeletingRowId(analysis.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
