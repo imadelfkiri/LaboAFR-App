@@ -16,6 +16,8 @@ import {
     addManyAshAnalyses,
 } from '@/lib/data';
 import * as XLSX from 'xlsx';
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 import { Timestamp } from 'firebase/firestore';
 import { DateRange } from "react-day-picker";
 import { format, startOfDay, endOfDay, isValid, parse } from 'date-fns';
@@ -61,6 +63,12 @@ import {
   DialogClose,
 } from "@/components/ui/dialog"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Form,
   FormControl,
   FormField,
@@ -70,9 +78,16 @@ import {
 } from "@/components/ui/form";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ClipboardList, PlusCircle, Trash2, Edit, Save, CalendarIcon, Filter, Search, FileUp, Download } from 'lucide-react';
+import { ClipboardList, PlusCircle, Trash2, Edit, Save, CalendarIcon, Search, FileUp, Download, ChevronDown } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+
+// Extend jsPDF for autoTable
+declare module "jspdf" {
+  interface jsPDF {
+    autoTable: (options: any) => jsPDF;
+  }
+}
 
 const analysisSchema = z.object({
   id: z.string().optional(),
@@ -462,6 +477,65 @@ export function AshAnalysisManager() {
         XLSX.writeFile(workbook, `Export_Analyses_Cendres_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
     };
 
+    const exportToPdf = () => {
+        if (filteredAnalyses.length === 0) {
+            toast({ variant: "destructive", title: "Aucune donnée", description: "Il n'y a pas de données à exporter." });
+            return;
+        }
+
+        const doc = new jsPDF({ orientation: 'landscape' });
+        const title = "Rapport des Analyses de Cendres";
+        const generationDate = format(new Date(), "dd/MM/yyyy HH:mm:ss");
+
+        doc.setFontSize(16);
+        doc.setFont("helvetica", "bold");
+        doc.text(title, doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Généré le: ${generationDate}`, doc.internal.pageSize.getWidth() / 2, 22, { align: 'center' });
+
+        const head = [[
+            "Date", "Combustible", "Fourn.", "% Cendres", "PAF",
+            "SiO2", "Al2O3", "Fe2O3", "CaO", "MgO", "SO3", "K2O", "TiO2", "MnO", "P2O5",
+            "MS", "A/F", "LSF"
+        ]];
+
+        const body = filteredAnalyses.map(a => {
+            const { ms, af, lsf } = calculateModules(a.sio2, a.al2o3, a.fe2o3, a.cao);
+            return [
+                format(a.date_arrivage.toDate(), "dd/MM/yy"),
+                a.type_combustible,
+                a.fournisseur,
+                a.pourcentage_cendres?.toFixed(1) ?? '-',
+                a.paf?.toFixed(1) ?? '-',
+                a.sio2?.toFixed(1) ?? '-',
+                a.al2o3?.toFixed(1) ?? '-',
+                a.fe2o3?.toFixed(1) ?? '-',
+                a.cao?.toFixed(1) ?? '-',
+                a.mgo?.toFixed(1) ?? '-',
+                a.so3?.toFixed(1) ?? '-',
+                a.k2o?.toFixed(1) ?? '-',
+                a.tio2?.toFixed(1) ?? '-',
+                a.mno?.toFixed(1) ?? '-',
+                a.p2o5?.toFixed(1) ?? '-',
+                isFinite(ms) ? ms.toFixed(2) : '∞',
+                isFinite(af) ? af.toFixed(2) : '∞',
+                isFinite(lsf) ? lsf.toFixed(2) : '∞',
+            ];
+        });
+
+        doc.autoTable({
+            head,
+            body,
+            startY: 30,
+            theme: 'grid',
+            styles: { fontSize: 6, cellPadding: 1.5 },
+            headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
+        });
+
+        doc.save(`Rapport_Analyses_Cendres_${format(new Date(), "yyyy-MM-dd")}.pdf`);
+    };
+
 
     return (
       <div className="space-y-4 h-full flex flex-col">
@@ -477,11 +551,21 @@ export function AshAnalysisManager() {
                             Saisir, consulter et modifier les analyses chimiques des cendres.
                         </CardDescription>
                     </div>
-                     <div className='flex gap-2'>
-                        <Button variant="outline" onClick={exportToExcel}>
-                            <Download className="mr-2 h-4 w-4" />
-                            Exporter en Excel
-                        </Button>
+                     <div className='flex gap-2 flex-wrap justify-end'>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline">
+                                    <Download className="mr-2 h-4 w-4" />
+                                    Exporter
+                                    <ChevronDown className="ml-2 h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={exportToExcel}>Exporter en Excel</DropdownMenuItem>
+                                <DropdownMenuItem onClick={exportToPdf}>Exporter en PDF</DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+
                         <input
                             type="file"
                             ref={fileInputRef}
@@ -528,7 +612,7 @@ export function AshAnalysisManager() {
         </Card>
         
         <div className="flex-grow rounded-lg border">
-            <ScrollArea className="h-[calc(100vh-320px)] w-full">
+            <ScrollArea className="w-full">
                 <Table className="min-w-max">
                     <TableHeader className="sticky top-0 bg-muted/50 z-10">
                         <TableRow>
@@ -555,7 +639,7 @@ export function AshAnalysisManager() {
                     </TableHeader>
                     <TableBody>
                         {loading ? (
-                            Array.from({ length: 5 }).map((_, i) => (
+                            Array.from({ length: 10 }).map((_, i) => (
                                 <TableRow key={i}><TableCell colSpan={19} className="py-2"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
                             ))
                         ) : filteredAnalyses.length > 0 ? (
@@ -634,3 +718,5 @@ export function AshAnalysisManager() {
       </div>
     );
 }
+
+    
