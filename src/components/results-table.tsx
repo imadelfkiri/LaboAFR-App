@@ -131,15 +131,16 @@ declare module "jspdf" {
 
 const importSchema = z.object({
   date_arrivage: z.date({ required_error: "Date requise." }),
-  type_combustible: z.string().nonempty(),
-  fournisseur: z.string().nonempty(),
-  pcs: z.coerce.number(),
-  h2o: z.coerce.number().min(0).max(100),
-  chlore: z.coerce.number().min(0).optional().nullable(),
-  cendres: z.coerce.number().min(0).optional().nullable(),
+  type_combustible: z.string().nonempty({message: "Le type de combustible est requis."}),
+  fournisseur: z.string().nonempty({message: "Le fournisseur est requis."}),
+  pcs: z.coerce.number({invalid_type_error: "PCS doit être un nombre."}),
+  h2o: z.coerce.number({invalid_type_error: "H2O doit être un nombre."}).min(0).max(100),
+  chlore: z.coerce.number({invalid_type_error: "Chlore doit être un nombre."}).min(0).optional().nullable(),
+  cendres: z.coerce.number({invalid_type_error: "Cendres doit être un nombre."}).min(0).optional().nullable(),
   remarques: z.string().optional().nullable(),
   taux_fils_metalliques: z.coerce.number().min(0).max(100).optional().nullable(),
 });
+
 
 export function ResultsTable() {
   const [results, setResults] = useState<Result[]>([]);
@@ -841,7 +842,7 @@ export function ResultsTable() {
                 };
 
                 const parseDate = (value: any, rowNum: number): Date => {
-                    if (!value) throw new Error(`Date vide à la ligne ${rowNum}.`);
+                    if (!value) throw new Error(`Ligne ${rowNum}: La date est requise.`);
                     if (typeof value === 'number') {
                         const date = excelDateToJSDate(value);
                         if (isValid(date)) return date;
@@ -853,14 +854,19 @@ export function ResultsTable() {
                             if (isValid(date)) return date;
                         }
                     }
-                    throw new Error(`Format de date non reconnu à la ligne ${rowNum} pour la valeur "${value}".`);
+                    throw new Error(`Ligne ${rowNum}: Format de date non reconnu pour la valeur "${value}".`);
                 };
 
                 const headerMapping: { [key: string]: keyof z.infer<typeof importSchema> } = {
+                    'date': 'date_arrivage',
                     'date arrivage': 'date_arrivage',
+                    'date_arrivage': 'date_arrivage',
                     'combustible': 'type_combustible',
+                    'type combustible': 'type_combustible',
+                    'type_combustible': 'type_combustible',
                     'fournisseur': 'fournisseur',
                     'pcs': 'pcs',
+                    'pcs (kcal/kg)': 'pcs',
                     'h2o': 'h2o',
                     '% h2o': 'h2o',
                     'cl-': 'chlore',
@@ -871,6 +877,7 @@ export function ResultsTable() {
                     'remarques': 'remarques',
                     'taux fils metalliques': 'taux_fils_metalliques',
                     'taux fils': 'taux_fils_metalliques',
+                    'fils metalliques': 'taux_fils_metalliques',
                 };
 
                 const parsedResults = json.map((row, index) => {
@@ -889,32 +896,39 @@ export function ResultsTable() {
                         }
                     }
 
-                    const parsedDate = parseDate(mappedRow.date_arrivage, rowNum);
-                    
-                    const validatedData = importSchema.parse({
-                        ...mappedRow,
-                        date_arrivage: parsedDate,
-                    });
-                    
-                    const hValue = fuelDataMap.get(validatedData.type_combustible)?.teneur_hydrogene;
-                    if (hValue === null || hValue === undefined) {
-                        throw new Error(`Teneur en hydrogène non définie pour "${validatedData.type_combustible}" à la ligne ${rowNum}.`);
-                    }
-
-                    let pcsToUse = validatedData.pcs;
-                    if (validatedData.type_combustible.toLowerCase().includes('pneu') && validatedData.taux_fils_metalliques) {
-                        const taux = Number(validatedData.taux_fils_metalliques);
-                        if (taux > 0 && taux < 100) {
-                           pcsToUse = pcsToUse * (1 - taux / 100);
+                    try {
+                        const parsedDate = parseDate(mappedRow.date_arrivage, rowNum);
+                        
+                        const validatedData = importSchema.parse({
+                            ...mappedRow,
+                            date_arrivage: parsedDate,
+                        });
+                        
+                        const hValue = fuelDataMap.get(validatedData.type_combustible)?.teneur_hydrogene;
+                        if (hValue === null || hValue === undefined) {
+                            throw new Error(`Teneur en hydrogène non définie pour "${validatedData.type_combustible}".`);
                         }
-                    }
-                    
-                    const pci_brut = calculerPCI(pcsToUse, validatedData.h2o, hValue);
-                    if (pci_brut === null) {
-                         throw new Error(`Calcul du PCI impossible pour la ligne ${rowNum}.`);
-                    }
 
-                    return { ...validatedData, pci_brut, date_arrivage: Timestamp.fromDate(validatedData.date_arrivage) };
+                        let pcsToUse = validatedData.pcs;
+                        if (validatedData.type_combustible.toLowerCase().includes('pneu') && validatedData.taux_fils_metalliques) {
+                            const taux = Number(validatedData.taux_fils_metalliques);
+                            if (taux > 0 && taux < 100) {
+                               pcsToUse = pcsToUse * (1 - taux / 100);
+                            }
+                        }
+                        
+                        const pci_brut = calculerPCI(pcsToUse, validatedData.h2o, hValue);
+                        if (pci_brut === null) {
+                             throw new Error(`Calcul du PCI impossible.`);
+                        }
+
+                        return { ...validatedData, pci_brut, date_creation: Timestamp.now(), date_arrivage: Timestamp.fromDate(validatedData.date_arrivage) };
+                    } catch (error) {
+                         const errorMessage = error instanceof z.ZodError ? 
+                            error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ') :
+                            error instanceof Error ? error.message : "Erreur inconnue.";
+                        throw new Error(`Ligne ${rowNum}: ${errorMessage}`);
+                    }
                 });
 
                 await addManyResults(parsedResults);
@@ -922,9 +936,7 @@ export function ResultsTable() {
 
             } catch (error) {
                 console.error("Error importing file:", error);
-                const errorMessage = error instanceof z.ZodError ? 
-                    `Erreur de validation: ${error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}` :
-                    error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
+                const errorMessage = error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
                 toast({ variant: "destructive", title: "Erreur d'importation", description: errorMessage, duration: 9000 });
             } finally {
                  if(fileInputRef.current) {
@@ -954,7 +966,7 @@ export function ResultsTable() {
             onChange={handleFileImport}
             accept=".xlsx, .xls"
         />
-        <div className="flex flex-col gap-4 p-4 lg:p-6 h-full">
+        <div className="flex flex-col gap-4 h-full">
           <div className="flex flex-wrap items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-md px-3 py-2">
             <MultiSelect
               options={uniqueFuelTypes.map((f) => ({ label: f, value: f }))}
@@ -1079,27 +1091,27 @@ export function ResultsTable() {
 
           <div className="flex-grow rounded-lg border overflow-auto max-h-[calc(100vh-220px)]">
             <table className="min-w-[1200px] w-full border-separate border-spacing-0">
-              <TableHeader>
-                <TableRow className="bg-muted/50 hover:bg-muted/50">
+              <thead className="sticky top-0 z-10 bg-muted/50 hover:bg-muted/50">
+                <TableRow>
                   <TableHead className="w-[120px] px-4 sticky left-0 bg-muted/50 z-20">Date Arrivage</TableHead>
                   <TableHead className="px-4 sticky left-[120px] bg-muted/50 z-20">Type Combustible</TableHead>
-                  <TableHead className="px-4 sticky top-0 bg-muted/50 z-10">Fournisseur</TableHead>
-                  <TableHead className="text-right text-primary font-bold px-4 sticky top-0 bg-muted/50 z-10">PCI sur Brut</TableHead>
-                  <TableHead className="text-right px-4 sticky top-0 bg-muted/50 z-10">% H2O</TableHead>
-                  <TableHead className="text-right px-4 sticky top-0 bg-muted/50 z-10">% Cl-</TableHead>
-                  <TableHead className="text-right px-4 sticky top-0 bg-muted/50 z-10">% Cendres</TableHead>
-                  <TableHead className="px-4 font-bold sticky top-0 bg-muted/50 z-10">Alertes</TableHead>
-                  <TableHead className="px-4 sticky top-0 bg-muted/50 z-10">Remarques</TableHead>
+                  <TableHead className="px-4">Fournisseur</TableHead>
+                  <TableHead className="text-right text-primary font-bold px-4">PCI sur Brut</TableHead>
+                  <TableHead className="text-right px-4">% H2O</TableHead>
+                  <TableHead className="text-right px-4">% Cl-</TableHead>
+                  <TableHead className="text-right px-4">% Cendres</TableHead>
+                  <TableHead className="px-4 font-bold">Alertes</TableHead>
+                  <TableHead className="px-4">Remarques</TableHead>
                   <TableHead className="w-[50px] text-right px-4 sticky right-0 bg-muted/50 z-20">Action</TableHead>
                 </TableRow>
-              </TableHeader>
+              </thead>
               <TableBody>
                 {filteredResults.length > 0 ? (
                   <>
                     {filteredResults.map((result) => {
                       const alert = generateAlerts(result);
                       return (
-                        <TableRow key={result.id}>
+                        <TableRow key={result.id} className="bg-background">
                           <TableCell className="font-medium px-4 sticky left-0 bg-background z-10">
                             {formatDate(result.date_arrivage)}
                           </TableCell>
