@@ -611,7 +611,7 @@ export function AshAnalysisManager() {
             </CardContent>
         </Card>
         
-        <div className="flex-grow rounded-lg border">
+        <div className="flex-grow rounded-lg border bg-background">
             <ScrollArea className="h-full">
                 <Table className="min-w-max relative border-collapse">
                     <TableHeader className="sticky top-0 z-20 bg-background">
