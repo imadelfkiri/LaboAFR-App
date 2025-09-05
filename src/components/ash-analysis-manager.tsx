@@ -423,6 +423,19 @@ export function AshAnalysisManager() {
         reader.readAsArrayBuffer(file);
     };
 
+    const getSortableValue = (item: AshAnalysis, key: SortableKeys) => {
+        if (key === 'ms' || key === 'af' || key === 'lsf') {
+            const modules = calculateModules(item.sio2, item.al2o3, item.fe2o3, item.cao);
+            return modules[key];
+        }
+        if (key === 'date_arrivage') {
+            return item.date_arrivage.toMillis();
+        }
+        const value = item[key as keyof AshAnalysis];
+        // For sorting, treat null/undefined as a very low number to group them
+        return value === null || value === undefined ? -Infinity : (typeof value === 'string' ? value.toLowerCase() : value);
+    };
+
     const sortedAndFilteredAnalyses = useMemo(() => {
         let sortableItems = [...analyses].filter(a => {
             const date = a.date_arrivage.toDate();
@@ -457,19 +470,6 @@ export function AshAnalysisManager() {
         return sortableItems;
 
     }, [analyses, fuelTypeFilter, fournisseurFilter, dateRangeFilter, searchQuery, sortConfig]);
-
-    const getSortableValue = (item: AshAnalysis, key: SortableKeys) => {
-        if (key === 'ms' || key === 'af' || key === 'lsf') {
-            const modules = calculateModules(item.sio2, item.al2o3, item.fe2o3, item.cao);
-            return modules[key];
-        }
-        if (key === 'date_arrivage') {
-            return item.date_arrivage.toMillis();
-        }
-        const value = item[key as keyof AshAnalysis];
-        // For sorting, treat null/undefined as a very low number to group them
-        return value === null || value === undefined ? -Infinity : (typeof value === 'string' ? value.toLowerCase() : value);
-    };
 
     const requestSort = (key: SortableKeys) => {
         let direction: 'ascending' | 'descending' = 'ascending';
