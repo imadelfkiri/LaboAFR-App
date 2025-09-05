@@ -73,6 +73,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ClipboardList, PlusCircle, Trash2, Edit, Save, CalendarIcon, Search, FileUp, Download, ChevronDown, ArrowUpDown, Filter, Plus, Upload } from 'lucide-react';
 import { cn } from "@/lib/utils";
+import ToolbarAnalysesCendres from './toolbar-analyses-cendres';
 
 // Extend jsPDF for autoTable
 declare module "jspdf" {
@@ -259,114 +260,70 @@ function AnalysesCendresView({
   ];
 
   return (
-    <div className="mx-auto w-full max-w-[1280px] p-3 md:p-5 space-y-3">
-      {/* Toolbar compacte */}
-      <Card className="rounded-2xl shadow-sm border">
-        <CardContent className="p-3">
-          <div className="grid grid-cols-1 lg:grid-cols-7 gap-2">
-            <div className="lg:col-span-3">
-              <Label className="text-[11px] text-muted-foreground">Rechercher</Label>
-              <Input className="h-9" placeholder="Combustible, fournisseur…" value={q} onChange={(e)=>setQ(e.target.value)} />
-            </div>
-            <div>
-              <Label className="text-[11px] text-muted-foreground">Combustible</Label>
-              <Select value={fuel} onValueChange={setFuel}>
-                <SelectTrigger className="h-9"><SelectValue placeholder="Tous" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__ALL__">Tous</SelectItem>
-                  {fuels.map((f: string)=><SelectItem key={f} value={f}>{f}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-[11px] text-muted-foreground">Fournisseur</Label>
-              <Select value={supplier} onValueChange={setSupplier}>
-                <SelectTrigger className="h-9"><SelectValue placeholder="Tous" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__ALL__">Tous</SelectItem>
-                  {suppliers.map((s: string)=><SelectItem key={s} value={s}>{s}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className='grid grid-cols-2 gap-2'>
-              <div>
-                <Label className="text-[11px] text-muted-foreground">Du</Label>
-                <Input type="date" className="h-9" value={from} onChange={(e)=>setFrom(e.target.value)} />
-              </div>
-              <div>
-                <Label className="text-[11px] text-muted-foreground">Au</Label>
-                <Input type="date" className="h-9" value={to} onChange={(e)=>setTo(e.target.value)} />
-              </div>
-            </div>
-            <div className="flex items-end justify-end gap-2">
-              <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="h-9"><Download className="w-4 h-4 mr-1"/>Exporter</Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => onExport('excel')}>Exporter en Excel</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onExport('pdf')}>Exporter en PDF</DropdownMenuItem>
-                  </DropdownMenuContent>
-              </DropdownMenu>
-              <Button variant="outline" className="h-9" onClick={onImport}><Upload className="w-4 h-4 mr-1"/>Importer</Button>
-              <Button className="h-9" onClick={onAdd}><Plus className="w-4 h-4 mr-1"/>Ajouter</Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+    <div className="flex flex-col h-full">
+      <ToolbarAnalysesCendres
+        q={q} setQ={setQ}
+        fuel={fuel} setFuel={setFuel}
+        supplier={supplier} setSupplier={setSupplier}
+        from={from} setFrom={setFrom}
+        to={to} setTo={setTo}
+        fuels={fuels} suppliers={suppliers}
+        onAdd={onAdd} onExport={onExport} onImport={onImport}
+      />
 
-      {/* Tableau */}
-      <Card className="rounded-2xl shadow-md">
-        <CardContent className="p-0">
-          <div className="max-h-[70vh] overflow-auto rounded-2xl border-t bg-background">
-            <table className="w-full text-[13px] border-separate border-spacing-0">
-              <thead className="text-muted-foreground">
-                <tr>
-                  {headers.map(h => <SortableHeader key={h.key} label={h.label} sortKey={h.key} />)}
-                   <th className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-center font-semibold border-b">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(rows ?? []).map((r: any, i: number) => (
-                  <tr key={r.id ?? i} className="border-b last:border-0 even:bg-muted/30 hover:bg-muted/50 transition-colors">
-                    <td className="p-2 text-muted-foreground whitespace-nowrap">{r.dateArrivage}</td>
-                    <td className="p-2 font-medium">{r.combustible}</td>
-                    <td className="p-2">{r.fournisseur}</td>
-                    <td className="p-2 text-right tabular-nums">{r.oxides?.['%Cendres']}</td>
-                    <td className="p-2 text-right tabular-nums">{r.oxides?.PAF}</td>
-                    <td className="p-2 text-right tabular-nums">{r.oxides?.SiO2}</td>
-                    <td className="p-2 text-right tabular-nums">{r.oxides?.Al2O3}</td>
-                    <td className="p-2 text-right tabular-nums">{r.oxides?.Fe2O3}</td>
-                    <td className="p-2 text-right tabular-nums">{r.oxides?.CaO}</td>
-                    <td className="p-2 text-right tabular-nums">{r.oxides?.MgO}</td>
-                    <td className="p-2 text-right tabular-nums">{r.oxides?.SO3}</td>
-                    <td className="p-2 text-right tabular-nums">{r.oxides?.K2O}</td>
-                    <td className="p-2 text-right tabular-nums">{r.oxides?.TiO2}</td>
-                    <td className="p-2 text-right tabular-nums">{r.oxides?.MnO}</td>
-                    <td className="p-2 text-right tabular-nums">{r.oxides?.P2O5}</td>
-                    <td className="p-2 text-center">{chip(r.modules?.MS, "MS")}</td>
-                    <td className="p-2 text-center">{chip(r.modules?.AF, "AF")}</td>
-                    <td className="p-2 text-center">{chip(r.modules?.LSF, "LSF")}</td>
-                    <td className="p-2 text-center">
-                      <div className="inline-flex gap-1">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(r.original)} title="Éditer">
-                            <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDelete(r.id)} title="Supprimer">
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </td>
+      <div className="flex-grow px-3 md:px-5 pb-3 md:pb-5">
+        <Card className="rounded-2xl shadow-md h-full">
+          <CardContent className="p-0 h-full">
+            <div className="max-h-[70vh] overflow-auto rounded-2xl border-t bg-background h-full">
+              <table className="w-full text-[13px] border-separate border-spacing-0">
+                <thead className="text-muted-foreground">
+                  <tr>
+                    {headers.map(h => <SortableHeader key={h.key} label={h.label} sortKey={h.key} />)}
+                    <th className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-center font-semibold border-b">Actions</th>
                   </tr>
-                ))}
-                {(!rows || rows.length === 0) && (
-                  <tr><td colSpan={19} className="p-6 text-center text-muted-foreground">Aucune donnée.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+                </thead>
+                <tbody>
+                  {(rows ?? []).map((r: any, i: number) => (
+                    <tr key={r.id ?? i} className="border-b last:border-0 even:bg-muted/30 hover:bg-muted/50 transition-colors">
+                      <td className="p-2 text-muted-foreground whitespace-nowrap">{r.dateArrivage}</td>
+                      <td className="p-2 font-medium">{r.combustible}</td>
+                      <td className="p-2">{r.fournisseur}</td>
+                      <td className="p-2 text-right tabular-nums">{r.oxides?.['%Cendres']}</td>
+                      <td className="p-2 text-right tabular-nums">{r.oxides?.PAF}</td>
+                      <td className="p-2 text-right tabular-nums">{r.oxides?.SiO2}</td>
+                      <td className="p-2 text-right tabular-nums">{r.oxides?.Al2O3}</td>
+                      <td className="p-2 text-right tabular-nums">{r.oxides?.Fe2O3}</td>
+                      <td className="p-2 text-right tabular-nums">{r.oxides?.CaO}</td>
+                      <td className="p-2 text-right tabular-nums">{r.oxides?.MgO}</td>
+                      <td className="p-2 text-right tabular-nums">{r.oxides?.SO3}</td>
+                      <td className="p-2 text-right tabular-nums">{r.oxides?.K2O}</td>
+                      <td className="p-2 text-right tabular-nums">{r.oxides?.TiO2}</td>
+                      <td className="p-2 text-right tabular-nums">{r.oxides?.MnO}</td>
+                      <td className="p-2 text-right tabular-nums">{r.oxides?.P2O5}</td>
+                      <td className="p-2 text-center">{chip(r.modules?.MS, "MS")}</td>
+                      <td className="p-2 text-center">{chip(r.modules?.AF, "AF")}</td>
+                      <td className="p-2 text-center">{chip(r.modules?.LSF, "LSF")}</td>
+                      <td className="p-2 text-center">
+                        <div className="inline-flex gap-1">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(r.original)} title="Éditer">
+                              <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDelete(r.id)} title="Supprimer">
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {(!rows || rows.length === 0) && (
+                    <tr><td colSpan={19} className="p-6 text-center text-muted-foreground">Aucune donnée.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
@@ -809,7 +766,7 @@ export function AshAnalysisManager() {
           onAdd={() => handleModalOpen(null)}
           onEdit={(analysis) => handleModalOpen(analysis)}
           onDelete={(id) => setDeletingRowId(id)}
-          onExport={exportData}
+          onExport={() => exportData('excel')}
           onImport={() => fileInputRef.current?.click()}
           onSort={requestSort}
           sortConfig={sortConfig}

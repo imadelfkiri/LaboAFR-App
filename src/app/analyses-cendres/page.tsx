@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function AnalysesCendresPage() {
   return (
-     <div className="flex-1 p-4 md:p-6 lg:p-8">
+     <div className="flex flex-col flex-1 bg-gray-50">
         <AshAnalysisManager />
     </div>
   );
