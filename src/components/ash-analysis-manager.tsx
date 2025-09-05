@@ -70,7 +70,7 @@ import {
 } from "@/components/ui/form";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ClipboardList, PlusCircle, Trash2, Edit, Save, CalendarIcon, Search, FileUp, Download, ChevronDown } from 'lucide-react';
+import { ClipboardList, PlusCircle, Trash2, Edit, Save, CalendarIcon, Search, FileUp, Download, ChevronDown, ArrowUpDown } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
 // Extend jsPDF for autoTable
@@ -100,6 +100,8 @@ const analysisSchema = z.object({
 });
 
 type FormValues = z.infer<typeof analysisSchema>;
+type SortableKeys = keyof AshAnalysis | 'ms' | 'af' | 'lsf';
+
 
 const calculateModules = (sio2?: number | null, al2o3?: number | null, fe2o3?: number | null, cao?: number | null) => {
     const s = sio2 || 0;
@@ -200,11 +202,13 @@ export function AshAnalysisManager() {
     const [editingAnalysis, setEditingAnalysis] = useState<AshAnalysis | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     
-    // Filters
+    // Filters and Sorting
     const [fuelTypeFilter, setFuelTypeFilter] = useState('all');
     const [fournisseurFilter, setFournisseurFilter] = useState('all');
     const [dateRangeFilter, setDateRangeFilter] = useState<DateRange | undefined>();
     const [searchQuery, setSearchQuery] = useState('');
+    const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' } | null>({ key: 'date_arrivage', direction: 'descending' });
+
 
     const [fuelTypes, setFuelTypes] = useState<string[]>([]);
     const [fournisseurs, setFournisseurs] = useState<string[]>([]);
@@ -419,8 +423,8 @@ export function AshAnalysisManager() {
         reader.readAsArrayBuffer(file);
     };
 
-    const filteredAnalyses = useMemo(() => {
-        return analyses.filter(a => {
+    const sortedAndFilteredAnalyses = useMemo(() => {
+        let sortableItems = [...analyses].filter(a => {
             const date = a.date_arrivage.toDate();
             const fuelTypeMatch = fuelTypeFilter === 'all' || a.type_combustible === fuelTypeFilter;
             const fournisseurMatch = fournisseurFilter === 'all' || a.fournisseur === fournisseurFilter;
@@ -434,11 +438,60 @@ export function AshAnalysisManager() {
             
             return fuelTypeMatch && fournisseurMatch && dateMatch && searchMatch;
         });
-    }, [analyses, fuelTypeFilter, fournisseurFilter, dateRangeFilter, searchQuery]);
+
+        if (sortConfig !== null) {
+            sortableItems.sort((a, b) => {
+                const aValue = getSortableValue(a, sortConfig.key);
+                const bValue = getSortableValue(b, sortConfig.key);
+
+                if (aValue < bValue) {
+                    return sortConfig.direction === 'ascending' ? -1 : 1;
+                }
+                if (aValue > bValue) {
+                    return sortConfig.direction === 'ascending' ? 1 : -1;
+                }
+                return 0;
+            });
+        }
+        
+        return sortableItems;
+
+    }, [analyses, fuelTypeFilter, fournisseurFilter, dateRangeFilter, searchQuery, sortConfig]);
+
+    const getSortableValue = (item: AshAnalysis, key: SortableKeys) => {
+        if (key === 'ms' || key === 'af' || key === 'lsf') {
+            const modules = calculateModules(item.sio2, item.al2o3, item.fe2o3, item.cao);
+            return modules[key];
+        }
+        if (key === 'date_arrivage') {
+            return item.date_arrivage.toMillis();
+        }
+        const value = item[key as keyof AshAnalysis];
+        // For sorting, treat null/undefined as a very low number to group them
+        return value === null || value === undefined ? -Infinity : (typeof value === 'string' ? value.toLowerCase() : value);
+    };
+
+    const requestSort = (key: SortableKeys) => {
+        let direction: 'ascending' | 'descending' = 'ascending';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const getSortIcon = (key: SortableKeys) => {
+        if (!sortConfig || sortConfig.key !== key) {
+            return <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground/50" />;
+        }
+        if (sortConfig.direction === 'ascending') {
+            return <ArrowUpDown className="ml-2 h-4 w-4" />;
+        }
+        return <ArrowUpDown className="ml-2 h-4 w-4" />; // Using the same icon for both for simplicity
+    };
 
 
     const exportToExcel = () => {
-        const dataToExport = filteredAnalyses.map(a => {
+        const dataToExport = sortedAndFilteredAnalyses.map(a => {
             const { ms, af, lsf } = calculateModules(a.sio2, a.al2o3, a.fe2o3, a.cao);
             return {
                 "Date Arrivage": format(a.date_arrivage.toDate(), "dd/MM/yyyy"),
@@ -469,7 +522,7 @@ export function AshAnalysisManager() {
     };
 
     const exportToPdf = () => {
-        if (filteredAnalyses.length === 0) {
+        if (sortedAndFilteredAnalyses.length === 0) {
             toast({ variant: "destructive", title: "Aucune donnée", description: "Il n'y a pas de données à exporter." });
             return;
         }
@@ -491,7 +544,7 @@ export function AshAnalysisManager() {
             "MS", "A/F", "LSF"
         ]];
 
-        const body = filteredAnalyses.map(a => {
+        const body = sortedAndFilteredAnalyses.map(a => {
             const { ms, af, lsf } = calculateModules(a.sio2, a.al2o3, a.fe2o3, a.cao);
             return [
                 format(a.date_arrivage.toDate(), "dd/MM/yy"),
@@ -526,6 +579,15 @@ export function AshAnalysisManager() {
 
         doc.save(`Rapport_Analyses_Cendres_${format(new Date(), "yyyy-MM-dd")}.pdf`);
     };
+
+    const renderSortableHeader = (label: string, key: SortableKeys, className: string) => (
+        <th className={cn("sticky top-0 z-20 bg-background/95 backdrop-blur p-2 whitespace-nowrap", className)}>
+            <Button variant="ghost" onClick={() => requestSort(key)} className="px-2 py-1 h-auto -ml-2">
+                {label}
+                {getSortIcon(key)}
+            </Button>
+        </th>
+    );
 
 
     return (
@@ -602,78 +664,74 @@ export function AshAnalysisManager() {
             </CardContent>
         </Card>
         
-        <Card className="flex-1 flex flex-col rounded-2xl shadow-sm overflow-hidden">
-            <CardContent className="p-0 flex-1 overflow-auto">
-                <div className="max-h-[calc(100vh-320px)] overflow-auto rounded-2xl border bg-background">
-                    <table className="w-full text-sm border-separate border-spacing-0">
-                        <thead className="text-[13px]">
-                            <tr className="border-b">
-                                <th className="sticky top-0 left-0 z-30 bg-background/95 backdrop-blur p-2 text-left whitespace-nowrap">Date Arrivage</th>
-                                <th className="sticky top-0 left-[120px] z-30 bg-background/95 backdrop-blur p-2 text-left">Combustible</th>
-                                <th className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-left">Fournisseur</th>
-                                <th className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-right">% Cendres</th>
-                                <th className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-right">PAF</th>
-                                <th className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-right">SiO2</th>
-                                <th className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-right">Al2O3</th>
-                                <th className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-right">Fe2O3</th>
-                                <th className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-right">CaO</th>
-                                <th className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-right">MgO</th>
-                                <th className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-right">SO3</th>
-                                <th className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-right">K2O</th>
-                                <th className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-right">TiO2</th>
-                                <th className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-right">MnO</th>
-                                <th className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-right">P2O5</th>
-                                <th className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-center">MS</th>
-                                <th className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-center">A/F</th>
-                                <th className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-center">LSF</th>
-                                <th className="sticky top-0 right-0 z-30 bg-background/95 backdrop-blur p-2 text-center">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
-                                Array.from({ length: 10 }).map((_, i) => (
-                                    <tr key={i}><td colSpan={19} className="p-2"><Skeleton className="h-8 w-full" /></td></tr>
-                                ))
-                            ) : filteredAnalyses.length > 0 ? (
-                                filteredAnalyses.map(analysis => {
-                                    const { ms, af, lsf } = calculateModules(analysis.sio2, analysis.al2o3, analysis.fe2o3, analysis.cao);
-                                    return (
-                                        <tr key={analysis.id} className="h-auto hover:bg-muted/40">
-                                            <td className="sticky left-0 py-1.5 px-2 z-10 bg-background hover:bg-muted/40">{format(analysis.date_arrivage.toDate(), "d MMM yyyy", {locale: fr})}</td>
-                                            <td className="font-medium sticky left-[120px] py-1.5 px-2 z-10 bg-background hover:bg-muted/40">{analysis.type_combustible}</td>
-                                            <td className="py-1.5 px-2">{analysis.fournisseur}</td>
-                                            <td className="text-right py-1.5 px-2">{formatNumber(analysis.pourcentage_cendres, 1)}</td>
-                                            <td className="text-right py-1.5 px-2">{formatNumber(analysis.paf, 1)}</td>
-                                            <td className="text-right py-1.5 px-2">{formatNumber(analysis.sio2, 1)}</td>
-                                            <td className="text-right py-1.5 px-2">{formatNumber(analysis.al2o3, 1)}</td>
-                                            <td className="text-right py-1.5 px-2">{formatNumber(analysis.fe2o3, 1)}</td>
-                                            <td className="text-right py-1.5 px-2">{formatNumber(analysis.cao, 1)}</td>
-                                            <td className="text-right py-1.5 px-2">{formatNumber(analysis.mgo, 1)}</td>
-                                            <td className="text-right py-1.5 px-2">{formatNumber(analysis.so3, 1)}</td>
-                                            <td className="text-right py-1.5 px-2">{formatNumber(analysis.k2o, 1)}</td>
-                                            <td className="text-right py-1.5 px-2">{formatNumber(analysis.tio2, 1)}</td>
-                                            <td className="text-right py-1.5 px-2">{formatNumber(analysis.mno, 1)}</td>
-                                            <td className="text-right py-1.5 px-2">{formatNumber(analysis.p2o5, 1)}</td>
-                                            <td className="text-right font-medium text-blue-600 py-1.5 px-2">{modulesFormatNumber(ms)}</td>
-                                            <td className="text-right font-medium text-green-600 py-1.5 px-2">{modulesFormatNumber(af)}</td>
-                                            <td className="text-right font-medium text-orange-600 py-1.5 px-2">{modulesFormatNumber(lsf)}</td>
-                                            <td className="sticky right-0 py-1.5 px-2 text-center z-10 bg-background hover:bg-muted/40">
-                                                <div className="flex justify-center items-center">
-                                                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleModalOpen(analysis)}><Edit className="h-4 w-4" /></Button>
-                                                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDeletingRowId(analysis.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    )
-                                })
-                            ) : (
-                                <tr><td colSpan={19} className="h-24 text-center">Aucune analyse trouvée.</td></tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </CardContent>
-        </Card>
+        <div className="flex-1 max-h-[calc(100vh-320px)] overflow-auto rounded-2xl border bg-background">
+            <table className="w-full text-sm border-separate border-spacing-0">
+                <thead className="text-[13px]">
+                    <tr className="border-b">
+                        {renderSortableHeader('Date Arrivage', 'date_arrivage', 'text-left sticky left-0 z-30')}
+                        {renderSortableHeader('Combustible', 'type_combustible', 'text-left sticky left-[140px] z-30')}
+                        {renderSortableHeader('Fournisseur', 'fournisseur', 'text-left')}
+                        {renderSortableHeader('% Cendres', 'pourcentage_cendres', 'text-right')}
+                        {renderSortableHeader('PAF', 'paf', 'text-right')}
+                        {renderSortableHeader('SiO2', 'sio2', 'text-right')}
+                        {renderSortableHeader('Al2O3', 'al2o3', 'text-right')}
+                        {renderSortableHeader('Fe2O3', 'fe2o3', 'text-right')}
+                        {renderSortableHeader('CaO', 'cao', 'text-right')}
+                        {renderSortableHeader('MgO', 'mgo', 'text-right')}
+                        {renderSortableHeader('SO3', 'so3', 'text-right')}
+                        {renderSortableHeader('K2O', 'k2o', 'text-right')}
+                        {renderSortableHeader('TiO2', 'tio2', 'text-right')}
+                        {renderSortableHeader('MnO', 'mno', 'text-right')}
+                        {renderSortableHeader('P2O5', 'p2o5', 'text-right')}
+                        {renderSortableHeader('MS', 'ms', 'text-center')}
+                        {renderSortableHeader('A/F', 'af', 'text-center')}
+                        {renderSortableHeader('LSF', 'lsf', 'text-center')}
+                        <th className="sticky top-0 right-0 z-30 bg-background/95 backdrop-blur p-2 text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {loading ? (
+                        Array.from({ length: 10 }).map((_, i) => (
+                            <tr key={i}><td colSpan={19} className="p-2"><Skeleton className="h-8 w-full" /></td></tr>
+                        ))
+                    ) : sortedAndFilteredAnalyses.length > 0 ? (
+                        sortedAndFilteredAnalyses.map(analysis => {
+                            const { ms, af, lsf } = calculateModules(analysis.sio2, analysis.al2o3, analysis.fe2o3, analysis.cao);
+                            return (
+                                <tr key={analysis.id} className="h-auto hover:bg-muted/40">
+                                    <td className="sticky left-0 py-1.5 px-2 z-10 bg-background hover:bg-muted/40">{format(analysis.date_arrivage.toDate(), "d MMM yyyy", {locale: fr})}</td>
+                                    <td className="font-medium sticky left-[140px] py-1.5 px-2 z-10 bg-background hover:bg-muted/40">{analysis.type_combustible}</td>
+                                    <td className="py-1.5 px-2">{analysis.fournisseur}</td>
+                                    <td className="text-right py-1.5 px-2">{formatNumber(analysis.pourcentage_cendres, 1)}</td>
+                                    <td className="text-right py-1.5 px-2">{formatNumber(analysis.paf, 1)}</td>
+                                    <td className="text-right py-1.5 px-2">{formatNumber(analysis.sio2, 1)}</td>
+                                    <td className="text-right py-1.5 px-2">{formatNumber(analysis.al2o3, 1)}</td>
+                                    <td className="text-right py-1.5 px-2">{formatNumber(analysis.fe2o3, 1)}</td>
+                                    <td className="text-right py-1.5 px-2">{formatNumber(analysis.cao, 1)}</td>
+                                    <td className="text-right py-1.5 px-2">{formatNumber(analysis.mgo, 1)}</td>
+                                    <td className="text-right py-1.5 px-2">{formatNumber(analysis.so3, 1)}</td>
+                                    <td className="text-right py-1.5 px-2">{formatNumber(analysis.k2o, 1)}</td>
+                                    <td className="text-right py-1.5 px-2">{formatNumber(analysis.tio2, 1)}</td>
+                                    <td className="text-right py-1.5 px-2">{formatNumber(analysis.mno, 1)}</td>
+                                    <td className="text-right py-1.5 px-2">{formatNumber(analysis.p2o5, 1)}</td>
+                                    <td className="text-right font-medium text-blue-600 py-1.5 px-2">{modulesFormatNumber(ms)}</td>
+                                    <td className="text-right font-medium text-green-600 py-1.5 px-2">{modulesFormatNumber(af)}</td>
+                                    <td className="text-right font-medium text-orange-600 py-1.5 px-2">{modulesFormatNumber(lsf)}</td>
+                                    <td className="sticky right-0 py-1.5 px-2 text-center z-10 bg-background hover:bg-muted/40">
+                                        <div className="flex justify-center items-center">
+                                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleModalOpen(analysis)}><Edit className="h-4 w-4" /></Button>
+                                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDeletingRowId(analysis.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            )
+                        })
+                    ) : (
+                        <tr><td colSpan={19} className="h-24 text-center">Aucune analyse trouvée.</td></tr>
+                    )}
+                </tbody>
+            </table>
+        </div>
 
 
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
@@ -710,5 +768,3 @@ export function AshAnalysisManager() {
       </div>
     );
 }
-
-    
