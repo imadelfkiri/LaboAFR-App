@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   collection,
   query,
@@ -40,6 +40,7 @@ import {
   subMonths,
   endOfMonth,
   subWeeks,
+  parse,
 } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -54,8 +55,10 @@ import {
   CheckCircle2,
   ChevronDown,
   Trash,
+  Upload,
 } from "lucide-react";
-import { getSpecifications, SPEC_MAP, getFuelSupplierMap, deleteAllResults } from "@/lib/data";
+import { getSpecifications, SPEC_MAP, getFuelSupplierMap, deleteAllResults, getFuelData, type FuelData, addManyResults } from "@/lib/data";
+import { calculerPCI } from "@/lib/pci";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
 import {
@@ -81,6 +84,8 @@ import { MultiSelect } from "@/components/ui/multi-select";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+import * as z from "zod";
+
 
 interface Result {
   id: string;
@@ -124,6 +129,18 @@ declare module "jspdf" {
   }
 }
 
+const importSchema = z.object({
+  date_arrivage: z.date({ required_error: "Date requise." }),
+  type_combustible: z.string().nonempty(),
+  fournisseur: z.string().nonempty(),
+  pcs: z.coerce.number(),
+  h2o: z.coerce.number().min(0).max(100),
+  chlore: z.coerce.number().min(0).optional().nullable(),
+  cendres: z.coerce.number().min(0).optional().nullable(),
+  remarques: z.string().optional().nullable(),
+  taux_fils_metalliques: z.coerce.number().min(0).max(100).optional().nullable(),
+});
+
 export function ResultsTable() {
   const [results, setResults] = useState<Result[]>([]);
   const [loading, setLoading] = useState(true);
@@ -132,20 +149,21 @@ export function ResultsTable() {
   const [dateFilter, setDateFilter] = useState<DateRange | undefined>();
   const [resultToDelete, setResultToDelete] = useState<string | null>(null);
   const [isDeleteAllConfirmOpen, setIsDeleteAllConfirmOpen] = useState(false);
-
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [fuelSupplierMap, setFuelSupplierMap] = useState<Record<string, string[]>>({});
   const [availableFournisseurs, setAvailableFournisseurs] = useState<string[]>([]);
+  const [fuelDataMap, setFuelDataMap] = useState<Map<string, FuelData>>(new Map());
 
   const { toast } = useToast();
 
   const fetchInitialData = useCallback(async () => {
     setLoading(true);
     try {
-      // These ensure SPEC_MAP is populated and we have the latest supplier map
       await getSpecifications(); 
-      const map = await getFuelSupplierMap();
+      const [map, fuelData] = await Promise.all([getFuelSupplierMap(), getFuelData()]);
       setFuelSupplierMap(map);
+      setFuelDataMap(new Map(fuelData.map(fd => [fd.nom_combustible, fd])));
 
       const q = query(collection(db, "resultats"), orderBy("date_arrivage", "desc"));
       const unsubscribe = onSnapshot(
@@ -797,6 +815,125 @@ export function ResultsTable() {
       `Rapport_Mensuel_AFR_${format(prevMonthDate, "yyyy-MM")}.pdf`
     );
   };
+  
+    const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const data = new Uint8Array(e.target?.result as ArrayBuffer);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const json = XLSX.utils.sheet_to_json<any>(worksheet);
+
+                if (!json || json.length === 0) {
+                    throw new Error("Le fichier Excel est vide ou mal formaté.");
+                }
+
+                const excelDateToJSDate = (serial: number) => {
+                    const utc_days = Math.floor(serial - 25569);
+                    const utc_value = utc_days * 86400;
+                    const date_info = new Date(utc_value * 1000);
+                    return new Date(date_info.getFullYear(), date_info.getMonth(), date_info.getDate(), date_info.getHours(), date_info.getMinutes(), date_info.getSeconds());
+                };
+
+                const parseDate = (value: any, rowNum: number): Date => {
+                    if (!value) throw new Error(`Date vide à la ligne ${rowNum}.`);
+                    if (typeof value === 'number') {
+                        const date = excelDateToJSDate(value);
+                        if (isValid(date)) return date;
+                    }
+                    if (typeof value === 'string') {
+                        const formats = ['dd/MM/yyyy', 'd/M/yyyy', 'yyyy-MM-dd', 'MM/dd/yyyy'];
+                        for (const fmt of formats) {
+                            const date = parse(value, fmt, new Date());
+                            if (isValid(date)) return date;
+                        }
+                    }
+                    throw new Error(`Format de date non reconnu à la ligne ${rowNum} pour la valeur "${value}".`);
+                };
+
+                const headerMapping: { [key: string]: keyof z.infer<typeof importSchema> } = {
+                    'date arrivage': 'date_arrivage',
+                    'combustible': 'type_combustible',
+                    'fournisseur': 'fournisseur',
+                    'pcs': 'pcs',
+                    'h2o': 'h2o',
+                    '% h2o': 'h2o',
+                    'cl-': 'chlore',
+                    'chlore': 'chlore',
+                    '% cl-': 'chlore',
+                    'cendres': 'cendres',
+                    '% cendres': 'cendres',
+                    'remarques': 'remarques',
+                    'taux fils metalliques': 'taux_fils_metalliques',
+                    'taux fils': 'taux_fils_metalliques',
+                };
+
+                const parsedResults = json.map((row, index) => {
+                    const rowNum = index + 2;
+                    const mappedRow: { [key: string]: any } = {};
+
+                    for (const header in row) {
+                        const normalizedHeader = header.trim().toLowerCase().replace(/\s+/g, ' ');
+                        const targetKey = headerMapping[normalizedHeader];
+                        if (targetKey) {
+                             let value = row[header];
+                            if(typeof value === 'string' && !['date_arrivage', 'type_combustible', 'fournisseur', 'remarques'].includes(targetKey)) {
+                                value = value.replace(',', '.');
+                            }
+                            mappedRow[targetKey] = value;
+                        }
+                    }
+
+                    const parsedDate = parseDate(mappedRow.date_arrivage, rowNum);
+                    
+                    const validatedData = importSchema.parse({
+                        ...mappedRow,
+                        date_arrivage: parsedDate,
+                    });
+                    
+                    const hValue = fuelDataMap.get(validatedData.type_combustible)?.teneur_hydrogene;
+                    if (hValue === null || hValue === undefined) {
+                        throw new Error(`Teneur en hydrogène non définie pour "${validatedData.type_combustible}" à la ligne ${rowNum}.`);
+                    }
+
+                    let pcsToUse = validatedData.pcs;
+                    if (validatedData.type_combustible.toLowerCase().includes('pneu') && validatedData.taux_fils_metalliques) {
+                        const taux = Number(validatedData.taux_fils_metalliques);
+                        if (taux > 0 && taux < 100) {
+                           pcsToUse = pcsToUse * (1 - taux / 100);
+                        }
+                    }
+                    
+                    const pci_brut = calculerPCI(pcsToUse, validatedData.h2o, hValue);
+                    if (pci_brut === null) {
+                         throw new Error(`Calcul du PCI impossible pour la ligne ${rowNum}.`);
+                    }
+
+                    return { ...validatedData, pci_brut, date_arrivage: Timestamp.fromDate(validatedData.date_arrivage) };
+                });
+
+                await addManyResults(parsedResults);
+                toast({ title: "Succès", description: `${parsedResults.length} résultats ont été importés.` });
+
+            } catch (error) {
+                console.error("Error importing file:", error);
+                const errorMessage = error instanceof z.ZodError ? 
+                    `Erreur de validation: ${error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}` :
+                    error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
+                toast({ variant: "destructive", title: "Erreur d'importation", description: errorMessage, duration: 9000 });
+            } finally {
+                 if(fileInputRef.current) {
+                    fileInputRef.current.value = "";
+                }
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    };
 
   if (loading) {
     return (
@@ -810,6 +947,13 @@ export function ResultsTable() {
   return (
     <TooltipProvider>
       <AlertDialog onOpenChange={(open) => !open && setResultToDelete(null)}>
+        <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            onChange={handleFileImport}
+            accept=".xlsx, .xls"
+        />
         <div className="flex flex-col gap-4 p-4 lg:p-6 h-full">
           <div className="flex flex-wrap items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-md px-3 py-2">
             <MultiSelect
@@ -875,6 +1019,15 @@ export function ResultsTable() {
             </Button>
             
             <div className="flex-grow" />
+            
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto bg-white"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              Importer
+            </Button>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -1045,3 +1198,5 @@ export function ResultsTable() {
 }
 
 export default ResultsTable;
+
+    

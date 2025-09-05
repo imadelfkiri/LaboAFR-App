@@ -1,3 +1,4 @@
+
 // src/lib/data.ts
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, arrayUnion, orderBy, Timestamp, setDoc,getCountFromServer, limit } from 'firebase/firestore';
 import { db } from './firebase';
@@ -96,6 +97,19 @@ export interface AshAnalysis {
     tio2?: number | null;
     mno?: number | null;
     p2o5?: number | null;
+}
+
+interface ResultToSave {
+    date_arrivage: Timestamp;
+    type_combustible: string;
+    fournisseur: string;
+    pcs: number;
+    h2o: number;
+    chlore: number | null;
+    cendres: number | null;
+    remarques: string | null;
+    taux_fils_metalliques: number | null;
+    pci_brut: number;
 }
 
 
@@ -638,3 +652,17 @@ export async function deleteAllResults(): Promise<void> {
 
     await batch.commit();
 }
+
+export async function addManyResults(results: ResultToSave[]): Promise<void> {
+    const batch = writeBatch(db);
+    const resultsCollection = collection(db, 'resultats');
+
+    results.forEach(result => {
+        const docRef = doc(resultsCollection);
+        batch.set(docRef, result);
+    });
+
+    await batch.commit();
+}
+
+    
