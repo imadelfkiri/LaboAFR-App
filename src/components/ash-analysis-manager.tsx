@@ -193,11 +193,11 @@ function AnalysesCendresView({
   rows = [],
   fuels = [],
   suppliers = [],
-  onAdd,
-  onEdit,
-  onDelete,
-  onExport,
-  onImport,
+  onAdd = () => {},
+  onEdit = () => {},
+  onDelete = () => {},
+  onExport = () => {},
+  onImport = () => {},
   onSort,
   sortConfig,
   q = "",
@@ -211,38 +211,19 @@ function AnalysesCendresView({
   to = "",
   setTo = () => {},
 }) {
-  // helpers UI (color chips pour modules déjà calculés)
-  const chip = (val: number | undefined, type: "MS"|"AF"|"LSF") => {
-    const n = typeof val === "number" && isFinite(val) ? val : undefined
-    const base = "inline-flex items-center justify-center rounded-md px-2 py-0.5 text-xs font-medium"
+  const chip = (v: number | undefined, t: "MS"|"AF"|"LSF") => {
+    const n = typeof v === "number" && isFinite(v) ? v : undefined
+    const base = "inline-flex items-center justify-center rounded-md px-1.5 py-0.5 text-[11px] font-medium tabular-nums"
     if (n === undefined) return <span className={`${base} bg-muted text-muted-foreground`}>-</span>
-    if (type === "MS") {
-      return (
-        <span className={`${base} ${n<1.5?"bg-red-100 text-red-700":n<2.0?"bg-yellow-100 text-yellow-800":"bg-green-100 text-green-800"}`}>
-          {n.toFixed(2)}
-        </span>
-      )
-    }
-    if (type === "AF") {
-      return (
-        <span className={`${base} ${n<0.5?"bg-red-100 text-red-700":n<1.5?"bg-yellow-100 text-yellow-800":"bg-green-100 text-green-800"}`}>
-          {n.toFixed(2)}
-        </span>
-      )
-    }
-    // LSF
-    return (
-      <span className={`${base} ${n<0.80?"bg-red-100 text-red-700":n<=1.00?"bg-yellow-100 text-yellow-800":"bg-green-100 text-green-800"}`}>
-        {n.toFixed(2)}
-      </span>
-    )
+    if (t === "MS") return <span className={`${base} ${n<1.5?"bg-red-100 text-red-700":n<2.0?"bg-yellow-100 text-yellow-800":"bg-green-100 text-green-800"}`}>{n.toFixed(2)}</span>
+    if (t === "AF") return <span className={`${base} ${n<0.5?"bg-red-100 text-red-700":n<1.5?"bg-yellow-100 text-yellow-800":"bg-green-100 text-green-800"}`}>{n.toFixed(2)}</span>
+    return <span className={`${base} ${n<0.80?"bg-red-100 text-red-700":n<=1.00?"bg-yellow-100 text-yellow-800":"bg-green-100 text-green-800"}`}>{n.toFixed(2)}</span>
   }
 
-   const SortableHeader = ({ label, sortKey }: { label: string; sortKey: SortableKeys }) => {
+  const SortableHeader = ({ label, sortKey }: { label: string; sortKey: SortableKeys }) => {
     const isSorted = sortConfig?.key === sortKey;
     return (
       <th
-        key={sortKey}
         onClick={() => onSort(sortKey)}
         className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-left font-semibold border-b cursor-pointer hover:bg-muted/50"
       >
@@ -278,65 +259,57 @@ function AnalysesCendresView({
   ];
 
   return (
-    <div className="mx-auto w-full max-w-[1400px] p-4 md:p-6 space-y-4">
-      {/* Header */}
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Suivi des Analyses de Cendres</h1>
-        <p className="text-sm text-muted-foreground">Saisir, consulter et modifier les analyses chimiques des cendres.</p>
-      </div>
-
-      {/* Toolbar */}
+    <div className="mx-auto w-full max-w-[1280px] p-3 md:p-5 space-y-3">
+      {/* Toolbar compacte */}
       <Card className="rounded-2xl shadow-sm border">
-        <CardContent className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 items-end">
-            <div className="md:col-span-2 xl:col-span-1">
-              <Label className="text-xs text-muted-foreground">Rechercher</Label>
-              <Input placeholder="Combustible, fournisseur…" value={q} onChange={(e)=>setQ(e.target.value)} />
+        <CardContent className="p-3">
+          <div className="grid grid-cols-1 lg:grid-cols-7 gap-2">
+            <div className="lg:col-span-3">
+              <Label className="text-[11px] text-muted-foreground">Rechercher</Label>
+              <Input className="h-9" placeholder="Combustible, fournisseur…" value={q} onChange={(e)=>setQ(e.target.value)} />
             </div>
             <div>
-              <Label className="text-xs text-muted-foreground">Combustible</Label>
+              <Label className="text-[11px] text-muted-foreground">Combustible</Label>
               <Select value={fuel} onValueChange={setFuel}>
-                <SelectTrigger className="h-10"><SelectValue placeholder="Tous les combustibles" /></SelectTrigger>
+                <SelectTrigger className="h-9"><SelectValue placeholder="Tous" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__ALL__">Tous</SelectItem>
-                  {fuels.map((f: string)=> <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                  {fuels.map((f: string)=><SelectItem key={f} value={f}>{f}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label className="text-xs text-muted-foreground">Fournisseur</Label>
+              <Label className="text-[11px] text-muted-foreground">Fournisseur</Label>
               <Select value={supplier} onValueChange={setSupplier}>
-                <SelectTrigger className="h-10"><SelectValue placeholder="Tous les fournisseurs" /></SelectTrigger>
+                <SelectTrigger className="h-9"><SelectValue placeholder="Tous" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__ALL__">Tous</SelectItem>
-                  {suppliers.map((s: string)=> <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  {suppliers.map((s: string)=><SelectItem key={s} value={s}>{s}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-                 <div>
-                  <Label className="text-xs text-muted-foreground">Du</Label>
-                  <Input type="date" value={from} onChange={(e)=>setFrom(e.target.value)} className="h-10" />
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Au</Label>
-                  <Input type="date" value={to} onChange={(e)=>setTo(e.target.value)} className="h-10" />
-                </div>
+            <div className='grid grid-cols-2 gap-2'>
+              <div>
+                <Label className="text-[11px] text-muted-foreground">Du</Label>
+                <Input type="date" className="h-9" value={from} onChange={(e)=>setFrom(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-[11px] text-muted-foreground">Au</Label>
+                <Input type="date" className="h-9" value={to} onChange={(e)=>setTo(e.target.value)} />
+              </div>
             </div>
-            
             <div className="flex items-end justify-end gap-2">
               <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                      <Button variant="outline"><Download className="w-4 h-4 mr-1"/>Exporter <ChevronDown className="w-4 h-4 ml-1" /></Button>
+                      <Button variant="outline" className="h-9"><Download className="w-4 h-4 mr-1"/>Exporter</Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => onExport('excel')}>Exporter en Excel</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => onExport('pdf')}>Exporter en PDF</DropdownMenuItem>
                   </DropdownMenuContent>
               </DropdownMenu>
-
-              <Button variant="outline" onClick={onImport}><Upload className="w-4 h-4 mr-1"/>Importer</Button>
-              <Button onClick={onAdd}><Plus className="w-4 h-4 mr-1"/>Ajouter</Button>
+              <Button variant="outline" className="h-9" onClick={onImport}><Upload className="w-4 h-4 mr-1"/>Importer</Button>
+              <Button className="h-9" onClick={onAdd}><Plus className="w-4 h-4 mr-1"/>Ajouter</Button>
             </div>
           </div>
         </CardContent>
@@ -345,19 +318,17 @@ function AnalysesCendresView({
       {/* Tableau */}
       <Card className="rounded-2xl shadow-md">
         <CardContent className="p-0">
-          <div className="max-h-[68vh] overflow-auto rounded-2xl border-t bg-background">
-            <table className="w-full text-sm border-separate border-spacing-0">
-              <thead className="text-[13px] text-muted-foreground">
+          <div className="max-h-[70vh] overflow-auto rounded-2xl border-t bg-background">
+            <table className="w-full text-[13px] border-separate border-spacing-0">
+              <thead className="text-muted-foreground">
                 <tr>
                   {headers.map(h => <SortableHeader key={h.key} label={h.label} sortKey={h.key} />)}
                    <th className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-center font-semibold border-b">Actions</th>
                 </tr>
               </thead>
-
               <tbody>
                 {(rows ?? []).map((r: any, i: number) => (
-                  <tr key={r.id ?? i}
-                      className="border-b last:border-0 even:bg-muted/20 hover:bg-muted/40 transition-colors">
+                  <tr key={r.id ?? i} className="border-b last:border-0 even:bg-muted/30 hover:bg-muted/50 transition-colors">
                     <td className="p-2 text-muted-foreground whitespace-nowrap">{r.dateArrivage}</td>
                     <td className="p-2 font-medium">{r.combustible}</td>
                     <td className="p-2">{r.fournisseur}</td>
@@ -376,7 +347,6 @@ function AnalysesCendresView({
                     <td className="p-2 text-center">{chip(r.modules?.MS, "MS")}</td>
                     <td className="p-2 text-center">{chip(r.modules?.AF, "AF")}</td>
                     <td className="p-2 text-center">{chip(r.modules?.LSF, "LSF")}</td>
-
                     <td className="p-2 text-center">
                       <div className="inline-flex gap-1">
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(r.original)} title="Éditer">
@@ -889,6 +859,3 @@ export function AshAnalysisManager() {
       </>
     );
 }
-
-
-    
