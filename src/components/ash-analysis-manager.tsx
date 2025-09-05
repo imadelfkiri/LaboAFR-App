@@ -197,10 +197,10 @@ function AnalysesCendresView({
   onAdd = () => {},
   onEdit = () => {},
   onDelete = () => {},
-  onExport = () => {},
+  onExport = (type: 'excel' | 'pdf') => {},
   onImport = () => {},
-  onSort,
-  sortConfig,
+  onSort = (key: SortableKeys) => {},
+  sortConfig = { key: 'date_arrivage', direction: 'descending' },
   q = "",
   setQ = () => {},
   fuel = "__ALL__",
@@ -766,7 +766,7 @@ export function AshAnalysisManager() {
           onAdd={() => handleModalOpen(null)}
           onEdit={(analysis) => handleModalOpen(analysis)}
           onDelete={(id) => setDeletingRowId(id)}
-          onExport={() => exportData('excel')}
+          onExport={exportData}
           onImport={() => fileInputRef.current?.click()}
           onSort={requestSort}
           sortConfig={sortConfig}
