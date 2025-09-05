@@ -610,8 +610,8 @@ export function AshAnalysisManager() {
             </CardContent>
         </Card>
         
-        <Card className="flex-1 flex flex-col rounded-2xl shadow-sm">
-            <CardContent className="p-0 flex-1">
+        <Card className="flex-1 flex flex-col rounded-2xl shadow-sm overflow-hidden">
+            <CardContent className="p-0 flex-1 overflow-auto">
                 <div className="overflow-auto rounded-2xl h-full">
                     <Table className="min-w-max relative border-collapse">
                         <TableHeader>
@@ -718,5 +718,3 @@ export function AshAnalysisManager() {
       </div>
     );
 }
-
-    
