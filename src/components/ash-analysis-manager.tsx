@@ -293,6 +293,30 @@ export function AshAnalysisManager() {
         const minutes = Math.floor(total_seconds / 60) % 60;
         return new Date(date_info.getFullYear(), date_info.getMonth(), date_info.getDate(), hours, minutes, seconds);
     }
+
+    const parseDate = (value: any, rowNum: number): Date => {
+        if (value === null || value === undefined) {
+            throw new Error(`Date vide non autorisée à la ligne ${rowNum}.`);
+        }
+
+        if (typeof value === 'number') {
+            const date = excelDateToJSDate(value);
+            if (isValid(date)) return date;
+        }
+        
+        if (typeof value === 'string') {
+            const dateFormats = [
+                'dd/MM/yyyy', 'd/M/yyyy', 'dd-MM-yyyy', 'd-M-yyyy',
+                'yyyy/MM/dd', 'yyyy-MM-dd', 'MM/dd/yyyy'
+            ];
+            for (const fmt of dateFormats) {
+                const date = parse(value, fmt, new Date());
+                if (isValid(date)) return date;
+            }
+        }
+        
+        throw new Error(`Format de date non reconnu à la ligne ${rowNum} pour la valeur "${value}".`);
+    }
     
     const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -312,21 +336,7 @@ export function AshAnalysisManager() {
                 }
 
                 const parsedAnalyses = json.map((row, index) => {
-                    let parsedDate;
-                    const dateValue = row.date_arrivage;
-
-                    if (typeof dateValue === 'number') {
-                        parsedDate = excelDateToJSDate(dateValue);
-                    } else if (typeof dateValue === 'string') {
-                         parsedDate = parse(dateValue, 'dd/MM/yyyy', new Date());
-                    } else {
-                        throw new Error(`Format de date non reconnu à la ligne ${index + 2}.`);
-                    }
-
-                    if (!isValid(parsedDate)) {
-                        throw new Error(`Date invalide à la ligne ${index + 2} pour la valeur "${dateValue}"`);
-                    }
-
+                    const parsedDate = parseDate(row.date_arrivage, index + 2);
                     const validatedData = analysisSchema.omit({id: true}).parse({
                         ...row,
                         date_arrivage: parsedDate,
