@@ -718,7 +718,3 @@ export function AshAnalysisManager() {
       </div>
     );
 }
-
-    
-
-    
