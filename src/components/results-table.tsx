@@ -876,20 +876,20 @@ export function ResultsTable() {
             </DropdownMenu>
           </div>
 
-          <ScrollArea className="flex-grow rounded-lg border">
-            <Table className="min-w-[1200px]">
+          <div className="flex-grow rounded-lg border overflow-auto max-h-[calc(100vh-220px)]">
+            <Table className="min-w-[1200px] border-separate border-spacing-0">
               <TableHeader>
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
-                  <TableHead className="w-[120px] px-4 sticky left-0 bg-muted/50">Date Arrivage</TableHead>
-                  <TableHead className="px-4 sticky left-[120px] bg-muted/50">Type Combustible</TableHead>
-                  <TableHead className="px-4">Fournisseur</TableHead>
-                  <TableHead className="text-right text-primary font-bold px-4">PCI sur Brut</TableHead>
-                  <TableHead className="text-right px-4">% H2O</TableHead>
-                  <TableHead className="text-right px-4">% Cl-</TableHead>
-                  <TableHead className="text-right px-4">% Cendres</TableHead>
-                  <TableHead className="px-4 font-bold">Alertes</TableHead>
-                  <TableHead className="px-4">Remarques</TableHead>
-                  <TableHead className="w-[50px] text-right px-4 sticky right-0 bg-muted/50">Action</TableHead>
+                  <TableHead className="w-[120px] px-4 sticky left-0 bg-muted/50 z-10">Date Arrivage</TableHead>
+                  <TableHead className="px-4 sticky left-[120px] bg-muted/50 z-10">Type Combustible</TableHead>
+                  <TableHead className="px-4 sticky top-0 bg-muted/50">Fournisseur</TableHead>
+                  <TableHead className="text-right text-primary font-bold px-4 sticky top-0 bg-muted/50">PCI sur Brut</TableHead>
+                  <TableHead className="text-right px-4 sticky top-0 bg-muted/50">% H2O</TableHead>
+                  <TableHead className="text-right px-4 sticky top-0 bg-muted/50">% Cl-</TableHead>
+                  <TableHead className="text-right px-4 sticky top-0 bg-muted/50">% Cendres</TableHead>
+                  <TableHead className="px-4 font-bold sticky top-0 bg-muted/50">Alertes</TableHead>
+                  <TableHead className="px-4 sticky top-0 bg-muted/50">Remarques</TableHead>
+                  <TableHead className="w-[50px] text-right px-4 sticky right-0 bg-muted/50 z-10">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -936,7 +936,7 @@ export function ResultsTable() {
                               {result.remarques && <TooltipContent>{result.remarques}</TooltipContent>}
                             </Tooltip>
                           </TableCell>
-                          <TableCell className="text-right px-4 sticky right-0 bg-background">
+                          <TableCell className="text-right px-4 sticky right-0 bg-background z-10">
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" size="icon" onClick={() => setResultToDelete(result.id)}>
                                 <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
@@ -974,8 +974,7 @@ export function ResultsTable() {
                 )}
               </TableBody>
             </Table>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
+          </div>
 
           <AlertDialogContent>
             <AlertDialogHeader>
