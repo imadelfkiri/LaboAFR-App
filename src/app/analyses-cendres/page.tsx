@@ -2,7 +2,7 @@ import { AshAnalysisManager } from '@/components/ash-analysis-manager';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: "Analyses des Cendres | FuelTrack AFR",
+  title: "Analyses des Cendres des AFs | FuelTrack AFR",
   description: "Suivi des analyses chimiques des cendres des combustibles alternatifs (AF).",
 };
 

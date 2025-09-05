@@ -21,7 +21,7 @@ const pageTitles: { [key: string]: string } = {
   '/resultats': 'Historique des Résultats',
   '/statistiques': 'Tableau de Bord des Statistiques',
   '/specifications': 'Spécifications Techniques',
-  '/analyses-cendres': 'Suivi Analyses des Cendres',
+  '/analyses-cendres': 'Suivi Analyses des Cendres des AFs',
   '/donnees-combustibles': 'Données de Référence',
   '/calcul-melange': 'Calcul de Mélange',
   '/simulation-melange': 'Simulation de Mélange',

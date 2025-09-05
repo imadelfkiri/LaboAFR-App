@@ -613,7 +613,7 @@ export function AshAnalysisManager() {
         
         return sortableItems;
 
-    }, [analyses, fuelTypeFilter, fournisseurFilter, dateFromFilter, dateToFilter, searchQuery, sortConfig]);
+    }, [analyses, fuelTypeFilter, fournisseurFilter, dateFromFilter, dateToFilter, searchQuery, sortConfig, getSortableValue]);
 
     const exportData = (type: 'excel' | 'pdf') => {
         const dataToExport = sortedAndFilteredAnalyses;
@@ -656,13 +656,13 @@ export function AshAnalysisManager() {
         
         const worksheet = XLSX.utils.json_to_sheet(excelData);
         const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Analyses Cendres");
-        XLSX.writeFile(workbook, `Export_Analyses_Cendres_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Analyses Cendres des AFs");
+        XLSX.writeFile(workbook, `Export_Analyses_Cendres_AFs_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
     };
 
     const exportToPdf = (data: AshAnalysis[]) => {
         const doc = new jsPDF({ orientation: 'landscape' });
-        const title = "Rapport des Analyses de Cendres";
+        const title = "Rapport des Analyses de Cendres des AFs";
         const generationDate = format(new Date(), "dd/MM/yyyy HH:mm:ss");
 
         doc.setFontSize(16);
@@ -711,7 +711,7 @@ export function AshAnalysisManager() {
             headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
         });
 
-        doc.save(`Rapport_Analyses_Cendres_${format(new Date(), "yyyy-MM-dd")}.pdf`);
+        doc.save(`Rapport_Analyses_Cendres_AFs_${format(new Date(), "yyyy-MM-dd")}.pdf`);
     };
     
     const tableRows = useMemo(() => {
