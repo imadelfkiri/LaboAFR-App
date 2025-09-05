@@ -80,7 +80,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ClipboardList, PlusCircle, Trash2, Edit, Save, CalendarIcon, Search, FileUp, Download, ChevronDown } from 'lucide-react';
 import { cn } from "@/lib/utils";
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 // Extend jsPDF for autoTable
 declare module "jspdf" {
@@ -611,77 +610,78 @@ export function AshAnalysisManager() {
             </CardContent>
         </Card>
         
-        <div className="flex-grow rounded-lg border bg-background">
-            <ScrollArea className="h-full">
-                <Table className="min-w-max relative border-collapse">
-                    <TableHeader className="sticky top-0 z-20 bg-background">
-                        <TableRow>
-                            <TableHead className="w-[120px] sticky left-0 z-30 bg-background">Date Arrivage</TableHead>
-                            <TableHead className="w-[150px] sticky left-[120px] z-30 bg-background">Combustible</TableHead>
-                            <TableHead className="w-[150px]">Fournisseur</TableHead>
-                            <TableHead className="text-right">% Cendres</TableHead>
-                            <TableHead className="text-right">PAF</TableHead>
-                            <TableHead className="text-right">SiO2</TableHead>
-                            <TableHead className="text-right">Al2O3</TableHead>
-                            <TableHead className="text-right">Fe2O3</TableHead>
-                            <TableHead className="text-right">CaO</TableHead>
-                            <TableHead className="text-right">MgO</TableHead>
-                            <TableHead className="text-right">SO3</TableHead>
-                            <TableHead className="text-right">K2O</TableHead>
-                            <TableHead className="text-right">TiO2</TableHead>
-                            <TableHead className="text-right">MnO</TableHead>
-                            <TableHead className="text-right">P2O5</TableHead>
-                            <TableHead className="text-right">MS</TableHead>
-                            <TableHead className="text-right">A/F</TableHead>
-                            <TableHead className="text-right">LSF</TableHead>
-                            <TableHead className="text-center w-[100px] sticky right-0 z-30 bg-background">Actions</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {loading ? (
-                            Array.from({ length: 10 }).map((_, i) => (
-                                <TableRow key={i}><TableCell colSpan={19} className="py-2"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
-                            ))
-                        ) : filteredAnalyses.length > 0 ? (
-                            filteredAnalyses.map(analysis => {
-                                const { ms, af, lsf } = calculateModules(analysis.sio2, analysis.al2o3, analysis.fe2o3, analysis.cao);
-                                return (
-                                    <TableRow key={analysis.id} className="h-auto">
-                                        <TableCell className="sticky left-0 py-1.5 z-10 bg-background">{format(analysis.date_arrivage.toDate(), "d MMM yyyy", {locale: fr})}</TableCell>
-                                        <TableCell className="font-medium sticky left-[120px] py-1.5 z-10 bg-background">{analysis.type_combustible}</TableCell>
-                                        <TableCell className="py-1.5">{analysis.fournisseur}</TableCell>
-                                        <TableCell className="text-right py-1.5">{formatNumber(analysis.pourcentage_cendres, 1)}</TableCell>
-                                        <TableCell className="text-right py-1.5">{formatNumber(analysis.paf, 1)}</TableCell>
-                                        <TableCell className="text-right py-1.5">{formatNumber(analysis.sio2, 1)}</TableCell>
-                                        <TableCell className="text-right py-1.5">{formatNumber(analysis.al2o3, 1)}</TableCell>
-                                        <TableCell className="text-right py-1.5">{formatNumber(analysis.fe2o3, 1)}</TableCell>
-                                        <TableCell className="text-right py-1.5">{formatNumber(analysis.cao, 1)}</TableCell>
-                                        <TableCell className="text-right py-1.5">{formatNumber(analysis.mgo, 1)}</TableCell>
-                                        <TableCell className="text-right py-1.5">{formatNumber(analysis.so3, 1)}</TableCell>
-                                        <TableCell className="text-right py-1.5">{formatNumber(analysis.k2o, 1)}</TableCell>
-                                        <TableCell className="text-right py-1.5">{formatNumber(analysis.tio2, 1)}</TableCell>
-                                        <TableCell className="text-right py-1.5">{formatNumber(analysis.mno, 1)}</TableCell>
-                                        <TableCell className="text-right py-1.5">{formatNumber(analysis.p2o5, 1)}</TableCell>
-                                        <TableCell className="text-right font-medium text-blue-600 py-1.5">{modulesFormatNumber(ms)}</TableCell>
-                                        <TableCell className="text-right font-medium text-green-600 py-1.5">{modulesFormatNumber(af)}</TableCell>
-                                        <TableCell className="text-right font-medium text-orange-600 py-1.5">{modulesFormatNumber(lsf)}</TableCell>
-                                        <TableCell className="sticky right-0 py-1.5 text-center z-10 bg-background">
-                                            <div className="flex justify-center items-center">
-                                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleModalOpen(analysis)}><Edit className="h-4 w-4" /></Button>
-                                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDeletingRowId(analysis.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                )
-                            })
-                        ) : (
-                             <TableRow><TableCell colSpan={19} className="h-24 text-center">Aucune analyse trouvée.</TableCell></TableRow>
-                        )}
-                    </TableBody>
-                </Table>
-                <ScrollBar orientation="horizontal" />
-            </ScrollArea>
-        </div>
+        <Card className="flex-1 flex flex-col rounded-2xl shadow-sm">
+            <CardContent className="p-0 flex-1">
+                <div className="overflow-auto rounded-2xl h-full">
+                    <Table className="min-w-max relative border-collapse">
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="sticky top-0 z-30 left-0 bg-background/95 backdrop-blur p-2 text-left whitespace-nowrap">Date Arrivage</TableHead>
+                                <TableHead className="sticky top-0 z-30 left-[120px] bg-background/95 backdrop-blur p-2 text-left">Combustible</TableHead>
+                                <TableHead className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-left">Fournisseur</TableHead>
+                                <TableHead className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-right">% Cendres</TableHead>
+                                <TableHead className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-right">PAF</TableHead>
+                                <TableHead className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-right">SiO2</TableHead>
+                                <TableHead className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-right">Al2O3</TableHead>
+                                <TableHead className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-right">Fe2O3</TableHead>
+                                <TableHead className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-right">CaO</TableHead>
+                                <TableHead className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-right">MgO</TableHead>
+                                <TableHead className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-right">SO3</TableHead>
+                                <TableHead className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-right">K2O</TableHead>
+                                <TableHead className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-right">TiO2</TableHead>
+                                <TableHead className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-right">MnO</TableHead>
+                                <TableHead className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-right">P2O5</TableHead>
+                                <TableHead className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-center">MS</TableHead>
+                                <TableHead className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-center">A/F</TableHead>
+                                <TableHead className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-center">LSF</TableHead>
+                                <TableHead className="sticky top-0 z-30 right-0 bg-background/95 backdrop-blur p-2 text-center">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {loading ? (
+                                Array.from({ length: 10 }).map((_, i) => (
+                                    <TableRow key={i}><TableCell colSpan={19} className="py-2"><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                                ))
+                            ) : filteredAnalyses.length > 0 ? (
+                                filteredAnalyses.map(analysis => {
+                                    const { ms, af, lsf } = calculateModules(analysis.sio2, analysis.al2o3, analysis.fe2o3, analysis.cao);
+                                    return (
+                                        <TableRow key={analysis.id} className="h-auto hover:bg-muted/40">
+                                            <TableCell className="sticky left-0 py-1.5 z-10 bg-background hover:bg-muted/40">{format(analysis.date_arrivage.toDate(), "d MMM yyyy", {locale: fr})}</TableCell>
+                                            <TableCell className="font-medium sticky left-[120px] py-1.5 z-10 bg-background hover:bg-muted/40">{analysis.type_combustible}</TableCell>
+                                            <TableCell className="py-1.5">{analysis.fournisseur}</TableCell>
+                                            <TableCell className="text-right py-1.5">{formatNumber(analysis.pourcentage_cendres, 1)}</TableCell>
+                                            <TableCell className="text-right py-1.5">{formatNumber(analysis.paf, 1)}</TableCell>
+                                            <TableCell className="text-right py-1.5">{formatNumber(analysis.sio2, 1)}</TableCell>
+                                            <TableCell className="text-right py-1.5">{formatNumber(analysis.al2o3, 1)}</TableCell>
+                                            <TableCell className="text-right py-1.5">{formatNumber(analysis.fe2o3, 1)}</TableCell>
+                                            <TableCell className="text-right py-1.5">{formatNumber(analysis.cao, 1)}</TableCell>
+                                            <TableCell className="text-right py-1.5">{formatNumber(analysis.mgo, 1)}</TableCell>
+                                            <TableCell className="text-right py-1.5">{formatNumber(analysis.so3, 1)}</TableCell>
+                                            <TableCell className="text-right py-1.5">{formatNumber(analysis.k2o, 1)}</TableCell>
+                                            <TableCell className="text-right py-1.5">{formatNumber(analysis.tio2, 1)}</TableCell>
+                                            <TableCell className="text-right py-1.5">{formatNumber(analysis.mno, 1)}</TableCell>
+                                            <TableCell className="text-right py-1.5">{formatNumber(analysis.p2o5, 1)}</TableCell>
+                                            <TableCell className="text-right font-medium text-blue-600 py-1.5">{modulesFormatNumber(ms)}</TableCell>
+                                            <TableCell className="text-right font-medium text-green-600 py-1.5">{modulesFormatNumber(af)}</TableCell>
+                                            <TableCell className="text-right font-medium text-orange-600 py-1.5">{modulesFormatNumber(lsf)}</TableCell>
+                                            <TableCell className="sticky right-0 py-1.5 text-center z-10 bg-background hover:bg-muted/40">
+                                                <div className="flex justify-center items-center">
+                                                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleModalOpen(analysis)}><Edit className="h-4 w-4" /></Button>
+                                                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDeletingRowId(analysis.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    )
+                                })
+                            ) : (
+                                <TableRow><TableCell colSpan={19} className="h-24 text-center">Aucune analyse trouvée.</TableCell></TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
+            </CardContent>
+        </Card>
 
 
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
@@ -718,3 +718,5 @@ export function AshAnalysisManager() {
       </div>
     );
 }
+
+    
