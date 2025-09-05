@@ -133,6 +133,7 @@ const importSchema = z.object({
   type_combustible: z.string().nonempty({message: "Le type de combustible est requis."}),
   fournisseur: z.string().nonempty({message: "Le fournisseur est requis."}),
   pcs: z.coerce.number({invalid_type_error: "PCS doit être un nombre."}).optional().nullable(),
+  pci_brut: z.coerce.number({invalid_type_error: "PCI Brut doit être un nombre."}).optional().nullable(),
   h2o: z.coerce.number({invalid_type_error: "H2O doit être un nombre."}).min(0).max(100),
   chlore: z.coerce.number({invalid_type_error: "Chlore doit être un nombre."}).min(0).optional().nullable(),
   cendres: z.coerce.number({invalid_type_error: "Cendres doit être un nombre."}).min(0).optional().nullable(),
@@ -863,6 +864,10 @@ export function ResultsTable() {
                     'fournisseur': 'fournisseur',
                     'pcs': 'pcs',
                     'pcs (kcal/kg)': 'pcs',
+                    'pci': 'pci_brut',
+                    'pci brut': 'pci_brut',
+                    'pci sur brut': 'pci_brut',
+                    'pci_brut': 'pci_brut',
                     'h2o': 'h2o',
                     '% h2o': 'h2o',
                     'cl-': 'chlore',
@@ -900,13 +905,14 @@ export function ResultsTable() {
                             date_arrivage: parsedDate,
                         });
                         
-                        const hValue = fuelDataMap.get(validatedData.type_combustible)?.teneur_hydrogene;
-                        if (hValue === null || hValue === undefined) {
-                            throw new Error(`Teneur en hydrogène non définie pour "${validatedData.type_combustible}".`);
-                        }
+                        let finalPci: number | null = validatedData.pci_brut ?? null;
 
-                        let pci_brut: number | null = null;
-                        if(validatedData.pcs){
+                        if (finalPci === null && validatedData.pcs) {
+                             const hValue = fuelDataMap.get(validatedData.type_combustible)?.teneur_hydrogene;
+                            if (hValue === null || hValue === undefined) {
+                                throw new Error(`Teneur en hydrogène non définie pour "${validatedData.type_combustible}" (nécessaire pour calculer le PCI à partir du PCS).`);
+                            }
+                            
                             let pcsToUse = validatedData.pcs;
                             if (validatedData.type_combustible.toLowerCase().includes('pneu') && validatedData.taux_fils_metalliques) {
                                 const taux = Number(validatedData.taux_fils_metalliques);
@@ -914,10 +920,11 @@ export function ResultsTable() {
                                    pcsToUse = pcsToUse * (1 - taux / 100);
                                 }
                             }
-                            pci_brut = calculerPCI(pcsToUse, validatedData.h2o, hValue);
+                            finalPci = calculerPCI(pcsToUse, validatedData.h2o, hValue);
                         }
 
-                        return { ...validatedData, pci_brut, date_creation: Timestamp.now(), date_arrivage: Timestamp.fromDate(validatedData.date_arrivage) };
+                        return { ...validatedData, pci_brut: finalPci, date_creation: Timestamp.now(), date_arrivage: Timestamp.fromDate(validatedData.date_arrivage) };
+
                     } catch (error) {
                          const errorMessage = error instanceof z.ZodError ? 
                             error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ') :
@@ -1205,5 +1212,3 @@ export function ResultsTable() {
 }
 
 export default ResultsTable;
-
-    
