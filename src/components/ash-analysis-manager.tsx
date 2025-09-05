@@ -20,7 +20,7 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 import { Timestamp } from 'firebase/firestore';
 import { DateRange } from "react-day-picker";
-import { format, startOfDay, endOfDay, isValid, parse } from 'date-fns';
+import { format, startOfDay, endOfDay, isValid, parse, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -70,7 +71,7 @@ import {
 } from "@/components/ui/form";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ClipboardList, PlusCircle, Trash2, Edit, Save, CalendarIcon, Search, FileUp, Download, ChevronDown, ArrowUpDown } from 'lucide-react';
+import { ClipboardList, PlusCircle, Trash2, Edit, Save, CalendarIcon, Search, FileUp, Download, ChevronDown, ArrowUpDown, Filter, Plus, Upload } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
 // Extend jsPDF for autoTable
@@ -120,18 +121,11 @@ const calculateModules = (sio2?: number | null, al2o3?: number | null, fe2o3?: n
     return { ms, af, lsf };
 };
 
-const formatNumber = (num: number | null | undefined, digits: number = 1) => {
+const formatNumberForTable = (num: number | null | undefined, digits: number = 1) => {
     if (num === null || num === undefined) return '-';
     if (!isFinite(num)) return "∞";
     return num.toLocaleString('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 };
-
-const modulesFormatNumber = (num: number | null | undefined, digits: number = 2) => {
-    if (num === null || num === undefined) return '-';
-    if (!isFinite(num)) return "∞";
-    return num.toLocaleString('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
-};
-
 
 const AnalysisForm = ({
   form,
@@ -195,6 +189,218 @@ const AnalysisForm = ({
     </Form>
 );
 
+function AnalysesCendresView({
+  rows = [],
+  fuels = [],
+  suppliers = [],
+  onAdd,
+  onEdit,
+  onDelete,
+  onExport,
+  onImport,
+  onSort,
+  sortConfig,
+  q = "",
+  setQ = () => {},
+  fuel = "__ALL__",
+  setFuel = () => {},
+  supplier = "__ALL__",
+  setSupplier = () => {},
+  from = "",
+  setFrom = () => {},
+  to = "",
+  setTo = () => {},
+}) {
+  // helpers UI (color chips pour modules déjà calculés)
+  const chip = (val: number | undefined, type: "MS"|"AF"|"LSF") => {
+    const n = typeof val === "number" && isFinite(val) ? val : undefined
+    const base = "inline-flex items-center justify-center rounded-md px-2 py-0.5 text-xs font-medium"
+    if (n === undefined) return <span className={`${base} bg-muted text-muted-foreground`}>-</span>
+    if (type === "MS") {
+      return (
+        <span className={`${base} ${n<1.5?"bg-red-100 text-red-700":n<2.0?"bg-yellow-100 text-yellow-800":"bg-green-100 text-green-800"}`}>
+          {n.toFixed(2)}
+        </span>
+      )
+    }
+    if (type === "AF") {
+      return (
+        <span className={`${base} ${n<0.5?"bg-red-100 text-red-700":n<1.5?"bg-yellow-100 text-yellow-800":"bg-green-100 text-green-800"}`}>
+          {n.toFixed(2)}
+        </span>
+      )
+    }
+    // LSF
+    return (
+      <span className={`${base} ${n<0.80?"bg-red-100 text-red-700":n<=1.00?"bg-yellow-100 text-yellow-800":"bg-green-100 text-green-800"}`}>
+        {n.toFixed(2)}
+      </span>
+    )
+  }
+
+   const SortableHeader = ({ label, sortKey }: { label: string; sortKey: SortableKeys }) => {
+    const isSorted = sortConfig?.key === sortKey;
+    return (
+      <th
+        key={sortKey}
+        onClick={() => onSort(sortKey)}
+        className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-left font-semibold border-b cursor-pointer hover:bg-muted/50"
+      >
+        <div className="flex items-center gap-2">
+            <span>{label}</span>
+            {isSorted && (
+                <ArrowUpDown className="h-4 w-4 text-foreground" />
+            )}
+        </div>
+      </th>
+    );
+  };
+  
+  const headers: { label: string; key: SortableKeys; align?: 'right'|'center' }[] = [
+    { label: "Date Arrivage", key: "date_arrivage" },
+    { label: "Combustible", key: "type_combustible" },
+    { label: "Fournisseur", key: "fournisseur" },
+    { label: "% Cendres", key: "pourcentage_cendres", align: "right" },
+    { label: "PAF", key: "paf", align: "right" },
+    { label: "SiO2", key: "sio2", align: "right" },
+    { label: "Al2O3", key: "al2o3", align: "right" },
+    { label: "Fe2O3", key: "fe2o3", align: "right" },
+    { label: "CaO", key: "cao", align: "right" },
+    { label: "MgO", key: "mgo", align: "right" },
+    { label: "SO3", key: "so3", align: "right" },
+    { label: "K2O", key: "k2o", align: "right" },
+    { label: "TiO2", key: "tio2", align: "right" },
+    { label: "MnO", key: "mno", align: "right" },
+    { label: "P2O5", key: "p2o5", align: "right" },
+    { label: "MS", key: "ms", align: "center" },
+    { label: "A/F", key: "af", align: "center" },
+    { label: "LSF", key: "lsf", align: "center" },
+  ];
+
+  return (
+    <div className="mx-auto w-full max-w-[1400px] p-4 md:p-6 space-y-4">
+      {/* Header */}
+      <div className="flex flex-col gap-1">
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Suivi des Analyses de Cendres</h1>
+        <p className="text-sm text-muted-foreground">Saisir, consulter et modifier les analyses chimiques des cendres.</p>
+      </div>
+
+      {/* Toolbar */}
+      <Card className="rounded-2xl shadow-sm border">
+        <CardContent className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 items-end">
+            <div className="md:col-span-2 xl:col-span-1">
+              <Label className="text-xs text-muted-foreground">Rechercher</Label>
+              <Input placeholder="Combustible, fournisseur…" value={q} onChange={(e)=>setQ(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">Combustible</Label>
+              <Select value={fuel} onValueChange={setFuel}>
+                <SelectTrigger className="h-10"><SelectValue placeholder="Tous les combustibles" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__ALL__">Tous</SelectItem>
+                  {fuels.map((f: string)=> <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">Fournisseur</Label>
+              <Select value={supplier} onValueChange={setSupplier}>
+                <SelectTrigger className="h-10"><SelectValue placeholder="Tous les fournisseurs" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__ALL__">Tous</SelectItem>
+                  {suppliers.map((s: string)=> <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+                 <div>
+                  <Label className="text-xs text-muted-foreground">Du</Label>
+                  <Input type="date" value={from} onChange={(e)=>setFrom(e.target.value)} className="h-10" />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Au</Label>
+                  <Input type="date" value={to} onChange={(e)=>setTo(e.target.value)} className="h-10" />
+                </div>
+            </div>
+            
+            <div className="flex items-end justify-end gap-2">
+              <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                      <Button variant="outline"><Download className="w-4 h-4 mr-1"/>Exporter <ChevronDown className="w-4 h-4 ml-1" /></Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => onExport('excel')}>Exporter en Excel</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onExport('pdf')}>Exporter en PDF</DropdownMenuItem>
+                  </DropdownMenuContent>
+              </DropdownMenu>
+
+              <Button variant="outline" onClick={onImport}><Upload className="w-4 h-4 mr-1"/>Importer</Button>
+              <Button onClick={onAdd}><Plus className="w-4 h-4 mr-1"/>Ajouter</Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Tableau */}
+      <Card className="rounded-2xl shadow-md">
+        <CardContent className="p-0">
+          <div className="max-h-[68vh] overflow-auto rounded-2xl border-t bg-background">
+            <table className="w-full text-sm border-separate border-spacing-0">
+              <thead className="text-[13px] text-muted-foreground">
+                <tr>
+                  {headers.map(h => <SortableHeader key={h.key} label={h.label} sortKey={h.key} />)}
+                   <th className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-center font-semibold border-b">Actions</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {(rows ?? []).map((r: any, i: number) => (
+                  <tr key={r.id ?? i}
+                      className="border-b last:border-0 even:bg-muted/20 hover:bg-muted/40 transition-colors">
+                    <td className="p-2 text-muted-foreground whitespace-nowrap">{r.dateArrivage}</td>
+                    <td className="p-2 font-medium">{r.combustible}</td>
+                    <td className="p-2">{r.fournisseur}</td>
+                    <td className="p-2 text-right tabular-nums">{r.oxides?.['%Cendres']}</td>
+                    <td className="p-2 text-right tabular-nums">{r.oxides?.PAF}</td>
+                    <td className="p-2 text-right tabular-nums">{r.oxides?.SiO2}</td>
+                    <td className="p-2 text-right tabular-nums">{r.oxides?.Al2O3}</td>
+                    <td className="p-2 text-right tabular-nums">{r.oxides?.Fe2O3}</td>
+                    <td className="p-2 text-right tabular-nums">{r.oxides?.CaO}</td>
+                    <td className="p-2 text-right tabular-nums">{r.oxides?.MgO}</td>
+                    <td className="p-2 text-right tabular-nums">{r.oxides?.SO3}</td>
+                    <td className="p-2 text-right tabular-nums">{r.oxides?.K2O}</td>
+                    <td className="p-2 text-right tabular-nums">{r.oxides?.TiO2}</td>
+                    <td className="p-2 text-right tabular-nums">{r.oxides?.MnO}</td>
+                    <td className="p-2 text-right tabular-nums">{r.oxides?.P2O5}</td>
+                    <td className="p-2 text-center">{chip(r.modules?.MS, "MS")}</td>
+                    <td className="p-2 text-center">{chip(r.modules?.AF, "AF")}</td>
+                    <td className="p-2 text-center">{chip(r.modules?.LSF, "LSF")}</td>
+
+                    <td className="p-2 text-center">
+                      <div className="inline-flex gap-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(r.original)} title="Éditer">
+                            <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDelete(r.id)} title="Supprimer">
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {(!rows || rows.length === 0) && (
+                  <tr><td colSpan={19} className="p-6 text-center text-muted-foreground">Aucune donnée.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
 export function AshAnalysisManager() {
     const [analyses, setAnalyses] = useState<AshAnalysis[]>([]);
     const [loading, setLoading] = useState(true);
@@ -202,20 +408,21 @@ export function AshAnalysisManager() {
     const [editingAnalysis, setEditingAnalysis] = useState<AshAnalysis | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     
-    // Filters and Sorting
-    const [fuelTypeFilter, setFuelTypeFilter] = useState('all');
-    const [fournisseurFilter, setFournisseurFilter] = useState('all');
-    const [dateRangeFilter, setDateRangeFilter] = useState<DateRange | undefined>();
+    // Filters
+    const [fuelTypeFilter, setFuelTypeFilter] = useState('__ALL__');
+    const [fournisseurFilter, setFournisseurFilter] = useState('__ALL__');
+    const [dateFromFilter, setDateFromFilter] = useState('');
+    const [dateToFilter, setDateToFilter] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
-    const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' } | null>({ key: 'date_arrivage', direction: 'descending' });
 
+    // Sorting
+    const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' } | null>({ key: 'date_arrivage', direction: 'descending' });
 
     const [fuelTypes, setFuelTypes] = useState<string[]>([]);
     const [fournisseurs, setFournisseurs] = useState<string[]>([]);
 
     const { toast } = useToast();
     const fileInputRef = useRef<HTMLInputElement>(null);
-
 
     const form = useForm<FormValues>({
         resolver: zodResolver(analysisSchema),
@@ -232,8 +439,8 @@ export function AshAnalysisManager() {
             ]);
             
             setAnalyses(analysesData);
-            setFuelTypes(fTypes);
-            setFournisseurs(founisseursList);
+            setFuelTypes(fTypes.sort());
+            setFournisseurs(founisseursList.sort());
 
         } catch (error) {
             console.error("Error fetching data:", error);
@@ -436,15 +643,25 @@ export function AshAnalysisManager() {
         return value === null || value === undefined ? -Infinity : (typeof value === 'string' ? value.toLowerCase() : value);
     };
 
+    const requestSort = (key: SortableKeys) => {
+        let direction: 'ascending' | 'descending' = 'ascending';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
+    };
+
     const sortedAndFilteredAnalyses = useMemo(() => {
         let sortableItems = [...analyses].filter(a => {
             const date = a.date_arrivage.toDate();
-            const fuelTypeMatch = fuelTypeFilter === 'all' || a.type_combustible === fuelTypeFilter;
-            const fournisseurMatch = fournisseurFilter === 'all' || a.fournisseur === fournisseurFilter;
-            const dateMatch = !dateRangeFilter || (
-                (!dateRangeFilter.from || date >= startOfDay(dateRangeFilter.from)) &&
-                (!dateRangeFilter.to || date <= endOfDay(dateRangeFilter.to))
-            );
+            const fuelTypeMatch = fuelTypeFilter === '__ALL__' || a.type_combustible === fuelTypeFilter;
+            const fournisseurMatch = fournisseurFilter === '__ALL__' || a.fournisseur === fournisseurFilter;
+            
+            const dateFrom = dateFromFilter ? startOfDay(parseISO(dateFromFilter)) : null;
+            const dateTo = dateToFilter ? endOfDay(parseISO(dateToFilter)) : null;
+            
+            const dateMatch = (!dateFrom || date >= dateFrom) && (!dateTo || date <= dateTo);
+            
             const searchMatch = !searchQuery || 
                 a.type_combustible.toLowerCase().includes(searchQuery.toLowerCase()) || 
                 a.fournisseur.toLowerCase().includes(searchQuery.toLowerCase());
@@ -469,29 +686,24 @@ export function AshAnalysisManager() {
         
         return sortableItems;
 
-    }, [analyses, fuelTypeFilter, fournisseurFilter, dateRangeFilter, searchQuery, sortConfig]);
+    }, [analyses, fuelTypeFilter, fournisseurFilter, dateFromFilter, dateToFilter, searchQuery, sortConfig]);
 
-    const requestSort = (key: SortableKeys) => {
-        let direction: 'ascending' | 'descending' = 'ascending';
-        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
-            direction = 'descending';
+    const exportData = (type: 'excel' | 'pdf') => {
+        const dataToExport = sortedAndFilteredAnalyses;
+        if (dataToExport.length === 0) {
+            toast({ variant: "destructive", title: "Aucune donnée", description: "Il n'y a pas de données à exporter." });
+            return;
         }
-        setSortConfig({ key, direction });
-    };
 
-    const getSortIcon = (key: SortableKeys) => {
-        if (!sortConfig || sortConfig.key !== key) {
-            return <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground/50" />;
+        if (type === 'excel') {
+            exportToExcel(dataToExport);
+        } else {
+            exportToPdf(dataToExport);
         }
-        if (sortConfig.direction === 'ascending') {
-            return <ArrowUpDown className="ml-2 h-4 w-4" />;
-        }
-        return <ArrowUpDown className="ml-2 h-4 w-4" />; // Using the same icon for both for simplicity
-    };
+    }
 
-
-    const exportToExcel = () => {
-        const dataToExport = sortedAndFilteredAnalyses.map(a => {
+    const exportToExcel = (data: AshAnalysis[]) => {
+        const excelData = data.map(a => {
             const { ms, af, lsf } = calculateModules(a.sio2, a.al2o3, a.fe2o3, a.cao);
             return {
                 "Date Arrivage": format(a.date_arrivage.toDate(), "dd/MM/yyyy"),
@@ -515,18 +727,13 @@ export function AshAnalysisManager() {
             }
         });
         
-        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+        const worksheet = XLSX.utils.json_to_sheet(excelData);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Analyses Cendres");
         XLSX.writeFile(workbook, `Export_Analyses_Cendres_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
     };
 
-    const exportToPdf = () => {
-        if (sortedAndFilteredAnalyses.length === 0) {
-            toast({ variant: "destructive", title: "Aucune donnée", description: "Il n'y a pas de données à exporter." });
-            return;
-        }
-
+    const exportToPdf = (data: AshAnalysis[]) => {
         const doc = new jsPDF({ orientation: 'landscape' });
         const title = "Rapport des Analyses de Cendres";
         const generationDate = format(new Date(), "dd/MM/yyyy HH:mm:ss");
@@ -544,7 +751,7 @@ export function AshAnalysisManager() {
             "MS", "A/F", "LSF"
         ]];
 
-        const body = sortedAndFilteredAnalyses.map(a => {
+        const body = data.map(a => {
             const { ms, af, lsf } = calculateModules(a.sio2, a.al2o3, a.fe2o3, a.cao);
             return [
                 format(a.date_arrivage.toDate(), "dd/MM/yy"),
@@ -579,160 +786,74 @@ export function AshAnalysisManager() {
 
         doc.save(`Rapport_Analyses_Cendres_${format(new Date(), "yyyy-MM-dd")}.pdf`);
     };
+    
+    const tableRows = useMemo(() => {
+        return sortedAndFilteredAnalyses.map(analysis => {
+            const { ms, af, lsf } = calculateModules(analysis.sio2, analysis.al2o3, analysis.fe2o3, analysis.cao);
+            return {
+                id: analysis.id,
+                dateArrivage: format(analysis.date_arrivage.toDate(), "d MMM yyyy", { locale: fr }),
+                combustible: analysis.type_combustible,
+                fournisseur: analysis.fournisseur,
+                oxides: {
+                    '%Cendres': formatNumberForTable(analysis.pourcentage_cendres, 1),
+                    PAF: formatNumberForTable(analysis.paf, 1),
+                    SiO2: formatNumberForTable(analysis.sio2, 1),
+                    Al2O3: formatNumberForTable(analysis.al2o3, 1),
+                    Fe2O3: formatNumberForTable(analysis.fe2o3, 1),
+                    CaO: formatNumberForTable(analysis.cao, 1),
+                    MgO: formatNumberForTable(analysis.mgo, 1),
+                    SO3: formatNumberForTable(analysis.so3, 1),
+                    K2O: formatNumberForTable(analysis.k2o, 1),
+                    TiO2: formatNumberForTable(analysis.tio2, 1),
+                    MnO: formatNumberForTable(analysis.mno, 1),
+                    P2O5: formatNumberForTable(analysis.p2o5, 1),
+                },
+                modules: {
+                    MS: ms,
+                    AF: af,
+                    LSF: lsf,
+                },
+                original: analysis,
+            };
+        });
+    }, [sortedAndFilteredAnalyses]);
 
-    const renderSortableHeader = (label: string, key: SortableKeys, className: string) => (
-        <th className={cn("sticky top-0 z-20 bg-background/95 backdrop-blur p-2 whitespace-nowrap", className)}>
-            <Button variant="ghost" onClick={() => requestSort(key)} className="px-2 py-1 h-auto -ml-2">
-                {label}
-                {getSortIcon(key)}
-            </Button>
-        </th>
-    );
-
+    if (loading) {
+        return <div className="p-6"><Skeleton className="h-96 w-full" /></div>
+    }
 
     return (
-      <div className="space-y-4 h-full flex flex-col">
-        <Card>
-            <CardHeader>
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <div>
-                        <CardTitle className="flex items-center gap-2">
-                            <ClipboardList className="h-6 w-6 text-primary" />
-                            Suivi des Analyses de Cendres
-                        </CardTitle>
-                        <CardDescription>
-                            Saisir, consulter et modifier les analyses chimiques des cendres.
-                        </CardDescription>
-                    </div>
-                     <div className='flex gap-2 flex-wrap justify-end'>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline">
-                                    <Download className="mr-2 h-4 w-4" />
-                                    Exporter
-                                    <ChevronDown className="ml-2 h-4 w-4" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={exportToExcel}>Exporter en Excel</DropdownMenuItem>
-                                <DropdownMenuItem onClick={exportToPdf}>Exporter en PDF</DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-
-                        <input
-                            type="file"
-                            ref={fileInputRef}
-                            className="hidden"
-                            onChange={handleFileImport}
-                            accept=".xlsx, .xls"
-                        />
-                        <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-                            <FileUp className="mr-2 h-4 w-4" />
-                            Importer depuis Excel
-                        </Button>
-                        <Button onClick={() => handleModalOpen()}>
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            Ajouter une analyse
-                        </Button>
-                    </div>
-                </div>
-            </CardHeader>
-            <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 border rounded-lg">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input placeholder="Rechercher..." className="pl-10" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-                    </div>
-                    <Select value={fuelTypeFilter} onValueChange={setFuelTypeFilter}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent><SelectItem value="all">Tous les combustibles</SelectItem>{fuelTypes.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
-                    </Select>
-                    <Select value={fournisseurFilter} onValueChange={setFournisseurFilter}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent><SelectItem value="all">Tous les fournisseurs</SelectItem>{fournisseurs.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
-                    </Select>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                          <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !dateRangeFilter && "text-muted-foreground")}>
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              {dateRangeFilter?.from ? (dateRangeFilter.to ? `${format(dateRangeFilter.from, "d MMM y", {locale:fr})} - ${format(dateRangeFilter.to, "d MMM y", {locale:fr})}` : format(dateRangeFilter.from, "d MMM y", {locale:fr})) : <span>Filtrer par date</span>}
-                          </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start"><Calendar initialFocus mode="range" defaultMonth={dateRangeFilter?.from} selected={dateRangeFilter} onSelect={setDateRangeFilter} numberOfMonths={2} locale={fr}/></PopoverContent>
-                    </Popover>
-                </div>
-            </CardContent>
-        </Card>
-        
-        <div className="flex-1 max-h-[calc(100vh-320px)] overflow-auto rounded-2xl border bg-background">
-            <table className="w-full text-sm border-separate border-spacing-0">
-                <thead className="text-[13px]">
-                    <tr className="border-b">
-                        {renderSortableHeader('Date Arrivage', 'date_arrivage', 'text-left sticky left-0 z-30')}
-                        {renderSortableHeader('Combustible', 'type_combustible', 'text-left sticky left-[140px] z-30')}
-                        {renderSortableHeader('Fournisseur', 'fournisseur', 'text-left')}
-                        {renderSortableHeader('% Cendres', 'pourcentage_cendres', 'text-right')}
-                        {renderSortableHeader('PAF', 'paf', 'text-right')}
-                        {renderSortableHeader('SiO2', 'sio2', 'text-right')}
-                        {renderSortableHeader('Al2O3', 'al2o3', 'text-right')}
-                        {renderSortableHeader('Fe2O3', 'fe2o3', 'text-right')}
-                        {renderSortableHeader('CaO', 'cao', 'text-right')}
-                        {renderSortableHeader('MgO', 'mgo', 'text-right')}
-                        {renderSortableHeader('SO3', 'so3', 'text-right')}
-                        {renderSortableHeader('K2O', 'k2o', 'text-right')}
-                        {renderSortableHeader('TiO2', 'tio2', 'text-right')}
-                        {renderSortableHeader('MnO', 'mno', 'text-right')}
-                        {renderSortableHeader('P2O5', 'p2o5', 'text-right')}
-                        {renderSortableHeader('MS', 'ms', 'text-center')}
-                        {renderSortableHeader('A/F', 'af', 'text-center')}
-                        {renderSortableHeader('LSF', 'lsf', 'text-center')}
-                        <th className="sticky top-0 right-0 z-30 bg-background/95 backdrop-blur p-2 text-center">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {loading ? (
-                        Array.from({ length: 10 }).map((_, i) => (
-                            <tr key={i}><td colSpan={19} className="p-2"><Skeleton className="h-8 w-full" /></td></tr>
-                        ))
-                    ) : sortedAndFilteredAnalyses.length > 0 ? (
-                        sortedAndFilteredAnalyses.map(analysis => {
-                            const { ms, af, lsf } = calculateModules(analysis.sio2, analysis.al2o3, analysis.fe2o3, analysis.cao);
-                            return (
-                                <tr key={analysis.id} className="h-auto hover:bg-muted/40">
-                                    <td className="sticky left-0 py-1.5 px-2 z-10 bg-background hover:bg-muted/40">{format(analysis.date_arrivage.toDate(), "d MMM yyyy", {locale: fr})}</td>
-                                    <td className="font-medium sticky left-[140px] py-1.5 px-2 z-10 bg-background hover:bg-muted/40">{analysis.type_combustible}</td>
-                                    <td className="py-1.5 px-2">{analysis.fournisseur}</td>
-                                    <td className="text-right py-1.5 px-2">{formatNumber(analysis.pourcentage_cendres, 1)}</td>
-                                    <td className="text-right py-1.5 px-2">{formatNumber(analysis.paf, 1)}</td>
-                                    <td className="text-right py-1.5 px-2">{formatNumber(analysis.sio2, 1)}</td>
-                                    <td className="text-right py-1.5 px-2">{formatNumber(analysis.al2o3, 1)}</td>
-                                    <td className="text-right py-1.5 px-2">{formatNumber(analysis.fe2o3, 1)}</td>
-                                    <td className="text-right py-1.5 px-2">{formatNumber(analysis.cao, 1)}</td>
-                                    <td className="text-right py-1.5 px-2">{formatNumber(analysis.mgo, 1)}</td>
-                                    <td className="text-right py-1.5 px-2">{formatNumber(analysis.so3, 1)}</td>
-                                    <td className="text-right py-1.5 px-2">{formatNumber(analysis.k2o, 1)}</td>
-                                    <td className="text-right py-1.5 px-2">{formatNumber(analysis.tio2, 1)}</td>
-                                    <td className="text-right py-1.5 px-2">{formatNumber(analysis.mno, 1)}</td>
-                                    <td className="text-right py-1.5 px-2">{formatNumber(analysis.p2o5, 1)}</td>
-                                    <td className="text-right font-medium text-blue-600 py-1.5 px-2">{modulesFormatNumber(ms)}</td>
-                                    <td className="text-right font-medium text-green-600 py-1.5 px-2">{modulesFormatNumber(af)}</td>
-                                    <td className="text-right font-medium text-orange-600 py-1.5 px-2">{modulesFormatNumber(lsf)}</td>
-                                    <td className="sticky right-0 py-1.5 px-2 text-center z-10 bg-background hover:bg-muted/40">
-                                        <div className="flex justify-center items-center">
-                                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleModalOpen(analysis)}><Edit className="h-4 w-4" /></Button>
-                                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDeletingRowId(analysis.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            )
-                        })
-                    ) : (
-                        <tr><td colSpan={19} className="h-24 text-center">Aucune analyse trouvée.</td></tr>
-                    )}
-                </tbody>
-            </table>
-        </div>
-
+      <>
+        <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            onChange={handleFileImport}
+            accept=".xlsx, .xls"
+        />
+        <AnalysesCendresView
+          rows={tableRows}
+          fuels={fuelTypes}
+          suppliers={fournisseurs}
+          onAdd={() => handleModalOpen(null)}
+          onEdit={(analysis) => handleModalOpen(analysis)}
+          onDelete={(id) => setDeletingRowId(id)}
+          onExport={exportData}
+          onImport={() => fileInputRef.current?.click()}
+          onSort={requestSort}
+          sortConfig={sortConfig}
+          q={searchQuery}
+          setQ={setSearchQuery}
+          fuel={fuelTypeFilter}
+          setFuel={setFuelTypeFilter}
+          supplier={fournisseurFilter}
+          setSupplier={setFournisseurFilter}
+          from={dateFromFilter}
+          setFrom={setDateFromFilter}
+          to={dateToFilter}
+          setTo={setDateToFilter}
+        />
 
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
             <DialogContent className="max-w-3xl">
@@ -765,6 +886,9 @@ export function AshAnalysisManager() {
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
-      </div>
+      </>
     );
 }
+
+
+    
