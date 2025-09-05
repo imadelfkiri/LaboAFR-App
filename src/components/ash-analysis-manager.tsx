@@ -111,11 +111,18 @@ const calculateModules = (sio2?: number | null, al2o3?: number | null, fe2o3?: n
     return { ms, af, lsf };
 };
 
-const formatNumber = (num: number | null | undefined, digits: number = 2) => {
+const formatNumber = (num: number | null | undefined, digits: number = 1) => {
     if (num === null || num === undefined) return '-';
     if (!isFinite(num)) return "∞";
     return num.toLocaleString('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 };
+
+const modulesFormatNumber = (num: number | null | undefined, digits: number = 2) => {
+    if (num === null || num === undefined) return '-';
+    if (!isFinite(num)) return "∞";
+    return num.toLocaleString('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+};
+
 
 const AnalysisForm = ({
   form,
@@ -317,6 +324,24 @@ export function AshAnalysisManager() {
         
         throw new Error(`Format de date non reconnu à la ligne ${rowNum} pour la valeur "${value}".`);
     }
+
+    const headerMapping: { [key: string]: keyof FormValues } = {
+        'date arrivage': 'date_arrivage',
+        'combustible': 'type_combustible',
+        'fournisseur': 'fournisseur',
+        '% cendre': 'pourcentage_cendres',
+        'paf': 'paf',
+        'sio2': 'sio2',
+        'al2o3': 'al2o3',
+        'fe2o3': 'fe2o3',
+        'cao': 'cao',
+        'mgo': 'mgo',
+        'so3': 'so3',
+        'k2o': 'k2o',
+        'tio2': 'tio2',
+        'mno': 'mno',
+        'p2o5': 'p2o5',
+    };
     
     const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -334,13 +359,35 @@ export function AshAnalysisManager() {
                 if (!json || json.length === 0) {
                     throw new Error("Le fichier Excel est vide ou mal formaté.");
                 }
-
+                
                 const parsedAnalyses = json.map((row, index) => {
-                    const parsedDate = parseDate(row.date_arrivage, index + 2);
+                    const rowNum = index + 2; // Excel rows are 1-based, and we skip the header
+                    const mappedRow: { [key: string]: any } = {};
+
+                    for(const header in row) {
+                        const normalizedHeader = header.trim().toLowerCase().replace(/\s+/g, ' ');
+                        const targetKey = headerMapping[normalizedHeader];
+                        if (targetKey) {
+                            let value = row[header];
+                            // Replace comma with dot for decimal values
+                            if(typeof value === 'string' && targetKey !== 'date_arrivage' && targetKey !== 'type_combustible' && targetKey !== 'fournisseur') {
+                                value = value.replace(',', '.');
+                            }
+                            mappedRow[targetKey] = value;
+                        }
+                    }
+
+                    if (!mappedRow.date_arrivage) {
+                        throw new Error(`Colonne "Date Arrivage" manquante ou non reconnue à la ligne ${rowNum}.`);
+                    }
+
+                    const parsedDate = parseDate(mappedRow.date_arrivage, rowNum);
+                    
                     const validatedData = analysisSchema.omit({id: true}).parse({
-                        ...row,
+                        ...mappedRow,
                         date_arrivage: parsedDate,
                     });
+                    
                     return { ...validatedData, date_arrivage: Timestamp.fromDate(validatedData.date_arrivage) };
                 });
 
@@ -354,7 +401,6 @@ export function AshAnalysisManager() {
                     error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
                 toast({ variant: "destructive", title: "Erreur d'importation", description: errorMessage, duration: 9000 });
             } finally {
-                // Reset file input
                 if(fileInputRef.current) {
                     fileInputRef.current.value = "";
                 }
@@ -492,12 +538,14 @@ export function AshAnalysisManager() {
                                         <TableCell className="text-right py-1.5">{formatNumber(analysis.tio2, 1)}</TableCell>
                                         <TableCell className="text-right py-1.5">{formatNumber(analysis.mno, 1)}</TableCell>
                                         <TableCell className="text-right py-1.5">{formatNumber(analysis.p2o5, 1)}</TableCell>
-                                        <TableCell className="text-right font-medium text-blue-600 py-1.5">{formatNumber(ms)}</TableCell>
-                                        <TableCell className="text-right font-medium text-green-600 py-1.5">{formatNumber(af)}</TableCell>
-                                        <TableCell className="text-right font-medium text-orange-600 py-1.5">{formatNumber(lsf)}</TableCell>
+                                        <TableCell className="text-right font-medium text-blue-600 py-1.5">{modulesFormatNumber(ms)}</TableCell>
+                                        <TableCell className="text-right font-medium text-green-600 py-1.5">{modulesFormatNumber(af)}</TableCell>
+                                        <TableCell className="text-right font-medium text-orange-600 py-1.5">{modulesFormatNumber(lsf)}</TableCell>
                                         <TableCell className="sticky right-0 bg-background py-1.5 text-center">
-                                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleModalOpen(analysis)}><Edit className="h-4 w-4" /></Button>
-                                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDeletingRowId(analysis.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                            <div className="flex justify-center items-center">
+                                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleModalOpen(analysis)}><Edit className="h-4 w-4" /></Button>
+                                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDeletingRowId(analysis.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 )
