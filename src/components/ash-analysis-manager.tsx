@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -69,7 +70,7 @@ import {
 } from "@/components/ui/form";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ClipboardList, PlusCircle, Trash2, Edit, Save, CalendarIcon, Filter, Search, FileUp } from 'lucide-react';
+import { ClipboardList, PlusCircle, Trash2, Edit, Save, CalendarIcon, Filter, Search, FileUp, Download } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
@@ -430,6 +431,38 @@ export function AshAnalysisManager() {
     }, [analyses, fuelTypeFilter, fournisseurFilter, dateRangeFilter, searchQuery]);
 
 
+    const exportToExcel = () => {
+        const dataToExport = filteredAnalyses.map(a => {
+            const { ms, af, lsf } = calculateModules(a.sio2, a.al2o3, a.fe2o3, a.cao);
+            return {
+                "Date Arrivage": format(a.date_arrivage.toDate(), "dd/MM/yyyy"),
+                "Combustible": a.type_combustible,
+                "Fournisseur": a.fournisseur,
+                "% Cendres": a.pourcentage_cendres,
+                "PAF": a.paf,
+                "SiO2": a.sio2,
+                "Al2O3": a.al2o3,
+                "Fe2O3": a.fe2o3,
+                "CaO": a.cao,
+                "MgO": a.mgo,
+                "SO3": a.so3,
+                "K2O": a.k2o,
+                "TiO2": a.tio2,
+                "MnO": a.mno,
+                "P2O5": a.p2o5,
+                "MS": isFinite(ms) ? ms : null,
+                "A/F": isFinite(af) ? af : null,
+                "LSF": isFinite(lsf) ? lsf : null,
+            }
+        });
+        
+        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Analyses Cendres");
+        XLSX.writeFile(workbook, `Export_Analyses_Cendres_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+    };
+
+
     return (
       <div className="space-y-4 h-full flex flex-col">
         <Card>
@@ -445,6 +478,10 @@ export function AshAnalysisManager() {
                         </CardDescription>
                     </div>
                      <div className='flex gap-2'>
+                        <Button variant="outline" onClick={exportToExcel}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Exporter en Excel
+                        </Button>
                         <input
                             type="file"
                             ref={fileInputRef}
