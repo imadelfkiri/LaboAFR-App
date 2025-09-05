@@ -545,7 +545,7 @@ export function AshAnalysisManager() {
                     <div>
                         <CardTitle className="flex items-center gap-2">
                             <ClipboardList className="h-6 w-6 text-primary" />
-                            Suivi des Analyses de Cendres des AF
+                            Suivi des Analyses de Cendres
                         </CardTitle>
                         <CardDescription>
                             Saisir, consulter et modifier les analyses chimiques des cendres.
@@ -612,12 +612,12 @@ export function AshAnalysisManager() {
         </Card>
         
         <div className="flex-grow rounded-lg border">
-            <ScrollArea className="w-full">
-                <Table className="min-w-max">
-                    <TableHeader className="sticky top-0 bg-muted/50 z-20">
+            <ScrollArea className="h-full">
+                <Table className="min-w-max relative border-collapse">
+                    <TableHeader className="sticky top-0 bg-background z-20">
                         <TableRow>
-                            <TableHead className="w-[120px] sticky left-0 bg-muted/50 z-30">Date Arrivage</TableHead>
-                            <TableHead className="w-[150px] sticky left-[120px] bg-muted/50 z-30">Combustible</TableHead>
+                            <TableHead className="w-[120px] sticky left-0 bg-background z-30">Date Arrivage</TableHead>
+                            <TableHead className="w-[150px] sticky left-[120px] bg-background z-30">Combustible</TableHead>
                             <TableHead className="w-[150px]">Fournisseur</TableHead>
                             <TableHead className="text-right">% Cendres</TableHead>
                             <TableHead className="text-right">PAF</TableHead>
@@ -634,7 +634,7 @@ export function AshAnalysisManager() {
                             <TableHead className="text-right">MS</TableHead>
                             <TableHead className="text-right">A/F</TableHead>
                             <TableHead className="text-right">LSF</TableHead>
-                            <TableHead className="text-center w-[100px] sticky right-0 bg-muted/50 z-30">Actions</TableHead>
+                            <TableHead className="text-center w-[100px] sticky right-0 bg-background z-30">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
