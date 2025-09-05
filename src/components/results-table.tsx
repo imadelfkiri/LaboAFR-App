@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
@@ -95,8 +94,8 @@ interface Result {
   h2o: number;
   cendres: number | null;
   chlore: number | null;
-  pci_brut: number;
-  pcs: number;
+  pci_brut: number | null;
+  pcs?: number | null;
   poids_godet: number | null;
   remarques: string;
 }
@@ -133,7 +132,7 @@ const importSchema = z.object({
   date_arrivage: z.date({ required_error: "Date requise." }),
   type_combustible: z.string().nonempty({message: "Le type de combustible est requis."}),
   fournisseur: z.string().nonempty({message: "Le fournisseur est requis."}),
-  pcs: z.coerce.number({invalid_type_error: "PCS doit être un nombre."}),
+  pcs: z.coerce.number({invalid_type_error: "PCS doit être un nombre."}).optional().nullable(),
   h2o: z.coerce.number({invalid_type_error: "H2O doit être un nombre."}).min(0).max(100),
   chlore: z.coerce.number({invalid_type_error: "Chlore doit être un nombre."}).min(0).optional().nullable(),
   cendres: z.coerce.number({invalid_type_error: "Cendres doit être un nombre."}).min(0).optional().nullable(),
@@ -342,7 +341,6 @@ export function ResultsTable() {
       "Date",
       "Type Combustible",
       "Fournisseur",
-      "PCS (kcal/kg)",
       "PCI sur Brut (kcal/kg)",
       "% H2O",
       "% Cl-",
@@ -389,7 +387,6 @@ export function ResultsTable() {
         { v: formatDate(result.date_arrivage, "dd/MM/yyyy"), s: dataStyleCenter, t: "s" },
         { v: result.type_combustible, s: dataStyleLeft, t: "s" },
         { v: result.fournisseur, s: dataStyleLeft, t: "s" },
-        { v: result.pcs, s: dataStyleCenter, t: "n" },
         { v: result.pci_brut, s: dataStyleCenter, t: "n" },
         { v: result.h2o, s: dataStyleCenter, t: "n" },
         { v: result.chlore ?? "N/A", s: dataStyleCenter, t: result.chlore === null ? "s" : "n" },
@@ -411,7 +408,6 @@ export function ResultsTable() {
       { wch: 12 },
       { wch: 20 },
       { wch: 20 },
-      { wch: 15 },
       { wch: 22 },
       { wch: 10 },
       { wch: 10 },
@@ -909,17 +905,16 @@ export function ResultsTable() {
                             throw new Error(`Teneur en hydrogène non définie pour "${validatedData.type_combustible}".`);
                         }
 
-                        let pcsToUse = validatedData.pcs;
-                        if (validatedData.type_combustible.toLowerCase().includes('pneu') && validatedData.taux_fils_metalliques) {
-                            const taux = Number(validatedData.taux_fils_metalliques);
-                            if (taux > 0 && taux < 100) {
-                               pcsToUse = pcsToUse * (1 - taux / 100);
+                        let pci_brut: number | null = null;
+                        if(validatedData.pcs){
+                            let pcsToUse = validatedData.pcs;
+                            if (validatedData.type_combustible.toLowerCase().includes('pneu') && validatedData.taux_fils_metalliques) {
+                                const taux = Number(validatedData.taux_fils_metalliques);
+                                if (taux > 0 && taux < 100) {
+                                   pcsToUse = pcsToUse * (1 - taux / 100);
+                                }
                             }
-                        }
-                        
-                        const pci_brut = calculerPCI(pcsToUse, validatedData.h2o, hValue);
-                        if (pci_brut === null) {
-                             throw new Error(`Calcul du PCI impossible.`);
+                            pci_brut = calculerPCI(pcsToUse, validatedData.h2o, hValue);
                         }
 
                         return { ...validatedData, pci_brut, date_creation: Timestamp.now(), date_arrivage: Timestamp.fromDate(validatedData.date_arrivage) };
@@ -1096,7 +1091,6 @@ export function ResultsTable() {
                   <TableHead className="w-[120px] px-4 sticky left-0 bg-muted/50 z-20">Date Arrivage</TableHead>
                   <TableHead className="px-4 sticky left-[120px] bg-muted/50 z-20">Type Combustible</TableHead>
                   <TableHead className="px-4">Fournisseur</TableHead>
-                  <TableHead className="text-right px-4">PCS (kcal/kg)</TableHead>
                   <TableHead className="text-right text-primary font-bold px-4">PCI sur Brut</TableHead>
                   <TableHead className="text-right px-4">% H2O</TableHead>
                   <TableHead className="text-right px-4">% Cl-</TableHead>
@@ -1120,9 +1114,6 @@ export function ResultsTable() {
                             {result.type_combustible}
                           </TableCell>
                           <TableCell className="px-4">{result.fournisseur}</TableCell>
-                           <TableCell className="text-right px-4 font-medium">
-                            {formatNumber(result.pcs, 0)}
-                          </TableCell>
                           <TableCell className={cn("font-bold text-right px-4", getSpecValueColor(result, "pci_brut"))}>
                             {formatNumber(result.pci_brut, 0)}
                           </TableCell>
@@ -1167,9 +1158,6 @@ export function ResultsTable() {
                       <TableCell colSpan={3} className="px-4 sticky left-0 bg-muted/40 z-10">
                         Moyenne de la sélection
                       </TableCell>
-                      <TableCell className="text-right px-4">
-                        {formatNumber(calculateAverage(filteredResults, "pcs"), 0)}
-                      </TableCell>
                       <TableCell className="text-right text-primary px-4">
                         {formatNumber(calculateAverage(filteredResults, "pci_brut"), 0)}
                       </TableCell>
@@ -1187,7 +1175,7 @@ export function ResultsTable() {
                   </>
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
                       Aucun résultat trouvé.
                     </TableCell>
                   </TableRow>
@@ -1217,3 +1205,5 @@ export function ResultsTable() {
 }
 
 export default ResultsTable;
+
+    
