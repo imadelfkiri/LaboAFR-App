@@ -9,6 +9,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { Download, Upload, Plus } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
 
 export default function ToolbarAnalysesCendres({
   q="", setQ=()=>{},
@@ -84,7 +91,7 @@ export default function ToolbarAnalysesCendres({
             </div>
 
             {/* Boutons groupés */}
-            <div className="lg:col-span-1 flex items-center justify-end gap-2">
+            <div className="lg:col-span-2 flex items-center justify-end gap-2">
               <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                       <Button variant="outline" className="h-9 rounded-xl"><Download className="w-4 h-4 mr-1"/>Exporter</Button>
