@@ -1096,6 +1096,7 @@ export function ResultsTable() {
                   <TableHead className="w-[120px] px-4 sticky left-0 bg-muted/50 z-20">Date Arrivage</TableHead>
                   <TableHead className="px-4 sticky left-[120px] bg-muted/50 z-20">Type Combustible</TableHead>
                   <TableHead className="px-4">Fournisseur</TableHead>
+                  <TableHead className="text-right px-4">PCS (kcal/kg)</TableHead>
                   <TableHead className="text-right text-primary font-bold px-4">PCI sur Brut</TableHead>
                   <TableHead className="text-right px-4">% H2O</TableHead>
                   <TableHead className="text-right px-4">% Cl-</TableHead>
@@ -1119,6 +1120,9 @@ export function ResultsTable() {
                             {result.type_combustible}
                           </TableCell>
                           <TableCell className="px-4">{result.fournisseur}</TableCell>
+                           <TableCell className="text-right px-4 font-medium">
+                            {formatNumber(result.pcs, 0)}
+                          </TableCell>
                           <TableCell className={cn("font-bold text-right px-4", getSpecValueColor(result, "pci_brut"))}>
                             {formatNumber(result.pci_brut, 0)}
                           </TableCell>
@@ -1163,6 +1167,9 @@ export function ResultsTable() {
                       <TableCell colSpan={3} className="px-4 sticky left-0 bg-muted/40 z-10">
                         Moyenne de la sélection
                       </TableCell>
+                      <TableCell className="text-right px-4">
+                        {formatNumber(calculateAverage(filteredResults, "pcs"), 0)}
+                      </TableCell>
                       <TableCell className="text-right text-primary px-4">
                         {formatNumber(calculateAverage(filteredResults, "pci_brut"), 0)}
                       </TableCell>
@@ -1180,7 +1187,7 @@ export function ResultsTable() {
                   </>
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
                       Aucun résultat trouvé.
                     </TableCell>
                   </TableRow>
@@ -1210,5 +1217,3 @@ export function ResultsTable() {
 }
 
 export default ResultsTable;
-
-    
