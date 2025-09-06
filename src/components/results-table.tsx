@@ -21,6 +21,12 @@ import {
   isValid,
   parseISO,
   parse,
+  subDays,
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  subMonths,
 } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
@@ -58,7 +64,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { Popover, PopoverTrigger, PopoverContent, PopoverClose } from "@/components/ui/popover"
 import { Input } from "@/components/ui/input"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 interface Result {
   id: string;
@@ -104,16 +110,17 @@ function ResultsPagePro({
   supplier="__ALL__", setSupplier=()=>{},
   from="", setFrom=()=>{},
   to="", setTo=()=>{},
-  onExport=(type: 'excel' | 'pdf')=>{}, 
+  onExport=(type: 'excel' | 'pdf', scope: 'current' | 'daily' | 'weekly' | 'monthly' | 'last_month')=>{}, 
   onImport=()=>{}, 
   onDeleteAll=()=>{}, 
   onDeleteOne=(id:string)=>{},
+  onAdd=()=>{},
   sortConfig = { key: 'date_arrivage', direction: 'descending' },
   onSort = (key: SortableKeys) => {},
 }) {
   const stats = React.useMemo(() => {
     const total = rows.length
-    const conformes = rows.filter((r:any)=>r.alerte.isConform).length
+    const conformes = rows.filter((r:any)=> r.alerte.isConform).length
     return { total, conformes, non: total - conformes }
   }, [rows])
 
@@ -228,25 +235,27 @@ function ResultsPagePro({
                         </PopoverContent>
                     </Popover>
                     </div>
-
                     <div className="lg:col-span-2 flex items-center justify-end gap-2">
+                         <Button variant="outline" className="h-9 rounded-xl" onClick={onImport}>
+                            <Upload className="w-4 h-4 mr-1" /> Importer
+                        </Button>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="outline" className="h-9 rounded-xl"><Download className="w-4 h-4 mr-1"/>Exporter</Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => onExport('excel')}>Exporter en Excel</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => onExport('pdf')}>Exporter en PDF</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onExport('excel', 'current')}>Exporter la vue (Excel)</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onExport('pdf', 'current')}>Exporter la vue (PDF)</DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => onExport('pdf', 'daily')}>Rapport Journalier (PDF)</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onExport('pdf', 'weekly')}>Rapport Hebdomadaire (PDF)</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onExport('pdf', 'monthly')}>Rapport Mensuel (Mois actuel) (PDF)</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onExport('pdf', 'last_month')}>Rapport Mensuel (Mois dernier) (PDF)</DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
-                         <Button variant="outline" className="h-9 rounded-xl" onClick={onImport}>
-                            <Upload className="w-4 h-4 mr-1" /> Importer
-                        </Button>
-                         <Link href="/calculateur">
-                            <Button className="h-9 rounded-xl">
+                         <Button className="h-9 rounded-xl" onClick={onAdd}>
                             <Plus className="w-4 h-4 mr-1" /> Ajouter
-                            </Button>
-                        </Link>
+                        </Button>
                          <Button variant="destructive" className="h-9 rounded-xl" onClick={onDeleteAll}>
                             <Trash2 className="w-4 h-4" />
                         </Button>
@@ -276,7 +285,6 @@ function ResultsPagePro({
                       <td className={`p-2 text-right tabular-nums ${r.h2oAlert ? "text-red-600" : ""}`}>{r.h2o}</td>
                       <td className={`p-2 text-right tabular-nums ${r.chloreAlert ? "text-red-600" : ""}`}>{r.cl}</td>
                       <td className={`p-2 text-right tabular-nums ${r.cendresAlert ? "text-red-600" : ""}`}>{r.cendres}</td>
-
                       <td className="p-2">
                         {r.alerte.isConform ? (
                           <span className="inline-flex items-center gap-1 text-green-600 font-medium">
@@ -288,7 +296,6 @@ function ResultsPagePro({
                           </span>
                         )}
                       </td>
-
                       <td className="p-2 text-muted-foreground max-w-[150px] truncate" title={r.remarque}>{r.remarque ?? "-"}</td>
                       <td className="p-2 text-center">
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDeleteOne(r.id)}>
@@ -726,50 +733,97 @@ export default function ResultsTable() {
     });
   }, [sortedAndFilteredResults]);
   
-  const exportData = (type: 'excel' | 'pdf') => {
-    const dataToExport = tableRows;
-    if (!dataToExport || dataToExport.length === 0) {
-     toast({
-       variant: "destructive",
-       title: "Aucune donnée",
-       description: "Il n'y a aucune donnée à exporter.",
-     });
-     return;
-   }
+  const exportData = (type: 'excel' | 'pdf', scope: 'current' | 'daily' | 'weekly' | 'monthly' | 'last_month') => {
+    let dataToExport: typeof tableRows = [];
+    let reportTitle = "Rapport des Résultats d'Analyses";
+    const now = new Date();
 
-   if (type === 'excel') {
-        const reportDate = new Date();
-        const filename = `Filtre_AFR_Report_${format(reportDate, "yyyy-MM-dd")}.xlsx`;
+    if (scope === 'current') {
+        dataToExport = tableRows;
+        reportTitle = "Export de la vue actuelle";
+    } else {
+        let startDate: Date;
+        let endDate: Date = endOfDay(now);
 
-        const excelData = dataToExport.map(row => {
-            return {
-                "Date Arrivage": row.dateArrivage,
-                "Type Combustible": row.typeCombustible,
-                "Fournisseur": row.fournisseur,
-                "PCS (kcal/kg)": row.pcs,
-                "PCI sur Brut (kcal/kg)": row.pci,
-                "% H2O": row.h2o,
-                "% Cl-": row.cl,
-                "% Cendres": row.cendres,
-                "Alertes": row.alerte.isConform ? 'Conforme' : row.alerte.text,
-                "Remarques": row.remarque || ""
-            };
+        switch (scope) {
+            case 'daily':
+                startDate = startOfDay(now);
+                reportTitle = `Rapport Journalier du ${format(now, "dd/MM/yyyy")}`;
+                break;
+            case 'weekly':
+                startDate = startOfWeek(now, { weekStartsOn: 1 });
+                endDate = endOfWeek(now, { weekStartsOn: 1 });
+                reportTitle = `Rapport Hebdomadaire (Semaine du ${format(startDate, "dd/MM")})`;
+                break;
+            case 'monthly':
+                startDate = startOfMonth(now);
+                endDate = endOfMonth(now);
+                reportTitle = `Rapport Mensuel (${format(now, "MMMM yyyy", { locale: fr })})`;
+                break;
+            case 'last_month':
+                const lastMonth = subMonths(now, 1);
+                startDate = startOfMonth(lastMonth);
+                endDate = endOfMonth(lastMonth);
+                reportTitle = `Rapport Mensuel (${format(lastMonth, "MMMM yyyy", { locale: fr })})`;
+                break;
+        }
+
+        const allRows = results.map(result => {
+             const alerte = generateAlerts(result);
+             return {
+                 id: result.id,
+                 dateArrivage: normalizeDate(result.date_arrivage)!,
+                 typeCombustible: result.type_combustible,
+                 fournisseur: result.fournisseur,
+                 pci: formatNumber(result.pci_brut, 0),
+                 h2o: formatNumber(result.h2o, 1),
+                 cl: formatNumber(result.chlore, 2),
+                 cendres: formatNumber(result.cendres, 1),
+                 pcs: formatNumber(result.pcs, 0),
+                 alerte,
+                 remarque: result.remarques,
+             };
         });
 
+        dataToExport = allRows.filter(row => {
+            if (!row.dateArrivage) return false;
+            return row.dateArrivage >= startDate && row.dateArrivage <= endDate;
+        }).sort((a, b) => b.dateArrivage.getTime() - a.dateArrivage.getTime());
+    }
+
+    if (dataToExport.length === 0) {
+        toast({
+            variant: "destructive",
+            title: "Aucune donnée",
+            description: "Il n'y a aucune donnée à exporter pour la période sélectionnée.",
+        });
+        return;
+    }
+
+    if (type === 'excel') {
+        const filename = `Export_Resultats_${format(new Date(), "yyyy-MM-dd")}.xlsx`;
+        const excelData = dataToExport.map(row => ({
+            "Date Arrivage": format(row.dateArrivage, "dd/MM/yyyy"),
+            "Type Combustible": row.typeCombustible,
+            "Fournisseur": row.fournisseur,
+            "PCS (kcal/kg)": row.pcs,
+            "PCI sur Brut (kcal/kg)": row.pci,
+            "% H2O": row.h2o,
+            "% Cl-": row.cl,
+            "% Cendres": row.cendres,
+            "Alertes": row.alerte.isConform ? 'Conforme' : row.alerte.text,
+            "Remarques": row.remarque || ""
+        }));
         const ws = XLSX.utils.json_to_sheet(excelData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Rapport AFR");
         XLSX.writeFile(wb, filename);
-   } else {
+    } else {
         const doc = new jsPDF({ orientation: 'landscape' });
-        doc.text("Rapport des Résultats d'Analyses", 14, 15);
-        
-        const head = [
-            ["Date", "Combustible", "Fournisseur", "PCS", "PCI Brut", "H2O", "Cl-", "Cendres", "Alertes", "Remarques"]
-        ];
-        
+        doc.text(reportTitle, 14, 15);
+        const head = [["Date", "Combustible", "Fournisseur", "PCS", "PCI Brut", "H2O", "Cl-", "Cendres", "Alertes", "Remarques"]];
         const body = dataToExport.map(row => [
-            row.dateArrivage,
+            format(row.dateArrivage, "dd/MM/yy"),
             row.typeCombustible,
             row.fournisseur,
             row.pcs,
@@ -789,9 +843,8 @@ export default function ResultsTable() {
             styles: { fontSize: 7, cellPadding: 1.5 },
             headStyles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: 'bold' }
         });
-        
         doc.save(`Rapport_Resultats_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
-   }
+    }
  };
 
   if (loading) {
