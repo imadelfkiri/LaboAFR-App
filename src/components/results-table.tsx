@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
@@ -33,6 +32,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   ChevronDown,
+  ArrowUpDown,
 } from "lucide-react";
 import { getSpecifications, SPEC_MAP, getFuelSupplierMap, deleteAllResults, getFuelData, type FuelData, addManyResults } from "@/lib/data";
 import { calculerPCI } from "@/lib/pci";
@@ -75,6 +75,8 @@ interface Result {
   taux_fils_metalliques?: number | null;
 }
 
+type SortableKeys = keyof Result | 'pci' | 'h2o' | 'chlore' | 'cendres';
+
 declare module "jspdf" {
   interface jsPDF {
     autoTable: (options: any) => jsPDF;
@@ -94,7 +96,6 @@ const importSchema = z.object({
   taux_fils_metalliques: z.coerce.number().min(0).max(100).optional().nullable(),
 });
 
-// Le composant de présentation (View)
 function ResultsPagePro({
   rows = [],
   fuels = [],
@@ -107,6 +108,8 @@ function ResultsPagePro({
   onImport=()=>{}, 
   onDeleteAll=()=>{}, 
   onDeleteOne=(id:string)=>{},
+  sortConfig = { key: 'date_arrivage', direction: 'descending' },
+  onSort = (key: SortableKeys) => {},
 }) {
   const stats = React.useMemo(() => {
     const total = rows.length
@@ -136,6 +139,35 @@ function ResultsPagePro({
     }
     return <span className={`${base} ${map[tone]}`}>{children}</span>
   }
+  
+  const SortableHeader = ({ label, sortKey }: { label: string; sortKey: SortableKeys }) => {
+    const isSorted = sortConfig?.key === sortKey;
+    return (
+      <th
+        onClick={() => onSort(sortKey)}
+        className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-left font-semibold border-b cursor-pointer hover:bg-muted/50"
+      >
+        <div className="flex items-center gap-2">
+            <span>{label}</span>
+            {isSorted && (
+                <ArrowUpDown className="h-4 w-4 text-foreground" />
+            )}
+        </div>
+      </th>
+    );
+  };
+  
+  const headers: { label: string; key: SortableKeys; }[] = [
+    { label: "Date Arrivage", key: "date_arrivage" },
+    { label: "Type Combustible", key: "type_combustible" },
+    { label: "Fournisseur", key: "fournisseur" },
+    { label: "PCI sur Brut", key: "pci" },
+    { label: "% H2O", key: "h2o" },
+    { label: "% Cl-", key: "chlore" },
+    { label: "% Cendres", key: "cendres" },
+    { label: "Alertes", key: "id" }, // Not sortable
+    { label: "Remarques", key: "remarques" },
+  ];
 
   return (
     <div className="flex flex-col h-full">
@@ -144,9 +176,9 @@ function ResultsPagePro({
                 <CardContent className="p-2">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-center">
                     <div className="lg:col-span-4 flex items-center gap-2 text-[12px]">
-                    <Badge tone="muted">Total: {stats.total}</Badge>
-                    <Badge tone="ok"><CheckCircle2 className="w-3 h-3 mr-1" /> {stats.conformes} conformes</Badge>
-                    <Badge tone="warn"><AlertTriangle className="w-3 h-3 mr-1" /> {stats.non} non conf.</Badge>
+                        <Badge tone="muted">Total: {stats.total}</Badge>
+                        <Badge tone="ok"><CheckCircle2 className="w-3 h-3 mr-1" /> {stats.conformes} conformes</Badge>
+                        <Badge tone="warn"><AlertTriangle className="w-3 h-3 mr-1" /> {stats.non} non conf.</Badge>
                     </div>
 
                     <div className="lg:col-span-2">
@@ -230,13 +262,8 @@ function ResultsPagePro({
               <table className="w-full text-[13px] border-separate border-spacing-0">
                 <thead className="text-muted-foreground">
                   <tr>
-                    {["Date Arrivage","Type Combustible","Fournisseur","PCS", "PCI sur Brut","% H2O","% Cl-","% Cendres","Alertes","Remarques","Action"]
-                      .map((h) => (
-                        <th key={h}
-                            className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-left font-semibold border-b">
-                          {h}
-                        </th>
-                    ))}
+                    {headers.map((h) => <SortableHeader key={h.key} label={h.label} sortKey={h.key} />)}
+                    <th className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-left font-semibold border-b">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -245,7 +272,6 @@ function ResultsPagePro({
                       <td className="p-2 text-muted-foreground whitespace-nowrap">{r.dateArrivage}</td>
                       <td className="p-2 font-medium">{r.typeCombustible}</td>
                       <td className="p-2">{r.fournisseur}</td>
-                      <td className="p-2 text-right tabular-nums">{r.pcs}</td>
                       <td className={`p-2 text-right font-semibold tabular-nums ${r.pciAlert ? "text-red-600" : ""}`}>{r.pci}</td>
                       <td className={`p-2 text-right tabular-nums ${r.h2oAlert ? "text-red-600" : ""}`}>{r.h2o}</td>
                       <td className={`p-2 text-right tabular-nums ${r.chloreAlert ? "text-red-600" : ""}`}>{r.cl}</td>
@@ -292,6 +318,8 @@ export default function ResultsTable() {
   const [fournisseurFilter, setFournisseurFilter] = useState('__ALL__');
   const [dateFromFilter, setDateFromFilter] = useState('');
   const [dateToFilter, setDateToFilter] = useState('');
+  
+  const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' } | null>({ key: 'date_arrivage', direction: 'descending' });
 
   const [resultToDelete, setResultToDelete] = useState<string | null>(null);
   const [isDeleteAllConfirmOpen, setIsDeleteAllConfirmOpen] = useState(false);
@@ -311,7 +339,7 @@ export default function ResultsTable() {
       setFuelSupplierMap(map);
       setFuelDataMap(new Map(fuelData.map(fd => [fd.nom_combustible, fd])));
 
-      const q = query(collection(db, "resultats"), orderBy("date_arrivage", "desc"));
+      const q = query(collection(db, "resultats"));
       const unsubscribe = onSnapshot(
         q,
         (querySnapshot) => {
@@ -384,8 +412,35 @@ export default function ResultsTable() {
     return null;
   };
   
-  const filteredResults = useMemo(() => {
-    return results.filter((result) => {
+  const getSortableValue = (item: Result, key: SortableKeys) => {
+    if (key === 'date_arrivage') {
+        const date = normalizeDate(item.date_arrivage);
+        return date ? date.getTime() : 0;
+    }
+    
+    // Map view keys to data keys
+    const dataKeyMap = {
+        pci: 'pci_brut',
+        h2o: 'h2o',
+        chlore: 'chlore',
+        cendres: 'cendres',
+    };
+    const dataKey = dataKeyMap[key as keyof typeof dataKeyMap] || key;
+
+    const value = item[dataKey as keyof Result];
+    return value === null || value === undefined ? -Infinity : (typeof value === 'string' ? value.toLowerCase() : value);
+  };
+  
+  const requestSort = (key: SortableKeys) => {
+      let direction: 'ascending' | 'descending' = 'ascending';
+      if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+          direction = 'descending';
+      }
+      setSortConfig({ key, direction });
+  };
+  
+  const sortedAndFilteredResults = useMemo(() => {
+    let sortableItems = [...results].filter((result) => {
       if (!result.date_arrivage) return false;
       const dateArrivage = normalizeDate(result.date_arrivage);
       if (!dateArrivage || !isValid(dateArrivage)) return false;
@@ -400,7 +455,25 @@ export default function ResultsTable() {
       
       return typeMatch && fournisseurMatch && dateMatch;
     });
-  }, [results, fuelTypeFilter, fournisseurFilter, dateFromFilter, dateToFilter]);
+    
+    if (sortConfig !== null) {
+        sortableItems.sort((a, b) => {
+            const aValue = getSortableValue(a, sortConfig.key);
+            const bValue = getSortableValue(b, sortConfig.key);
+
+            if (aValue < bValue) {
+                return sortConfig.direction === 'ascending' ? -1 : 1;
+            }
+            if (aValue > bValue) {
+                return sortConfig.direction === 'ascending' ? 1 : -1;
+            }
+            return 0;
+        });
+    }
+    
+    return sortableItems;
+    
+  }, [results, fuelTypeFilter, fournisseurFilter, dateFromFilter, dateToFilter, sortConfig]);
 
   const handleDelete = async () => {
     if (!resultToDelete) return;
@@ -573,12 +646,13 @@ export default function ResultsTable() {
                             date_arrivage: parsedDate,
                         });
                         
-                        let finalPci: number | null = validatedData.pci_brut ?? null;
-
-                        if (finalPci === null && validatedData.pcs && validatedData.type_combustible && validatedData.h2o) {
-                             const hValue = fuelDataMap.get(validatedData.type_combustible)?.teneur_hydrogene;
+                        let finalPci: number | null = null;
+                        
+                        if (validatedData.pci_brut !== undefined && validatedData.pci_brut !== null) {
+                            finalPci = validatedData.pci_brut;
+                        } else if (validatedData.pcs && validatedData.type_combustible && validatedData.h2o !== undefined) {
+                            const hValue = fuelDataMap.get(validatedData.type_combustible)?.teneur_hydrogene;
                             if (hValue === null || hValue === undefined) {
-                                // Do not throw error, just skip calculation
                                 console.warn(`Teneur en hydrogène non définie pour "${validatedData.type_combustible}" (ligne ${rowNum}). Le PCI ne peut être calculé.`);
                             } else {
                                 let pcsToUse = validatedData.pcs;
@@ -590,11 +664,9 @@ export default function ResultsTable() {
                                 }
                                 finalPci = calculerPCI(pcsToUse, validatedData.h2o, hValue);
                             }
-                        } else if (mappedRow.pci_brut !== undefined) {
-                           finalPci = mappedRow.pci_brut;
                         }
 
-                        if (!validatedData.type_combustible || !validatedData.fournisseur || !validatedData.h2o) {
+                        if (!validatedData.type_combustible || !validatedData.fournisseur || validatedData.h2o === undefined) {
                             throw new Error("Les colonnes 'type_combustible', 'fournisseur' et 'h2o' sont obligatoires.")
                         }
 
@@ -631,7 +703,7 @@ export default function ResultsTable() {
     };
 
   const tableRows = useMemo(() => {
-    return filteredResults.map(result => {
+    return sortedAndFilteredResults.map(result => {
         const alerte = generateAlerts(result);
         return {
             id: result.id,
@@ -648,10 +720,11 @@ export default function ResultsTable() {
             chloreAlert: alerte.details.chlore,
             cendresAlert: alerte.details.cendres,
             alerte,
-            remarque: result.remarques
+            remarque: result.remarques,
+            original: result, // Keep original for sorting
         };
     });
-  }, [filteredResults]);
+  }, [sortedAndFilteredResults]);
   
   const exportData = (type: 'excel' | 'pdf') => {
     const dataToExport = tableRows;
@@ -756,6 +829,8 @@ export default function ResultsTable() {
             onAdd={() => window.location.href='/calculateur'}
             onDeleteAll={() => setIsDeleteAllConfirmOpen(true)}
             onDeleteOne={(id) => setResultToDelete(id)}
+            sortConfig={sortConfig}
+            onSort={requestSort}
         />
         
         <AlertDialog onOpenChange={(open) => !open && setResultToDelete(null)} open={!!resultToDelete}>
@@ -798,4 +873,3 @@ export default function ResultsTable() {
       </>
   );
 }
-
