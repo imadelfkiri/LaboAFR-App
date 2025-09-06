@@ -114,7 +114,6 @@ function ResultsPagePro({
   onImport=()=>{}, 
   onDeleteAll=()=>{}, 
   onDeleteOne=(id:string)=>{},
-  onAdd=()=>{},
   sortConfig = { key: 'date_arrivage', direction: 'descending' },
   onSort = (key: SortableKeys) => {},
 }) {
@@ -125,15 +124,13 @@ function ResultsPagePro({
   }, [rows])
 
   const periodLabel = React.useMemo(() => {
-    if (from && to) {
-        try {
-            return `${format(parseISO(from), "dd/MM/yy")} → ${format(parseISO(to), "dd/MM/yy")}`
-        } catch(e) {
-            return "Période invalide"
-        }
+    try {
+        if (from && to) return `${format(parseISO(from), "dd/MM/yy")} → ${format(parseISO(to), "dd/MM/yy")}`
+        if (from) return `Depuis le ${format(parseISO(from), "dd/MM/yy")}`
+        if (to) return `Jusqu'au ${format(parseISO(to), "dd/MM/yy")}`
+    } catch (e) {
+        return "Période invalide";
     }
-    if (from) return `du ${format(parseISO(from), "dd/MM/yy")}`
-    if (to) return `jusqu'au ${format(parseISO(to), "dd/MM/yy")}`
     return "Période"
   }, [from, to])
 
@@ -219,7 +216,7 @@ function ResultsPagePro({
                             {periodLabel}
                         </Button>
                         </PopoverTrigger>
-                        <PopoverContent align="start" className="w-auto p-0">
+                        <PopoverContent align="start" className="w-[280px] p-0">
                         <Calendar
                             initialFocus
                             mode="range"
@@ -253,9 +250,6 @@ function ResultsPagePro({
                                 <DropdownMenuItem onClick={() => onExport('pdf', 'last_month')}>Rapport Mensuel (Mois dernier) (PDF)</DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
-                         <Button className="h-9 rounded-xl" onClick={onAdd}>
-                            <Plus className="w-4 h-4 mr-1" /> Ajouter
-                        </Button>
                          <Button variant="destructive" className="h-9 rounded-xl" onClick={onDeleteAll}>
                             <Trash2 className="w-4 h-4" />
                         </Button>
@@ -885,7 +879,6 @@ export default function ResultsTable() {
             setTo={setDateToFilter}
             onImport={() => fileInputRef.current?.click()}
             onExport={exportData}
-            onAdd={() => window.location.href='/calculateur'}
             onDeleteAll={() => setIsDeleteAllConfirmOpen(true)}
             onDeleteOne={(id) => setResultToDelete(id)}
             sortConfig={sortConfig}
