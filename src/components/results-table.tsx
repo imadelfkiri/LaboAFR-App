@@ -30,7 +30,7 @@ import {
 } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
-  Calendar,
+  Calendar as CalendarIcon,
   Trash2,
   Download,
   Upload,
@@ -65,6 +65,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Popover, PopoverTrigger, PopoverContent, PopoverClose } from "@/components/ui/popover"
 import { Input } from "@/components/ui/input"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Calendar } from "./ui/calendar";
 
 interface Result {
   id: string;
@@ -129,10 +130,11 @@ function ResultsPagePro({
         if (from) return `Depuis le ${format(parseISO(from), "dd/MM/yy")}`
         if (to) return `Jusqu'au ${format(parseISO(to), "dd/MM/yy")}`
     } catch (e) {
-        return "Période invalide";
+        return "Période";
     }
     return "Période"
   }, [from, to])
+
 
   const Badge = ({tone, children}:{tone:"ok"|"warn"|"muted", children:React.ReactNode}) => {
     const base = "inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium"
@@ -212,11 +214,11 @@ function ResultsPagePro({
                     <Popover>
                         <PopoverTrigger asChild>
                         <Button variant="outline" className="w-full h-9 rounded-xl justify-start text-[13px]">
-                            <Calendar className="w-4 h-4 mr-2" />
+                            <CalendarIcon className="w-4 h-4 mr-2" />
                             {periodLabel}
                         </Button>
                         </PopoverTrigger>
-                        <PopoverContent align="start" className="w-[280px] p-0">
+                        <PopoverContent align="start" className="w-auto p-0">
                         <Calendar
                             initialFocus
                             mode="range"
@@ -419,7 +421,6 @@ export default function ResultsTable() {
         return date ? date.getTime() : 0;
     }
     
-    // Map view keys to data keys
     const dataKeyMap = {
         pci: 'pci_brut',
         h2o: 'h2o',
