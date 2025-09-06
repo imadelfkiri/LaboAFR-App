@@ -772,7 +772,7 @@ export default function ResultsTable() {
              const alerte = generateAlerts(result);
              return {
                  id: result.id,
-                 dateArrivage: normalizeDate(result.date_arrivage)!,
+                 dateArrivage: normalizeDate(result.date_arrivage),
                  typeCombustible: result.type_combustible,
                  fournisseur: result.fournisseur,
                  pci: formatNumber(result.pci_brut, 0),
@@ -782,13 +782,14 @@ export default function ResultsTable() {
                  pcs: formatNumber(result.pcs, 0),
                  alerte,
                  remarque: result.remarques,
+                 original: result,
              };
         });
 
         dataToExport = allRows.filter(row => {
             if (!row.dateArrivage) return false;
             return row.dateArrivage >= startDate && row.dateArrivage <= endDate;
-        }).sort((a, b) => b.dateArrivage.getTime() - a.dateArrivage.getTime());
+        }).sort((a, b) => b.dateArrivage!.getTime() - a.dateArrivage!.getTime());
     }
 
     if (dataToExport.length === 0) {
@@ -802,18 +803,21 @@ export default function ResultsTable() {
 
     if (type === 'excel') {
         const filename = `Export_Resultats_${format(new Date(), "yyyy-MM-dd")}.xlsx`;
-        const excelData = dataToExport.map(row => ({
-            "Date Arrivage": format(row.dateArrivage, "dd/MM/yyyy"),
-            "Type Combustible": row.typeCombustible,
-            "Fournisseur": row.fournisseur,
-            "PCS (kcal/kg)": row.pcs,
-            "PCI sur Brut (kcal/kg)": row.pci,
-            "% H2O": row.h2o,
-            "% Cl-": row.cl,
-            "% Cendres": row.cendres,
-            "Alertes": row.alerte.isConform ? 'Conforme' : row.alerte.text,
-            "Remarques": row.remarque || ""
-        }));
+        const excelData = dataToExport.map(row => {
+             const date = normalizeDate(row.original.date_arrivage);
+             return {
+                "Date Arrivage": date ? format(date, "dd/MM/yyyy") : "Date invalide",
+                "Type Combustible": row.typeCombustible,
+                "Fournisseur": row.fournisseur,
+                "PCS (kcal/kg)": row.pcs,
+                "PCI sur Brut (kcal/kg)": row.pci,
+                "% H2O": row.h2o,
+                "% Cl-": row.cl,
+                "% Cendres": row.cendres,
+                "Alertes": row.alerte.isConform ? 'Conforme' : row.alerte.text,
+                "Remarques": row.remarque || ""
+            }
+        });
         const ws = XLSX.utils.json_to_sheet(excelData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Rapport AFR");
@@ -822,8 +826,10 @@ export default function ResultsTable() {
         const doc = new jsPDF({ orientation: 'landscape' });
         doc.text(reportTitle, 14, 15);
         const head = [["Date", "Combustible", "Fournisseur", "PCS", "PCI Brut", "H2O", "Cl-", "Cendres", "Alertes", "Remarques"]];
-        const body = dataToExport.map(row => [
-            format(row.dateArrivage, "dd/MM/yy"),
+        const body = dataToExport.map(row => {
+          const date = normalizeDate(row.original.date_arrivage);
+          return [
+            date ? format(date, "dd/MM/yy") : "Date invalide",
             row.typeCombustible,
             row.fournisseur,
             row.pcs,
@@ -833,7 +839,7 @@ export default function ResultsTable() {
             row.cendres,
             row.alerte.text,
             row.remarque || "-",
-        ]);
+        ]});
 
         doc.autoTable({
             head: head,
