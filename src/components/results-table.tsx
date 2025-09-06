@@ -630,15 +630,6 @@ export function ResultsTable() {
     });
   }, [filteredResults]);
 
-  if (loading) {
-    return (
-      <div className="space-y-2 p-4 lg:p-6">
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-96 w-full" />
-      </div>
-    );
-  }
-
   const exportToExcel = () => {
      if (!tableRows || tableRows.length === 0) {
       toast({
@@ -656,7 +647,6 @@ export function ResultsTable() {
             "Date Arrivage": row.dateArrivage,
             "Type Combustible": row.typeCombustible,
             "Fournisseur": row.fournisseur,
-            "PCS (kcal/kg)": row.pcs ?? "N/A",
             "PCI sur Brut (kcal/kg)": row.pci,
             "% H2O": row.h2o,
             "% Cl-": row.cl,
@@ -709,6 +699,15 @@ export function ResultsTable() {
         doc.save(`Rapport_Resultats_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
     };
 
+  if (loading) {
+    return (
+      <div className="space-y-2 p-4 lg:p-6">
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-96 w-full" />
+      </div>
+    );
+  }
+
   return (
       <>
         <input
@@ -730,7 +729,6 @@ export function ResultsTable() {
             setFrom={setDateFromFilter}
             to={dateToFilter}
             setTo={setDateToFilter}
-            onAdd={() => {}}
             onImport={() => fileInputRef.current?.click()}
             onExport={exportToExcel}
             onDeleteAll={() => setIsDeleteAllConfirmOpen(true)}
@@ -779,5 +777,3 @@ export function ResultsTable() {
 }
 
 export default ResultsTable;
-
-    
