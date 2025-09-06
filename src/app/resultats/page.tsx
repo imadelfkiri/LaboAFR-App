@@ -1,7 +1,6 @@
 
 import React from "react";
 import type { Metadata } from "next";
-import { cn } from "@/lib/utils";
 import ResultsTable from "@/components/results-table";
 
 export const metadata: Metadata = {
@@ -11,8 +10,6 @@ export const metadata: Metadata = {
 
 export default function ResultsPage() {
   return (
-    <main className={cn("flex flex-col flex-1")}>
       <ResultsTable />
-    </main>
   );
 }

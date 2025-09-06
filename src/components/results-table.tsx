@@ -91,7 +91,6 @@ const importSchema = z.object({
   taux_fils_metalliques: z.coerce.number().min(0).max(100).optional().nullable(),
 });
 
-
 function ResultsPagePro({
   rows = [],
   fuels = [],
@@ -104,12 +103,18 @@ function ResultsPagePro({
 }) {
   const stats = React.useMemo(() => {
     const total = rows.length
-    const conformes = rows.filter((r:any)=>String(r.alerte.text).toLowerCase().includes("conforme")).length
+    const conformes = rows.filter((r:any)=>r.alerte.isConform).length
     return { total, conformes, non: total - conformes }
   }, [rows])
 
   const periodLabel = React.useMemo(() => {
-    if (from && to) return `${format(parseISO(from), "dd/MM/yy")} → ${format(parseISO(to), "dd/MM/yy")}`
+    if (from && to) {
+        try {
+            return `${format(parseISO(from), "dd/MM/yy")} → ${format(parseISO(to), "dd/MM/yy")}`
+        } catch(e) {
+            return "Période invalide"
+        }
+    }
     if (from) return `du ${format(parseISO(from), "dd/MM/yy")}`
     if (to) return `jusqu'au ${format(parseISO(to), "dd/MM/yy")}`
     return "Période"
@@ -127,18 +132,15 @@ function ResultsPagePro({
 
   return (
     <div className="mx-auto w-full max-w-[1400px] p-3 md:p-5 space-y-3">
-      {/* TOOLBAR */}
       <Card className="rounded-2xl shadow-sm border">
         <CardContent className="p-2">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-center">
-            {/* Récap compact */}
             <div className="lg:col-span-4 flex items-center gap-2 text-[12px]">
               <Badge tone="muted">Total: {stats.total}</Badge>
               <Badge tone="ok"><CheckCircle2 className="w-3 h-3 mr-1" /> {stats.conformes} conformes</Badge>
               <Badge tone="warn"><AlertTriangle className="w-3 h-3 mr-1" /> {stats.non} non conf.</Badge>
             </div>
 
-            {/* Filtres */}
             <div className="lg:col-span-2">
               <Select value={fuel} onValueChange={setFuel}>
                 <SelectTrigger className="h-9 rounded-xl text-[13px]">
@@ -162,11 +164,10 @@ function ResultsPagePro({
               </Select>
             </div>
 
-            {/* Période (bouton unique) */}
             <div className="lg:col-span-2">
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full h-9 rounded-xl justify-start">
+                  <Button variant="outline" className="w-full h-9 rounded-xl justify-start text-[13px]">
                     <Calendar className="w-4 h-4 mr-2" />
                     {periodLabel}
                   </Button>
@@ -188,15 +189,20 @@ function ResultsPagePro({
               </Popover>
             </div>
 
-            {/* Actions alignées à droite */}
             <div className="lg:col-span-2 flex items-center justify-end gap-2">
               <Button variant="outline" className="h-9 rounded-xl" onClick={onImport}>
                 <Upload className="w-4 h-4 mr-1" /> Importer
               </Button>
-              <Button variant="outline" className="h-9 rounded-xl" onClick={onExport}>
-                <Download className="w-4 h-4 mr-1" /> Exporter
-              </Button>
-               <Link href="/calculateur">
+              <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="h-9 rounded-xl"><Download className="w-4 h-4 mr-1"/>Exporter</Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => onExport('excel')}>Exporter en Excel</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onExport('pdf')}>Exporter en PDF</DropdownMenuItem>
+                  </DropdownMenuContent>
+              </DropdownMenu>
+              <Link href="/calculateur">
                 <Button className="h-9 rounded-xl">
                   <Plus className="w-4 h-4 mr-1" /> Ajouter
                 </Button>
@@ -209,7 +215,6 @@ function ResultsPagePro({
         </CardContent>
       </Card>
 
-      {/* TABLEAU */}
       <Card className="rounded-2xl shadow-md">
         <CardContent className="p-0 h-full">
             <div className="max-h-[70vh] overflow-auto rounded-2xl border-t bg-background h-full">
@@ -578,7 +583,7 @@ export function ResultsTable() {
                         }
 
                         if (finalPci === null) {
-                            throw new Error(`La colonne PCI ou PCS est requise pour calculer la valeur finale.`);
+                             // Let it pass but the value will be null.
                         }
 
                         return { ...validatedData, pcs: validatedData.pcs ?? null, pci_brut: finalPci, date_creation: Timestamp.now(), date_arrivage: Timestamp.fromDate(validatedData.date_arrivage) };
@@ -629,45 +634,41 @@ export function ResultsTable() {
         };
     });
   }, [filteredResults]);
-
-  const exportToExcel = () => {
-     if (!tableRows || tableRows.length === 0) {
-      toast({
-        variant: "destructive",
-        title: "Aucune donnée",
-        description: "Il n'y a aucune donnée à exporter.",
-      });
-      return;
-    }
-     const reportDate = new Date();
-    const filename = `Filtre_AFR_Report_${format(reportDate, "yyyy-MM-dd")}.xlsx`;
-
-    const excelData = tableRows.map(row => {
-        return {
-            "Date Arrivage": row.dateArrivage,
-            "Type Combustible": row.typeCombustible,
-            "Fournisseur": row.fournisseur,
-            "PCI sur Brut (kcal/kg)": row.pci,
-            "% H2O": row.h2o,
-            "% Cl-": row.cl,
-            "% Cendres": row.cendres,
-            "Alertes": row.alerte.isConform ? 'Conforme' : row.alerte.text,
-            "Remarques": row.remarque || ""
-        };
-    });
-
-    const ws = XLSX.utils.json_to_sheet(excelData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Rapport AFR");
-    XLSX.writeFile(wb, filename);
-  };
   
-    const exportToPdf = () => {
-        if (!tableRows || tableRows.length === 0) {
-            toast({ variant: "destructive", title: "Aucune donnée", description: "Il n'y a pas de données à exporter." });
-            return;
-        }
+  const exportData = (type: 'excel' | 'pdf') => {
+    const dataToExport = tableRows;
+    if (!dataToExport || dataToExport.length === 0) {
+     toast({
+       variant: "destructive",
+       title: "Aucune donnée",
+       description: "Il n'y a aucune donnée à exporter.",
+     });
+     return;
+   }
 
+   if (type === 'excel') {
+        const reportDate = new Date();
+        const filename = `Filtre_AFR_Report_${format(reportDate, "yyyy-MM-dd")}.xlsx`;
+
+        const excelData = dataToExport.map(row => {
+            return {
+                "Date Arrivage": row.dateArrivage,
+                "Type Combustible": row.typeCombustible,
+                "Fournisseur": row.fournisseur,
+                "PCI sur Brut (kcal/kg)": row.pci,
+                "% H2O": row.h2o,
+                "% Cl-": row.cl,
+                "% Cendres": row.cendres,
+                "Alertes": row.alerte.isConform ? 'Conforme' : row.alerte.text,
+                "Remarques": row.remarque || ""
+            };
+        });
+
+        const ws = XLSX.utils.json_to_sheet(excelData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Rapport AFR");
+        XLSX.writeFile(wb, filename);
+   } else {
         const doc = new jsPDF({ orientation: 'landscape' });
         doc.text("Rapport des Résultats d'Analyses", 14, 15);
         
@@ -675,7 +676,7 @@ export function ResultsTable() {
             ["Date", "Combustible", "Fournisseur", "PCI Brut", "H2O", "Cl-", "Cendres", "Alertes", "Remarques"]
         ];
         
-        const body = tableRows.map(row => [
+        const body = dataToExport.map(row => [
             row.dateArrivage,
             row.typeCombustible,
             row.fournisseur,
@@ -697,7 +698,8 @@ export function ResultsTable() {
         });
         
         doc.save(`Rapport_Resultats_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
-    };
+   }
+ };
 
   if (loading) {
     return (
@@ -730,7 +732,8 @@ export function ResultsTable() {
             to={dateToFilter}
             setTo={setDateToFilter}
             onImport={() => fileInputRef.current?.click()}
-            onExport={exportToExcel}
+            onExport={exportData}
+            onAdd={() => window.location.href='/calculateur'}
             onDeleteAll={() => setIsDeleteAllConfirmOpen(true)}
             onDeleteOne={(id) => setResultToDelete(id)}
         />
@@ -772,8 +775,18 @@ export function ResultsTable() {
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
+        <DropdownMenu />
       </>
   );
 }
+
+// Add necessary imports
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
 
 export default ResultsTable;

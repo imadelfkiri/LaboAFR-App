@@ -34,6 +34,9 @@ const pageTitles: { [key: string]: string } = {
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const title = pageTitles[pathname] || 'FuelTrack AFR';
+  
+  // Do not show title on results page as it's built into the component now
+  const showTitle = pathname !== '/resultats';
 
   return (
     <SidebarProvider>
@@ -61,17 +64,9 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
             <SidebarTrigger />
           </div>
           <div className="flex-1 text-center">
-            <h1 className="text-xl font-bold tracking-tight">{title}</h1>
+             {showTitle && <h1 className="text-xl font-bold tracking-tight">{title}</h1>}
           </div>
            <div className="flex items-center justify-end" style={{ minWidth: '180px' }}>
-             {pathname === '/resultats' && (
-                <Button asChild size="sm" className="bg-green-600 hover:bg-green-700 text-white">
-                  <Link href="/calculateur">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Ajouter un Résultat
-                  </Link>
-                </Button>
-            )}
              {pathname === '/specifications' && (
                 <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={() => (window as any).openSpecModal()}>
                     <PlusCircle className="mr-2 h-4 w-4" />
