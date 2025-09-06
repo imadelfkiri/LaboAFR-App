@@ -29,6 +29,7 @@ import {
   Plus,
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
 } from "lucide-react";
 import { getSpecifications, SPEC_MAP, getFuelSupplierMap, deleteAllResults, getFuelData, type FuelData, addManyResults } from "@/lib/data";
 import { calculerPCI } from "@/lib/pci";
@@ -54,7 +55,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { Popover, PopoverTrigger, PopoverContent, PopoverClose } from "@/components/ui/popover"
 import { Input } from "@/components/ui/input"
-
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 interface Result {
   id: string;
@@ -71,7 +72,6 @@ interface Result {
   taux_fils_metalliques?: number | null;
 }
 
-// Étendre jsPDF pour autoTable
 declare module "jspdf" {
   interface jsPDF {
     autoTable: (options: any) => jsPDF;
@@ -91,6 +91,7 @@ const importSchema = z.object({
   taux_fils_metalliques: z.coerce.number().min(0).max(100).optional().nullable(),
 });
 
+// Le composant de présentation (View)
 function ResultsPagePro({
   rows = [],
   fuels = [],
@@ -99,7 +100,10 @@ function ResultsPagePro({
   supplier="__ALL__", setSupplier=()=>{},
   from="", setFrom=()=>{},
   to="", setTo=()=>{},
-  onExport=()=>{}, onImport=()=>{}, onDeleteAll=()=>{}, onDeleteOne=(id:string)=>{},
+  onExport=(type: 'excel' | 'pdf')=>{}, 
+  onImport=()=>{}, 
+  onDeleteAll=()=>{}, 
+  onDeleteOne=(id:string)=>{},
 }) {
   const stats = React.useMemo(() => {
     const total = rows.length
@@ -274,6 +278,7 @@ function ResultsPagePro({
   )
 }
 
+// Le composant conteneur (Logique)
 export function ResultsTable() {
   const [results, setResults] = useState<Result[]>([]);
   const [loading, setLoading] = useState(true);
@@ -583,7 +588,7 @@ export function ResultsTable() {
                         }
 
                         if (finalPci === null) {
-                             // Let it pass but the value will be null.
+                           // Let it pass but the value will be null.
                         }
 
                         return { ...validatedData, pcs: validatedData.pcs ?? null, pci_brut: finalPci, date_creation: Timestamp.now(), date_arrivage: Timestamp.fromDate(validatedData.date_arrivage) };
@@ -775,18 +780,8 @@ export function ResultsTable() {
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
-        <DropdownMenu />
       </>
   );
 }
-
-// Add necessary imports
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-
 
 export default ResultsTable;

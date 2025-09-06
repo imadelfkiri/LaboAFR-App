@@ -35,8 +35,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const title = pageTitles[pathname] || 'FuelTrack AFR';
   
-  // Do not show title on results page as it's built into the component now
-  const showTitle = pathname !== '/resultats';
+  const showTitle = !['/resultats', '/analyses-cendres'].includes(pathname);
 
   return (
     <SidebarProvider>
