@@ -14,12 +14,7 @@ export const metadata: Metadata = {
 
 export default function ResultsPage() {
   return (
-    <main className={cn("container mx-auto px-4 py-6")}> 
-      <h1 className="text-2xl font-semibold tracking-tight mb-4">Résultats des analyses</h1>
-      <p className="text-muted-foreground mb-6">
-        Filtrez par type, fournisseur et dates, puis exportez en PDF/Excel.
-      </p>
-
+    <main className={cn("flex flex-col flex-1")}>
       {/* Client component */}
       <ResultsTable />
     </main>

@@ -32,6 +32,7 @@ export interface AverageAnalysis {
     h2o: number;
     chlore: number;
     cendres: number;
+    taux_fils_metalliques?: number;
     count: number;
 }
 
@@ -67,8 +68,48 @@ export interface Arrivage {
 export interface FuelData {
     id: string;
     nom_combustible: string;
-    densite: number;
+    poids_godet: number;
     teneur_hydrogene: number;
+}
+
+export interface MixtureScenario {
+    id: string;
+    nom_scenario: string;
+    date_creation: Timestamp;
+    donnees_hall: any;
+    donnees_ats: any;
+}
+
+export interface AshAnalysis {
+    id: string;
+    date_arrivage: Timestamp;
+    type_combustible: string;
+    fournisseur: string;
+    pourcentage_cendres?: number | null;
+    paf?: number | null;
+    sio2?: number | null;
+    al2o3?: number | null;
+    fe2o3?: number | null;
+    cao?: number | null;
+    mgo?: number | null;
+    so3?: number | null;
+    k2o?: number | null;
+    tio2?: number | null;
+    mno?: number | null;
+    p2o5?: number | null;
+}
+
+interface ResultToSave {
+    date_arrivage: Timestamp;
+    type_combustible: string;
+    fournisseur: string;
+    pcs: number;
+    h2o: number;
+    chlore: number | null;
+    cendres: number | null;
+    remarques: string | null;
+    taux_fils_metalliques: number | null;
+    pci_brut: number;
 }
 
 
@@ -229,11 +270,12 @@ export async function getAverageAnalysisForFuels(
     h2o: number[];
     chlore: number[];
     cendres: number[];
+    taux_fils_metalliques: number[];
   }> = {};
 
   // Initialize analysis object for all requested fuel names
   fuelNames.forEach(name => {
-    analysis[name] = { pci_brut: [], h2o: [], chlore: [], cendres: [] };
+    analysis[name] = { pci_brut: [], h2o: [], chlore: [], cendres: [], taux_fils_metalliques: [] };
   });
 
   // Populate with data from the database
@@ -245,6 +287,7 @@ export async function getAverageAnalysisForFuels(
       if (typeof res.h2o === 'number') target.h2o.push(res.h2o);
       if (typeof res.chlore === 'number') target.chlore.push(res.chlore);
       if (typeof res.cendres === 'number') target.cendres.push(res.cendres);
+      if (typeof res.taux_fils_metalliques === 'number') target.taux_fils_metalliques.push(res.taux_fils_metalliques);
     }
   });
 
@@ -258,6 +301,7 @@ export async function getAverageAnalysisForFuels(
       h2o: avg(data.h2o),
       chlore: avg(data.chlore),
       cendres: avg(data.cendres),
+      taux_fils_metalliques: avg(data.taux_fils_metalliques),
       count: data.pci_brut.length
     };
   }
@@ -329,13 +373,16 @@ export async function getStocks(): Promise<Stock[]> {
     const q = query(stocksCollection, orderBy("nom_combustible"));
     const snapshot = await getDocs(q);
     if (snapshot.empty) {
-        const fuelTypes = await getFuelTypes();
+        const fuelTypes = await getUniqueFuelTypesFromResultats();
+        if (fuelTypes.length === 0) return []; // No fuels to create stocks for
+        
         const batch = writeBatch(db);
         fuelTypes.forEach(ft => {
-            const stockRef = doc(db, 'stocks', ft.name);
-            batch.set(stockRef, { nom_combustible: ft.name, stock_actuel_tonnes: 0 });
+            const stockRef = doc(collection(db, 'stocks'));
+            batch.set(stockRef, { nom_combustible: ft, stock_actuel_tonnes: 0 });
         });
         await batch.commit();
+
         const newSnapshot = await getDocs(q);
         return newSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Stock));
     }
@@ -521,3 +568,101 @@ export async function saveGlobalMixtureSpecification(spec: Partial<Specification
         fournisseur: "Système"
     }, { merge: true });
 }
+
+// --- Mixture Scenarios (for simulator) ---
+
+export async function saveMixtureScenario(scenario: Omit<MixtureScenario, 'id' | 'date_creation'>): Promise<void> {
+    const dataToSave = {
+        ...scenario,
+        date_creation: Timestamp.now(),
+    };
+    await addDoc(collection(db, 'scenarios_melange'), dataToSave);
+}
+
+export async function getMixtureScenarios(): Promise<MixtureScenario[]> {
+    const scenariosCollection = collection(db, 'scenarios_melange');
+    const q = query(scenariosCollection, orderBy("date_creation", "desc"));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) return [];
+
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MixtureScenario));
+}
+
+export async function updateMixtureScenario(id: string, data: Partial<Omit<MixtureScenario, 'id'>>): Promise<void> {
+    const scenarioRef = doc(db, 'scenarios_melange', id);
+    await updateDoc(scenarioRef, data);
+}
+
+export async function deleteMixtureScenario(id: string): Promise<void> {
+    const scenarioRef = doc(db, 'scenarios_melange', id);
+    await deleteDoc(scenarioRef);
+}
+
+// --- Ash Analysis Functions ---
+
+export async function getAshAnalyses(): Promise<AshAnalysis[]> {
+    const analysesCollection = collection(db, 'analyses_cendres');
+    const q = query(analysesCollection, orderBy("date_arrivage", "desc"));
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return [];
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AshAnalysis));
+}
+
+export async function addAshAnalysis(data: Omit<AshAnalysis, 'id'>): Promise<string> {
+    const docRef = await addDoc(collection(db, 'analyses_cendres'), data);
+    return docRef.id;
+}
+
+export async function addManyAshAnalyses(data: Omit<AshAnalysis, 'id'>[]): Promise<void> {
+    const batch = writeBatch(db);
+    const analysesCollection = collection(db, 'analyses_cendres');
+
+    data.forEach(analysis => {
+        const docRef = doc(analysesCollection);
+        batch.set(docRef, analysis);
+    });
+
+    await batch.commit();
+}
+
+
+export async function updateAshAnalysis(id: string, data: Partial<Omit<AshAnalysis, 'id'>>): Promise<void> {
+    const analysisRef = doc(db, 'analyses_cendres', id);
+    await updateDoc(analysisRef, data);
+}
+
+export async function deleteAshAnalysis(id: string): Promise<void> {
+    const analysisRef = doc(db, 'analyses_cendres', id);
+    await deleteDoc(analysisRef);
+}
+
+export async function deleteAllResults(): Promise<void> {
+    const resultsCollection = collection(db, 'resultats');
+    const snapshot = await getDocs(resultsCollection);
+
+    if (snapshot.empty) {
+        return;
+    }
+
+    const batch = writeBatch(db);
+    snapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+    });
+
+    await batch.commit();
+}
+
+export async function addManyResults(results: ResultToSave[]): Promise<void> {
+    const batch = writeBatch(db);
+    const resultsCollection = collection(db, 'resultats');
+
+    results.forEach(result => {
+        const docRef = doc(resultsCollection);
+        batch.set(docRef, result);
+    });
+
+    await batch.commit();
+}
+
+    

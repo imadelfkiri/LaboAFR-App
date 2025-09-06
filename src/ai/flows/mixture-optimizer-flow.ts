@@ -22,7 +22,7 @@ const MixtureOptimizerInputSchema = z.object({
       h2o: z.number(),
       chlore: z.number(),
       cendres: z.number(),
-      density: z.number(),
+      poids_godet: z.number(),
       count: z.number(),
     })
   ).describe("Un objet où chaque clé est le nom d'un combustible et la valeur contient ses caractéristiques moyennes."),
@@ -45,29 +45,31 @@ export type MixtureOptimizerOutput = z.infer<typeof MixtureOptimizerOutputSchema
 const mixtureOptimizerPrompt = ai.definePrompt({
     name: 'mixtureOptimizerPrompt',
     input: { schema: MixtureOptimizerInputSchema },
-    output: { schema: MixtureOptimizerOutputSchema },
+    output: { 
+      schema: MixtureOptimizerOutputSchema,
+      format: 'json',
+    },
     prompt: `Tu es un expert en optimisation de combustibles pour une cimenterie. Ton rôle est de proposer une recette de mélange (nombre de godets pour chaque combustible) pour deux installations (Hall des AF et ATS) afin d'atteindre un objectif précis défini par l'utilisateur.
 
     Voici les contraintes et les données disponibles :
-    1.  Le volume d'un godet est fixé à 3 m³.
-    2.  Le poids d'un combustible est calculé par : Poids (t) = Nombre de godets × 3 m³ × Densité (t/m³).
-    3.  Les caractéristiques du mélange (PCI, Chlore, etc.) sont la moyenne des caractéristiques de chaque combustible, pondérée par leur poids respectif.
-    4.  Tu dois fournir une recette pour les deux installations : "Hall des AF" et "ATS". Tu peux décider de n'utiliser qu'une seule installation si c'est plus pertinent.
-    5.  Les valeurs de PCI sont en kcal/kg. Les autres valeurs (H2O, Chlore, Cendres) sont en %.
+    1.  Le poids d'un combustible est calculé par : Poids (t) = Nombre de godets × Poids par godet (t).
+    2.  Les caractéristiques du mélange (PCI, Chlore, etc.) sont la moyenne des caractéristiques de chaque combustible, pondérée par leur poids respectif.
+    3.  Tu dois fournir une recette pour les deux installations : "Hall des AF" et "ATS". Tu peux décider de n'utiliser qu'une seule installation si c'est plus pertinent.
+    4.  Les valeurs de PCI sont en kcal/kg. Les autres valeurs (H2O, Chlore, Cendres) sont en %.
 
     DONNÉES DISPONIBLES :
     Voici les caractéristiques moyennes des combustibles disponibles :
-    {{#each availableFuels}}
+    {{#each input.availableFuels}}
     - Combustible: {{@key}}
       - PCI moyen: {{this.pci_brut}} kcal/kg
       - Humidité moyenne: {{this.h2o}}%
       - Chlore moyen: {{this.chlore}}%
       - Cendres moyennes: {{this.cendres}}%
-      - Densité moyenne: {{this.density}} t/m³
+      - Poids par godet moyen: {{this.poids_godet}} t
     {{/each}}
 
     OBJECTIF DE L'UTILISATEUR :
-    "{{userObjective}}"
+    "{{input.userObjective}}"
 
     TA MISSION :
     1.  **Raisonnement :** Explique clairement ta stratégie. Par exemple, comment tu comptes combiner les combustibles à haut et bas PCI, comment tu gères le chlore, etc. Sois concis mais précis.

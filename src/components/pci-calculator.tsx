@@ -69,8 +69,8 @@ const formSchema = z.object({
   h2o: z.coerce.number({required_error: "Le taux d'humidité est requis.", invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "L'humidité ne peut être négative." }).max(100, { message: "L'humidité ne peut dépasser 100%." }),
   chlore: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le chlore ne peut être négatif." }).optional().or(z.literal('')),
   cendres: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le % de cendres ne peut être négatif." }).optional().or(z.literal('')),
-  densite: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).positive({ message: "La densité doit être un nombre positif." }).optional().or(z.literal('')),
   remarques: z.string().optional(),
+  taux_fils_metalliques: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, "Le taux doit être positif.").max(100, "Le taux ne peut dépasser 100%").optional().or(z.literal('')),
 });
 
 const newFuelTypeSchema = z.object({
@@ -122,12 +122,15 @@ export function PciCalculator() {
       h2o: undefined,
       chlore: '',
       cendres: '',
-      densite: '',
       remarques: "",
+      taux_fils_metalliques: '',
     },
   });
 
   const { watch, reset, getValues, setValue } = form;
+
+  const watchedTypeCombustible = watch("type_combustible");
+  const showTauxFilsMetalliques = watchedTypeCombustible && watchedTypeCombustible.toLowerCase().includes('pneu');
 
   useEffect(() => {
     // Set the default date only on the client side to avoid hydration errors
@@ -143,8 +146,8 @@ export function PciCalculator() {
         h2o: '' as any,
         chlore: '' as any,
         cendres: '' as any,
-        densite: '' as any,
         remarques: "",
+        taux_fils_metalliques: '' as any,
     });
     setPciResult(null);
   };
@@ -176,34 +179,42 @@ export function PciCalculator() {
 
   const watchedPcs = watch("pcs");
   const watchedH2o = watch("h2o");
-  const watchedTypeCombustible = watch("type_combustible");
+  
   const watchedFournisseur = watch("fournisseur");
   const watchedChlore = watch("chlore");
   const watchedCendres = watch("cendres");
+  const watchedTauxFilsMetalliques = watch("taux_fils_metalliques");
 
   useEffect(() => {
     if (watchedPcs !== undefined && watchedH2o !== undefined && hValue !== null) {
-      const result = calculerPCI(Number(watchedPcs), Number(watchedH2o), hValue);
+      let pcsToUse = Number(watchedPcs);
+      // If taux_fils_metalliques is provided, it reduces the overall PCS of the sample.
+      if (showTauxFilsMetalliques && watchedTauxFilsMetalliques) {
+          const taux = Number(watchedTauxFilsMetalliques);
+          if (taux > 0 && taux < 100) {
+            // The metal part has no caloric value, so we reduce the PCS by that percentage.
+            pcsToUse = pcsToUse * (1 - taux / 100);
+          }
+      }
+      const result = calculerPCI(pcsToUse, Number(watchedH2o), hValue);
       setPciResult(result);
     } else {
       setPciResult(null);
     }
-  }, [watchedPcs, watchedH2o, hValue]);
+  }, [watchedPcs, watchedH2o, hValue, showTauxFilsMetalliques, watchedTauxFilsMetalliques]);
 
   useEffect(() => {
     if (watchedTypeCombustible) {
         const fuelData = fuelDataMap.get(watchedTypeCombustible);
         if (fuelData) {
             setHValue(fuelData.teneur_hydrogene);
-            setValue('densite', fuelData.densite); // Auto-fill density
         } else {
             setHValue(null);
-            setValue('densite', '');
         }
     } else {
         setHValue(null);
     }
-  }, [watchedTypeCombustible, fuelDataMap, setValue]);
+  }, [watchedTypeCombustible, fuelDataMap]);
 
 
   useEffect(() => {
@@ -308,7 +319,15 @@ export function PciCalculator() {
           setIsSaving(false);
           return;
       }
-      const pci_brut = calculerPCI(values.pcs, values.h2o, hValue);
+      
+      let pcsToUse = values.pcs;
+      if (showTauxFilsMetalliques && values.taux_fils_metalliques) {
+          const taux = Number(values.taux_fils_metalliques);
+          if (taux > 0 && taux < 100) {
+            pcsToUse = pcsToUse * (1 - taux / 100);
+          }
+      }
+      const pci_brut = calculerPCI(pcsToUse, values.h2o, hValue);
 
       if (pci_brut === null) {
           toast({
@@ -325,7 +344,7 @@ export function PciCalculator() {
         pci_brut,
         chlore: values.chlore ? Number(values.chlore) : null,
         cendres: values.cendres ? Number(values.cendres) : null,
-        densite: values.densite ? Number(values.densite) : null,
+        taux_fils_metalliques: values.taux_fils_metalliques ? Number(values.taux_fils_metalliques) : null,
         remarques: values.remarques || "",
         date_creation: serverTimestamp(),
       };
@@ -591,19 +610,21 @@ export function PciCalculator() {
                                 </FormItem>
                                 )}
                             />
-                             <FormField
-                                control={form.control}
-                                name="densite"
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Densité (t/m³)</FormLabel>
-                                    <FormControl>
-                                    <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className="rounded-lg h-11 px-4 text-sm"/>
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
+                            {showTauxFilsMetalliques ? (
+                                <FormField
+                                    control={form.control}
+                                    name="taux_fils_metalliques"
+                                    render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Taux Fils Métalliques (%)</FormLabel>
+                                        <FormControl>
+                                        <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className="rounded-lg h-11 px-4 text-sm"/>
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
+                            ) : <div />}
                             <div className={cn("p-4 rounded-lg border text-center md:col-span-2", 
                                 validationStatus.pci === 'conform' && 'bg-green-50 border-green-200',
                                 validationStatus.pci === 'non-conform' && 'bg-red-50 border-red-200',
@@ -663,3 +684,5 @@ export function PciCalculator() {
     </div>
   );
 }
+
+    

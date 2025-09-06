@@ -10,7 +10,7 @@ import {
     addFuelData, 
     updateFuelData, 
     deleteFuelData,
-    getUniqueFuelTypesFromResultats,
+    getUniqueFuelTypes,
     type FuelData
 } from '@/lib/data';
 
@@ -72,7 +72,7 @@ import { Edit, Trash2, Database, PlusCircle } from 'lucide-react';
 
 const fuelDataSchema = z.object({
   nom_combustible: z.string().nonempty({ message: "Le nom du combustible est requis." }),
-  densite: z.coerce.number().positive({ message: "La densité doit être un nombre positif." }),
+  poids_godet: z.coerce.number().positive({ message: "Le poids par godet doit être un nombre positif." }),
   teneur_hydrogene: z.coerce.number().min(0, "La teneur en hydrogène doit être positive.").max(100, "La teneur ne peut dépasser 100%"),
 });
 
@@ -92,7 +92,7 @@ export function FuelDataManager() {
         resolver: zodResolver(fuelDataSchema),
         defaultValues: {
             nom_combustible: '',
-            densite: undefined,
+            poids_godet: undefined,
             teneur_hydrogene: undefined,
         },
     });
@@ -100,16 +100,13 @@ export function FuelDataManager() {
     const fetchAllData = useCallback(async () => {
         setLoading(true);
         try {
-            const [fetchedFuelData, resultatsFuelTypes] = await Promise.all([
+            const [fetchedFuelData, masterFuelTypes] = await Promise.all([
                 getFuelData(),
-                getUniqueFuelTypesFromResultats(),
+                getUniqueFuelTypes(),
             ]);
-
-            const existingFuelNames = fetchedFuelData.map(fd => fd.nom_combustible);
-            const newAvailableTypes = resultatsFuelTypes.filter(type => !existingFuelNames.includes(type));
             
             setFuelDataList(fetchedFuelData.sort((a, b) => a.nom_combustible.localeCompare(b.nom_combustible)));
-            setAvailableFuelTypes(newAvailableTypes.sort());
+            setAvailableFuelTypes(masterFuelTypes.sort());
         } catch (error) {
             console.error("Erreur de chargement des données :", error);
             toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données." });
@@ -127,13 +124,13 @@ export function FuelDataManager() {
         if (data) {
             form.reset({
                 nom_combustible: data.nom_combustible,
-                densite: data.densite,
+                poids_godet: data.poids_godet,
                 teneur_hydrogene: data.teneur_hydrogene
             });
         } else {
             form.reset({
                 nom_combustible: '',
-                densite: undefined,
+                poids_godet: undefined,
                 teneur_hydrogene: undefined
             });
         }
@@ -151,6 +148,18 @@ export function FuelDataManager() {
                 await updateFuelData(editingFuelData.id, values);
                 toast({ title: "Succès", description: "Données du combustible mises à jour." });
             } else {
+                 // Check if data for this fuel already exists
+                const existingFuel = fuelDataList.find(
+                    (fuel) => fuel.nom_combustible === values.nom_combustible
+                );
+                if (existingFuel) {
+                    toast({
+                        variant: "destructive",
+                        title: "Erreur : Doublon",
+                        description: `Des données de référence existent déjà pour "${values.nom_combustible}". Veuillez les modifier.`,
+                    });
+                    return; // Prevent adding a duplicate
+                }
                 await addFuelData(values);
                 toast({ title: "Succès", description: "Données du combustible ajoutées." });
             }
@@ -180,6 +189,12 @@ export function FuelDataManager() {
         return num.toLocaleString('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
     };
 
+    const fuelTypesForDropdown = useMemo(() => {
+        // Always return all available fuel types from the results.
+        // The logic to prevent duplicates is now handled in onSubmit.
+        return availableFuelTypes;
+    }, [availableFuelTypes]);
+
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -203,7 +218,7 @@ export function FuelDataManager() {
                         <TableHeader className="sticky top-0 bg-muted/50">
                             <TableRow>
                                 <TableHead>Nom du Combustible</TableHead>
-                                <TableHead className="text-right">Densité (t/m³)</TableHead>
+                                <TableHead className="text-right">Poids par Godet (tonnes)</TableHead>
                                 <TableHead className="text-right">Teneur en Hydrogène (%)</TableHead>
                                 <TableHead className="text-right w-[120px]">Actions</TableHead>
                             </TableRow>
@@ -221,7 +236,7 @@ export function FuelDataManager() {
                                 fuelDataList.map((data) => (
                                     <TableRow key={data.id}>
                                         <TableCell className="font-medium">{data.nom_combustible}</TableCell>
-                                        <TableCell className="text-right">{formatNumber(data.densite, 2)}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(data.poids_godet, 2)}</TableCell>
                                         <TableCell className="text-right">{formatNumber(data.teneur_hydrogene, 2)}</TableCell>
                                         <TableCell className="text-right">
                                             <Button variant="ghost" size="icon" onClick={() => handleModalOpen(data)}>
@@ -266,15 +281,14 @@ export function FuelDataManager() {
                                                 <SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                {editingFuelData && <SelectItem value={editingFuelData.nom_combustible}>{editingFuelData.nom_combustible}</SelectItem>}
-                                                {availableFuelTypes.map(ft => <SelectItem key={ft} value={ft}>{ft}</SelectItem>)}
+                                                {fuelTypesForDropdown.map(ft => <SelectItem key={ft} value={ft}>{ft}</SelectItem>)}
                                             </SelectContent>
                                         </Select>
                                         <FormMessage />
                                     </FormItem>
                                 )}
                             />
-                            <FormField control={form.control} name="densite" render={({ field }) => (<FormItem><FormLabel>Densité (t/m³)</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                            <FormField control={form.control} name="poids_godet" render={({ field }) => (<FormItem><FormLabel>Poids par Godet (tonnes)</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                             <FormField control={form.control} name="teneur_hydrogene" render={({ field }) => (<FormItem><FormLabel>Teneur en Hydrogène (%)</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                             <DialogFooter>
                                 <DialogClose asChild>
@@ -296,7 +310,7 @@ export function FuelDataManager() {
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setDeletingFuelDataId(null)}>Annuler</AlertDialogCancel>
+                        <AlertDialogCancel>Annuler</AlertDialogCancel>
                         <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Supprimer</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

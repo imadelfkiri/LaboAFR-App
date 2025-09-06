@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { BrainCircuit, Calendar as CalendarIcon, Save, Settings, ChevronDown, CheckCircle, AlertTriangle, Copy } from 'lucide-react';
+import { BrainCircuit, Calendar as CalendarIcon, Save, Settings, ChevronDown, CheckCircle, AlertTriangle, Copy, Mail } from 'lucide-react';
 import { DateRange } from "react-day-picker";
 import { format, subDays, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -24,21 +24,18 @@ import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import { optimizeMixture, MixtureOptimizerOutput, MixtureOptimizerInput } from '@/ai/flows/mixture-optimizer-flow';
+import { MixtureOptimizerOutput, MixtureOptimizerInput } from '@/ai/flows/mixture-optimizer-flow';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip, Legend, Line } from 'recharts';
 import { Separator } from './ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { handleGenerateSuggestion } from '@/lib/actions';
+
 
 interface InstallationState {
   flowRate: number;
   fuels: Record<string, { buckets: number }>;
-}
-
-interface AISuggestion {
-    prompt: string;
-    output: MixtureOptimizerOutput;
 }
 
 interface MixtureThresholds {
@@ -66,19 +63,6 @@ const defaultThresholds: MixtureThresholds = {
     chlorine_max: 100,
     tireRate_max: 100,
 };
-
-const BUCKET_VOLUME_M3 = 3;
-
-// Define the custom order for fuels
-const fuelOrder = [
-    "Pneus",
-    "CSR",
-    "DMB",
-    "Plastiques",
-    "CSR DD",
-    "Bois",
-    "Mélange"
-];
 
 type IndicatorStatus = 'alert' | 'conform' | 'neutral';
 
@@ -139,8 +123,8 @@ function useMixtureCalculations(hallAF: InstallationState, ats: InstallationStat
                 continue;
             }
 
-            const density = baseFuelData.densite > 0 ? baseFuelData.densite : 0.5;
-            const weight = fuelInput.buckets * BUCKET_VOLUME_M3 * density;
+            const poidsGodet = baseFuelData.poids_godet > 0 ? baseFuelData.poids_godet : 1.5; // Default 1.5 tonnes if not set
+            const weight = fuelInput.buckets * poidsGodet;
             totalWeight += weight;
             fuelWeights[fuelName] = (fuelWeights[fuelName] || 0) + weight;
 
@@ -152,10 +136,17 @@ function useMixtureCalculations(hallAF: InstallationState, ats: InstallationStat
             if (!analysisData || analysisData.count === 0) {
                 continue; 
             }
+
+            let correctedPciBrut = analysisData.pci_brut;
+            // Correction pour les pneus: le taux de fils réduit le PCI global
+            if (fuelName.toLowerCase().includes('pneu') && analysisData.taux_fils_metalliques && analysisData.taux_fils_metalliques > 0 && analysisData.taux_fils_metalliques < 100) {
+                const correctionFactor = 1 - (analysisData.taux_fils_metalliques / 100);
+                correctedPciBrut = analysisData.pci_brut * correctionFactor;
+            }
             
             const fuelCost = fuelCosts[fuelName]?.cost || 0;
 
-            tempTotalPci += weight * analysisData.pci_brut;
+            tempTotalPci += weight * correctedPciBrut;
             tempTotalHumidity += weight * analysisData.h2o;
             tempTotalAsh += weight * analysisData.cendres;
             tempTotalChlorine += weight * analysisData.chlore;
@@ -481,134 +472,16 @@ export function MixtureCalculator() {
     );
   };
   
-  const AiAssistant = () => {
-    const [isOpen, setIsOpen] = useState(false);
-    const [objective, setObjective] = useState('');
-    const [isGenerating, setIsGenerating] = useState(false);
-    const [suggestion, setSuggestion] = useState<MixtureOptimizerOutput | null>(null);
-    const [suggestionHistory, setSuggestionHistory] = useState<AISuggestion[]>([]);
-
-    useEffect(() => {
-        if (isOpen) {
-            try {
-                const storedHistory = localStorage.getItem('aiSuggestionHistory');
-                if (storedHistory) {
-                    setSuggestionHistory(JSON.parse(storedHistory));
-                }
-            } catch (error) {
-                console.error("Could not load AI suggestion history", error);
-            }
-        }
-    }, [isOpen]);
-
-    const saveSuggestionToHistory = (prompt: string, output: MixtureOptimizerOutput) => {
-        const newSuggestion = { prompt, output };
-        const updatedHistory = [newSuggestion, ...suggestionHistory].slice(0, 3); // Keep last 3
-        setSuggestionHistory(updatedHistory);
-        localStorage.setItem('aiSuggestionHistory', JSON.stringify(updatedHistory));
-    }
-
-    const handleGenerate = async () => {
-        setIsGenerating(true);
-        setSuggestion(null);
-        try {
-            const input: MixtureOptimizerInput = {
-                availableFuels,
-                userObjective: objective,
-            };
-            const result = await optimizeMixture(input);
-            setSuggestion(result);
-            saveSuggestionToHistory(objective, result);
-        } catch (error) {
-            console.error("Error generating suggestion:", error);
-            toast({ variant: "destructive", title: "Erreur IA", description: "La génération de suggestion a échoué." });
-        } finally {
-            setIsGenerating(false);
-        }
-    };
-    
-    const reusePrompt = (prompt: string) => {
-        setObjective(prompt);
-        setSuggestion(null);
-    };
-
-    return (
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>
-                <Button variant="outline" size="icon" className="fixed bottom-6 right-6 rounded-full h-14 w-14 shadow-lg bg-primary text-primary-foreground hover:bg-primary/90">
-                    <BrainCircuit className="h-6 w-6" />
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[625px]">
-                <DialogHeader>
-                    <DialogTitle>Assistant d'Optimisation de Mélange</DialogTitle>
-                    <DialogDescription>
-                        Décrivez votre objectif et l'IA vous proposera une recette.
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <Label htmlFor="objective">Objectif</Label>
-                    <Textarea
-                        id="objective"
-                        value={objective}
-                        onChange={(e) => setObjective(e.target.value)}
-                        placeholder="Ex: obtenir un PCI de 3500 kcal/kg avec un taux de chlore inférieur à 0.8%"
-                    />
-                </div>
-                <DialogFooter>
-                    <Button onClick={handleGenerate} disabled={isGenerating || !objective}>
-                        {isGenerating ? "Génération en cours..." : "Générer la suggestion"}
-                    </Button>
-                </DialogFooter>
-                {isGenerating && <Skeleton className="h-32 w-full" />}
-                {suggestion && (
-                    <Card className="mt-4">
-                        <CardHeader>
-                            <CardTitle>Suggestion de l'IA</CardTitle>
-                        </CardHeader>
-                        <CardContent className="text-sm space-y-4">
-                             <p className="font-semibold">Raisonnement :</p>
-                             <p className="text-gray-600 whitespace-pre-wrap">{suggestion.reasoning}</p>
-                             <div>
-                                <p className="font-semibold mt-4">Recette proposée :</p>
-                                <div className="grid grid-cols-2 gap-4 mt-2">
-                                    <div>
-                                        <p className="font-medium">Hall des AF</p>
-                                        <ul className="list-disc pl-5 text-gray-600">
-                                            {Object.keys(suggestion.recipe.hallAF).length > 0 ? Object.entries(suggestion.recipe.hallAF).map(([fuel, buckets]) => (
-                                                <li key={`hall-${fuel}`}>{fuel}: {buckets} godets</li>
-                                            )) : <li>Aucun</li>}
-                                        </ul>
-                                    </div>
-                                    <div>
-                                        <p className="font-medium">ATS</p>
-                                        <ul className="list-disc pl-5 text-gray-600">
-                                            {Object.keys(suggestion.recipe.ats).length > 0 ? Object.entries(suggestion.recipe.ats).map(([fuel, buckets]) => (
-                                                <li key={`ats-${fuel}`}>{fuel}: {buckets} godets</li>
-                                            )) : <li>Aucun</li>}
-                                        </ul>
-                                    </div>
-                                </div>
-                             </div>
-                        </CardContent>
-                    </Card>
-                )}
-                {suggestionHistory.length > 0 && (
-                    <div className="mt-6">
-                        <h3 className="text-sm font-medium text-gray-500 mb-2">Historique des suggestions</h3>
-                        <div className="space-y-2">
-                            {suggestionHistory.map((item, index) => (
-                                <button key={index} onClick={() => reusePrompt(item.prompt)} className="w-full text-left p-2 bg-muted rounded-md hover:bg-accent">
-                                    <p className="text-xs text-muted-foreground truncate">{item.prompt}</p>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                )}
-            </DialogContent>
-        </Dialog>
-    );
-  };
+  // Define the custom order for fuels
+const fuelOrder = [
+    "Pneus",
+    "CSR",
+    "DMB",
+    "Plastiques",
+    "CSR DD",
+    "Bois",
+    "Mélange"
+];
 
   const ThresholdSettingsModal = () => {
     const [currentThresholds, setCurrentThresholds] = useState(thresholds);
@@ -679,7 +552,7 @@ export function MixtureCalculator() {
 
     const { globalIndicators: summaryIndicators, composition } = mixtureSummary;
 
-    const handleCopySummary = () => {
+    const generateSummaryText = () => {
         // Find maximum length for each column to calculate padding
         const headers = ["Combustible", "Nb Godets", "% Poids"];
         const col1Width = Math.max(headers[0].length, ...composition.map(item => item.name.length));
@@ -718,12 +591,25 @@ export function MixtureCalculator() {
             textToCopy += row.join('  ') + '\n';
         });
 
+        return textToCopy;
+    };
+
+
+    const handleCopySummary = () => {
+        const textToCopy = generateSummaryText();
         navigator.clipboard.writeText(textToCopy).then(() => {
             toast({ title: "Copié !", description: "Le résumé a été copié dans le presse-papiers." });
         }).catch(err => {
             toast({ variant: "destructive", title: "Erreur", description: "Impossible de copier le résumé." });
             console.error('Could not copy text: ', err);
         });
+    };
+
+    const handleEmailSummary = () => {
+        const summaryText = generateSummaryText();
+        const subject = `Rapport de Mélange du ${format(new Date(), 'dd/MM/yyyy', { locale: fr })}`;
+        const body = encodeURIComponent(summaryText);
+        window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${body}`;
     };
 
 
@@ -785,11 +671,15 @@ export function MixtureCalculator() {
             </div>
 
           </div>
-          <DialogFooter className="gap-2 sm:justify-end">
+          <DialogFooter className="gap-2 sm:justify-end flex-wrap">
             <Button type="button" variant="secondary" onClick={() => setIsSaveModalOpen(false)}>Annuler</Button>
             <Button type="button" variant="outline" onClick={handleCopySummary}>
                 <Copy className="mr-2 h-4 w-4" />
                 Copier le résumé
+            </Button>
+             <Button type="button" variant="outline" onClick={handleEmailSummary}>
+                <Mail className="mr-2 h-4 w-4" />
+                Envoyer par Email
             </Button>
             <Button type="button" onClick={handleConfirmSave} disabled={isSaving}>
               {isSaving ? "Enregistrement..." : "Confirmer et Enregistrer"}
@@ -820,65 +710,67 @@ export function MixtureCalculator() {
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6 bg-gray-50">
-      <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className='flex items-center gap-2'>
-              <h1 className="text-2xl font-bold text-gray-800">Indicateurs Globaux</h1>
-              <ThresholdSettingsModal />
+      <div className="sticky top-0 z-10 bg-gray-50/95 backdrop-blur-sm py-4 space-y-4">
+        <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className='flex items-center gap-2'>
+                <h1 className="text-2xl font-bold text-gray-800">Indicateurs Globaux</h1>
+                <ThresholdSettingsModal />
+              </div>
+               <Popover>
+                  <PopoverTrigger asChild>
+                      <Button
+                          id="date"
+                          variant={"outline"}
+                          className={cn(
+                              "w-[300px] justify-start text-left font-normal bg-white",
+                              !analysisDateRange && "text-muted-foreground"
+                          )}
+                      >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {analysisDateRange?.from ? (
+                          analysisDateRange.to ? (
+                              <>
+                              {format(analysisDateRange.from, "d MMM y", { locale: fr })} -{" "}
+                              {format(analysisDateRange.to, "d MMM y", { locale: fr })}
+                              </>
+                          ) : (
+                              format(analysisDateRange.from, "d MMM y", { locale: fr })
+                          )
+                          ) : (
+                          <span>Sélectionner une période d'analyse</span>
+                          )}
+                      </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                          initialFocus
+                          mode="range"
+                          defaultMonth={analysisDateRange?.from}
+                          selected={analysisDateRange}
+                          onSelect={setAnalysisDateRange}
+                          numberOfMonths={2}
+                          locale={fr}
+                      />
+                  </PopoverContent>
+              </Popover>
             </div>
-             <Popover>
-                <PopoverTrigger asChild>
-                    <Button
-                        id="date"
-                        variant={"outline"}
-                        className={cn(
-                            "w-[300px] justify-start text-left font-normal bg-white",
-                            !analysisDateRange && "text-muted-foreground"
-                        )}
-                    >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {analysisDateRange?.from ? (
-                        analysisDateRange.to ? (
-                            <>
-                            {format(analysisDateRange.from, "d MMM y", { locale: fr })} -{" "}
-                            {format(analysisDateRange.to, "d MMM y", { locale: fr })}
-                            </>
-                        ) : (
-                            format(analysisDateRange.from, "d MMM y", { locale: fr })
-                        )
-                        ) : (
-                        <span>Sélectionner une période d'analyse</span>
-                        )}
-                    </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                        initialFocus
-                        mode="range"
-                        defaultMonth={analysisDateRange?.from}
-                        selected={analysisDateRange}
-                        onSelect={setAnalysisDateRange}
-                        numberOfMonths={2}
-                        locale={fr}
-                    />
-                </PopoverContent>
-            </Popover>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button onClick={handlePrepareSave} disabled={isSaving}>
-                <Save className="mr-2 h-4 w-4" />
-                {isSaving ? "Enregistrement..." : "Enregistrer la Session"}
-            </Button>
-          </div>
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-        <IndicatorCard title="Débit des AFs" value={globalIndicators.flow.toFixed(2)} unit="t/h" />
-        <IndicatorCard title="PCI moy" value={globalIndicators.pci.toFixed(0)} unit="kcal/kg" status={globalIndicators.status.pci} />
-        <IndicatorCard title="% Humidité moy" value={globalIndicators.humidity.toFixed(2)} unit="%" status={globalIndicators.status.humidity} />
-        <IndicatorCard title="% Cendres moy" value={globalIndicators.ash.toFixed(2)} unit="%" status={globalIndicators.status.ash} />
-        <IndicatorCard title="% Chlorures" value={globalIndicators.chlorine.toFixed(3)} unit="%" status={globalIndicators.status.chlorine} />
-        <IndicatorCard title="Taux de pneus" value={globalIndicators.tireRate.toFixed(2)} unit="%" status={globalIndicators.status.tireRate} />
-        <IndicatorCard title="Coût du Mélange" value={globalIndicators.cost.toFixed(2)} unit="MAD/t" />
+            <div className="flex items-center gap-2">
+              <Button onClick={handlePrepareSave} disabled={isSaving}>
+                  <Save className="mr-2 h-4 w-4" />
+                  {isSaving ? "Enregistrement..." : "Enregistrer la Session"}
+              </Button>
+            </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+          <IndicatorCard title="Débit des AFs" value={globalIndicators.flow.toFixed(2)} unit="t/h" />
+          <IndicatorCard title="PCI moy" value={globalIndicators.pci.toFixed(0)} unit="kcal/kg" status={globalIndicators.status.pci} />
+          <IndicatorCard title="% Humidité moy" value={globalIndicators.humidity.toFixed(2)} unit="%" status={globalIndicators.status.humidity} />
+          <IndicatorCard title="% Cendres moy" value={globalIndicators.ash.toFixed(2)} unit="%" status={globalIndicators.status.ash} />
+          <IndicatorCard title="% Chlorures" value={globalIndicators.chlorine.toFixed(3)} unit="%" status={globalIndicators.status.chlorine} />
+          <IndicatorCard title="Taux de pneus" value={globalIndicators.tireRate.toFixed(2)} unit="%" status={globalIndicators.status.tireRate} />
+          <IndicatorCard title="Coût du Mélange" value={globalIndicators.cost.toFixed(2) } unit="MAD/t" />
+        </div>
       </div>
 
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -990,8 +882,10 @@ export function MixtureCalculator() {
             </CollapsibleContent>
         </Card>
       </Collapsible>
-      <AiAssistant />
+      
       <SaveConfirmationModal />
     </div>
   );
 }
+
+    

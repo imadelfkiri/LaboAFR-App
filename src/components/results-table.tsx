@@ -1,7 +1,6 @@
-
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   collection,
   query,
@@ -40,6 +39,7 @@ import {
   subMonths,
   endOfMonth,
   subWeeks,
+  parse,
 } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -53,8 +53,11 @@ import {
   AlertTriangle,
   CheckCircle2,
   ChevronDown,
+  Trash,
+  Upload,
 } from "lucide-react";
-import { getSpecifications, SPEC_MAP, getFuelSupplierMap } from "@/lib/data";
+import { getSpecifications, SPEC_MAP, getFuelSupplierMap, deleteAllResults, getFuelData, type FuelData, addManyResults } from "@/lib/data";
+import { calculerPCI } from "@/lib/pci";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
 import {
@@ -76,11 +79,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { MultiSelect } from "@/components/ui/multi-select";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+import * as z from "zod";
+
 
 interface Result {
   id: string;
@@ -90,9 +94,9 @@ interface Result {
   h2o: number;
   cendres: number | null;
   chlore: number | null;
-  pci_brut: number;
-  pcs: number;
-  densite: number | null;
+  pci_brut: number | null;
+  pcs?: number | null;
+  poids_godet: number | null;
   remarques: string;
 }
 
@@ -103,7 +107,7 @@ interface AggregatedResult {
   h2o: number | null;
   chlore: number | null;
   cendres: number | null;
-  densite: number | null;
+  poids_godet: number | null;
   count: number;
   alerts: {
     text: string;
@@ -124,6 +128,20 @@ declare module "jspdf" {
   }
 }
 
+const importSchema = z.object({
+  date_arrivage: z.date({ required_error: "Date requise." }),
+  type_combustible: z.string().nonempty({message: "Le type de combustible est requis."}),
+  fournisseur: z.string().nonempty({message: "Le fournisseur est requis."}),
+  pcs: z.coerce.number({invalid_type_error: "PCS doit être un nombre."}).optional().nullable(),
+  pci_brut: z.coerce.number({invalid_type_error: "PCI Brut doit être un nombre."}).optional().nullable(),
+  h2o: z.coerce.number({invalid_type_error: "H2O doit être un nombre."}).min(0).max(100),
+  chlore: z.coerce.number({invalid_type_error: "Chlore doit être un nombre."}).min(0).optional().nullable(),
+  cendres: z.coerce.number({invalid_type_error: "Cendres doit être un nombre."}).min(0).optional().nullable(),
+  remarques: z.string().optional().nullable(),
+  taux_fils_metalliques: z.coerce.number().min(0).max(100).optional().nullable(),
+});
+
+
 export function ResultsTable() {
   const [results, setResults] = useState<Result[]>([]);
   const [loading, setLoading] = useState(true);
@@ -131,19 +149,22 @@ export function ResultsTable() {
   const [fournisseurFilter, setFournisseurFilter] = useState<string[]>([]);
   const [dateFilter, setDateFilter] = useState<DateRange | undefined>();
   const [resultToDelete, setResultToDelete] = useState<string | null>(null);
+  const [isDeleteAllConfirmOpen, setIsDeleteAllConfirmOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [fuelSupplierMap, setFuelSupplierMap] = useState<Record<string, string[]>>({});
   const [availableFournisseurs, setAvailableFournisseurs] = useState<string[]>([]);
+  const [fuelDataMap, setFuelDataMap] = useState<Map<string, FuelData>>(new Map());
 
   const { toast } = useToast();
 
   const fetchInitialData = useCallback(async () => {
     setLoading(true);
     try {
-      // These ensure SPEC_MAP is populated and we have the latest supplier map
       await getSpecifications(); 
-      const map = await getFuelSupplierMap();
+      const [map, fuelData] = await Promise.all([getFuelSupplierMap(), getFuelData()]);
       setFuelSupplierMap(map);
+      setFuelDataMap(new Map(fuelData.map(fd => [fd.nom_combustible, fd])));
 
       const q = query(collection(db, "resultats"), orderBy("date_arrivage", "desc"));
       const unsubscribe = onSnapshot(
@@ -272,6 +293,23 @@ export function ResultsTable() {
     }
   };
 
+  const handleDeleteAll = async () => {
+    try {
+      await deleteAllResults();
+      toast({ title: "Succès", description: "Tous les résultats ont été supprimés." });
+    } catch (error) {
+      console.error("Erreur lors de la suppression de tous les résultats :", error);
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: "La suppression de l'historique a échoué.",
+      });
+    } finally {
+      setIsDeleteAllConfirmOpen(false);
+    }
+  };
+
+
   const formatNumber = (num: number | null | undefined, fractionDigits: number = 0) => {
     if (num === null || num === undefined || Number.isNaN(num)) return "";
     return num
@@ -304,12 +342,11 @@ export function ResultsTable() {
       "Date",
       "Type Combustible",
       "Fournisseur",
-      "PCS (kcal/kg)",
       "PCI sur Brut (kcal/kg)",
       "% H2O",
       "% Cl-",
       "% Cendres",
-      "Densité (t/m³)",
+      "Poids Godet (t)",
       "Alertes",
       "Remarques",
     ];
@@ -351,12 +388,11 @@ export function ResultsTable() {
         { v: formatDate(result.date_arrivage, "dd/MM/yyyy"), s: dataStyleCenter, t: "s" },
         { v: result.type_combustible, s: dataStyleLeft, t: "s" },
         { v: result.fournisseur, s: dataStyleLeft, t: "s" },
-        { v: result.pcs, s: dataStyleCenter, t: "n" },
         { v: result.pci_brut, s: dataStyleCenter, t: "n" },
         { v: result.h2o, s: dataStyleCenter, t: "n" },
         { v: result.chlore ?? "N/A", s: dataStyleCenter, t: result.chlore === null ? "s" : "n" },
         { v: result.cendres ?? "N/A", s: dataStyleCenter, t: result.cendres === null ? "s" : "n" },
-        { v: result.densite ?? "N/A", s: dataStyleCenter, t: result.densite === null ? "s" : "n" },
+        { v: result.poids_godet ?? "N/A", s: dataStyleCenter, t: result.poids_godet === null ? "s" : "n" },
         { v: cleanAlertText(alert.text), s: dataStyleLeft, t: "s" },
         { v: result.remarques || "", s: dataStyleLeft, t: "s" },
       ];
@@ -373,7 +409,6 @@ export function ResultsTable() {
       { wch: 12 },
       { wch: 20 },
       { wch: 20 },
-      { wch: 15 },
       { wch: 22 },
       { wch: 10 },
       { wch: 10 },
@@ -468,11 +503,11 @@ export function ResultsTable() {
     data.forEach((r) => {
       const key = `${r.type_combustible}|${r.fournisseur}`;
       if (!grouped.has(key)) {
-        grouped.set(key, { pci_brut: [], h2o: [], chlore: [], cendres: [], pcs: [], densite: [], count: 0 } as any);
+        grouped.set(key, { pci_brut: [], h2o: [], chlore: [], cendres: [], pcs: [], poids_godet: [], count: 0 } as any);
       }
       const group = grouped.get(key)!;
       group.count++;
-      ["pci_brut", "h2o", "chlore", "cendres", "pcs", "densite"].forEach((metric) => {
+      ["pci_brut", "h2o", "chlore", "cendres", "pcs", "poids_godet"].forEach((metric) => {
         const value = (r as any)[metric];
         (group as any)[metric].push(typeof value === "number" ? value : null);
       });
@@ -493,7 +528,7 @@ export function ResultsTable() {
         h2o: avg(value.h2o),
         chlore: avg(value.chlore),
         cendres: avg(value.cendres),
-        densite: avg(value.densite),
+        poids_godet: avg(value.poids_godet),
         count: value.count,
         alerts: { text: "", isConform: false, details: { pci: true, h2o: true, chlore: true, cendres: true } },
       };
@@ -778,6 +813,141 @@ export function ResultsTable() {
       `Rapport_Mensuel_AFR_${format(prevMonthDate, "yyyy-MM")}.pdf`
     );
   };
+  
+    const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const data = new Uint8Array(e.target?.result as ArrayBuffer);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const json = XLSX.utils.sheet_to_json<any>(worksheet);
+
+                if (!json || json.length === 0) {
+                    throw new Error("Le fichier Excel est vide ou mal formaté.");
+                }
+
+                const excelDateToJSDate = (serial: number) => {
+                    const utc_days = Math.floor(serial - 25569);
+                    const utc_value = utc_days * 86400;
+                    const date_info = new Date(utc_value * 1000);
+                    return new Date(date_info.getFullYear(), date_info.getMonth(), date_info.getDate(), date_info.getHours(), date_info.getMinutes(), date_info.getSeconds());
+                };
+
+                const parseDate = (value: any, rowNum: number): Date => {
+                    if (!value) throw new Error(`Ligne ${rowNum}: La date est requise.`);
+                    if (typeof value === 'number') {
+                        const date = excelDateToJSDate(value);
+                        if (isValid(date)) return date;
+                    }
+                    if (typeof value === 'string') {
+                        const formats = ['dd/MM/yyyy', 'd/M/yyyy', 'yyyy-MM-dd', 'MM/dd/yyyy'];
+                        for (const fmt of formats) {
+                            const date = parse(value, fmt, new Date());
+                            if (isValid(date)) return date;
+                        }
+                    }
+                    throw new Error(`Ligne ${rowNum}: Format de date non reconnu pour la valeur "${value}".`);
+                };
+
+                const headerMapping: { [key: string]: keyof z.infer<typeof importSchema> } = {
+                    'date': 'date_arrivage',
+                    'date arrivage': 'date_arrivage',
+                    'date_arrivage': 'date_arrivage',
+                    'combustible': 'type_combustible',
+                    'type combustible': 'type_combustible',
+                    'type_combustible': 'type_combustible',
+                    'fournisseur': 'fournisseur',
+                    'pcs': 'pcs',
+                    'pcs (kcal/kg)': 'pcs',
+                    'pci': 'pci_brut',
+                    'pci brut': 'pci_brut',
+                    'pci sur brut': 'pci_brut',
+                    'pci_brut': 'pci_brut',
+                    'h2o': 'h2o',
+                    '% h2o': 'h2o',
+                    'cl-': 'chlore',
+                    'chlore': 'chlore',
+                    '% cl-': 'chlore',
+                    'cendres': 'cendres',
+                    '% cendres': 'cendres',
+                    'remarques': 'remarques',
+                    'taux fils metalliques': 'taux_fils_metalliques',
+                    'taux fils': 'taux_fils_metalliques',
+                    'fils metalliques': 'taux_fils_metalliques',
+                };
+
+                const parsedResults = json.map((row, index) => {
+                    const rowNum = index + 2;
+                    const mappedRow: { [key: string]: any } = {};
+
+                    for (const header in row) {
+                        const normalizedHeader = header.trim().toLowerCase().replace(/\s+/g, ' ');
+                        const targetKey = headerMapping[normalizedHeader];
+                        if (targetKey) {
+                             let value = row[header];
+                            if(typeof value === 'string' && !['date_arrivage', 'type_combustible', 'fournisseur', 'remarques'].includes(targetKey)) {
+                                value = value.replace(',', '.');
+                            }
+                            mappedRow[targetKey] = value;
+                        }
+                    }
+
+                    try {
+                        const parsedDate = parseDate(mappedRow.date_arrivage, rowNum);
+                        
+                        const validatedData = importSchema.parse({
+                            ...mappedRow,
+                            date_arrivage: parsedDate,
+                        });
+                        
+                        let finalPci: number | null = validatedData.pci_brut ?? null;
+
+                        if (finalPci === null && validatedData.pcs) {
+                             const hValue = fuelDataMap.get(validatedData.type_combustible)?.teneur_hydrogene;
+                            if (hValue === null || hValue === undefined) {
+                                throw new Error(`Teneur en hydrogène non définie pour "${validatedData.type_combustible}" (nécessaire pour calculer le PCI à partir du PCS).`);
+                            }
+                            
+                            let pcsToUse = validatedData.pcs;
+                            if (validatedData.type_combustible.toLowerCase().includes('pneu') && validatedData.taux_fils_metalliques) {
+                                const taux = Number(validatedData.taux_fils_metalliques);
+                                if (taux > 0 && taux < 100) {
+                                   pcsToUse = pcsToUse * (1 - taux / 100);
+                                }
+                            }
+                            finalPci = calculerPCI(pcsToUse, validatedData.h2o, hValue);
+                        }
+
+                        return { ...validatedData, pci_brut: finalPci, date_creation: Timestamp.now(), date_arrivage: Timestamp.fromDate(validatedData.date_arrivage) };
+
+                    } catch (error) {
+                         const errorMessage = error instanceof z.ZodError ? 
+                            error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ') :
+                            error instanceof Error ? error.message : "Erreur inconnue.";
+                        throw new Error(`Ligne ${rowNum}: ${errorMessage}`);
+                    }
+                });
+
+                await addManyResults(parsedResults);
+                toast({ title: "Succès", description: `${parsedResults.length} résultats ont été importés.` });
+
+            } catch (error) {
+                console.error("Error importing file:", error);
+                const errorMessage = error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
+                toast({ variant: "destructive", title: "Erreur d'importation", description: errorMessage, duration: 9000 });
+            } finally {
+                 if(fileInputRef.current) {
+                    fileInputRef.current.value = "";
+                }
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    };
 
   if (loading) {
     return (
@@ -791,7 +961,14 @@ export function ResultsTable() {
   return (
     <TooltipProvider>
       <AlertDialog onOpenChange={(open) => !open && setResultToDelete(null)}>
-        <div className="flex flex-col gap-4 p-4 lg:p-6 h-full">
+        <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            onChange={handleFileImport}
+            accept=".xlsx, .xls"
+        />
+        <div className="flex flex-col gap-4 h-full">
           <div className="flex flex-wrap items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-md px-3 py-2">
             <MultiSelect
               options={uniqueFuelTypes.map((f) => ({ label: f, value: f }))}
@@ -854,6 +1031,17 @@ export function ResultsTable() {
               <XCircle className="mr-2 h-4 w-4" />
               Réinitialiser
             </Button>
+            
+            <div className="flex-grow" />
+            
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto bg-white"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              Importer
+            </Button>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -874,14 +1062,41 @@ export function ResultsTable() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            <AlertDialog onOpenChange={setIsDeleteAllConfirmOpen} open={isDeleteAllConfirmOpen}>
+                <AlertDialogTrigger asChild>
+                    <Button variant="destructive" className="w-full sm:w-auto">
+                        <Trash className="mr-2 h-4 w-4" />
+                        Tout Supprimer
+                    </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                    <AlertDialogTitle>Êtes-vous absolument sûr ?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Cette action est irréversible et supprimera définitivement
+                        TOUT l'historique des résultats.
+                    </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                    <AlertDialogCancel>Annuler</AlertDialogCancel>
+                    <AlertDialogAction
+                        onClick={handleDeleteAll}
+                        className="bg-destructive hover:bg-destructive/90"
+                    >
+                        Oui, tout supprimer
+                    </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
           </div>
 
-          <ScrollArea className="flex-grow rounded-lg border">
-            <Table className="min-w-[1200px]">
-              <TableHeader>
-                <TableRow className="bg-muted/50 hover:bg-muted/50">
-                  <TableHead className="w-[120px] px-4 sticky left-0 bg-muted/50">Date Arrivage</TableHead>
-                  <TableHead className="px-4 sticky left-[120px] bg-muted/50">Type Combustible</TableHead>
+          <div className="flex-grow rounded-lg border overflow-auto max-h-[calc(100vh-220px)]">
+            <table className="min-w-[1200px] w-full border-separate border-spacing-0">
+              <thead className="sticky top-0 z-10 bg-muted/50 hover:bg-muted/50">
+                <TableRow>
+                  <TableHead className="w-[120px] px-4 sticky left-0 bg-muted/50 z-20">Date Arrivage</TableHead>
+                  <TableHead className="px-4 sticky left-[120px] bg-muted/50 z-20">Type Combustible</TableHead>
                   <TableHead className="px-4">Fournisseur</TableHead>
                   <TableHead className="text-right text-primary font-bold px-4">PCI sur Brut</TableHead>
                   <TableHead className="text-right px-4">% H2O</TableHead>
@@ -889,20 +1104,20 @@ export function ResultsTable() {
                   <TableHead className="text-right px-4">% Cendres</TableHead>
                   <TableHead className="px-4 font-bold">Alertes</TableHead>
                   <TableHead className="px-4">Remarques</TableHead>
-                  <TableHead className="w-[50px] text-right px-4 sticky right-0 bg-muted/50">Action</TableHead>
+                  <TableHead className="w-[50px] text-right px-4 sticky right-0 bg-muted/50 z-20">Action</TableHead>
                 </TableRow>
-              </TableHeader>
+              </thead>
               <TableBody>
                 {filteredResults.length > 0 ? (
                   <>
                     {filteredResults.map((result) => {
                       const alert = generateAlerts(result);
                       return (
-                        <TableRow key={result.id}>
-                          <TableCell className="font-medium px-4 sticky left-0 bg-background">
+                        <TableRow key={result.id} className="bg-background">
+                          <TableCell className="font-medium px-4 sticky left-0 bg-background z-10">
                             {formatDate(result.date_arrivage)}
                           </TableCell>
-                          <TableCell className="px-4 sticky left-[120px] bg-background">
+                          <TableCell className="px-4 sticky left-[120px] bg-background z-10">
                             {result.type_combustible}
                           </TableCell>
                           <TableCell className="px-4">{result.fournisseur}</TableCell>
@@ -936,7 +1151,7 @@ export function ResultsTable() {
                               {result.remarques && <TooltipContent>{result.remarques}</TooltipContent>}
                             </Tooltip>
                           </TableCell>
-                          <TableCell className="text-right px-4 sticky right-0 bg-background">
+                          <TableCell className="text-right px-4 sticky right-0 bg-background z-10">
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" size="icon" onClick={() => setResultToDelete(result.id)}>
                                 <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
@@ -946,8 +1161,8 @@ export function ResultsTable() {
                         </TableRow>
                       );
                     })}
-                    <TableRow className="bg-muted/40 font-semibold">
-                      <TableCell colSpan={3} className="px-4 sticky left-0 bg-muted/40">
+                    <TableRow className="bg-muted/40 font-semibold hover:bg-muted/40">
+                      <TableCell colSpan={3} className="px-4 sticky left-0 bg-muted/40 z-10">
                         Moyenne de la sélection
                       </TableCell>
                       <TableCell className="text-right text-primary px-4">
@@ -962,7 +1177,7 @@ export function ResultsTable() {
                       <TableCell className="text-right px-4">
                         {formatNumber(calculateAverage(filteredResults, "cendres"), 1)}
                       </TableCell>
-                      <TableCell colSpan={3} className="sticky right-0 bg-muted/40" />
+                      <TableCell colSpan={3} className="sticky right-0 bg-muted/40 z-10" />
                     </TableRow>
                   </>
                 ) : (
@@ -973,9 +1188,8 @@ export function ResultsTable() {
                   </TableRow>
                 )}
               </TableBody>
-            </Table>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
+            </table>
+          </div>
 
           <AlertDialogContent>
             <AlertDialogHeader>
