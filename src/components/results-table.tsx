@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
@@ -62,10 +63,11 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
-import { Popover, PopoverTrigger, PopoverContent, PopoverClose } from "@/components/ui/popover"
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import { Input } from "@/components/ui/input"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Calendar } from "./ui/calendar";
+import { SidebarTrigger } from "./ui/sidebar";
 
 interface Result {
   id: string;
@@ -182,6 +184,7 @@ function ResultsPagePro({
                 <CardContent className="p-2">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-center">
                     <div className="lg:col-span-4 flex items-center gap-2 text-[12px]">
+                        <SidebarTrigger className="mr-2" />
                         <Badge tone="muted">Total: {stats.total}</Badge>
                         <Badge tone="ok"><CheckCircle2 className="w-3 h-3 mr-1" /> {stats.conformes} conformes</Badge>
                         <Badge tone="warn"><AlertTriangle className="w-3 h-3 mr-1" /> {stats.non} non conf.</Badge>
@@ -315,6 +318,7 @@ function ResultsPagePro({
 
 // Le composant conteneur (Logique)
 export default function ResultsTable() {
+  "use client";
   const [results, setResults] = useState<Result[]>([]);
   const [loading, setLoading] = useState(true);
   const [fuelTypeFilter, setFuelTypeFilter] = useState('__ALL__');

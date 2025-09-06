@@ -35,7 +35,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const title = pageTitles[pathname] || 'FuelTrack AFR';
   
-  const showTitle = !['/resultats', '/analyses-cendres'].includes(pathname);
+  const showHeader = !['/resultats', '/analyses-cendres'].includes(pathname);
 
   return (
     <SidebarProvider>
@@ -58,22 +58,22 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         </SidebarContent>
       </Sidebar>
       <SidebarInset>
-        <header className="flex h-16 items-center justify-between gap-4 border-b bg-background/95 backdrop-blur-sm px-4 lg:px-6 sticky top-0 z-30">
-          <div className="flex items-center gap-2">
-            <SidebarTrigger />
-          </div>
-          <div className="flex-1 text-center">
-             {showTitle && <h1 className="text-xl font-bold tracking-tight">{title}</h1>}
-          </div>
-           <div className="flex items-center justify-end" style={{ minWidth: '180px' }}>
-             {pathname === '/specifications' && (
-                <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={() => (window as any).openSpecModal()}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Ajouter une spécification
-                </Button>
-            )}
-          </div>
-        </header>
+        {showHeader && (
+            <header className="flex h-16 items-center justify-between gap-4 border-b bg-background/95 backdrop-blur-sm px-4 lg:px-6 sticky top-0 z-30">
+            <div className="flex items-center gap-2">
+                <SidebarTrigger />
+                <h1 className="text-xl font-bold tracking-tight">{title}</h1>
+            </div>
+            <div className="flex items-center justify-end" style={{ minWidth: '180px' }}>
+                {pathname === '/specifications' && (
+                    <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={() => (window as any).openSpecModal()}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Ajouter une spécification
+                    </Button>
+                )}
+            </div>
+            </header>
+        )}
         {children}
       </SidebarInset>
     </SidebarProvider>
