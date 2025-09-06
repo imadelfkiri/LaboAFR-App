@@ -22,7 +22,7 @@ import {
 } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
-  Calendar as CalendarIcon,
+  Calendar,
   Trash2,
   Download,
   Upload,
@@ -52,7 +52,7 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
+import { Popover, PopoverTrigger, PopoverContent, PopoverClose } from "@/components/ui/popover"
 import { Input } from "@/components/ui/input"
 
 
@@ -91,6 +91,7 @@ const importSchema = z.object({
   taux_fils_metalliques: z.coerce.number().min(0).max(100).optional().nullable(),
 });
 
+
 function ResultsPagePro({
   rows = [],
   fuels = [],
@@ -99,7 +100,7 @@ function ResultsPagePro({
   supplier="__ALL__", setSupplier=()=>{},
   from="", setFrom=()=>{},
   to="", setTo=()=>{},
-  onExport=()=>{}, onImport=()=>{}, onAdd=()=>{}, onDeleteAll=()=>{}, onDeleteOne=(id:string)=>{},
+  onExport=()=>{}, onImport=()=>{}, onDeleteAll=()=>{}, onDeleteOne=(id:string)=>{},
 }) {
   const stats = React.useMemo(() => {
     const total = rows.length
@@ -196,12 +197,12 @@ function ResultsPagePro({
                 <Download className="w-4 h-4 mr-1" /> Exporter
               </Button>
                <Link href="/calculateur">
-                <Button className="h-9 rounded-xl" onClick={() => {}}>
+                <Button className="h-9 rounded-xl">
                   <Plus className="w-4 h-4 mr-1" /> Ajouter
                 </Button>
               </Link>
               <Button variant="destructive" className="h-9 rounded-xl" onClick={onDeleteAll}>
-                <Trash2 className="w-4 h-4 mr-1" /> Supprimer
+                <Trash2 className="w-4 h-4 mr-1" /> Tout Suppr.
               </Button>
             </div>
           </div>
@@ -210,8 +211,8 @@ function ResultsPagePro({
 
       {/* TABLEAU */}
       <Card className="rounded-2xl shadow-md">
-        <CardContent className="p-0">
-          <div className="max-h-[70vh] overflow-auto rounded-2xl border-t bg-background">
+        <CardContent className="p-0 h-full">
+            <div className="max-h-[70vh] overflow-auto rounded-2xl border-t bg-background h-full">
             <table className="w-full text-[13px] border-separate border-spacing-0">
               <thead className="text-muted-foreground">
                 <tr>
@@ -231,7 +232,6 @@ function ResultsPagePro({
                     <td className="p-2 font-medium">{r.typeCombustible}</td>
                     <td className="p-2">{r.fournisseur}</td>
 
-                    {/* chiffres tabulaires + couleurs */}
                     <td className={`p-2 text-right font-semibold tabular-nums ${r.pciAlert ? "text-red-600" : ""}`}>{r.pci}</td>
                     <td className={`p-2 text-right tabular-nums ${r.h2oAlert ? "text-red-600" : ""}`}>{r.h2o}</td>
                     <td className={`p-2 text-right tabular-nums ${r.chloreAlert ? "text-red-600" : ""}`}>{r.cl}</td>
@@ -619,6 +619,7 @@ export function ResultsTable() {
             h2o: formatNumber(result.h2o, 1),
             cl: formatNumber(result.chlore, 2),
             cendres: formatNumber(result.cendres, 1),
+            pcs: result.pcs,
             pciAlert: alerte.details.pci,
             h2oAlert: alerte.details.h2o,
             chloreAlert: alerte.details.chlore,
@@ -639,7 +640,7 @@ export function ResultsTable() {
   }
 
   const exportToExcel = () => {
-     if (!filteredResults || filteredResults.length === 0) {
+     if (!tableRows || tableRows.length === 0) {
       toast({
         variant: "destructive",
         title: "Aucune donnée",
@@ -648,45 +649,65 @@ export function ResultsTable() {
       return;
     }
      const reportDate = new Date();
-    const formattedDate = format(reportDate, "dd/MM/yyyy");
-
     const filename = `Filtre_AFR_Report_${format(reportDate, "yyyy-MM-dd")}.xlsx`;
 
-    const headers = [
-      "Date",
-      "Type Combustible",
-      "Fournisseur",
-      "PCS (kcal/kg)",
-      "PCI sur Brut (kcal/kg)",
-      "% H2O",
-      "% Cl-",
-      "% Cendres",
-      "Alertes",
-      "Remarques",
-    ];
-
-    const excelData = filteredResults.map(result => {
-        const alerte = generateAlerts(result);
+    const excelData = tableRows.map(row => {
         return {
-            "Date": normalizeDate(result.date_arrivage) ? format(normalizeDate(result.date_arrivage)!, "dd/MM/yyyy") : 'N/A',
-            "Type Combustible": result.type_combustible,
-            "Fournisseur": result.fournisseur,
-            "PCS (kcal/kg)": result.pcs ?? "N/A",
-            "PCI sur Brut (kcal/kg)": result.pci_brut,
-            "% H2O": result.h2o,
-            "% Cl-": result.chlore ?? "N/A",
-            "% Cendres": result.cendres ?? "N/A",
-            "Alertes": alerte.isConform ? 'Conforme' : alerte.text,
-            "Remarques": result.remarques || ""
+            "Date Arrivage": row.dateArrivage,
+            "Type Combustible": row.typeCombustible,
+            "Fournisseur": row.fournisseur,
+            "PCS (kcal/kg)": row.pcs ?? "N/A",
+            "PCI sur Brut (kcal/kg)": row.pci,
+            "% H2O": row.h2o,
+            "% Cl-": row.cl,
+            "% Cendres": row.cendres,
+            "Alertes": row.alerte.isConform ? 'Conforme' : row.alerte.text,
+            "Remarques": row.remarque || ""
         };
     });
 
-    const ws = XLSX.utils.json_to_sheet(excelData, { header: headers });
+    const ws = XLSX.utils.json_to_sheet(excelData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Rapport AFR");
     XLSX.writeFile(wb, filename);
   };
+  
+    const exportToPdf = () => {
+        if (!tableRows || tableRows.length === 0) {
+            toast({ variant: "destructive", title: "Aucune donnée", description: "Il n'y a pas de données à exporter." });
+            return;
+        }
 
+        const doc = new jsPDF({ orientation: 'landscape' });
+        doc.text("Rapport des Résultats d'Analyses", 14, 15);
+        
+        const head = [
+            ["Date", "Combustible", "Fournisseur", "PCI Brut", "H2O", "Cl-", "Cendres", "Alertes", "Remarques"]
+        ];
+        
+        const body = tableRows.map(row => [
+            row.dateArrivage,
+            row.typeCombustible,
+            row.fournisseur,
+            row.pci,
+            row.h2o,
+            row.cl,
+            row.cendres,
+            row.alerte.text,
+            row.remarque || "-",
+        ]);
+
+        doc.autoTable({
+            head: head,
+            body: body,
+            startY: 20,
+            theme: 'grid',
+            styles: { fontSize: 7, cellPadding: 1.5 },
+            headStyles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: 'bold' }
+        });
+        
+        doc.save(`Rapport_Resultats_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+    };
 
   return (
       <>
