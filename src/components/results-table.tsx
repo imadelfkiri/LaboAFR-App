@@ -153,12 +153,12 @@ function ResultsPagePro({
     return (
       <th
         onClick={() => onSort(sortKey)}
-        className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-left font-semibold border-b cursor-pointer hover:bg-muted/50"
+        className="sticky top-0 z-20 bg-primary text-primary-foreground p-2 text-left font-semibold border-b cursor-pointer hover:bg-primary/90"
       >
         <div className="flex items-center gap-2">
             <span>{label}</span>
             {isSorted && (
-                <ArrowUpDown className="h-4 w-4 text-foreground" />
+                <ArrowUpDown className="h-4 w-4" />
             )}
         </div>
       </th>
@@ -268,10 +268,10 @@ function ResultsPagePro({
           <CardContent className="p-0 h-full">
               <div className="max-h-[70vh] overflow-auto rounded-2xl border-t bg-background h-full">
               <table className="w-full text-[13px] border-separate border-spacing-0">
-                <thead className="text-muted-foreground">
+                <thead className="text-primary-foreground">
                   <tr>
                     {headers.map((h) => <SortableHeader key={h.key} label={h.label} sortKey={h.key} />)}
-                    <th className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-left font-semibold border-b">Action</th>
+                    <th className="sticky top-0 z-20 bg-primary text-primary-foreground p-2 text-left font-semibold border-b">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -733,12 +733,12 @@ export default function ResultsTable() {
   }, [sortedAndFilteredResults]);
   
   const exportData = (type: 'excel' | 'pdf', scope: 'current' | 'daily' | 'weekly' | 'monthly' | 'last_month') => {
-    let dataToExport: typeof tableRows = [];
+    let dataToExport: Result[] = [];
     let reportTitle = "Rapport des Résultats d'Analyses";
     const now = new Date();
 
     if (scope === 'current') {
-        dataToExport = tableRows;
+        dataToExport = sortedAndFilteredResults;
         reportTitle = "Export de la vue actuelle";
     } else {
         let startDate: Date;
@@ -767,28 +767,15 @@ export default function ResultsTable() {
                 break;
         }
 
-        const allRows = results.map(result => {
-             const alerte = generateAlerts(result);
-             return {
-                 id: result.id,
-                 dateArrivage: normalizeDate(result.date_arrivage),
-                 typeCombustible: result.type_combustible,
-                 fournisseur: result.fournisseur,
-                 pci: formatNumber(result.pci_brut, 0),
-                 h2o: formatNumber(result.h2o, 1),
-                 cl: formatNumber(result.chlore, 2),
-                 cendres: formatNumber(result.cendres, 1),
-                 pcs: formatNumber(result.pcs, 0),
-                 alerte,
-                 remarque: result.remarques,
-                 original: result,
-             };
+        dataToExport = results.filter(row => {
+            const dateArrivage = normalizeDate(row.date_arrivage);
+            if (!dateArrivage) return false;
+            return dateArrivage >= startDate && dateArrivage <= endDate;
+        }).sort((a, b) => {
+          const dateA = normalizeDate(a.date_arrivage)?.getTime() || 0;
+          const dateB = normalizeDate(b.date_arrivage)?.getTime() || 0;
+          return dateB - dateA;
         });
-
-        dataToExport = allRows.filter(row => {
-            if (!row.dateArrivage) return false;
-            return row.dateArrivage >= startDate && row.dateArrivage <= endDate;
-        }).sort((a, b) => b.dateArrivage!.getTime() - a.dateArrivage!.getTime());
     }
 
     if (dataToExport.length === 0) {
@@ -803,18 +790,19 @@ export default function ResultsTable() {
     if (type === 'excel') {
         const filename = `Export_Resultats_${format(new Date(), "yyyy-MM-dd")}.xlsx`;
         const excelData = dataToExport.map(row => {
-             const date = normalizeDate(row.original.date_arrivage);
+             const date = normalizeDate(row.date_arrivage);
+             const alerte = generateAlerts(row);
              return {
                 "Date Arrivage": date ? format(date, "dd/MM/yyyy") : "Date invalide",
-                "Type Combustible": row.typeCombustible,
+                "Type Combustible": row.type_combustible,
                 "Fournisseur": row.fournisseur,
                 "PCS (kcal/kg)": row.pcs,
-                "PCI sur Brut (kcal/kg)": row.pci,
+                "PCI sur Brut (kcal/kg)": row.pci_brut,
                 "% H2O": row.h2o,
-                "% Cl-": row.cl,
+                "% Cl-": row.chlore,
                 "% Cendres": row.cendres,
-                "Alertes": row.alerte.isConform ? 'Conforme' : row.alerte.text,
-                "Remarques": row.remarque || ""
+                "Alertes": alerte.isConform ? 'Conforme' : alerte.text,
+                "Remarques": row.remarques || ""
             }
         });
         const ws = XLSX.utils.json_to_sheet(excelData);
@@ -826,18 +814,19 @@ export default function ResultsTable() {
         doc.text(reportTitle, 14, 15);
         const head = [["Date", "Combustible", "Fournisseur", "PCS", "PCI Brut", "H2O", "Cl-", "Cendres", "Alertes", "Remarques"]];
         const body = dataToExport.map(row => {
-          const date = normalizeDate(row.original.date_arrivage);
+          const date = normalizeDate(row.date_arrivage);
+          const alerte = generateAlerts(row);
           return [
             date ? format(date, "dd/MM/yy") : "Date invalide",
-            row.typeCombustible,
+            row.type_combustible,
             row.fournisseur,
-            row.pcs,
-            row.pci,
-            row.h2o,
-            row.cl,
-            row.cendres,
-            row.alerte.text,
-            row.remarque || "-",
+            formatNumber(row.pcs, 0),
+            formatNumber(row.pci_brut, 0),
+            formatNumber(row.h2o, 1),
+            formatNumber(row.chlore, 2),
+            formatNumber(row.cendres, 1),
+            alerte.text,
+            row.remarques || "-",
         ]});
 
         doc.autoTable({
