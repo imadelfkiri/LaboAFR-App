@@ -46,7 +46,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { MultiSelect } from "@/components/ui/multi-select";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
@@ -70,6 +69,7 @@ interface Result {
   pci_brut: number | null;
   poids_godet: number | null;
   remarques: string;
+  taux_fils_metalliques?: number | null;
 }
 
 // Étendre jsPDF pour autoTable
@@ -92,7 +92,7 @@ const importSchema = z.object({
   taux_fils_metalliques: z.coerce.number().min(0).max(100).optional().nullable(),
 });
 
-function ResultsView({
+function ResultsPageDense({
   rows = [],
   fuels = [],
   suppliers = [],
@@ -100,34 +100,64 @@ function ResultsView({
   supplier="__ALL__", setSupplier=()=>{},
   from="", setFrom=()=>{},
   to="", setTo=()=>{},
-  onExport=()=>{}, onImport=()=>{}, onAdd=()=>{}, onDeleteAll=()=>{},
-  onDeleteOne=(id:string)=>{},
+  onExport=()=>{}, onImport=()=>{}, onAdd=()=>{}, onDeleteAll=()=>{}, onDeleteOne=(id:string)=>{}
 }) {
+  // résumé rapide
+  const stat = React.useMemo(() => {
+    const total = rows.length
+    const conformes = rows.filter((r:any)=> r.alerte && String(r.alerte.text).toLowerCase().includes("conforme")).length
+    const non = total - conformes
+    return { total, conformes, non }
+  }, [rows])
+
+  const periodLabel = React.useMemo(() => {
+    if (from && to) return `${format(parseISO(from), "d MMM", {locale:fr})} → ${format(parseISO(to), "d MMM", {locale:fr})}`
+    if (from) return `Depuis le ${format(parseISO(from), "d MMM", {locale:fr})}`
+    if (to) return `Jusqu'au ${format(parseISO(to), "d MMM", {locale:fr})}`
+    return "Période"
+  }, [from, to])
+
+  const Badge = ({children, tone="default"}:{children:any, tone?: "ok"|"warn"|"default"}) => {
+    const cls = tone==="ok"
+      ? "bg-green-100 text-green-700"
+      : tone==="warn"
+      ? "bg-red-100 text-red-700"
+      : "bg-muted text-muted-foreground"
+    return <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium ${cls}`}>{children}</span>
+  }
+
   return (
     <div className="mx-auto w-full max-w-[1400px] p-3 md:p-5 space-y-3">
-      {/* Toolbar */}
+       {/* Toolbar compacte */}
       <Card className="rounded-2xl shadow-sm border">
-        <CardContent className="p-3">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-center">
+        <CardContent className="p-2 space-y-2">
+           <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-center">
+             {/* Résumé gauche */}
+            <div className="lg:col-span-4 flex items-center gap-2 text-[12px]">
+              <Badge tone="default">Total: {stat.total}</Badge>
+              <Badge tone="ok">Conformes: {stat.conformes}</Badge>
+              <Badge tone="warn">Non conf.: {stat.non}</Badge>
+            </div>
+
             {/* Filtres */}
-            <div className="lg:col-span-3">
+            <div className="lg:col-span-2">
               <Select value={fuel} onValueChange={setFuel}>
-                <SelectTrigger className="h-9 rounded-xl">
-                  <SelectValue placeholder="Type Combustible" />
+                <SelectTrigger className="h-8 rounded-lg text-[12px]">
+                  <SelectValue placeholder="Type combustible" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__ALL__">Tous les combustibles</SelectItem>
+                  <SelectItem value="__ALL__">Tous</SelectItem>
                   {fuels.map((f:string)=><SelectItem key={f} value={f}>{f}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-            <div className="lg:col-span-3">
+            <div className="lg:col-span-2">
               <Select value={supplier} onValueChange={setSupplier}>
-                <SelectTrigger className="h-9 rounded-xl">
+                <SelectTrigger className="h-8 rounded-lg text-[12px]">
                   <SelectValue placeholder="Fournisseur" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__ALL__">Tous les fournisseurs</SelectItem>
+                  <SelectItem value="__ALL__">Tous</SelectItem>
                   {suppliers.map((s:string)=><SelectItem key={s} value={s}>{s}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -137,55 +167,58 @@ function ResultsView({
             <div className="lg:col-span-2">
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full h-9 rounded-xl justify-start">
+                  <Button variant="outline" className="w-full h-8 rounded-lg text-[12px] justify-start">
                     <Calendar className="w-4 h-4 mr-2" />
-                    {from && to ? `${from} → ${to}` : "Période"}
+                    {periodLabel}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent align="start" className="w-[280px] p-3 space-y-2">
-                  <div className="text-sm font-medium mb-1">Sélectionner une période</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Input type="date" className="h-9" value={from} onChange={(e)=>setFrom(e.target.value)} />
-                    <Input type="date" className="h-9" value={to} onChange={(e)=>setTo(e.target.value)} />
-                  </div>
-                  <div className="flex justify-between pt-1">
-                    <Button variant="ghost" size="sm" onClick={()=>{setFrom("");setTo("");}}>Réinitialiser</Button>
-                  </div>
+                <PopoverContent align="start" className="w-auto p-0">
+                   <Calendar
+                      initialFocus
+                      mode="range"
+                      defaultMonth={from ? parseISO(from) : new Date()}
+                      selected={{from: from ? parseISO(from) : undefined, to: to ? parseISO(to) : undefined}}
+                      onSelect={(range) => {
+                          setFrom(range?.from ? format(range.from, 'yyyy-MM-dd') : '');
+                          setTo(range?.to ? format(range.to, 'yyyy-MM-dd') : '');
+                      }}
+                      numberOfMonths={2}
+                      locale={fr}
+                    />
                 </PopoverContent>
               </Popover>
             </div>
-
-            {/* Actions */}
-            <div className="lg:col-span-4 flex items-center justify-end gap-2">
-              <Button variant="outline" className="h-9 rounded-xl" onClick={onImport}>
-                <Upload className="w-4 h-4 mr-1" /> Importer
-              </Button>
-              <Button variant="outline" className="h-9 rounded-xl" onClick={onExport}>
-                <Download className="w-4 h-4 mr-1" /> Exporter
-              </Button>
-              <Link href="/calculateur">
-                <Button className="h-9 rounded-xl" onClick={onAdd}>
-                    <Plus className="w-4 h-4 mr-1" /> Ajouter
+            <div className="lg:col-span-2 flex items-center justify-end gap-2">
+                <Button variant="outline" className="h-8 rounded-lg text-[12px]" onClick={() => onImport()}>
+                    <Upload className="w-4 h-4 mr-1" /> Importer
                 </Button>
-              </Link>
-              <Button variant="destructive" className="h-9 rounded-xl" onClick={onDeleteAll}>
-                <Trash2 className="w-4 h-4 mr-1" /> Supprimer
-              </Button>
+                <Button variant="outline" className="h-8 rounded-lg text-[12px]" onClick={() => onExport()}>
+                    <Download className="w-4 h-4 mr-1" /> Exporter
+                </Button>
+                <Link href="/calculateur">
+                    <Button className="h-8 rounded-lg text-[12px]" onClick={() => onAdd()}>
+                        <Plus className="w-4 h-4 mr-1" /> Ajouter
+                    </Button>
+                </Link>
+                <Button variant="destructive" className="h-8 rounded-lg text-[12px]" onClick={() => onDeleteAll()}>
+                    <Trash2 className="w-4 h-4 mr-1" /> Supprimer
+                </Button>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Tableau */}
+      {/* Tableau dense */}
       <Card className="rounded-2xl shadow-md">
         <CardContent className="p-0">
           <div className="max-h-[70vh] overflow-auto rounded-2xl border-t bg-background">
-            <table className="w-full text-sm border-separate border-spacing-0">
-              <thead className="text-[13px] text-muted-foreground">
+            <table className="w-full text-[12px] border-separate border-spacing-0">
+              <thead className="text-muted-foreground">
                 <tr>
                   {["Date Arrivage","Type Combustible","Fournisseur","PCI sur Brut","% H2O","% Cl-","% Cendres","Alertes","Remarques","Action"]
                     .map((h) => (
-                      <th key={h} className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-left font-semibold border-b">
+                      <th key={h}
+                          className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-left font-semibold border-b">
                         {h}
                       </th>
                   ))}
@@ -194,23 +227,21 @@ function ResultsView({
               <tbody>
                 {rows.map((r:any, i:number)=>(
                   <tr key={r.id ?? i} className="border-b last:border-0 even:bg-muted/30 hover:bg-muted/50 transition-colors">
-                    <td className="p-2 text-muted-foreground whitespace-nowrap">{r.dateArrivage}</td>
-                    <td className="p-2 font-medium">{r.typeCombustible}</td>
-                    <td className="p-2">{r.fournisseur}</td>
-                    <td className={`p-2 text-right font-medium tabular-nums ${r.pciAlert ? "text-red-600" : ""}`}>{r.pci}</td>
-                    <td className={`p-2 text-right tabular-nums ${r.h2oAlert ? "text-red-600" : ""}`}>{r.h2o}</td>
-                    <td className={`p-2 text-right tabular-nums ${r.chloreAlert ? "text-red-600" : ""}`}>{r.cl}</td>
-                    <td className={`p-2 text-right tabular-nums ${r.cendresAlert ? "text-red-600" : ""}`}>{r.cendres}</td>
-                    <td className="p-2">
-                      {r.alerte.isConform ? (
-                        <span className="text-green-600 font-medium flex items-center gap-1">✔ Conforme</span>
-                      ) : (
-                        <span className="text-red-600 font-medium flex items-center gap-1">⚠ {r.alerte.text}</span>
-                      )}
+                    <td className="p-1.5 text-muted-foreground whitespace-nowrap">{r.dateArrivage}</td>
+                    <td className="p-1.5 font-medium">{r.typeCombustible}</td>
+                    <td className="p-1.5">{r.fournisseur}</td>
+                    <td className={`p-1.5 text-right font-semibold tabular-nums ${r.pciAlert ? "text-red-600":""}`}>{r.pci}</td>
+                    <td className={`p-1.5 text-right tabular-nums ${r.h2oAlert ? "text-red-600":""}`}>{r.h2o}</td>
+                    <td className={`p-1.5 text-right tabular-nums ${r.chloreAlert ? "text-red-600":""}`}>{r.cl}</td>
+                    <td className={`p-1.5 text-right tabular-nums ${r.cendresAlert ? "text-red-600":""}`}>{r.cendres}</td>
+                    <td className="p-1.5">
+                       {r.alerte.isConform
+                        ? <Badge tone="ok">✔ Conforme</Badge>
+                        : <Badge tone="warn">⚠ {r.alerte.text || "Non conforme"}</Badge>}
                     </td>
-                    <td className="p-2 text-muted-foreground max-w-[200px] truncate">{r.remarque ?? "-"}</td>
-                    <td className="p-2 text-center">
-                      <button onClick={() => onDeleteOne(r.id)} className="text-muted-foreground hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                    <td className="p-1.5 text-muted-foreground max-w-[150px] truncate" title={r.remarque}>{r.remarque ?? "-"}</td>
+                    <td className="p-1.5 text-center">
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onDeleteOne(r.id)}><Trash2 className="w-3.5 h-3.5 text-red-500 hover:text-red-600" /></Button>
                     </td>
                   </tr>
                 ))}
@@ -229,9 +260,11 @@ function ResultsView({
 export function ResultsTable() {
   const [results, setResults] = useState<Result[]>([]);
   const [loading, setLoading] = useState(true);
-  const [typeFilter, setTypeFilter] = useState<string[]>([]);
-  const [fournisseurFilter, setFournisseurFilter] = useState<string[]>([]);
-  const [dateFilter, setDateFilter] = useState<DateRange | undefined>();
+  const [fuelTypeFilter, setFuelTypeFilter] = useState('__ALL__');
+  const [fournisseurFilter, setFournisseurFilter] = useState('__ALL__');
+  const [dateFromFilter, setDateFromFilter] = useState('');
+  const [dateToFilter, setDateToFilter] = useState('');
+
   const [resultToDelete, setResultToDelete] = useState<string | null>(null);
   const [isDeleteAllConfirmOpen, setIsDeleteAllConfirmOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -301,15 +334,16 @@ export function ResultsTable() {
   }, [results]);
 
   useEffect(() => {
-    if (typeFilter.length > 0) {
-      const newAvailable = typeFilter.flatMap((type) => fuelSupplierMap[type] || []);
+    if (fuelTypeFilter !== '__ALL__') {
+      const newAvailable = fuelSupplierMap[fuelTypeFilter] || [];
       setAvailableFournisseurs([...new Set(newAvailable)].sort());
-      // Keep existing selection if it's still valid
-      setFournisseurFilter((current) => current.filter((f) => newAvailable.includes(f)));
+      if (!newAvailable.includes(fournisseurFilter)) {
+          setFournisseurFilter('__ALL__');
+      }
     } else {
       setAvailableFournisseurs(allUniqueFournisseurs);
     }
-  }, [typeFilter, fuelSupplierMap, allUniqueFournisseurs]);
+  }, [fuelTypeFilter, fuelSupplierMap, allUniqueFournisseurs, fournisseurFilter]);
 
   const normalizeDate = (date: { seconds: number; nanoseconds: number } | string): Date | null => {
     if (typeof date === "string") {
@@ -323,32 +357,22 @@ export function ResultsTable() {
   };
   
   const filteredResults = useMemo(() => {
-    let dateFrom: Date | null = null;
-    let dateTo: Date | null = null;
-
-    if (dateFilter?.from) {
-      dateFrom = startOfDay(dateFilter.from);
-    }
-    if (dateFilter?.to) {
-      dateTo = endOfDay(dateFilter.to);
-    }
-    
     return results.filter((result) => {
       if (!result.date_arrivage) return false;
       const dateArrivage = normalizeDate(result.date_arrivage);
       if (!dateArrivage || !isValid(dateArrivage)) return false;
 
-      const typeMatch = typeFilter.length === 0 || typeFilter.includes(result.type_combustible);
-      const fournisseurMatch =
-        fournisseurFilter.length === 0 || fournisseurFilter.includes(result.fournisseur);
-      const dateMatch =
-        !dateFilter ||
-        ((!dateFrom || dateArrivage >= dateFrom) &&
-          (!dateTo || dateArrivage <= dateTo));
+      const typeMatch = fuelTypeFilter === '__ALL__' || result.type_combustible === fuelTypeFilter;
+      const fournisseurMatch = fournisseurFilter === '__ALL__' || result.fournisseur === fournisseurFilter;
+      
+      const dateFrom = dateFromFilter ? startOfDay(parseISO(dateFromFilter)) : null;
+      const dateTo = dateToFilter ? endOfDay(parseISO(dateToFilter)) : null;
 
+      const dateMatch = (!dateFrom || dateArrivage >= dateFrom) && (!dateTo || dateArrivage <= dateTo);
+      
       return typeMatch && fournisseurMatch && dateMatch;
     });
-  }, [results, typeFilter, fournisseurFilter, dateFilter]);
+  }, [results, fuelTypeFilter, fournisseurFilter, dateFromFilter, dateToFilter]);
 
   const handleDelete = async () => {
     if (!resultToDelete) return;
@@ -383,7 +407,6 @@ export function ResultsTable() {
     }
   };
 
-
   const formatNumber = (num: number | null | undefined, fractionDigits: number = 0) => {
     if (num === null || num === undefined || Number.isNaN(num)) return "-";
     return num
@@ -399,8 +422,8 @@ export function ResultsTable() {
       return {
         text: "N/A",
         isConform: true, // No spec, no alert
-        details: { pci: true, h2o: true, chlore: true, cendres: true },
-      } as const;
+        details: { pci: false, h2o: false, chlore: false, cendres: false },
+      };
     }
 
     const alerts: string[] = [];
@@ -424,10 +447,10 @@ export function ResultsTable() {
     }
 
     if (alerts.length === 0) {
-      return { text: "Conforme", isConform: true, details: alertDetails } as const;
+      return { text: "Conforme", isConform: true, details: alertDetails };
     }
 
-    return { text: alerts.join(" / "), isConform: false, details: alertDetails } as const;
+    return { text: alerts.join(" / "), isConform: false, details: alertDetails };
   };
   
     const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -538,17 +561,15 @@ export function ResultsTable() {
                                 }
                             }
                             finalPci = calculerPCI(pcsToUse, validatedData.h2o, hValue);
+                        } else if (mappedRow.pci_brut !== undefined) {
+                           finalPci = mappedRow.pci_brut;
                         }
 
-                        if (finalPci === null && mappedRow.pci_brut !== undefined) {
-                            finalPci = mappedRow.pci_brut;
-                        }
-
-                        if (finalPci === null && !validatedData.pci_brut) {
+                        if (finalPci === null) {
                             throw new Error(`La colonne PCI ou PCS est requise pour calculer la valeur finale.`);
                         }
 
-                        return { ...validatedData, pci_brut: finalPci, date_creation: Timestamp.now(), date_arrivage: Timestamp.fromDate(validatedData.date_arrivage) };
+                        return { ...validatedData, pcs: validatedData.pcs ?? null, pci_brut: finalPci, date_creation: Timestamp.now(), date_arrivage: Timestamp.fromDate(validatedData.date_arrivage) };
 
                     } catch (error) {
                          const errorMessage = error instanceof z.ZodError ? 
@@ -596,7 +617,6 @@ export function ResultsTable() {
     });
   }, [filteredResults]);
 
-
   if (loading) {
     return (
       <div className="space-y-2 p-4 lg:p-6">
@@ -607,7 +627,6 @@ export function ResultsTable() {
   }
 
   const exportToExcel = () => {
-    // This can be expanded with more logic if needed
      if (!filteredResults || filteredResults.length === 0) {
       toast({
         variant: "destructive",
@@ -619,7 +638,6 @@ export function ResultsTable() {
      const reportDate = new Date();
     const formattedDate = format(reportDate, "dd/MM/yyyy");
 
-    const titleText = `Rapport Filtré du ${formattedDate} analyses des AF`;
     const filename = `Filtre_AFR_Report_${format(reportDate, "yyyy-MM-dd")}.xlsx`;
 
     const headers = [
@@ -636,9 +654,9 @@ export function ResultsTable() {
     ];
 
     const excelData = filteredResults.map(result => {
-        const alert = generateAlerts(result);
+        const alerte = generateAlerts(result);
         return {
-            "Date": formatDate(result.date_arrivage, "dd/MM/yyyy"),
+            "Date": normalizeDate(result.date_arrivage) ? format(normalizeDate(result.date_arrivage)!, "dd/MM/yyyy") : 'N/A',
             "Type Combustible": result.type_combustible,
             "Fournisseur": result.fournisseur,
             "PCS (kcal/kg)": result.pcs ?? "N/A",
@@ -646,7 +664,7 @@ export function ResultsTable() {
             "% H2O": result.h2o,
             "% Cl-": result.chlore ?? "N/A",
             "% Cendres": result.cendres ?? "N/A",
-            "Alertes": alert.isConform ? 'Conforme' : alert.text,
+            "Alertes": alerte.isConform ? 'Conforme' : alerte.text,
             "Remarques": result.remarques || ""
         };
     });
@@ -667,18 +685,18 @@ export function ResultsTable() {
             onChange={handleFileImport}
             accept=".xlsx, .xls"
         />
-        <ResultsView 
+        <ResultsPageDense 
             rows={tableRows}
             fuels={uniqueFuelTypes}
             suppliers={availableFournisseurs}
-            fuel={typeFilter[0] || "__ALL__"}
-            setFuel={(val) => setTypeFilter(val === "__ALL__" ? [] : [val])}
-            supplier={fournisseurFilter[0] || "__ALL__"}
-            setSupplier={(val) => setFournisseurFilter(val === "__ALL__" ? [] : [val])}
-            from={dateFilter?.from ? format(dateFilter.from, 'yyyy-MM-dd') : ''}
-            setFrom={(val) => setDateFilter(prev => ({...prev, from: parseISO(val)}))}
-            to={dateFilter?.to ? format(dateFilter.to, 'yyyy-MM-dd') : ''}
-            setTo={(val) => setDateFilter(prev => ({...prev, to: parseISO(val)}))}
+            fuel={fuelTypeFilter}
+            setFuel={setFuelTypeFilter}
+            supplier={fournisseurFilter}
+            setSupplier={setFournisseurFilter}
+            from={dateFromFilter}
+            setFrom={setDateFromFilter}
+            to={dateToFilter}
+            setTo={setDateToFilter}
             onAdd={() => {}}
             onImport={() => fileInputRef.current?.click()}
             onExport={exportToExcel}
