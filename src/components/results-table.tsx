@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
@@ -55,6 +56,7 @@ import {
   ChevronDown,
   Trash,
   Upload,
+  Edit,
 } from "lucide-react";
 import { getSpecifications, SPEC_MAP, getFuelSupplierMap, deleteAllResults, getFuelData, type FuelData, addManyResults } from "@/lib/data";
 import { calculerPCI } from "@/lib/pci";
@@ -91,11 +93,11 @@ interface Result {
   date_arrivage: { seconds: number; nanoseconds: number } | string;
   type_combustible: string;
   fournisseur: string;
+  pcs: number | null;
   h2o: number;
   cendres: number | null;
   chlore: number | null;
   pci_brut: number | null;
-  pcs?: number | null;
   poids_godet: number | null;
   remarques: string;
 }
@@ -311,14 +313,12 @@ export function ResultsTable() {
 
 
   const formatNumber = (num: number | null | undefined, fractionDigits: number = 0) => {
-    if (num === null || num === undefined || Number.isNaN(num)) return "";
+    if (num === null || num === undefined || Number.isNaN(num)) return "-";
     return num
       .toLocaleString("fr-FR", {
         minimumFractionDigits: fractionDigits,
         maximumFractionDigits: fractionDigits,
-        useGrouping: false,
       })
-      .replace(".", ",");
   };
 
   const exportToExcel = (data: Result[], reportType: "Filtré") => {
@@ -342,86 +342,35 @@ export function ResultsTable() {
       "Date",
       "Type Combustible",
       "Fournisseur",
+      "PCS (kcal/kg)",
       "PCI sur Brut (kcal/kg)",
       "% H2O",
       "% Cl-",
       "% Cendres",
-      "Poids Godet (t)",
       "Alertes",
       "Remarques",
     ];
 
-    const border = {
-      top: { style: "thin", color: { rgb: "000000" } },
-      bottom: { style: "thin", color: { rgb: "000000" } },
-      left: { style: "thin", color: { rgb: "000000" } },
-      right: { style: "thin", color: { rgb: "000000" } },
-    } as const;
-    const titleStyle = {
-      font: { bold: true, sz: 12, color: { rgb: "FFFFFF" } },
-      alignment: { horizontal: "center", vertical: "center" },
-      fill: { fgColor: { rgb: "002060" } },
-      border,
-    } as const;
-    const headerStyle = {
-      font: { bold: true, color: { rgb: "FFFFFF" } },
-      alignment: { horizontal: "center", vertical: "center" },
-      fill: { fgColor: { rgb: "3F51B5" } },
-      border,
-    } as const;
-
-    const dataStyleBase = { border, alignment: { vertical: "center" }, fill: { fgColor: { rgb: "F0F8FF" } } } as const;
-    const dataStyleCenter = { ...dataStyleBase, alignment: { ...dataStyleBase.alignment, horizontal: "center" } } as const;
-    const dataStyleLeft = { ...dataStyleBase, alignment: { ...dataStyleBase.alignment, horizontal: "left", wrapText: true } } as const;
-
-    const ws_data: any[][] = [];
-    ws_data.push(Array(headers.length).fill({ v: titleText, s: titleStyle }));
-    ws_data.push(Array(headers.length).fill({ v: subtitleText, s: titleStyle }));
-    ws_data.push([]);
-    ws_data.push(headers.map((h) => ({ v: h, s: headerStyle })));
-
-    const cleanAlertText = (text: string) => (text.endsWith(" / ") ? text.slice(0, -3) : text);
-
-    data.forEach((result) => {
-      const alert = generateAlerts(result);
-      const row = [
-        { v: formatDate(result.date_arrivage, "dd/MM/yyyy"), s: dataStyleCenter, t: "s" },
-        { v: result.type_combustible, s: dataStyleLeft, t: "s" },
-        { v: result.fournisseur, s: dataStyleLeft, t: "s" },
-        { v: result.pci_brut, s: dataStyleCenter, t: "n" },
-        { v: result.h2o, s: dataStyleCenter, t: "n" },
-        { v: result.chlore ?? "N/A", s: dataStyleCenter, t: result.chlore === null ? "s" : "n" },
-        { v: result.cendres ?? "N/A", s: dataStyleCenter, t: result.cendres === null ? "s" : "n" },
-        { v: result.poids_godet ?? "N/A", s: dataStyleCenter, t: result.poids_godet === null ? "s" : "n" },
-        { v: cleanAlertText(alert.text), s: dataStyleLeft, t: "s" },
-        { v: result.remarques || "", s: dataStyleLeft, t: "s" },
-      ];
-      ws_data.push(row);
+    const excelData = data.map(result => {
+        const alert = generateAlerts(result);
+        return {
+            "Date": formatDate(result.date_arrivage, "dd/MM/yyyy"),
+            "Type Combustible": result.type_combustible,
+            "Fournisseur": result.fournisseur,
+            "PCS (kcal/kg)": result.pcs ?? "N/A",
+            "PCI sur Brut (kcal/kg)": result.pci_brut,
+            "% H2O": result.h2o,
+            "% Cl-": result.chlore ?? "N/A",
+            "% Cendres": result.cendres ?? "N/A",
+            "Alertes": alert.isConform ? 'Conforme' : alert.text,
+            "Remarques": result.remarques || ""
+        };
     });
 
-    const ws = XLSX.utils.aoa_to_sheet(ws_data, { cellStyles: true } as any);
-    (ws as any)["!merges"] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } },
-      { s: { r: 1, c: 0 }, e: { r: 1, c: headers.length - 1 } },
-    ];
-
-    const colWidths = [
-      { wch: 12 },
-      { wch: 20 },
-      { wch: 20 },
-      { wch: 22 },
-      { wch: 10 },
-      { wch: 10 },
-      { wch: 10 },
-      { wch: 15 },
-      { wch: 35 },
-      { wch: 40 },
-    ];
-    (ws as any)["!cols"] = colWidths;
-
+    const ws = XLSX.utils.json_to_sheet(excelData, { header: headers });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Rapport AFR");
-    XLSX.writeFile(wb, filename, { bookType: "xlsx", type: "binary" });
+    XLSX.writeFile(wb, filename);
   };
 
   const getSpecValueColor = (result: Result | AggregatedResult, field: keyof Result | keyof AggregatedResult) => {
@@ -923,6 +872,10 @@ export function ResultsTable() {
                             finalPci = calculerPCI(pcsToUse, validatedData.h2o, hValue);
                         }
 
+                        if (finalPci === null && !validatedData.pci_brut) {
+                            throw new Error(`La colonne PCI ou PCS est requise pour calculer la valeur finale.`);
+                        }
+
                         return { ...validatedData, pci_brut: finalPci, date_creation: Timestamp.now(), date_arrivage: Timestamp.fromDate(validatedData.date_arrivage) };
 
                     } catch (error) {
@@ -933,7 +886,7 @@ export function ResultsTable() {
                     }
                 });
 
-                await addManyResults(parsedResults);
+                await addManyResults(parsedResults as any);
                 toast({ title: "Succès", description: `${parsedResults.length} résultats ont été importés.` });
 
             } catch (error) {
@@ -968,21 +921,21 @@ export function ResultsTable() {
             onChange={handleFileImport}
             accept=".xlsx, .xls"
         />
-        <div className="flex flex-col gap-4 h-full">
-          <div className="flex flex-wrap items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-md px-3 py-2">
+        <div className="flex flex-col gap-4 h-full p-4 lg:p-6">
+          <div className="flex flex-wrap items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-xl px-3 py-2">
             <MultiSelect
               options={uniqueFuelTypes.map((f) => ({ label: f, value: f }))}
               selected={typeFilter}
               onChange={setTypeFilter}
               placeholder="Filtrer par type..."
-              className="w-full sm:w-auto flex-1 min-w-[160px] bg-white"
+              className="w-full sm:w-auto flex-1 min-w-[160px] bg-white rounded-lg"
             />
             <MultiSelect
               options={availableFournisseurs.map((f) => ({ label: f, value: f }))}
               selected={fournisseurFilter}
               onChange={setFournisseurFilter}
               placeholder="Filtrer par fournisseur..."
-              className="w-full sm:w-auto flex-1 min-w-[160px] bg-white"
+              className="w-full sm:w-auto flex-1 min-w-[160px] bg-white rounded-lg"
             />
 
             <Popover>
@@ -991,7 +944,7 @@ export function ResultsTable() {
                   id="date"
                   variant="outline"
                   className={cn(
-                    "w-full sm:w-auto flex-1 min-w-[210px] justify-start text-left font-normal bg-white",
+                    "w-full sm:w-auto flex-1 min-w-[210px] justify-start text-left font-normal bg-white rounded-lg",
                     !dateFilter && "text-muted-foreground"
                   )}
                 >
@@ -1026,7 +979,7 @@ export function ResultsTable() {
             <Button
               onClick={resetFilters}
               variant="ghost"
-              className="text-slate-600 hover:text-slate-900 hover:bg-slate-200 h-9 px-3"
+              className="text-slate-600 hover:text-slate-900 hover:bg-slate-200 h-9 px-3 rounded-lg"
             >
               <XCircle className="mr-2 h-4 w-4" />
               Réinitialiser
@@ -1036,7 +989,7 @@ export function ResultsTable() {
             
             <Button
               variant="outline"
-              className="w-full sm:w-auto bg-white"
+              className="w-full sm:w-auto bg-white rounded-lg"
               onClick={() => fileInputRef.current?.click()}
             >
               <Upload className="mr-2 h-4 w-4" />
@@ -1045,7 +998,7 @@ export function ResultsTable() {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full sm:w-auto bg-white">
+                <Button variant="outline" className="w-full sm:w-auto bg-white rounded-lg">
                   <Download className="mr-2 h-4 w-4" />
                   <span>Exporter</span>
                   <ChevronDown className="ml-2 h-4 w-4" />
@@ -1065,7 +1018,7 @@ export function ResultsTable() {
 
             <AlertDialog onOpenChange={setIsDeleteAllConfirmOpen} open={isDeleteAllConfirmOpen}>
                 <AlertDialogTrigger asChild>
-                    <Button variant="destructive" className="w-full sm:w-auto">
+                    <Button variant="destructive" className="w-full sm:w-auto rounded-lg">
                         <Trash className="mr-2 h-4 w-4" />
                         Tout Supprimer
                     </Button>
@@ -1091,20 +1044,21 @@ export function ResultsTable() {
             </AlertDialog>
           </div>
 
-          <div className="flex-grow rounded-lg border overflow-auto max-h-[calc(100vh-220px)]">
-            <table className="min-w-[1200px] w-full border-separate border-spacing-0">
-              <thead className="sticky top-0 z-10 bg-muted/50 hover:bg-muted/50">
+          <div className="flex-grow rounded-lg border overflow-auto max-h-[calc(100vh-220px)] bg-background">
+            <table className="min-w-[1200px] w-full border-separate border-spacing-0 text-[13px]">
+              <thead className="sticky top-0 z-10 bg-muted/50 hover:bg-muted/50 text-muted-foreground">
                 <TableRow>
-                  <TableHead className="w-[120px] px-4 sticky left-0 bg-muted/50 z-20">Date Arrivage</TableHead>
-                  <TableHead className="px-4 sticky left-[120px] bg-muted/50 z-20">Type Combustible</TableHead>
-                  <TableHead className="px-4">Fournisseur</TableHead>
-                  <TableHead className="text-right text-primary font-bold px-4">PCI sur Brut</TableHead>
-                  <TableHead className="text-right px-4">% H2O</TableHead>
-                  <TableHead className="text-right px-4">% Cl-</TableHead>
-                  <TableHead className="text-right px-4">% Cendres</TableHead>
-                  <TableHead className="px-4 font-bold">Alertes</TableHead>
-                  <TableHead className="px-4">Remarques</TableHead>
-                  <TableHead className="w-[50px] text-right px-4 sticky right-0 bg-muted/50 z-20">Action</TableHead>
+                  <TableHead className="p-2 sticky left-0 bg-muted/50 z-20 font-semibold border-b">Date Arrivage</TableHead>
+                  <TableHead className="p-2 sticky left-[120px] bg-muted/50 z-20 font-semibold border-b">Type Combustible</TableHead>
+                  <TableHead className="p-2 font-semibold border-b">Fournisseur</TableHead>
+                  <TableHead className="p-2 text-right font-semibold border-b">PCS</TableHead>
+                  <TableHead className="text-right text-primary font-bold p-2 border-b">PCI sur Brut</TableHead>
+                  <TableHead className="text-right p-2 font-semibold border-b">% H2O</TableHead>
+                  <TableHead className="text-right p-2 font-semibold border-b">% Cl-</TableHead>
+                  <TableHead className="text-right p-2 font-semibold border-b">% Cendres</TableHead>
+                  <TableHead className="p-2 font-bold font-semibold border-b">Alertes</TableHead>
+                  <TableHead className="p-2 font-semibold border-b">Remarques</TableHead>
+                  <TableHead className="w-[80px] text-center p-2 sticky right-0 bg-muted/50 z-20 font-semibold border-b">Actions</TableHead>
                 </TableRow>
               </thead>
               <TableBody>
@@ -1113,27 +1067,28 @@ export function ResultsTable() {
                     {filteredResults.map((result) => {
                       const alert = generateAlerts(result);
                       return (
-                        <TableRow key={result.id} className="bg-background">
-                          <TableCell className="font-medium px-4 sticky left-0 bg-background z-10">
+                        <TableRow key={result.id} className="bg-background even:bg-muted/30 hover:bg-muted/50 transition-colors">
+                          <TableCell className="font-medium p-2 sticky left-0 bg-inherit z-10">
                             {formatDate(result.date_arrivage)}
                           </TableCell>
-                          <TableCell className="px-4 sticky left-[120px] bg-background z-10">
+                          <TableCell className="p-2 sticky left-[120px] bg-inherit z-10 font-semibold">
                             {result.type_combustible}
                           </TableCell>
-                          <TableCell className="px-4">{result.fournisseur}</TableCell>
-                          <TableCell className={cn("font-bold text-right px-4", getSpecValueColor(result, "pci_brut"))}>
+                          <TableCell className="p-2">{result.fournisseur}</TableCell>
+                          <TableCell className="text-right p-2 tabular-nums">{formatNumber(result.pcs, 0)}</TableCell>
+                          <TableCell className={cn("font-bold text-right p-2 tabular-nums", getSpecValueColor(result, "pci_brut"))}>
                             {formatNumber(result.pci_brut, 0)}
                           </TableCell>
-                          <TableCell className={cn("text-right px-4 font-medium", getSpecValueColor(result, "h2o"))}>
+                          <TableCell className={cn("text-right p-2 font-medium tabular-nums", getSpecValueColor(result, "h2o"))}>
                             {formatNumber(result.h2o, 1)}
                           </TableCell>
-                          <TableCell className={cn("text-right px-4 font-medium", getSpecValueColor(result, "chlore"))}>
+                          <TableCell className={cn("text-right p-2 font-medium tabular-nums", getSpecValueColor(result, "chlore"))}>
                             {formatNumber(result.chlore, 2)}
                           </TableCell>
-                          <TableCell className={cn("text-right px-4 font-medium", getSpecValueColor(result, "cendres"))}>
+                          <TableCell className={cn("text-right p-2 font-medium tabular-nums", getSpecValueColor(result, "cendres"))}>
                             {formatNumber(result.cendres, 1)}
                           </TableCell>
-                          <TableCell className={cn("px-4 font-semibold", alert.color)}>
+                          <TableCell className={cn("p-2 font-semibold", alert.color)}>
                             <div className="flex items-center gap-2">
                               {!alert.isConform ? (
                                 <AlertTriangle className="h-4 w-4" />
@@ -1143,7 +1098,7 @@ export function ResultsTable() {
                               <span>{alert.text}</span>
                             </div>
                           </TableCell>
-                          <TableCell className="max-w-[240px] truncate text-muted-foreground px-4">
+                          <TableCell className="max-w-[200px] truncate text-muted-foreground p-2">
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <span>{result.remarques}</span>
@@ -1151,9 +1106,9 @@ export function ResultsTable() {
                               {result.remarques && <TooltipContent>{result.remarques}</TooltipContent>}
                             </Tooltip>
                           </TableCell>
-                          <TableCell className="text-right px-4 sticky right-0 bg-background z-10">
+                          <TableCell className="text-center p-2 sticky right-0 bg-inherit z-10">
                             <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" onClick={() => setResultToDelete(result.id)}>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setResultToDelete(result.id)}>
                                 <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
                               </Button>
                             </AlertDialogTrigger>
@@ -1161,28 +1116,28 @@ export function ResultsTable() {
                         </TableRow>
                       );
                     })}
-                    <TableRow className="bg-muted/40 font-semibold hover:bg-muted/40">
-                      <TableCell colSpan={3} className="px-4 sticky left-0 bg-muted/40 z-10">
+                    <TableRow className="bg-slate-100 font-semibold hover:bg-slate-100">
+                      <TableCell colSpan={4} className="p-2 sticky left-0 bg-slate-100 z-10">
                         Moyenne de la sélection
                       </TableCell>
-                      <TableCell className="text-right text-primary px-4">
+                      <TableCell className="text-right text-primary p-2 tabular-nums">
                         {formatNumber(calculateAverage(filteredResults, "pci_brut"), 0)}
                       </TableCell>
-                      <TableCell className="text-right px-4">
+                      <TableCell className="text-right p-2 tabular-nums">
                         {formatNumber(calculateAverage(filteredResults, "h2o"), 1)}
                       </TableCell>
-                      <TableCell className="text-right px-4">
+                      <TableCell className="text-right p-2 tabular-nums">
                         {formatNumber(calculateAverage(filteredResults, "chlore"), 2)}
                       </TableCell>
-                      <TableCell className="text-right px-4">
+                      <TableCell className="text-right p-2 tabular-nums">
                         {formatNumber(calculateAverage(filteredResults, "cendres"), 1)}
                       </TableCell>
-                      <TableCell colSpan={3} className="sticky right-0 bg-muted/40 z-10" />
+                      <TableCell colSpan={3} className="sticky right-0 bg-slate-100 z-10" />
                     </TableRow>
                   </>
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
                       Aucun résultat trouvé.
                     </TableCell>
                   </TableRow>
@@ -1212,3 +1167,5 @@ export function ResultsTable() {
 }
 
 export default ResultsTable;
+
+    

@@ -1,6 +1,3 @@
-// app/results/page.tsx
-// Server component that renders your client ResultsTable
-// Adjust the import path to where you pasted the component
 
 import React from "react";
 import type { Metadata } from "next";
@@ -15,8 +12,9 @@ export const metadata: Metadata = {
 export default function ResultsPage() {
   return (
     <main className={cn("flex flex-col flex-1")}>
-      {/* Client component */}
       <ResultsTable />
     </main>
   );
 }
+
+    
