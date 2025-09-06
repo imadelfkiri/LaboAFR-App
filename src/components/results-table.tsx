@@ -13,33 +13,11 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
   format,
   startOfDay,
   endOfDay,
-  subDays,
   isValid,
   parseISO,
-  startOfWeek,
-  endOfWeek,
-  startOfMonth,
-  subMonths,
-  endOfMonth,
-  subWeeks,
   parse,
 } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -47,16 +25,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
-  CalendarIcon,
-  XCircle,
+  Calendar as CalendarIcon,
   Trash2,
   Download,
-  AlertTriangle,
-  CheckCircle2,
-  ChevronDown,
-  Trash,
   Upload,
-  Edit,
+  Plus,
 } from "lucide-react";
 import { getSpecifications, SPEC_MAP, getFuelSupplierMap, deleteAllResults, getFuelData, type FuelData, addManyResults } from "@/lib/data";
 import { calculerPCI } from "@/lib/pci";
@@ -71,21 +44,18 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { MultiSelect } from "@/components/ui/multi-select";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import * as z from "zod";
+import { Skeleton } from "./ui/skeleton";
+import { Card, CardContent } from "@/components/ui/card";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import Link from "next/link";
 
 
 interface Result {
@@ -100,27 +70,6 @@ interface Result {
   pci_brut: number | null;
   poids_godet: number | null;
   remarques: string;
-}
-
-interface AggregatedResult {
-  type_combustible: string;
-  fournisseur: string;
-  pci_brut: number | null;
-  h2o: number | null;
-  chlore: number | null;
-  cendres: number | null;
-  poids_godet: number | null;
-  count: number;
-  alerts: {
-    text: string;
-    isConform: boolean;
-    details: {
-      pci: boolean;
-      h2o: boolean;
-      chlore: boolean;
-      cendres: boolean;
-    };
-  };
 }
 
 // Étendre jsPDF pour autoTable
@@ -143,6 +92,139 @@ const importSchema = z.object({
   taux_fils_metalliques: z.coerce.number().min(0).max(100).optional().nullable(),
 });
 
+function ResultsView({
+  rows = [],
+  fuels = [],
+  suppliers = [],
+  fuel="__ALL__", setFuel=()=>{},
+  supplier="__ALL__", setSupplier=()=>{},
+  from="", setFrom=()=>{},
+  to="", setTo=()=>{},
+  onExport=()=>{}, onImport=()=>{}, onAdd=()=>{}, onDeleteAll=()=>{},
+  onDeleteOne=(id:string)=>{},
+}) {
+  return (
+    <div className="mx-auto w-full max-w-[1400px] p-3 md:p-5 space-y-3">
+      {/* Toolbar */}
+      <Card className="rounded-2xl shadow-sm border">
+        <CardContent className="p-3">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-center">
+            {/* Filtres */}
+            <div className="lg:col-span-3">
+              <Select value={fuel} onValueChange={setFuel}>
+                <SelectTrigger className="h-9 rounded-xl">
+                  <SelectValue placeholder="Type Combustible" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__ALL__">Tous les combustibles</SelectItem>
+                  {fuels.map((f:string)=><SelectItem key={f} value={f}>{f}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="lg:col-span-3">
+              <Select value={supplier} onValueChange={setSupplier}>
+                <SelectTrigger className="h-9 rounded-xl">
+                  <SelectValue placeholder="Fournisseur" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__ALL__">Tous les fournisseurs</SelectItem>
+                  {suppliers.map((s:string)=><SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Période */}
+            <div className="lg:col-span-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full h-9 rounded-xl justify-start">
+                    <Calendar className="w-4 h-4 mr-2" />
+                    {from && to ? `${from} → ${to}` : "Période"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-[280px] p-3 space-y-2">
+                  <div className="text-sm font-medium mb-1">Sélectionner une période</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input type="date" className="h-9" value={from} onChange={(e)=>setFrom(e.target.value)} />
+                    <Input type="date" className="h-9" value={to} onChange={(e)=>setTo(e.target.value)} />
+                  </div>
+                  <div className="flex justify-between pt-1">
+                    <Button variant="ghost" size="sm" onClick={()=>{setFrom("");setTo("");}}>Réinitialiser</Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Actions */}
+            <div className="lg:col-span-4 flex items-center justify-end gap-2">
+              <Button variant="outline" className="h-9 rounded-xl" onClick={onImport}>
+                <Upload className="w-4 h-4 mr-1" /> Importer
+              </Button>
+              <Button variant="outline" className="h-9 rounded-xl" onClick={onExport}>
+                <Download className="w-4 h-4 mr-1" /> Exporter
+              </Button>
+              <Link href="/calculateur">
+                <Button className="h-9 rounded-xl" onClick={onAdd}>
+                    <Plus className="w-4 h-4 mr-1" /> Ajouter
+                </Button>
+              </Link>
+              <Button variant="destructive" className="h-9 rounded-xl" onClick={onDeleteAll}>
+                <Trash2 className="w-4 h-4 mr-1" /> Supprimer
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Tableau */}
+      <Card className="rounded-2xl shadow-md">
+        <CardContent className="p-0">
+          <div className="max-h-[70vh] overflow-auto rounded-2xl border-t bg-background">
+            <table className="w-full text-sm border-separate border-spacing-0">
+              <thead className="text-[13px] text-muted-foreground">
+                <tr>
+                  {["Date Arrivage","Type Combustible","Fournisseur","PCI sur Brut","% H2O","% Cl-","% Cendres","Alertes","Remarques","Action"]
+                    .map((h) => (
+                      <th key={h} className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-left font-semibold border-b">
+                        {h}
+                      </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r:any, i:number)=>(
+                  <tr key={r.id ?? i} className="border-b last:border-0 even:bg-muted/30 hover:bg-muted/50 transition-colors">
+                    <td className="p-2 text-muted-foreground whitespace-nowrap">{r.dateArrivage}</td>
+                    <td className="p-2 font-medium">{r.typeCombustible}</td>
+                    <td className="p-2">{r.fournisseur}</td>
+                    <td className={`p-2 text-right font-medium tabular-nums ${r.pciAlert ? "text-red-600" : ""}`}>{r.pci}</td>
+                    <td className={`p-2 text-right tabular-nums ${r.h2oAlert ? "text-red-600" : ""}`}>{r.h2o}</td>
+                    <td className={`p-2 text-right tabular-nums ${r.chloreAlert ? "text-red-600" : ""}`}>{r.cl}</td>
+                    <td className={`p-2 text-right tabular-nums ${r.cendresAlert ? "text-red-600" : ""}`}>{r.cendres}</td>
+                    <td className="p-2">
+                      {r.alerte.isConform ? (
+                        <span className="text-green-600 font-medium flex items-center gap-1">✔ Conforme</span>
+                      ) : (
+                        <span className="text-red-600 font-medium flex items-center gap-1">⚠ {r.alerte.text}</span>
+                      )}
+                    </td>
+                    <td className="p-2 text-muted-foreground max-w-[200px] truncate">{r.remarque ?? "-"}</td>
+                    <td className="p-2 text-center">
+                      <button onClick={() => onDeleteOne(r.id)} className="text-muted-foreground hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                    </td>
+                  </tr>
+                ))}
+                {rows.length===0 && (
+                  <tr><td colSpan={10} className="p-6 text-center text-muted-foreground">Aucun résultat.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
 
 export function ResultsTable() {
   const [results, setResults] = useState<Result[]>([]);
@@ -212,8 +294,9 @@ export function ResultsTable() {
   }, [fetchInitialData]);
 
   const { uniqueFuelTypes, allUniqueFournisseurs } = useMemo(() => {
-    const fuelTypes = [...new Set(results.map((r) => r.type_combustible))].sort();
-    const fournisseurs = [...new Set(results.map((r) => r.fournisseur))].sort();
+    const allResults = results; // Use all results to populate filters
+    const fuelTypes = [...new Set(allResults.map((r) => r.type_combustible))].sort();
+    const fournisseurs = [...new Set(allResults.map((r) => r.fournisseur))].sort();
     return { uniqueFuelTypes: fuelTypes, allUniqueFournisseurs: fournisseurs };
   }, [results]);
 
@@ -221,6 +304,7 @@ export function ResultsTable() {
     if (typeFilter.length > 0) {
       const newAvailable = typeFilter.flatMap((type) => fuelSupplierMap[type] || []);
       setAvailableFournisseurs([...new Set(newAvailable)].sort());
+      // Keep existing selection if it's still valid
       setFournisseurFilter((current) => current.filter((f) => newAvailable.includes(f)));
     } else {
       setAvailableFournisseurs(allUniqueFournisseurs);
@@ -237,8 +321,18 @@ export function ResultsTable() {
     }
     return null;
   };
-
+  
   const filteredResults = useMemo(() => {
+    let dateFrom: Date | null = null;
+    let dateTo: Date | null = null;
+
+    if (dateFilter?.from) {
+      dateFrom = startOfDay(dateFilter.from);
+    }
+    if (dateFilter?.to) {
+      dateTo = endOfDay(dateFilter.to);
+    }
+    
     return results.filter((result) => {
       if (!result.date_arrivage) return false;
       const dateArrivage = normalizeDate(result.date_arrivage);
@@ -249,34 +343,12 @@ export function ResultsTable() {
         fournisseurFilter.length === 0 || fournisseurFilter.includes(result.fournisseur);
       const dateMatch =
         !dateFilter ||
-        ((!dateFilter.from || dateArrivage >= startOfDay(dateFilter.from)) &&
-          (!dateFilter.to || dateArrivage <= endOfDay(dateFilter.to)));
+        ((!dateFrom || dateArrivage >= dateFrom) &&
+          (!dateTo || dateArrivage <= dateTo));
 
       return typeMatch && fournisseurMatch && dateMatch;
     });
   }, [results, typeFilter, fournisseurFilter, dateFilter]);
-
-  const calculateAverage = (arr: Result[], field: keyof Result): number | null => {
-    const valid = arr.map((r) => r[field]).filter((v) => typeof v === "number") as number[];
-    if (!valid.length) return null;
-    const sum = valid.reduce((acc, v) => acc + v, 0);
-    return sum / valid.length;
-  };
-
-  function formatDate(
-    date: { seconds: number; nanoseconds: number } | string,
-    formatStr: string = "dd/MM/yyyy"
-  ): string {
-    const parsedDate = normalizeDate(date);
-    if (!parsedDate || !isValid(parsedDate)) return "Date inconnue";
-    return format(parsedDate, formatStr, { locale: fr });
-  }
-
-  const resetFilters = () => {
-    setTypeFilter([]);
-    setFournisseurFilter([]);
-    setDateFilter(undefined);
-  };
 
   const handleDelete = async () => {
     if (!resultToDelete) return;
@@ -321,446 +393,41 @@ export function ResultsTable() {
       })
   };
 
-  const exportToExcel = (data: Result[], reportType: "Filtré") => {
-    if (!data || data.length === 0) {
-      toast({
-        variant: "destructive",
-        title: "Aucune donnée",
-        description: "Il n'y a aucune donnée à exporter.",
-      });
-      return;
-    }
-
-    const reportDate = new Date();
-    const formattedDate = format(reportDate, "dd/MM/yyyy");
-
-    const titleText = `Rapport ${reportType} du ${formattedDate} analyses des AF`;
-    const subtitleText = "Suivi des combustibles solides non dangereux";
-    const filename = `Filtre_AFR_Report_${format(reportDate, "yyyy-MM-dd")}.xlsx`;
-
-    const headers = [
-      "Date",
-      "Type Combustible",
-      "Fournisseur",
-      "PCS (kcal/kg)",
-      "PCI sur Brut (kcal/kg)",
-      "% H2O",
-      "% Cl-",
-      "% Cendres",
-      "Alertes",
-      "Remarques",
-    ];
-
-    const excelData = data.map(result => {
-        const alert = generateAlerts(result);
-        return {
-            "Date": formatDate(result.date_arrivage, "dd/MM/yyyy"),
-            "Type Combustible": result.type_combustible,
-            "Fournisseur": result.fournisseur,
-            "PCS (kcal/kg)": result.pcs ?? "N/A",
-            "PCI sur Brut (kcal/kg)": result.pci_brut,
-            "% H2O": result.h2o,
-            "% Cl-": result.chlore ?? "N/A",
-            "% Cendres": result.cendres ?? "N/A",
-            "Alertes": alert.isConform ? 'Conforme' : alert.text,
-            "Remarques": result.remarques || ""
-        };
-    });
-
-    const ws = XLSX.utils.json_to_sheet(excelData, { header: headers });
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Rapport AFR");
-    XLSX.writeFile(wb, filename);
-  };
-
-  const getSpecValueColor = (result: Result | AggregatedResult, field: keyof Result | keyof AggregatedResult) => {
-    const spec = SPEC_MAP.get(`${result.type_combustible}|${result.fournisseur}`);
-    if (!spec) return "text-gray-500";
-
-    const value = (result as any)[field];
-    if (typeof value !== "number") return "text-gray-500";
-
-    let isConform = true;
-    switch (field) {
-      case "pci_brut":
-        if (spec.PCI_min != null && value < spec.PCI_min) isConform = false;
-        break;
-      case "h2o":
-        if (spec.H2O_max != null && value > spec.H2O_max) isConform = false;
-        break;
-      case "chlore":
-        if (spec.Cl_max != null && value > spec.Cl_max) isConform = false;
-        break;
-      case "cendres":
-        if (spec.Cendres_max != null && value > spec.Cendres_max) isConform = false;
-        break;
-      default:
-        return "text-foreground";
-    }
-    return isConform ? "text-foreground" : "text-red-600";
-  };
-
-  const generateAlerts = (result: Result | AggregatedResult, checkCendres: boolean = true) => {
+  const generateAlerts = (result: Result) => {
     const spec = SPEC_MAP.get(`${result.type_combustible}|${result.fournisseur}`);
     if (!spec) {
       return {
-        text: "Spécification non définie",
-        color: "text-gray-500",
-        isConform: true,
+        text: "N/A",
+        isConform: true, // No spec, no alert
         details: { pci: true, h2o: true, chlore: true, cendres: true },
       } as const;
     }
 
     const alerts: string[] = [];
-    const alertDetails = { pci: true, h2o: true, chlore: true, cendres: true };
+    const alertDetails = { pci: false, h2o: false, chlore: false, cendres: false };
 
-    if (spec.PCI_min != null && (result as any).pci_brut != null && (result as any).pci_brut < spec.PCI_min) {
+    if (spec.PCI_min != null && result.pci_brut != null && result.pci_brut < spec.PCI_min) {
       alerts.push("PCI bas");
-      alertDetails.pci = false;
+      alertDetails.pci = true;
     }
-    if (spec.H2O_max != null && (result as any).h2o != null && (result as any).h2o > spec.H2O_max) {
+    if (spec.H2O_max != null && result.h2o != null && result.h2o > spec.H2O_max) {
       alerts.push("H₂O élevé");
-      alertDetails.h2o = false;
+      alertDetails.h2o = true;
     }
-    if ((result as any).chlore != null && spec.Cl_max != null && (result as any).chlore > spec.Cl_max) {
+    if (result.chlore != null && spec.Cl_max != null && result.chlore > spec.Cl_max) {
       alerts.push("Cl- élevé");
-      alertDetails.chlore = false;
+      alertDetails.chlore = true;
     }
-    if (
-      checkCendres &&
-      (result as any).cendres != null &&
-      spec.Cendres_max != null &&
-      (result as any).cendres > spec.Cendres_max
-    ) {
+    if (result.cendres != null && spec.Cendres_max != null && result.cendres > spec.Cendres_max) {
       alerts.push("Cendres élevées");
-      alertDetails.cendres = false;
+      alertDetails.cendres = true;
     }
 
     if (alerts.length === 0) {
-      return { text: "Conforme", color: "text-green-600", isConform: true, details: alertDetails } as const;
+      return { text: "Conforme", isConform: true, details: alertDetails } as const;
     }
 
-    return { text: alerts.join(" / "), color: "text-red-600", isConform: false, details: alertDetails } as const;
-  };
-
-  const aggregateResults = (data: Result[], checkCendres: boolean = false): AggregatedResult[] => {
-    const grouped = new Map<string, { [K in keyof Omit<
-      Result,
-      "id" | "date_arrivage" | "type_combustible" | "fournisseur" | "remarques"
-    >]: (number | null)[] } & { count: number }>();
-
-    data.forEach((r) => {
-      const key = `${r.type_combustible}|${r.fournisseur}`;
-      if (!grouped.has(key)) {
-        grouped.set(key, { pci_brut: [], h2o: [], chlore: [], cendres: [], pcs: [], poids_godet: [], count: 0 } as any);
-      }
-      const group = grouped.get(key)!;
-      group.count++;
-      ["pci_brut", "h2o", "chlore", "cendres", "pcs", "poids_godet"].forEach((metric) => {
-        const value = (r as any)[metric];
-        (group as any)[metric].push(typeof value === "number" ? value : null);
-      });
-    });
-
-    const aggregated: AggregatedResult[] = [];
-    grouped.forEach((value, key) => {
-      const [type_combustible, fournisseur] = key.split("|");
-      const avg = (arr: (number | null)[]) => {
-        const validNums = arr.filter((n): n is number => typeof n === "number");
-        return validNums.length > 0 ? validNums.reduce((a, b) => a + b, 0) / validNums.length : null;
-      };
-
-      const mockResult: AggregatedResult = {
-        type_combustible,
-        fournisseur,
-        pci_brut: avg(value.pci_brut),
-        h2o: avg(value.h2o),
-        chlore: avg(value.chlore),
-        cendres: avg(value.cendres),
-        poids_godet: avg(value.poids_godet),
-        count: value.count,
-        alerts: { text: "", isConform: false, details: { pci: true, h2o: true, chlore: true, cendres: true } },
-      };
-
-      const alerts = generateAlerts(mockResult, checkCendres);
-      aggregated.push({ ...mockResult, alerts });
-    });
-
-    return aggregated.sort(
-      (a, b) =>
-        a.type_combustible.localeCompare(b.type_combustible) ||
-        a.fournisseur.localeCompare(b.fournisseur)
-    );
-  };
-
-  const createStyledCell = (
-    value: number | null,
-    isConform: boolean,
-    formatOptions: Intl.NumberFormatOptions = {}
-  ) => {
-    if (value === null || value === undefined || Number.isNaN(value)) {
-      return { content: "", styles: {} };
-    }
-
-    const styles: { textColor?: string | [number, number, number] } = {};
-    if (isConform === false) styles.textColor = "#FF0000"; // rouge
-
-    const content = value
-      .toLocaleString("fr-FR", { useGrouping: false, ...formatOptions })
-      .replace(".", ",");
-
-    return { content, styles };
-  };
-
-  const createAlertCell = (isConform: boolean, alertText: string) => {
-    const styles: { textColor?: string | [number, number, number] } = {};
-    if (isConform) styles.textColor = [0, 100, 0];
-    else styles.textColor = [255, 0, 0];
-    return { content: alertText, styles };
-  };
-
-  const generatePdf = (
-    data: any[],
-    title: string,
-    subtitle: string,
-    columns: any[],
-    orientation: "portrait" | "landscape",
-    filename: string
-  ) => {
-    if (data.length === 0) {
-      toast({ variant: "destructive", title: "Aucune donnée", description: "Il n'y a pas de données à exporter pour cette période." });
-      return;
-    }
-
-    const doc = new jsPDF({ orientation });
-    const generationDate = format(new Date(), "dd/MM/yyyy HH:mm:ss");
-    const pageHeight = (doc as any).internal.pageSize.getHeight();
-    const pageWidth = (doc as any).internal.pageSize.getWidth();
-
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.text(title, pageWidth / 2, 15, { align: "center" });
-
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.text(subtitle, pageWidth / 2, 22, { align: "center" });
-
-    const head = [columns.map((c) => c.header)];
-    const body = data.map((row) =>
-      columns.map((col) => {
-        const cell = row[col.dataKey];
-        if (cell && typeof cell === "object" && "content" in cell) return cell.content;
-        return cell;
-      })
-    );
-
-    (doc as any).autoTable({
-      head,
-      body,
-      startY: 35,
-      theme: "grid",
-      headStyles: { fillColor: [63, 81, 181], textColor: [255, 255, 255], fontStyle: "bold" },
-      alternateRowStyles: { fillColor: [240, 248, 255] },
-      styles: { textColor: [0, 0, 0], halign: "center", valign: "middle" },
-      columnStyles: { 0: { halign: "left" }, 1: { halign: "left" }, [columns.length - 1]: { halign: "left" } },
-      didParseCell: (hookData: any) => {
-        if (hookData.section === "body") {
-          const rowData = data[hookData.row.index];
-          const colKey = columns[hookData.column.index].dataKey;
-          const cellData = rowData[colKey];
-          if (cellData && typeof cellData === "object" && cellData.styles) {
-            Object.assign(hookData.cell.styles, cellData.styles);
-          }
-        }
-      },
-      didDrawPage: (d: any) => {
-        doc.setFontSize(8);
-        doc.text(
-          `Généré le: ${generationDate} - Page ${d.pageNumber} sur ${(doc as any).internal.pages.length - 1}`,
-          d.settings.margin.left,
-          pageHeight - 10
-        );
-      },
-    });
-
-    doc.save(filename);
-  };
-
-  const exportToPdfDaily = () => {
-    const today = new Date();
-    const yesterday = subDays(today, 1);
-
-    const dailyData = results
-      .filter((r) => {
-        const d = normalizeDate(r.date_arrivage);
-        if (!d || !isValid(d)) return false;
-        const dateOnly = startOfDay(d);
-        return (
-          dateOnly.getTime() === startOfDay(today).getTime() ||
-          dateOnly.getTime() === startOfDay(yesterday).getTime()
-        );
-      })
-      .sort((a, b) => (normalizeDate(b.date_arrivage)!.getTime() - normalizeDate(a.date_arrivage)!.getTime()));
-
-    const aggregated = aggregateResults(dailyData, false);
-
-    const columns = [
-      { header: "Type Combustible", dataKey: "type" },
-      { header: "Fournisseur", dataKey: "fournisseur" },
-      { header: "PCI sur Brut", dataKey: "pci" },
-      { header: "% H2O", dataKey: "h2o" },
-      { header: "% Cl-", dataKey: "cl" },
-      { header: "Alertes", dataKey: "alerts" },
-    ];
-
-    const body = aggregated.map((r) => ({
-      type: r.type_combustible,
-      fournisseur: r.fournisseur,
-      pci: createStyledCell(r.pci_brut, r.alerts.details.pci, { maximumFractionDigits: 0 }),
-      h2o: createStyledCell(r.h2o, r.alerts.details.h2o, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
-      cl: createStyledCell(r.chlore, r.alerts.details.chlore, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      alerts: createAlertCell(r.alerts.isConform, r.alerts.text),
-    }));
-
-    generatePdf(
-      body,
-      "Suivi des analyses des combustibles solides non dangereux",
-      `Rapport journalier du ${format(today, "dd/MM/yyyy", { locale: fr })}`,
-      columns,
-      "landscape",
-      `Rapport_Journalier_AFR_${format(today, "yyyy-MM-dd")}.pdf`
-    );
-  };
-
-  const exportToPdfWeekly = () => {
-    const today = new Date();
-    const start = startOfWeek(today.getDay() === 1 ? subWeeks(today, 1) : today, { weekStartsOn: 1 });
-    const end = endOfWeek(start, { weekStartsOn: 1 });
-
-    const weeklyData = results
-      .filter((r) => {
-        const d = normalizeDate(r.date_arrivage);
-        return d && isValid(d) && d >= start && d <= end;
-      })
-      .sort((a, b) => normalizeDate(b.date_arrivage)!.getTime() - normalizeDate(a.date_arrivage)!.getTime());
-
-    const aggregated = aggregateResults(weeklyData, false);
-
-    const columns = [
-      { header: "Type Combustible", dataKey: "type" },
-      { header: "Fournisseur", dataKey: "fournisseur" },
-      { header: "PCI sur Brut", dataKey: "pci" },
-      { header: "% H2O", dataKey: "h2o" },
-      { header: "% Cl-", dataKey: "cl" },
-      { header: "Alertes", dataKey: "alerts" },
-    ];
-
-    const body = aggregated.map((r) => ({
-      type: r.type_combustible,
-      fournisseur: r.fournisseur,
-      pci: createStyledCell(r.pci_brut, r.alerts.details.pci, { maximumFractionDigits: 0 }),
-      h2o: createStyledCell(r.h2o, r.alerts.details.h2o, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
-      cl: createStyledCell(r.chlore, r.alerts.details.chlore, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      alerts: createAlertCell(r.alerts.isConform, r.alerts.text),
-    }));
-
-    generatePdf(
-      body,
-      "Suivi des analyses des combustibles solides non dangereux",
-      `Rapport hebdomadaire semaine du ${format(start, "dd MMMM yyyy", { locale: fr })}`,
-      columns,
-      "landscape",
-      `Rapport_Hebdo_AFR_Semaine_du_${format(start, "yyyy-MM-dd")}.pdf`
-    );
-  };
-
-  const exportToPdfMonthly = () => {
-    const today = new Date();
-    const start = startOfMonth(today);
-    const end = endOfMonth(today);
-
-    const monthlyData = results
-      .filter((r) => {
-        const d = normalizeDate(r.date_arrivage);
-        return d && isValid(d) && d >= start && d <= end;
-      })
-      .sort((a, b) => normalizeDate(b.date_arrivage)!.getTime() - normalizeDate(a.date_arrivage)!.getTime());
-
-    const aggregated = aggregateResults(monthlyData, true);
-
-    const columns = [
-      { header: "Type Combustible", dataKey: "type" },
-      { header: "Fournisseur", dataKey: "fournisseur" },
-      { header: "PCI sur Brut", dataKey: "pci" },
-      { header: "% H2O", dataKey: "h2o" },
-      { header: "% Cl-", dataKey: "cl" },
-      { header: "% Cendres", dataKey: "cendres" },
-      { header: "Alertes", dataKey: "alerts" },
-    ];
-
-    const body = aggregated.map((r) => ({
-      type: r.type_combustible,
-      fournisseur: r.fournisseur,
-      pci: createStyledCell(r.pci_brut, r.alerts.details.pci, { maximumFractionDigits: 0 }),
-      h2o: createStyledCell(r.h2o, r.alerts.details.h2o, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
-      cl: createStyledCell(r.chlore, r.alerts.details.chlore, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      cendres: createStyledCell(r.cendres, r.alerts.details.cendres, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
-      alerts: createAlertCell(r.alerts.isConform, r.alerts.text),
-    }));
-
-    generatePdf(
-      body,
-      "Suivi des analyses des combustibles solides non dangereux",
-      `Rapport mensuel ${format(today, "MMMM yyyy", { locale: fr })}`,
-      columns,
-      "landscape",
-      `Rapport_Mensuel_AFR_${format(today, "yyyy-MM")}.pdf`
-    );
-  };
-
-  const exportToPdfPreviousMonth = () => {
-    const today = new Date();
-    const prevMonthDate = subMonths(today, 1);
-    const start = startOfMonth(prevMonthDate);
-    const end = endOfMonth(prevMonthDate);
-
-    const monthlyData = results
-      .filter((r) => {
-        const d = normalizeDate(r.date_arrivage);
-        return d && isValid(d) && d >= start && d <= end;
-      })
-      .sort((a, b) => normalizeDate(b.date_arrivage)!.getTime() - normalizeDate(a.date_arrivage)!.getTime());
-
-    const aggregated = aggregateResults(monthlyData, true);
-
-    const columns = [
-      { header: "Type Combustible", dataKey: "type" },
-      { header: "Fournisseur", dataKey: "fournisseur" },
-      { header: "PCI sur Brut", dataKey: "pci" },
-      { header: "% H2O", dataKey: "h2o" },
-      { header: "% Cl-", dataKey: "cl" },
-      { header: "% Cendres", dataKey: "cendres" },
-      { header: "Alertes", dataKey: "alerts" },
-    ];
-
-    const body = aggregated.map((r) => ({
-      type: r.type_combustible,
-      fournisseur: r.fournisseur,
-      pci: createStyledCell(r.pci_brut, r.alerts.details.pci, { maximumFractionDigits: 0 }),
-      h2o: createStyledCell(r.h2o, r.alerts.details.h2o, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
-      cl: createStyledCell(r.chlore, r.alerts.details.chlore, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      cendres: createStyledCell(r.cendres, r.alerts.details.cendres, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
-      alerts: createAlertCell(r.alerts.isConform, r.alerts.text),
-    }));
-
-    generatePdf(
-      body,
-      "Suivi des analyses des combustibles solides non dangereux",
-      `Rapport mensuel ${format(prevMonthDate, "MMMM yyyy", { locale: fr })}`,
-      columns,
-      "landscape",
-      `Rapport_Mensuel_AFR_${format(prevMonthDate, "yyyy-MM")}.pdf`
-    );
+    return { text: alerts.join(" / "), isConform: false, details: alertDetails } as const;
   };
   
     const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -816,6 +483,7 @@ export function ResultsTable() {
                     'pci': 'pci_brut',
                     'pci brut': 'pci_brut',
                     'pci sur brut': 'pci_brut',
+                    'pci sur brut (kcal/kg)': 'pci_brut',
                     'pci_brut': 'pci_brut',
                     'h2o': 'h2o',
                     '% h2o': 'h2o',
@@ -872,6 +540,10 @@ export function ResultsTable() {
                             finalPci = calculerPCI(pcsToUse, validatedData.h2o, hValue);
                         }
 
+                        if (finalPci === null && mappedRow.pci_brut !== undefined) {
+                            finalPci = mappedRow.pci_brut;
+                        }
+
                         if (finalPci === null && !validatedData.pci_brut) {
                             throw new Error(`La colonne PCI ou PCS est requise pour calculer la valeur finale.`);
                         }
@@ -902,6 +574,29 @@ export function ResultsTable() {
         reader.readAsArrayBuffer(file);
     };
 
+  const tableRows = useMemo(() => {
+    return filteredResults.map(result => {
+        const alerte = generateAlerts(result);
+        return {
+            id: result.id,
+            dateArrivage: normalizeDate(result.date_arrivage) ? format(normalizeDate(result.date_arrivage)!, 'dd/MM/yyyy') : 'Date invalide',
+            typeCombustible: result.type_combustible,
+            fournisseur: result.fournisseur,
+            pci: formatNumber(result.pci_brut, 0),
+            h2o: formatNumber(result.h2o, 1),
+            cl: formatNumber(result.chlore, 2),
+            cendres: formatNumber(result.cendres, 1),
+            pciAlert: alerte.details.pci,
+            h2oAlert: alerte.details.h2o,
+            chloreAlert: alerte.details.chlore,
+            cendresAlert: alerte.details.cendres,
+            alerte,
+            remarque: result.remarques
+        };
+    });
+  }, [filteredResults]);
+
+
   if (loading) {
     return (
       <div className="space-y-2 p-4 lg:p-6">
@@ -911,9 +606,60 @@ export function ResultsTable() {
     );
   }
 
+  const exportToExcel = () => {
+    // This can be expanded with more logic if needed
+     if (!filteredResults || filteredResults.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Aucune donnée",
+        description: "Il n'y a aucune donnée à exporter.",
+      });
+      return;
+    }
+     const reportDate = new Date();
+    const formattedDate = format(reportDate, "dd/MM/yyyy");
+
+    const titleText = `Rapport Filtré du ${formattedDate} analyses des AF`;
+    const filename = `Filtre_AFR_Report_${format(reportDate, "yyyy-MM-dd")}.xlsx`;
+
+    const headers = [
+      "Date",
+      "Type Combustible",
+      "Fournisseur",
+      "PCS (kcal/kg)",
+      "PCI sur Brut (kcal/kg)",
+      "% H2O",
+      "% Cl-",
+      "% Cendres",
+      "Alertes",
+      "Remarques",
+    ];
+
+    const excelData = filteredResults.map(result => {
+        const alert = generateAlerts(result);
+        return {
+            "Date": formatDate(result.date_arrivage, "dd/MM/yyyy"),
+            "Type Combustible": result.type_combustible,
+            "Fournisseur": result.fournisseur,
+            "PCS (kcal/kg)": result.pcs ?? "N/A",
+            "PCI sur Brut (kcal/kg)": result.pci_brut,
+            "% H2O": result.h2o,
+            "% Cl-": result.chlore ?? "N/A",
+            "% Cendres": result.cendres ?? "N/A",
+            "Alertes": alert.isConform ? 'Conforme' : alert.text,
+            "Remarques": result.remarques || ""
+        };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(excelData, { header: headers });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Rapport AFR");
+    XLSX.writeFile(wb, filename);
+  };
+
+
   return (
-    <TooltipProvider>
-      <AlertDialog onOpenChange={(open) => !open && setResultToDelete(null)}>
+      <>
         <input
             type="file"
             ref={fileInputRef}
@@ -921,248 +667,63 @@ export function ResultsTable() {
             onChange={handleFileImport}
             accept=".xlsx, .xls"
         />
-        <div className="flex flex-col gap-4 h-full p-4 lg:p-6">
-          <div className="flex flex-wrap items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-xl px-3 py-2">
-            <MultiSelect
-              options={uniqueFuelTypes.map((f) => ({ label: f, value: f }))}
-              selected={typeFilter}
-              onChange={setTypeFilter}
-              placeholder="Filtrer par type..."
-              className="w-full sm:w-auto flex-1 min-w-[160px] bg-white rounded-lg"
-            />
-            <MultiSelect
-              options={availableFournisseurs.map((f) => ({ label: f, value: f }))}
-              selected={fournisseurFilter}
-              onChange={setFournisseurFilter}
-              placeholder="Filtrer par fournisseur..."
-              className="w-full sm:w-auto flex-1 min-w-[160px] bg-white rounded-lg"
-            />
+        <ResultsView 
+            rows={tableRows}
+            fuels={uniqueFuelTypes}
+            suppliers={availableFournisseurs}
+            fuel={typeFilter[0] || "__ALL__"}
+            setFuel={(val) => setTypeFilter(val === "__ALL__" ? [] : [val])}
+            supplier={fournisseurFilter[0] || "__ALL__"}
+            setSupplier={(val) => setFournisseurFilter(val === "__ALL__" ? [] : [val])}
+            from={dateFilter?.from ? format(dateFilter.from, 'yyyy-MM-dd') : ''}
+            setFrom={(val) => setDateFilter(prev => ({...prev, from: parseISO(val)}))}
+            to={dateFilter?.to ? format(dateFilter.to, 'yyyy-MM-dd') : ''}
+            setTo={(val) => setDateFilter(prev => ({...prev, to: parseISO(val)}))}
+            onAdd={() => {}}
+            onImport={() => fileInputRef.current?.click()}
+            onExport={exportToExcel}
+            onDeleteAll={() => setIsDeleteAllConfirmOpen(true)}
+            onDeleteOne={(id) => setResultToDelete(id)}
+        />
+        
+        <AlertDialog onOpenChange={(open) => !open && setResultToDelete(null)} open={!!resultToDelete}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>Êtes-vous absolument sûr ?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Cette action est irréversible. Le résultat sera définitivement supprimé de la base de données.
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                <AlertDialogCancel>Annuler</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                    Supprimer
+                </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
 
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  id="date"
-                  variant="outline"
-                  className={cn(
-                    "w-full sm:w-auto flex-1 min-w-[210px] justify-start text-left font-normal bg-white rounded-lg",
-                    !dateFilter && "text-muted-foreground"
-                  )}
+        <AlertDialog onOpenChange={setIsDeleteAllConfirmOpen} open={isDeleteAllConfirmOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>Êtes-vous absolument sûr ?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Cette action est irréversible et supprimera définitivement
+                    TOUT l'historique des résultats.
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                <AlertDialogCancel>Annuler</AlertDialogCancel>
+                <AlertDialogAction
+                    onClick={handleDeleteAll}
+                    className="bg-destructive hover:bg-destructive/90"
                 >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dateFilter?.from ? (
-                    dateFilter.to ? (
-                      <>
-                        {format(dateFilter.from, "d MMM y", { locale: fr })} -{" "}
-                        {format(dateFilter.to, "d MMM y", { locale: fr })}
-                      </>
-                    ) : (
-                      format(dateFilter.from, "d MMM y", { locale: fr })
-                    )
-                  ) : (
-                    <span>Filtrer par date</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  initialFocus
-                  mode="range"
-                  defaultMonth={dateFilter?.from}
-                  selected={dateFilter}
-                  onSelect={setDateFilter}
-                  numberOfMonths={2}
-                  locale={fr}
-                />
-              </PopoverContent>
-            </Popover>
-
-            <Button
-              onClick={resetFilters}
-              variant="ghost"
-              className="text-slate-600 hover:text-slate-900 hover:bg-slate-200 h-9 px-3 rounded-lg"
-            >
-              <XCircle className="mr-2 h-4 w-4" />
-              Réinitialiser
-            </Button>
-            
-            <div className="flex-grow" />
-            
-            <Button
-              variant="outline"
-              className="w-full sm:w-auto bg-white rounded-lg"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Upload className="mr-2 h-4 w-4" />
-              Importer
-            </Button>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full sm:w-auto bg-white rounded-lg">
-                  <Download className="mr-2 h-4 w-4" />
-                  <span>Exporter</span>
-                  <ChevronDown className="ml-2 h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={exportToPdfDaily}>Rapport Journalier</DropdownMenuItem>
-                <DropdownMenuItem onClick={exportToPdfWeekly}>Rapport Hebdomadaire</DropdownMenuItem>
-                <DropdownMenuItem onClick={exportToPdfMonthly}>Rapport Mensuel (Mois en cours)</DropdownMenuItem>
-                <DropdownMenuItem onClick={exportToPdfPreviousMonth}>Rapport Mensuel (Mois précédent)</DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => exportToExcel(filteredResults, "Filtré")}>
-                  Exporter la vue filtrée (Excel)
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <AlertDialog onOpenChange={setIsDeleteAllConfirmOpen} open={isDeleteAllConfirmOpen}>
-                <AlertDialogTrigger asChild>
-                    <Button variant="destructive" className="w-full sm:w-auto rounded-lg">
-                        <Trash className="mr-2 h-4 w-4" />
-                        Tout Supprimer
-                    </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                    <AlertDialogTitle>Êtes-vous absolument sûr ?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        Cette action est irréversible et supprimera définitivement
-                        TOUT l'historique des résultats.
-                    </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                    <AlertDialogCancel>Annuler</AlertDialogCancel>
-                    <AlertDialogAction
-                        onClick={handleDeleteAll}
-                        className="bg-destructive hover:bg-destructive/90"
-                    >
-                        Oui, tout supprimer
-                    </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-          </div>
-
-          <div className="flex-grow rounded-lg border overflow-auto max-h-[calc(100vh-220px)] bg-background">
-            <table className="min-w-[1200px] w-full border-separate border-spacing-0 text-[13px]">
-              <thead className="sticky top-0 z-10 bg-muted/50 hover:bg-muted/50 text-muted-foreground">
-                <TableRow>
-                  <TableHead className="p-2 sticky left-0 bg-muted/50 z-20 font-semibold border-b">Date Arrivage</TableHead>
-                  <TableHead className="p-2 sticky left-[120px] bg-muted/50 z-20 font-semibold border-b">Type Combustible</TableHead>
-                  <TableHead className="p-2 font-semibold border-b">Fournisseur</TableHead>
-                  <TableHead className="p-2 text-right font-semibold border-b">PCS</TableHead>
-                  <TableHead className="text-right text-primary font-bold p-2 border-b">PCI sur Brut</TableHead>
-                  <TableHead className="text-right p-2 font-semibold border-b">% H2O</TableHead>
-                  <TableHead className="text-right p-2 font-semibold border-b">% Cl-</TableHead>
-                  <TableHead className="text-right p-2 font-semibold border-b">% Cendres</TableHead>
-                  <TableHead className="p-2 font-bold font-semibold border-b">Alertes</TableHead>
-                  <TableHead className="p-2 font-semibold border-b">Remarques</TableHead>
-                  <TableHead className="w-[80px] text-center p-2 sticky right-0 bg-muted/50 z-20 font-semibold border-b">Actions</TableHead>
-                </TableRow>
-              </thead>
-              <TableBody>
-                {filteredResults.length > 0 ? (
-                  <>
-                    {filteredResults.map((result) => {
-                      const alert = generateAlerts(result);
-                      return (
-                        <TableRow key={result.id} className="bg-background even:bg-muted/30 hover:bg-muted/50 transition-colors">
-                          <TableCell className="font-medium p-2 sticky left-0 bg-inherit z-10">
-                            {formatDate(result.date_arrivage)}
-                          </TableCell>
-                          <TableCell className="p-2 sticky left-[120px] bg-inherit z-10 font-semibold">
-                            {result.type_combustible}
-                          </TableCell>
-                          <TableCell className="p-2">{result.fournisseur}</TableCell>
-                          <TableCell className="text-right p-2 tabular-nums">{formatNumber(result.pcs, 0)}</TableCell>
-                          <TableCell className={cn("font-bold text-right p-2 tabular-nums", getSpecValueColor(result, "pci_brut"))}>
-                            {formatNumber(result.pci_brut, 0)}
-                          </TableCell>
-                          <TableCell className={cn("text-right p-2 font-medium tabular-nums", getSpecValueColor(result, "h2o"))}>
-                            {formatNumber(result.h2o, 1)}
-                          </TableCell>
-                          <TableCell className={cn("text-right p-2 font-medium tabular-nums", getSpecValueColor(result, "chlore"))}>
-                            {formatNumber(result.chlore, 2)}
-                          </TableCell>
-                          <TableCell className={cn("text-right p-2 font-medium tabular-nums", getSpecValueColor(result, "cendres"))}>
-                            {formatNumber(result.cendres, 1)}
-                          </TableCell>
-                          <TableCell className={cn("p-2 font-semibold", alert.color)}>
-                            <div className="flex items-center gap-2">
-                              {!alert.isConform ? (
-                                <AlertTriangle className="h-4 w-4" />
-                              ) : (
-                                <CheckCircle2 className="h-4 w-4" />
-                              )}
-                              <span>{alert.text}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="max-w-[200px] truncate text-muted-foreground p-2">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span>{result.remarques}</span>
-                              </TooltipTrigger>
-                              {result.remarques && <TooltipContent>{result.remarques}</TooltipContent>}
-                            </Tooltip>
-                          </TableCell>
-                          <TableCell className="text-center p-2 sticky right-0 bg-inherit z-10">
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setResultToDelete(result.id)}>
-                                <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                              </Button>
-                            </AlertDialogTrigger>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                    <TableRow className="bg-slate-100 font-semibold hover:bg-slate-100">
-                      <TableCell colSpan={4} className="p-2 sticky left-0 bg-slate-100 z-10">
-                        Moyenne de la sélection
-                      </TableCell>
-                      <TableCell className="text-right text-primary p-2 tabular-nums">
-                        {formatNumber(calculateAverage(filteredResults, "pci_brut"), 0)}
-                      </TableCell>
-                      <TableCell className="text-right p-2 tabular-nums">
-                        {formatNumber(calculateAverage(filteredResults, "h2o"), 1)}
-                      </TableCell>
-                      <TableCell className="text-right p-2 tabular-nums">
-                        {formatNumber(calculateAverage(filteredResults, "chlore"), 2)}
-                      </TableCell>
-                      <TableCell className="text-right p-2 tabular-nums">
-                        {formatNumber(calculateAverage(filteredResults, "cendres"), 1)}
-                      </TableCell>
-                      <TableCell colSpan={3} className="sticky right-0 bg-slate-100 z-10" />
-                    </TableRow>
-                  </>
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
-                      Aucun résultat trouvé.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </table>
-          </div>
-
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Êtes-vous absolument sûr ?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Cette action est irréversible. Le résultat sera définitivement supprimé de la base de données.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Annuler</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
-                Supprimer
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </div>
-      </AlertDialog>
-    </TooltipProvider>
+                    Oui, tout supprimer
+                </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+      </>
   );
 }
 
