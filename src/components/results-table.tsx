@@ -21,20 +21,17 @@ import {
   parse,
 } from "date-fns";
 import { fr } from "date-fns/locale";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import {
   Calendar as CalendarIcon,
   Trash2,
   Download,
   Upload,
   Plus,
+  AlertTriangle,
+  CheckCircle2,
 } from "lucide-react";
 import { getSpecifications, SPEC_MAP, getFuelSupplierMap, deleteAllResults, getFuelData, type FuelData, addManyResults } from "@/lib/data";
 import { calculerPCI } from "@/lib/pci";
-import { cn } from "@/lib/utils";
-import { DateRange } from "react-day-picker";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,10 +48,12 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 import * as z from "zod";
 import { Skeleton } from "./ui/skeleton";
-import { Card, CardContent } from "@/components/ui/card";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
-import { Input } from "@/components/ui/input"
 import Link from "next/link";
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
+import { Input } from "@/components/ui/input"
 
 
 interface Result {
@@ -92,7 +91,7 @@ const importSchema = z.object({
   taux_fils_metalliques: z.coerce.number().min(0).max(100).optional().nullable(),
 });
 
-function ResultsPageDense({
+function ResultsPagePro({
   rows = [],
   fuels = [],
   suppliers = [],
@@ -100,74 +99,73 @@ function ResultsPageDense({
   supplier="__ALL__", setSupplier=()=>{},
   from="", setFrom=()=>{},
   to="", setTo=()=>{},
-  onExport=()=>{}, onImport=()=>{}, onAdd=()=>{}, onDeleteAll=()=>{}, onDeleteOne=(id:string)=>{}
+  onExport=()=>{}, onImport=()=>{}, onAdd=()=>{}, onDeleteAll=()=>{}, onDeleteOne=(id:string)=>{},
 }) {
-  // résumé rapide
-  const stat = React.useMemo(() => {
+  const stats = React.useMemo(() => {
     const total = rows.length
-    const conformes = rows.filter((r:any)=> r.alerte && String(r.alerte.text).toLowerCase().includes("conforme")).length
-    const non = total - conformes
-    return { total, conformes, non }
+    const conformes = rows.filter((r:any)=>String(r.alerte.text).toLowerCase().includes("conforme")).length
+    return { total, conformes, non: total - conformes }
   }, [rows])
 
   const periodLabel = React.useMemo(() => {
-    if (from && to) return `${format(parseISO(from), "d MMM", {locale:fr})} → ${format(parseISO(to), "d MMM", {locale:fr})}`
-    if (from) return `Depuis le ${format(parseISO(from), "d MMM", {locale:fr})}`
-    if (to) return `Jusqu'au ${format(parseISO(to), "d MMM", {locale:fr})}`
+    if (from && to) return `${format(parseISO(from), "dd/MM/yy")} → ${format(parseISO(to), "dd/MM/yy")}`
+    if (from) return `du ${format(parseISO(from), "dd/MM/yy")}`
+    if (to) return `jusqu'au ${format(parseISO(to), "dd/MM/yy")}`
     return "Période"
   }, [from, to])
 
-  const Badge = ({children, tone="default"}:{children:any, tone?: "ok"|"warn"|"default"}) => {
-    const cls = tone==="ok"
-      ? "bg-green-100 text-green-700"
-      : tone==="warn"
-      ? "bg-red-100 text-red-700"
-      : "bg-muted text-muted-foreground"
-    return <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium ${cls}`}>{children}</span>
+  const Badge = ({tone, children}:{tone:"ok"|"warn"|"muted", children:React.ReactNode}) => {
+    const base = "inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium"
+    const map:any = {
+      ok:   "bg-green-100 text-green-700",
+      warn: "bg-red-100 text-red-700",
+      muted:"bg-muted text-muted-foreground",
+    }
+    return <span className={`${base} ${map[tone]}`}>{children}</span>
   }
 
   return (
     <div className="mx-auto w-full max-w-[1400px] p-3 md:p-5 space-y-3">
-       {/* Toolbar compacte */}
+      {/* TOOLBAR */}
       <Card className="rounded-2xl shadow-sm border">
-        <CardContent className="p-2 space-y-2">
-           <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-center">
-             {/* Résumé gauche */}
+        <CardContent className="p-2">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-center">
+            {/* Récap compact */}
             <div className="lg:col-span-4 flex items-center gap-2 text-[12px]">
-              <Badge tone="default">Total: {stat.total}</Badge>
-              <Badge tone="ok">Conformes: {stat.conformes}</Badge>
-              <Badge tone="warn">Non conf.: {stat.non}</Badge>
+              <Badge tone="muted">Total: {stats.total}</Badge>
+              <Badge tone="ok"><CheckCircle2 className="w-3 h-3 mr-1" /> {stats.conformes} conformes</Badge>
+              <Badge tone="warn"><AlertTriangle className="w-3 h-3 mr-1" /> {stats.non} non conf.</Badge>
             </div>
 
             {/* Filtres */}
             <div className="lg:col-span-2">
               <Select value={fuel} onValueChange={setFuel}>
-                <SelectTrigger className="h-8 rounded-lg text-[12px]">
+                <SelectTrigger className="h-9 rounded-xl text-[13px]">
                   <SelectValue placeholder="Type combustible" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__ALL__">Tous</SelectItem>
+                  <SelectItem value="__ALL__">Tous les combustibles</SelectItem>
                   {fuels.map((f:string)=><SelectItem key={f} value={f}>{f}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="lg:col-span-2">
               <Select value={supplier} onValueChange={setSupplier}>
-                <SelectTrigger className="h-8 rounded-lg text-[12px]">
+                <SelectTrigger className="h-9 rounded-xl text-[13px]">
                   <SelectValue placeholder="Fournisseur" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__ALL__">Tous</SelectItem>
+                  <SelectItem value="__ALL__">Tous les fournisseurs</SelectItem>
                   {suppliers.map((s:string)=><SelectItem key={s} value={s}>{s}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Période */}
+            {/* Période (bouton unique) */}
             <div className="lg:col-span-2">
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full h-8 rounded-lg text-[12px] justify-start">
+                  <Button variant="outline" className="w-full h-9 rounded-xl justify-start">
                     <Calendar className="w-4 h-4 mr-2" />
                     {periodLabel}
                   </Button>
@@ -182,37 +180,39 @@ function ResultsPageDense({
                           setFrom(range?.from ? format(range.from, 'yyyy-MM-dd') : '');
                           setTo(range?.to ? format(range.to, 'yyyy-MM-dd') : '');
                       }}
-                      numberOfMonths={2}
+                      numberOfMonths={1}
                       locale={fr}
                     />
                 </PopoverContent>
               </Popover>
             </div>
+
+            {/* Actions alignées à droite */}
             <div className="lg:col-span-2 flex items-center justify-end gap-2">
-                <Button variant="outline" className="h-8 rounded-lg text-[12px]" onClick={() => onImport()}>
-                    <Upload className="w-4 h-4 mr-1" /> Importer
+              <Button variant="outline" className="h-9 rounded-xl" onClick={onImport}>
+                <Upload className="w-4 h-4 mr-1" /> Importer
+              </Button>
+              <Button variant="outline" className="h-9 rounded-xl" onClick={onExport}>
+                <Download className="w-4 h-4 mr-1" /> Exporter
+              </Button>
+               <Link href="/calculateur">
+                <Button className="h-9 rounded-xl" onClick={() => {}}>
+                  <Plus className="w-4 h-4 mr-1" /> Ajouter
                 </Button>
-                <Button variant="outline" className="h-8 rounded-lg text-[12px]" onClick={() => onExport()}>
-                    <Download className="w-4 h-4 mr-1" /> Exporter
-                </Button>
-                <Link href="/calculateur">
-                    <Button className="h-8 rounded-lg text-[12px]" onClick={() => onAdd()}>
-                        <Plus className="w-4 h-4 mr-1" /> Ajouter
-                    </Button>
-                </Link>
-                <Button variant="destructive" className="h-8 rounded-lg text-[12px]" onClick={() => onDeleteAll()}>
-                    <Trash2 className="w-4 h-4 mr-1" /> Supprimer
-                </Button>
+              </Link>
+              <Button variant="destructive" className="h-9 rounded-xl" onClick={onDeleteAll}>
+                <Trash2 className="w-4 h-4 mr-1" /> Supprimer
+              </Button>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Tableau dense */}
+      {/* TABLEAU */}
       <Card className="rounded-2xl shadow-md">
         <CardContent className="p-0">
           <div className="max-h-[70vh] overflow-auto rounded-2xl border-t bg-background">
-            <table className="w-full text-[12px] border-separate border-spacing-0">
+            <table className="w-full text-[13px] border-separate border-spacing-0">
               <thead className="text-muted-foreground">
                 <tr>
                   {["Date Arrivage","Type Combustible","Fournisseur","PCI sur Brut","% H2O","% Cl-","% Cendres","Alertes","Remarques","Action"]
@@ -227,21 +227,33 @@ function ResultsPageDense({
               <tbody>
                 {rows.map((r:any, i:number)=>(
                   <tr key={r.id ?? i} className="border-b last:border-0 even:bg-muted/30 hover:bg-muted/50 transition-colors">
-                    <td className="p-1.5 text-muted-foreground whitespace-nowrap">{r.dateArrivage}</td>
-                    <td className="p-1.5 font-medium">{r.typeCombustible}</td>
-                    <td className="p-1.5">{r.fournisseur}</td>
-                    <td className={`p-1.5 text-right font-semibold tabular-nums ${r.pciAlert ? "text-red-600":""}`}>{r.pci}</td>
-                    <td className={`p-1.5 text-right tabular-nums ${r.h2oAlert ? "text-red-600":""}`}>{r.h2o}</td>
-                    <td className={`p-1.5 text-right tabular-nums ${r.chloreAlert ? "text-red-600":""}`}>{r.cl}</td>
-                    <td className={`p-1.5 text-right tabular-nums ${r.cendresAlert ? "text-red-600":""}`}>{r.cendres}</td>
-                    <td className="p-1.5">
-                       {r.alerte.isConform
-                        ? <Badge tone="ok">✔ Conforme</Badge>
-                        : <Badge tone="warn">⚠ {r.alerte.text || "Non conforme"}</Badge>}
+                    <td className="p-2 text-muted-foreground whitespace-nowrap">{r.dateArrivage}</td>
+                    <td className="p-2 font-medium">{r.typeCombustible}</td>
+                    <td className="p-2">{r.fournisseur}</td>
+
+                    {/* chiffres tabulaires + couleurs */}
+                    <td className={`p-2 text-right font-semibold tabular-nums ${r.pciAlert ? "text-red-600" : ""}`}>{r.pci}</td>
+                    <td className={`p-2 text-right tabular-nums ${r.h2oAlert ? "text-red-600" : ""}`}>{r.h2o}</td>
+                    <td className={`p-2 text-right tabular-nums ${r.chloreAlert ? "text-red-600" : ""}`}>{r.cl}</td>
+                    <td className={`p-2 text-right tabular-nums ${r.cendresAlert ? "text-red-600" : ""}`}>{r.cendres}</td>
+
+                    <td className="p-2">
+                      {r.alerte.isConform ? (
+                        <span className="inline-flex items-center gap-1 text-green-600 font-medium">
+                          <CheckCircle2 className="w-4 h-4" /> Conforme
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-red-600 font-medium">
+                          <AlertTriangle className="w-4 h-4" /> {r.alerte.text || "Non conforme"}
+                        </span>
+                      )}
                     </td>
-                    <td className="p-1.5 text-muted-foreground max-w-[150px] truncate" title={r.remarque}>{r.remarque ?? "-"}</td>
-                    <td className="p-1.5 text-center">
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onDeleteOne(r.id)}><Trash2 className="w-3.5 h-3.5 text-red-500 hover:text-red-600" /></Button>
+
+                    <td className="p-2 text-muted-foreground max-w-[150px] truncate" title={r.remarque}>{r.remarque ?? "-"}</td>
+                    <td className="p-2 text-center">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDeleteOne(r.id)}>
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
                     </td>
                   </tr>
                 ))}
@@ -420,8 +432,8 @@ export function ResultsTable() {
     const spec = SPEC_MAP.get(`${result.type_combustible}|${result.fournisseur}`);
     if (!spec) {
       return {
-        text: "N/A",
-        isConform: true, // No spec, no alert
+        text: "Conforme",
+        isConform: true,
         details: { pci: false, h2o: false, chlore: false, cendres: false },
       };
     }
@@ -685,7 +697,7 @@ export function ResultsTable() {
             onChange={handleFileImport}
             accept=".xlsx, .xls"
         />
-        <ResultsPageDense 
+        <ResultsPagePro 
             rows={tableRows}
             fuels={uniqueFuelTypes}
             suppliers={availableFournisseurs}
