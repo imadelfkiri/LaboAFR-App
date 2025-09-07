@@ -15,6 +15,7 @@ import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/comp
 
 type OxideAnalysis = {
     [key: string]: number | undefined;
+    pourcentage_cendres?: number;
     pf?: number; sio2?: number; al2o3?: number; fe2o3?: number;
     cao?: number; mgo?: number; so3?: number; k2o?: number;
     tio2?: number; mno?: number; p2o5?: number;
@@ -211,7 +212,7 @@ export function ClinkerImpactCalculator() {
             ]);
 
             setAfAshAnalysis(avgAfAsh);
-            setGrignonsAshAnalysis(avgGrignonsAsh['Grignons'] || {});
+            setGrignonsAshAnalysis(avgGrignonsAsh || {});
 
         } catch (error) {
             console.error(error);

@@ -1,5 +1,3 @@
-"use client";
-
 import { ClinkerImpactCalculator } from "@/components/clinker-impact-calculator";
 import type { Metadata } from 'next';
 
