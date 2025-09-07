@@ -79,6 +79,7 @@ export interface MixtureScenario {
     date_creation: Timestamp;
     donnees_hall: any;
     donnees_ats: any;
+    donnees_grignons: any;
 }
 
 export interface AshAnalysis {
@@ -665,5 +666,3 @@ export async function addManyResults(results: ResultToSave[]): Promise<void> {
 
     await batch.commit();
 }
-
-    
