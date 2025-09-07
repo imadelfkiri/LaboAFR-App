@@ -28,7 +28,7 @@ const pageTitles: { [key: string]: string } = {
   '/gestion-couts': 'Gestion des Coûts',
   '/gestion-stock': 'Gestion du Stock',
   '/indicateurs': 'Indicateurs',
-  '/calcul-impact': "Calcul d'Impact",
+  '/calcul-impact': "Calcul d'Impact Clinker",
 };
 
 export function MainLayout({ children }: { children: React.ReactNode }) {

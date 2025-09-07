@@ -611,6 +611,45 @@ export async function getAshAnalyses(): Promise<AshAnalysis[]> {
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AshAnalysis));
 }
 
+export async function getAverageAshAnalysisForFuels(
+  fuelNames: string[],
+): Promise<AshAnalysis> {
+  if (fuelNames.length === 0) {
+    return {};
+  }
+  
+  const q = query(
+    collection(db, 'analyses_cendres'),
+    where('type_combustible', 'in', fuelNames)
+  );
+
+  const snapshot = await getDocs(q);
+  const dbResults = snapshot.docs.map(doc => doc.data() as AshAnalysis);
+
+  const analysis: { [key: string]: number[] } = {
+    pourcentage_cendres: [], sio2: [], al2o3: [], fe2o3: [], cao: [],
+    mgo: [], so3: [], k2o: [], tio2: [], mno: [], p2o5: []
+  };
+
+  dbResults.forEach(res => {
+    Object.keys(analysis).forEach(key => {
+        const value = res[key as keyof AshAnalysis];
+        if (typeof value === 'number') {
+            analysis[key].push(value);
+        }
+    });
+  });
+
+  const finalAverages: AshAnalysis = {} as any;
+  const avg = (arr: number[]) => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+
+  for (const key in analysis) {
+    (finalAverages as any)[key] = avg(analysis[key]);
+  }
+
+  return finalAverages;
+}
+
 export async function addAshAnalysis(data: Omit<AshAnalysis, 'id'>): Promise<string> {
     const docRef = await addDoc(collection(db, 'analyses_cendres'), data);
     return docRef.id;
