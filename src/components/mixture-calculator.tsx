@@ -327,7 +327,6 @@ export function MixtureCalculator() {
     if (!analysisDateRange?.from || !analysisDateRange?.to) return;
     setLoading(true);
     try {
-        // Fetch all data concurrently
         const [allFuelData, costs, latestSession, allStocks, globalSpec] = await Promise.all([
             getFuelData(),
             getFuelCosts(),
@@ -351,20 +350,22 @@ export function MixtureCalculator() {
             return acc;
         }, {} as Record<string, FuelData>);
         setFuelData(fuelDataMap);
-        
-        const fuelNames = allStocks.map(s => s.nom_combustible);
-        // Ensure Grignons is included for analysis fetching if not in stocks
-        if (!fuelNames.includes('Grignons')) {
-            fuelNames.push('Grignons');
+
+        const allAvailableFuelNames = new Set(allStocks.map(s => s.nom_combustible));
+        if (latestSession) {
+            Object.keys(latestSession.hallAF?.fuels || {}).forEach(name => allAvailableFuelNames.add(name));
+            Object.keys(latestSession.ats?.fuels || {}).forEach(name => allAvailableFuelNames.add(name));
         }
+        allAvailableFuelNames.add('Grignons');
 
-        const fuelsAnalysis = await getAverageAnalysisForFuels(fuelNames, analysisDateRange);
+        const fuelsAnalysis = await getAverageAnalysisForFuels(Array.from(allAvailableFuelNames), analysisDateRange);
 
-        const initialFuelState = allStocks.filter(s => s.nom_combustible.toLowerCase() !== 'grignons').reduce((acc, stock) => {
-            acc[stock.nom_combustible] = { buckets: 0 };
-            return acc;
-        }, {} as InstallationState['fuels']);
-
+        const initialFuelState = Array.from(allAvailableFuelNames)
+            .filter(name => name.toLowerCase() !== 'grignons')
+            .reduce((acc, name) => {
+                acc[name] = { buckets: 0 };
+                return acc;
+            }, {} as InstallationState['fuels']);
 
         setAvailableFuels(fuelsAnalysis);
         setFuelCosts(costs);
@@ -970,5 +971,3 @@ const fuelOrder = [
     </div>
   );
 }
-
-    
