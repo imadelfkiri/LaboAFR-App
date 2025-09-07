@@ -41,6 +41,7 @@ export interface MixtureSession {
     timestamp: Timestamp;
     hallAF: any;
     ats: any;
+    grignons: any; // Add grignons to the session
     globalIndicators: any;
     availableFuels: Record<string, AverageAnalysis>;
 }
