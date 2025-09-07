@@ -327,14 +327,16 @@ export function MixtureCalculator() {
     if (!analysisDateRange?.from || !analysisDateRange?.to) return;
     setLoading(true);
     try {
-        const [allFuelData, costs, latestSession, allStocks, globalSpec] = await Promise.all([
+        // Step 1: Fetch all base data concurrently
+        const [allFuelData, costs, allStocks, globalSpec, latestSession] = await Promise.all([
             getFuelData(),
             getFuelCosts(),
-            getLatestMixtureSession(),
             getStocks(),
             getGlobalMixtureSpecification(),
+            getLatestMixtureSession(),
         ]);
 
+        // Step 2: Set simple states and prepare for analysis
         if (globalSpec) {
              setThresholds({
                 pci_min: globalSpec.pci_min ?? defaultThresholds.pci_min,
@@ -344,50 +346,57 @@ export function MixtureCalculator() {
                 tireRate_max: globalSpec.tireRate_max ?? defaultThresholds.tireRate_max,
             });
         }
-
-        const fuelDataMap = allFuelData.reduce((acc, fd) => {
-            acc[fd.nom_combustible] = fd;
-            return acc;
-        }, {} as Record<string, FuelData>);
+        const fuelDataMap = allFuelData.reduce((acc, fd) => { acc[fd.nom_combustible] = fd; return acc; }, {} as Record<string, FuelData>);
         setFuelData(fuelDataMap);
+        setFuelCosts(costs);
 
+        // Step 3: Determine all unique fuels from stocks and latest session
         const allAvailableFuelNames = new Set(allStocks.map(s => s.nom_combustible));
         if (latestSession) {
             Object.keys(latestSession.hallAF?.fuels || {}).forEach(name => allAvailableFuelNames.add(name));
             Object.keys(latestSession.ats?.fuels || {}).forEach(name => allAvailableFuelNames.add(name));
         }
-        allAvailableFuelNames.add('Grignons');
-
+        allAvailableFuelNames.add('Grignons'); // Always include Grignons
+        
+        // Step 4: Fetch average analysis for these fuels
         const fuelsAnalysis = await getAverageAnalysisForFuels(Array.from(allAvailableFuelNames), analysisDateRange);
+        setAvailableFuels(fuelsAnalysis);
 
+        // Step 5: Initialize the UI state with all possible fuels
         const initialFuelState = Array.from(allAvailableFuelNames)
             .filter(name => name.toLowerCase() !== 'grignons')
             .reduce((acc, name) => {
                 acc[name] = { buckets: 0 };
                 return acc;
             }, {} as InstallationState['fuels']);
-
-        setAvailableFuels(fuelsAnalysis);
-        setFuelCosts(costs);
-
-        if(latestSession){
-            setHallAF({
+        
+        let initialHallState = { flowRate: 0, fuels: { ...initialFuelState } };
+        let initialAtsState = { flowRate: 0, fuels: { ...initialFuelState } };
+        let initialGrignonsState = { flowRate: 0 };
+        
+        // Step 6: If a latest session exists, apply its data over the initial state
+        if (latestSession) {
+            initialHallState = {
                 flowRate: latestSession.hallAF?.flowRate || 0,
                 fuels: { ...initialFuelState, ...(latestSession.hallAF?.fuels || {}) }
-            });
-             setAts({
+            };
+            initialAtsState = {
                 flowRate: latestSession.ats?.flowRate || 0,
                 fuels: { ...initialFuelState, ...(latestSession.ats?.fuels || {}) }
-            });
-            setGrignons({
-                flowRate: latestSession.grignons?.flowRate || 0,
-            });
-            toast({title: "Dernière session chargée", description: "La dernière configuration a été chargée."});
-        } else {
-            setHallAF(prev => ({...prev, fuels: { ...initialFuelState }}));
-            setAts(prev => ({...prev, fuels: { ...initialFuelState }}));
-            setGrignons({ flowRate: 0 });
+            };
+            initialGrignonsState = {
+                flowRate: latestSession.grignons?.flowRate || 0
+            };
+             // Use a timeout to ensure the toast appears after the main render cycle
+            setTimeout(() => {
+              toast({ title: "Dernière session chargée", description: "La dernière configuration a été chargée." });
+            }, 100);
         }
+        
+        // Step 7: Set the final states
+        setHallAF(initialHallState);
+        setAts(initialAtsState);
+        setGrignons(initialGrignonsState);
 
     } catch (error) {
         console.error("Error fetching fuel data:", error);
@@ -396,6 +405,7 @@ export function MixtureCalculator() {
         setLoading(false);
     }
   }, [analysisDateRange, toast]);
+
 
   useEffect(() => {
     fetchData();
