@@ -327,7 +327,7 @@ export function MixtureCalculator() {
     if (!analysisDateRange?.from || !analysisDateRange?.to) return;
     setLoading(true);
     try {
-        // Step 1: Fetch all base data and the latest session concurrently
+        // Step 1: Fetch all base data concurrently
         const [allFuelData, costs, allStocks, globalSpec, latestSession] = await Promise.all([
             getFuelData(),
             getFuelCosts(),
@@ -335,20 +335,22 @@ export function MixtureCalculator() {
             getGlobalMixtureSpecification(),
             getLatestMixtureSession(),
         ]);
-
-        // Step 2: Determine all unique fuels from stocks and latest session
-        const allAvailableFuelNames = new Set(allStocks.map(s => s.nom_combustible));
+        
+        // Step 2: Determine the complete set of fuels to consider
+        const allPossibleFuelNames = new Set(allStocks.map(s => s.nom_combustible));
         if (latestSession) {
-            Object.keys(latestSession.hallAF?.fuels || {}).forEach(name => allAvailableFuelNames.add(name));
-            Object.keys(latestSession.ats?.fuels || {}).forEach(name => allAvailableFuelNames.add(name));
+            Object.keys(latestSession.hallAF?.fuels || {}).forEach(name => allPossibleFuelNames.add(name));
+            Object.keys(latestSession.ats?.fuels || {}).forEach(name => allPossibleFuelNames.add(name));
         }
-        allAvailableFuelNames.add('Grignons'); // Always include Grignons
-        
-        // Step 3: Fetch average analysis for these fuels
-        const fuelsAnalysis = await getAverageAnalysisForFuels(Array.from(allAvailableFuelNames), analysisDateRange);
+        allPossibleFuelNames.add('Grignons'); // Always include Grignons
+
+        const fuelNamesArray = Array.from(allPossibleFuelNames);
+
+        // Step 3: Fetch average analysis for this complete set of fuels
+        const fuelsAnalysis = await getAverageAnalysisForFuels(fuelNamesArray, analysisDateRange);
         setAvailableFuels(fuelsAnalysis);
-        
-        // Step 4: Set simple states and prepare for analysis
+
+        // Step 4: Set simple states from the fetched base data
         if (globalSpec) {
              setThresholds({
                 pci_min: globalSpec.pci_min ?? defaultThresholds.pci_min,
@@ -362,9 +364,8 @@ export function MixtureCalculator() {
         setFuelData(fuelDataMap);
         setFuelCosts(costs);
 
-
-        // Step 5: Initialize the UI state with all possible fuels
-        const initialFuelState = Array.from(allAvailableFuelNames)
+        // Step 5: Initialize UI state with all possible fuels, set to zero
+        const initialFuelState = fuelNamesArray
             .filter(name => name.toLowerCase() !== 'grignons')
             .reduce((acc, name) => {
                 acc[name] = { buckets: 0 };
@@ -375,21 +376,19 @@ export function MixtureCalculator() {
         let initialAtsState = { flowRate: 0, fuels: { ...initialFuelState } };
         let initialGrignonsState = { flowRate: 0 };
         
-        // Step 6: If a latest session exists, apply its data over the initial state
+        // Step 6: If a latest session exists, merge its data into the initial state
         if (latestSession) {
-            // Important: Create new objects and spread the fuels to avoid reference issues
             initialHallState = {
                 flowRate: latestSession.hallAF?.flowRate || 0,
-                fuels: { ...initialFuelState, ...(latestSession.hallAF?.fuels || {}) }
+                fuels: { ...initialHallState.fuels, ...(latestSession.hallAF?.fuels || {}) }
             };
             initialAtsState = {
                 flowRate: latestSession.ats?.flowRate || 0,
-                fuels: { ...initialFuelState, ...(latestSession.ats?.fuels || {}) }
+                fuels: { ...initialAtsState.fuels, ...(latestSession.ats?.fuels || {}) }
             };
             initialGrignonsState = {
                 flowRate: latestSession.grignons?.flowRate || 0
             };
-             // Use a timeout to ensure the toast appears after the main render cycle
             setTimeout(() => {
               toast({ title: "Dernière session chargée", description: "La dernière configuration a été chargée." });
             }, 100);
