@@ -327,7 +327,7 @@ export function MixtureCalculator() {
     if (!analysisDateRange?.from || !analysisDateRange?.to) return;
     setLoading(true);
     try {
-        // Step 1: Fetch all base data concurrently
+        // Step 1: Fetch all base data and the latest session concurrently
         const [allFuelData, costs, allStocks, globalSpec, latestSession] = await Promise.all([
             getFuelData(),
             getFuelCosts(),
@@ -336,7 +336,19 @@ export function MixtureCalculator() {
             getLatestMixtureSession(),
         ]);
 
-        // Step 2: Set simple states and prepare for analysis
+        // Step 2: Determine all unique fuels from stocks and latest session
+        const allAvailableFuelNames = new Set(allStocks.map(s => s.nom_combustible));
+        if (latestSession) {
+            Object.keys(latestSession.hallAF?.fuels || {}).forEach(name => allAvailableFuelNames.add(name));
+            Object.keys(latestSession.ats?.fuels || {}).forEach(name => allAvailableFuelNames.add(name));
+        }
+        allAvailableFuelNames.add('Grignons'); // Always include Grignons
+        
+        // Step 3: Fetch average analysis for these fuels
+        const fuelsAnalysis = await getAverageAnalysisForFuels(Array.from(allAvailableFuelNames), analysisDateRange);
+        setAvailableFuels(fuelsAnalysis);
+        
+        // Step 4: Set simple states and prepare for analysis
         if (globalSpec) {
              setThresholds({
                 pci_min: globalSpec.pci_min ?? defaultThresholds.pci_min,
@@ -350,17 +362,6 @@ export function MixtureCalculator() {
         setFuelData(fuelDataMap);
         setFuelCosts(costs);
 
-        // Step 3: Determine all unique fuels from stocks and latest session
-        const allAvailableFuelNames = new Set(allStocks.map(s => s.nom_combustible));
-        if (latestSession) {
-            Object.keys(latestSession.hallAF?.fuels || {}).forEach(name => allAvailableFuelNames.add(name));
-            Object.keys(latestSession.ats?.fuels || {}).forEach(name => allAvailableFuelNames.add(name));
-        }
-        allAvailableFuelNames.add('Grignons'); // Always include Grignons
-        
-        // Step 4: Fetch average analysis for these fuels
-        const fuelsAnalysis = await getAverageAnalysisForFuels(Array.from(allAvailableFuelNames), analysisDateRange);
-        setAvailableFuels(fuelsAnalysis);
 
         // Step 5: Initialize the UI state with all possible fuels
         const initialFuelState = Array.from(allAvailableFuelNames)
@@ -376,6 +377,7 @@ export function MixtureCalculator() {
         
         // Step 6: If a latest session exists, apply its data over the initial state
         if (latestSession) {
+            // Important: Create new objects and spread the fuels to avoid reference issues
             initialHallState = {
                 flowRate: latestSession.hallAF?.flowRate || 0,
                 fuels: { ...initialFuelState, ...(latestSession.hallAF?.fuels || {}) }
