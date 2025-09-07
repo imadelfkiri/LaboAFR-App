@@ -4,13 +4,14 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { BrainCircuit, Calendar as CalendarIcon, Save, Settings, ChevronDown, CheckCircle, AlertTriangle, Copy, Mail } from 'lucide-react';
 import { DateRange } from "react-day-picker";
-import { format, subDays, startOfDay, endOfDay, parseISO } from 'date-fns';
+import { format, subDays, startOfDay, endOfDay, parseISO, isValid } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
+import { Timestamp } from 'firebase/firestore';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -323,11 +324,12 @@ export function MixtureCalculator() {
     }
   }
 
- const fetchData = useCallback(async () => {
-    if (!analysisDateRange?.from || !analysisDateRange?.to) return;
+ const fetchData = useCallback(async (newDateRange?: DateRange) => {
+    const dateRangeToUse = newDateRange ?? analysisDateRange;
+    if (!dateRangeToUse?.from || !dateRangeToUse?.to) return;
+
     setLoading(true);
     try {
-        // Step 1: Fetch all base data concurrently
         const [allFuelData, costs, allStocks, globalSpec, latestSession] = await Promise.all([
             getFuelData(),
             getFuelCosts(),
@@ -336,21 +338,30 @@ export function MixtureCalculator() {
             getLatestMixtureSession(),
         ]);
         
-        // Step 2: Determine the complete set of fuels to consider
+        let finalDateRange = dateRangeToUse;
+        if (latestSession?.analysisDateRange?.from && latestSession.analysisDateRange.to) {
+            const fromDate = latestSession.analysisDateRange.from.toDate();
+            const toDate = latestSession.analysisDateRange.to.toDate();
+            if (isValid(fromDate) && isValid(toDate)) {
+                finalDateRange = { from: fromDate, to: toDate };
+                setAnalysisDateRange(finalDateRange);
+            }
+        }
+
         const allPossibleFuelNames = new Set(allStocks.map(s => s.nom_combustible));
         if (latestSession) {
             Object.keys(latestSession.hallAF?.fuels || {}).forEach(name => allPossibleFuelNames.add(name));
             Object.keys(latestSession.ats?.fuels || {}).forEach(name => allPossibleFuelNames.add(name));
+            if(latestSession.grignons) allPossibleFuelNames.add('Grignons');
+        } else {
+            allPossibleFuelNames.add('Grignons');
         }
-        allPossibleFuelNames.add('Grignons'); // Always include Grignons
 
         const fuelNamesArray = Array.from(allPossibleFuelNames);
-
-        // Step 3: Fetch average analysis for this complete set of fuels
-        const fuelsAnalysis = await getAverageAnalysisForFuels(fuelNamesArray, analysisDateRange);
+        const fuelsAnalysis = await getAverageAnalysisForFuels(fuelNamesArray, finalDateRange);
+        
         setAvailableFuels(fuelsAnalysis);
 
-        // Step 4: Set simple states from the fetched base data
         if (globalSpec) {
              setThresholds({
                 pci_min: globalSpec.pci_min ?? defaultThresholds.pci_min,
@@ -364,7 +375,6 @@ export function MixtureCalculator() {
         setFuelData(fuelDataMap);
         setFuelCosts(costs);
 
-        // Step 5: Initialize UI state with all possible fuels, set to zero
         const initialFuelState = fuelNamesArray
             .filter(name => name.toLowerCase() !== 'grignons')
             .reduce((acc, name) => {
@@ -376,7 +386,6 @@ export function MixtureCalculator() {
         let initialAtsState = { flowRate: 0, fuels: { ...initialFuelState } };
         let initialGrignonsState = { flowRate: 0 };
         
-        // Step 6: If a latest session exists, merge its data into the initial state
         if (latestSession) {
             initialHallState = {
                 flowRate: latestSession.hallAF?.flowRate || 0,
@@ -389,12 +398,13 @@ export function MixtureCalculator() {
             initialGrignonsState = {
                 flowRate: latestSession.grignons?.flowRate || 0
             };
-            setTimeout(() => {
-              toast({ title: "Dernière session chargée", description: "La dernière configuration a été chargée." });
-            }, 100);
+            if(!newDateRange){ // Only show toast on initial load, not on date change
+                setTimeout(() => {
+                    toast({ title: "Dernière session chargée", description: "La dernière configuration a été chargée." });
+                }, 100);
+            }
         }
         
-        // Step 7: Set the final states
         setHallAF(initialHallState);
         setAts(initialAtsState);
         setGrignons(initialGrignonsState);
@@ -410,7 +420,14 @@ export function MixtureCalculator() {
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+  }, []);
+
+  const handleDateRangeChange = (newRange: DateRange | undefined) => {
+      if(newRange){
+          setAnalysisDateRange(newRange);
+          fetchData(newRange);
+      }
+  }
 
 
   const fetchHistoryData = useCallback(async () => {
@@ -491,12 +508,20 @@ export function MixtureCalculator() {
     setIsSaving(true);
     setIsSaveModalOpen(false);
     try {
+        if (!analysisDateRange?.from || !analysisDateRange?.to) {
+            throw new Error("La plage de dates d'analyse n'est pas définie.");
+        }
+
         const sessionData: Omit<MixtureSession, 'id' | 'timestamp'> = {
             hallAF,
             ats,
             grignons,
             globalIndicators,
             availableFuels,
+            analysisDateRange: {
+                from: Timestamp.fromDate(analysisDateRange.from),
+                to: Timestamp.fromDate(analysisDateRange.to),
+            },
         };
         await saveMixtureSession(sessionData);
         toast({ title: "Succès", description: "La session de mélange a été enregistrée." });
@@ -828,7 +853,7 @@ const fuelOrder = [
                           mode="range"
                           defaultMonth={analysisDateRange?.from}
                           selected={analysisDateRange}
-                          onSelect={setAnalysisDateRange}
+                          onSelect={handleDateRangeChange}
                           numberOfMonths={2}
                           locale={fr}
                       />

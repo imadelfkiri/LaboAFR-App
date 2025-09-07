@@ -44,6 +44,7 @@ export interface MixtureSession {
     grignons: any; // Add grignons to the session
     globalIndicators: any;
     availableFuels: Record<string, AverageAnalysis>;
+    analysisDateRange?: { from: Timestamp; to: Timestamp };
 }
 
 export interface FuelCost {
