@@ -191,7 +191,11 @@ export function ClinkerImpactCalculator() {
     const [afAshAnalysis, setAfAshAnalysis] = useState<OxideAnalysis>({});
     const [grignonsAshAnalysis, setGrignonsAshAnalysis] = useState<OxideAnalysis>({});
 
-    const afFlow = useMemo(() => latestSession?.globalIndicators?.flow || 0, [latestSession]);
+    const afFlow = useMemo(() => {
+        if (!latestSession) return 0;
+        // Sum of Hall AF and ATS flow rates, excluding Grignons
+        return (latestSession.hallAF?.flowRate || 0) + (latestSession.ats?.flowRate || 0);
+    }, [latestSession]);
     const grignonsFlow = useMemo(() => latestSession?.grignons?.flowRate || 0, [latestSession]);
 
     const fetchData = useCallback(async () => {
