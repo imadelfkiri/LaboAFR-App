@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -65,7 +66,26 @@ const useClinkerCalculations = (
     petCokeTuyereAshAnalysis: OxideAnalysis
 ) => {
     return useMemo(() => {
-        const clinkerize = (inputAnalysis: OxideAnalysis) => {
+        // Simplified clinkerization for "Clinker without Ash"
+        const clinkerizeWithoutAsh = (inputAnalysis: OxideAnalysis) => {
+            const pf = inputAnalysis.pf || 0;
+            if (pf >= 100) return {}; // Avoid division by zero or negative
+
+            const factor = 100 / (100 - pf);
+            const clinkerAnalysis: OxideAnalysis = {};
+
+            OXIDE_KEYS.forEach(key => {
+                if (key !== 'pf' && inputAnalysis[key] !== undefined) {
+                    clinkerAnalysis[key] = (inputAnalysis[key] || 0) * factor;
+                }
+            });
+            
+            clinkerAnalysis.pf = 0; // After clinkerization, PF is conceptually zero before normalization
+            return clinkerAnalysis;
+        }
+
+        // Clinkerization for "Clinker with Ash" - keeps the more complex mixing logic
+        const clinkerizeWithAsh = (inputAnalysis: OxideAnalysis) => {
             const clinkerizableOxidesSum = OXIDE_KEYS.reduce((sum, key) => {
                 if (key !== 'pf') {
                     sum += inputAnalysis[key] || 0;
@@ -88,7 +108,7 @@ const useClinkerCalculations = (
             return clinkerAnalysis;
         };
 
-        const clinkerWithoutAsh = clinkerize(rawMealAnalysis);
+        const clinkerWithoutAsh = clinkerizeWithoutAsh(rawMealAnalysis);
 
         const totalOxideFlows: OxideAnalysis = {};
         const sources = [
@@ -101,9 +121,7 @@ const useClinkerCalculations = (
 
         OXIDE_KEYS.forEach(key => {
             totalOxideFlows[key] = sources.reduce((sum, source) => {
-                // For ashes, their 'flow' is the ash content of the fuel flow
                 let ashContentPercent = 1;
-                // PF (loss on ignition) only comes from raw meal
                 if (key === 'pf') {
                      return source.analysis === rawMealAnalysis ? sum + source.flow * (source.analysis[key] || 0) / 100 : sum;
                 }
@@ -130,7 +148,7 @@ const useClinkerCalculations = (
             });
         }
         
-        const clinkerWithAsh = clinkerize(mixedRawAnalysis);
+        const clinkerWithAsh = clinkerizeWithAsh(mixedRawAnalysis);
         
         return { clinkerWithoutAsh, clinkerWithAsh };
     }, [rawMealFlow, rawMealAnalysis, afFlow, afAshAnalysis, grignonsFlow, grignonsAshAnalysis, petCokePrecaFlow, petCokePrecaAshAnalysis, petCokeTuyereFlow, petCokeTuyereAshAnalysis]);
@@ -186,10 +204,18 @@ export function ClinkerImpactCalculator() {
 
     const afFlow = useMemo(() => {
         if (!latestSession) return 0;
-        // Sum of Hall AF and ATS flow rates, excluding Grignons
-        const hallFlow = latestSession.hallAF?.flowRate || 0;
-        const atsFlow = latestSession.ats?.flowRate || 0;
-        return hallFlow + atsFlow;
+        const hallFlow = latestSession.hallAF?.fuels ? Object.keys(latestSession.hallAF.fuels).reduce((sum, key) => key.toLowerCase() !== 'grignons' ? sum + (latestSession.hallAF.flowRate || 0) : sum, 0) : 0;
+        const atsFlow = latestSession.ats?.fuels ? Object.keys(latestSession.ats.fuels).reduce((sum, key) => key.toLowerCase() !== 'grignons' ? sum + (latestSession.ats.flowRate || 0) : sum, 0) : 0;
+        
+        let totalAfFlow = 0;
+        if (latestSession.hallAF?.flowRate && latestSession.hallAF.fuels) {
+             totalAfFlow += latestSession.hallAF.flowRate;
+        }
+         if (latestSession.ats?.flowRate && latestSession.ats.fuels) {
+             totalAfFlow += latestSession.ats.flowRate;
+        }
+
+        return totalAfFlow;
     }, [latestSession]);
     
     const grignonsFlow = useMemo(() => latestSession?.grignons?.flowRate || 0, [latestSession]);
