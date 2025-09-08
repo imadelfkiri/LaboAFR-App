@@ -85,27 +85,10 @@ const useClinkerCalculations = (
             return clinkerAnalysis;
         }
 
-        const clinkerizeWithoutAsh = (inputAnalysis: OxideAnalysis) => {
-            const paf = inputAnalysis.paf || 0;
-            if (paf >= 100) return {};
-
-            const clinkerizableOxidesSum = OXIDE_KEYS.reduce((sum, key) => {
-                return sum + (inputAnalysis[key] || 0);
-            }, 0);
-
-            if (clinkerizableOxidesSum === 0) return {};
-
-            const factor = 99.8 / clinkerizableOxidesSum;
-
-            const clinkerAnalysis: OxideAnalysis = { paf: 0.2 };
-            OXIDE_KEYS.forEach(key => {
-                clinkerAnalysis[key] = (inputAnalysis[key] || 0) * factor;
-            });
-            return clinkerAnalysis;
-        }
-
         // --- Clinker Sans Cendres ---
-        const clinkerWithoutAsh = clinkerizeWithoutAsh(rawMealAnalysis);
+        const clinkerWithoutAsh = clinkerize(rawMealAnalysis);
+        clinkerWithoutAsh.paf = 0.2;
+
 
         // --- Clinker Avec Cendres ---
         const totalOxideFlows: OxideAnalysis = {};
