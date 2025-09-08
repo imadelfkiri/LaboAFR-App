@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { getLatestMixtureSession, getAverageAshAnalysisForFuels, type MixtureSession, type AshAnalysis } from '@/lib/data';
-import { Calculator, Beaker, FileDown, Flame } from 'lucide-react';
+import { Calculator, Beaker, FileDown, Flame, ArrowRight } from 'lucide-react';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 
@@ -69,7 +69,7 @@ const useClinkerCalculations = (
         // Simplified clinkerization for "Clinker without Ash"
         const clinkerizeWithoutAsh = (inputAnalysis: OxideAnalysis) => {
             const pf = inputAnalysis.pf || 0;
-            if (pf >= 100) return {}; // Avoid division by zero or negative
+            if (pf >= 100) return {};
 
             const factor = 100 / (100 - pf);
             const clinkerAnalysis: OxideAnalysis = {};
@@ -80,14 +80,13 @@ const useClinkerCalculations = (
                 }
             });
             
-            clinkerAnalysis.pf = 0; // After clinkerization, PF is conceptually zero before normalization
             return clinkerAnalysis;
         }
 
-        // Clinkerization for "Clinker with Ash" - keeps the more complex mixing logic
-        const clinkerizeWithAsh = (inputAnalysis: OxideAnalysis) => {
+        // Clinkerization for "Clinker with Ash"
+         const clinkerizeWithAsh = (inputAnalysis: OxideAnalysis) => {
             const clinkerizableOxidesSum = OXIDE_KEYS.reduce((sum, key) => {
-                if (key !== 'pf') {
+                if (key !== 'pf' && inputAnalysis[key] !== undefined) {
                     sum += inputAnalysis[key] || 0;
                 }
                 return sum;
@@ -95,18 +94,19 @@ const useClinkerCalculations = (
 
             if (clinkerizableOxidesSum === 0) return {};
 
-            const clinkerAnalysis: OxideAnalysis = {};
             const factor = 99.8 / clinkerizableOxidesSum;
-
+            const clinkerAnalysis: OxideAnalysis = {};
+            
             OXIDE_KEYS.forEach(key => {
                 if (key !== 'pf' && inputAnalysis[key] !== undefined) {
                     clinkerAnalysis[key] = (inputAnalysis[key] || 0) * factor;
                 }
             });
-            
             clinkerAnalysis.pf = 0.2;
+            
             return clinkerAnalysis;
         };
+
 
         const clinkerWithoutAsh = clinkerizeWithoutAsh(rawMealAnalysis);
 
@@ -190,6 +190,7 @@ export function ClinkerImpactCalculator() {
     // Inputs
     const [rawMealFlow, setRawMealFlow] = useState(200);
     const [rawMealAnalysis, setRawMealAnalysis] = useState<OxideAnalysis>(initialOxideState);
+    const [clinkerFactor, setClinkerFactor] = useState(0.66);
     
     const [petCokePrecaFlow, setPetCokePrecaFlow] = useState(1.5);
     const [petCokePrecaAsh, setPetCokePrecaAsh] = useState<OxideAnalysis>({ pourcentage_cendres: 10, sio2: 45, al2o3: 25, fe2o3: 15, cao: 5 });
@@ -204,17 +205,15 @@ export function ClinkerImpactCalculator() {
 
     const afFlow = useMemo(() => {
         if (!latestSession) return 0;
-        const hallFlow = latestSession.hallAF?.fuels ? Object.keys(latestSession.hallAF.fuels).reduce((sum, key) => key.toLowerCase() !== 'grignons' ? sum + (latestSession.hallAF.flowRate || 0) : sum, 0) : 0;
-        const atsFlow = latestSession.ats?.fuels ? Object.keys(latestSession.ats.fuels).reduce((sum, key) => key.toLowerCase() !== 'grignons' ? sum + (latestSession.ats.flowRate || 0) : sum, 0) : 0;
-        
         let totalAfFlow = 0;
         if (latestSession.hallAF?.flowRate && latestSession.hallAF.fuels) {
-             totalAfFlow += latestSession.hallAF.flowRate;
+             const nonGrignonsFuels = Object.keys(latestSession.hallAF.fuels).filter(f => f.toLowerCase() !== 'grignons').length;
+             if (nonGrignonsFuels > 0) totalAfFlow += latestSession.hallAF.flowRate;
         }
          if (latestSession.ats?.flowRate && latestSession.ats.fuels) {
-             totalAfFlow += latestSession.ats.flowRate;
+             const nonGrignonsFuels = Object.keys(latestSession.ats.fuels).filter(f => f.toLowerCase() !== 'grignons').length;
+             if (nonGrignonsFuels > 0) totalAfFlow += latestSession.ats.flowRate;
         }
-
         return totalAfFlow;
     }, [latestSession]);
     
@@ -259,6 +258,8 @@ export function ClinkerImpactCalculator() {
         petCokePrecaFlow, petCokePrecaAsh,
         petCokeTuyereFlow, petCokeTuyereAsh
     );
+    
+    const clinkerFlow = useMemo(() => rawMealFlow * clinkerFactor, [rawMealFlow, clinkerFactor]);
 
     const renderResultCell = (value: number | undefined, options: { decimals?: number, suffix?: string } = {}) => {
         const { decimals = 2, suffix = '' } = options;
@@ -280,14 +281,14 @@ export function ClinkerImpactCalculator() {
     ) => {
         let rawValue: number | undefined, withoutValue: number | undefined, withValue: number | undefined;
 
-        if (OXIDE_KEYS.includes(key as any)) {
+        if (key === 'pf' || OXIDE_KEYS.includes(key as any)) {
             rawValue = rawMealAnalysis[key as keyof OxideAnalysis];
             withoutValue = clinkerWithoutAsh[key as keyof OxideAnalysis];
             withValue = clinkerWithAsh[key as keyof OxideAnalysis];
         } else if (key === 'somme') {
-             rawValue = OXIDE_KEYS.reduce((s, k) => s + (rawMealAnalysis[k] || 0), 0);
-             withoutValue = OXIDE_KEYS.reduce((s, k) => s + (clinkerWithoutAsh[k] || 0), 0);
-             withValue = OXIDE_KEYS.reduce((s, k) => s + (clinkerWithAsh[k] || 0), 0);
+             rawValue = OXIDE_KEYS.filter(k=>k!=='pf').reduce((s, k) => s + (rawMealAnalysis[k] || 0), 0);
+             withoutValue = OXIDE_KEYS.filter(k=>k!=='pf').reduce((s, k) => s + (clinkerWithoutAsh[k] || 0), 0);
+             withValue = OXIDE_KEYS.filter(k=>k!=='pf').reduce((s, k) => s + (clinkerWithAsh[k] || 0), 0);
         } else if (key === 'titre') {
             const rawCaO = rawMealAnalysis.cao || 0;
             const withoutCaO = clinkerWithoutAsh.cao || 0;
@@ -357,12 +358,23 @@ export function ClinkerImpactCalculator() {
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2"><Beaker className="h-5 w-5 text-blue-500" /> Analyse de la Farine</CardTitle>
-                        <CardDescription>Entrez la composition chimique et le débit de votre farine brute.</CardDescription>
+                        <CardDescription>Entrez la composition chimique, le débit de votre farine, et le facteur de clinkérisation.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div>
-                            <Label htmlFor="raw-meal-flow">Débit Farine (t/h)</Label>
-                            <Input id="raw-meal-flow" type="number" value={rawMealFlow} onChange={e => setRawMealFlow(parseFloat(e.target.value) || 0)} />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                            <div>
+                                <Label htmlFor="raw-meal-flow">Débit Farine (t/h)</Label>
+                                <Input id="raw-meal-flow" type="number" value={rawMealFlow} onChange={e => setRawMealFlow(parseFloat(e.target.value) || 0)} />
+                            </div>
+                            <div>
+                                <Label htmlFor="clinker-factor">Facteur de clinkérisation</Label>
+                                <Input id="clinker-factor" type="number" step="0.01" value={clinkerFactor} onChange={e => setClinkerFactor(parseFloat(e.target.value) || 0)} />
+                            </div>
+                        </div>
+                         <div className="flex items-center justify-center gap-4 p-3 bg-muted rounded-lg">
+                            <Label>Débit Clinker (t/h)</Label>
+                            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-lg font-bold text-primary">{clinkerFlow.toFixed(2)}</span>
                         </div>
                         <OxideInputRow analysis={rawMealAnalysis} onAnalysisChange={setRawMealAnalysis} />
                     </CardContent>
