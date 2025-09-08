@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { getLatestMixtureSession, getAverageAshAnalysisForFuels, type MixtureSession, type AshAnalysis } from '@/lib/data';
+import { getLatestMixtureSession, getAverageAshAnalysisForFuels, type MixtureSession, type AshAnalysis, getFuelData, type FuelData } from '@/lib/data';
 import { Calculator, Beaker, FileDown, Flame, ArrowRight } from 'lucide-react';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -69,7 +69,7 @@ const useClinkerCalculations = (
     petCokeTuyereAshAnalysis: OxideAnalysis
 ) => {
     return useMemo(() => {
-       const clinkerize = (inputAnalysis: OxideAnalysis, targetPf = 0.2) => {
+        const clinkerize = (inputAnalysis: OxideAnalysis) => {
             const clinkerizableOxidesSum = OXIDE_KEYS.reduce((sum, key) => {
                 if (key !== 'pf' && inputAnalysis[key] !== undefined) {
                     sum += inputAnalysis[key] || 0;
@@ -78,9 +78,10 @@ const useClinkerCalculations = (
             }, 0);
 
             if (clinkerizableOxidesSum === 0) return {};
+            
+            const factor = 99.8 / clinkerizableOxidesSum;
 
-            const factor = (100 - targetPf) / clinkerizableOxidesSum;
-            const clinkerAnalysis: OxideAnalysis = { pf: targetPf };
+            const clinkerAnalysis: OxideAnalysis = { pf: 0.2 };
             
             OXIDE_KEYS.forEach(key => {
                 if (key !== 'pf' && inputAnalysis[key] !== undefined) {
@@ -93,8 +94,8 @@ const useClinkerCalculations = (
 
         const clinkerizeWithoutAsh = (inputAnalysis: OxideAnalysis) => {
             const pf = inputAnalysis.pf || 0;
-             if (pf >= 100) return {};
-
+            if (pf >= 100) return {};
+            
             const factor = 100 / (100 - pf);
             const clinkerAnalysis: OxideAnalysis = {};
             
@@ -103,7 +104,7 @@ const useClinkerCalculations = (
                     clinkerAnalysis[key] = (inputAnalysis[key] || 0) * factor;
                 }
             });
-            
+
             return clinkerAnalysis;
         }
 
@@ -206,6 +207,7 @@ const OxideInputRow = ({ analysis, onAnalysisChange }: { analysis: OxideAnalysis
 export function ClinkerImpactCalculator() {
     const { toast } = useToast();
     const [loading, setLoading] = useState(true);
+    const [fuelDataMap, setFuelDataMap] = useState<Record<string, FuelData>>({});
 
     // Inputs
     const [rawMealFlow, setRawMealFlow] = useState(200);
@@ -243,7 +245,17 @@ export function ClinkerImpactCalculator() {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const session = await getLatestMixtureSession();
+            const [session, allFuelData] = await Promise.all([
+                getLatestMixtureSession(),
+                getFuelData(),
+            ]);
+
+            const fuelDataMap = allFuelData.reduce((acc, fd) => {
+                acc[fd.nom_combustible] = fd;
+                return acc;
+            }, {} as Record<string, FuelData>);
+            setFuelDataMap(fuelDataMap);
+
             if (!session) {
                 toast({ variant: "destructive", title: "Aucune session de mélange trouvée", description: "Veuillez d'abord enregistrer une session dans la page 'Calcul de Mélange'." });
                 setLoading(false);
@@ -251,9 +263,25 @@ export function ClinkerImpactCalculator() {
             }
             setLatestSession(session);
 
-            const afFuelNames = Object.keys(session.availableFuels).filter(name => name.toLowerCase() !== 'grignons');
+            const allAfFuels: Record<string, number> = {};
+            [session.hallAF, session.ats].forEach(installation => {
+                if (!installation?.fuels) return;
+                for (const fuelName in installation.fuels) {
+                    if (fuelName.toLowerCase() !== 'grignons') {
+                        const buckets = installation.fuels[fuelName].buckets || 0;
+                        if (buckets > 0) {
+                            const poidsGodet = fuelDataMap[fuelName]?.poids_godet || 1.5;
+                            allAfFuels[fuelName] = (allAfFuels[fuelName] || 0) + (buckets * poidsGodet);
+                        }
+                    }
+                }
+            });
+            
+            const afFuelNames = Object.keys(allAfFuels);
+            const afFuelWeights = Object.values(allAfFuels);
+
             const [avgAfAsh, avgGrignonsAsh] = await Promise.all([
-                getAverageAshAnalysisForFuels(afFuelNames),
+                getAverageAshAnalysisForFuels(afFuelNames, afFuelWeights),
                 getAverageAshAnalysisForFuels(['Grignons']),
             ]);
 
@@ -488,4 +516,5 @@ export function ClinkerImpactCalculator() {
     
 
     
+
 

@@ -84,10 +84,10 @@ export interface MixtureScenario {
 }
 
 export interface AshAnalysis {
-    id: string;
-    date_arrivage: Timestamp;
-    type_combustible: string;
-    fournisseur: string;
+    id?: string;
+    date_arrivage?: Timestamp;
+    type_combustible?: string;
+    fournisseur?: string;
     pourcentage_cendres?: number | null;
     paf?: number | null;
     sio2?: number | null;
@@ -614,42 +614,81 @@ export async function getAshAnalyses(): Promise<AshAnalysis[]> {
 
 export async function getAverageAshAnalysisForFuels(
   fuelNames: string[],
+  weights?: number[]
 ): Promise<AshAnalysis> {
-  if (fuelNames.length === 0) {
+  const finalAverages: AshAnalysis = {};
+
+  if (!fuelNames || fuelNames.length === 0) {
     return {};
   }
-  
-  const q = query(
-    collection(db, 'analyses_cendres'),
-    where('type_combustible', 'in', fuelNames)
-  );
 
+  const q = query(collection(db, 'analyses_cendres'), where('type_combustible', 'in', fuelNames));
   const snapshot = await getDocs(q);
   const dbResults = snapshot.docs.map(doc => doc.data() as AshAnalysis);
 
-  const analysis: { [key: string]: number[] } = {
-    pourcentage_cendres: [], sio2: [], al2o3: [], fe2o3: [], cao: [],
-    mgo: [], so3: [], k2o: [], tio2: [], mno: [], p2o5: []
-  };
-
+  const analysesByFuel: Record<string, AshAnalysis[]> = {};
+  fuelNames.forEach(name => {
+    analysesByFuel[name] = [];
+  });
   dbResults.forEach(res => {
-    Object.keys(analysis).forEach(key => {
-        const value = res[key as keyof AshAnalysis];
-        if (typeof value === 'number') {
-            analysis[key].push(value);
-        }
-    });
+    if (res.type_combustible && analysesByFuel[res.type_combustible]) {
+      analysesByFuel[res.type_combustible].push(res);
+    }
   });
 
-  const finalAverages: AshAnalysis = {} as any;
-  const avg = (arr: number[]) => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
-
-  for (const key in analysis) {
-    (finalAverages as any)[key] = avg(analysis[key]);
+  const averageByFuel: Record<string, AshAnalysis> = {};
+  for (const fuelName of fuelNames) {
+    const fuelAnalyses = analysesByFuel[fuelName];
+    const avg: AshAnalysis = {};
+    if (fuelAnalyses.length > 0) {
+      const keys: (keyof AshAnalysis)[] = ['pourcentage_cendres', 'sio2', 'al2o3', 'fe2o3', 'cao', 'mgo', 'so3', 'k2o', 'tio2', 'mno', 'p2o5'];
+      for (const key of keys) {
+        const values = fuelAnalyses.map(a => a[key]).filter(v => typeof v === 'number') as number[];
+        if (values.length > 0) {
+          (avg as any)[key] = values.reduce((sum, val) => sum + val, 0) / values.length;
+        }
+      }
+    }
+    averageByFuel[fuelName] = avg;
   }
+  
+  if (!weights || weights.length !== fuelNames.length) {
+    // Simple average if no weights provided
+    const keys: (keyof AshAnalysis)[] = ['pourcentage_cendres', 'sio2', 'al2o3', 'fe2o3', 'cao', 'mgo', 'so3', 'k2o', 'tio2', 'mno', 'p2o5'];
+    keys.forEach(key => {
+        const allValues = fuelNames.map(name => averageByFuel[name]?.[key]).filter(v => typeof v === 'number') as number[];
+        if (allValues.length > 0) {
+           (finalAverages as any)[key] = allValues.reduce((sum, val) => sum + val, 0) / allValues.length;
+        }
+    });
+    return finalAverages;
+  }
+  
+  // Weighted average
+  const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+  if (totalWeight === 0) return {};
+
+  const keys: (keyof AshAnalysis)[] = ['pourcentage_cendres', 'sio2', 'al2o3', 'fe2o3', 'cao', 'mgo', 'so3', 'k2o', 'tio2', 'mno', 'p2o5'];
+  keys.forEach(key => {
+    let weightedSum = 0;
+    let weightForSum = 0;
+    for (let i = 0; i < fuelNames.length; i++) {
+        const fuelName = fuelNames[i];
+        const weight = weights[i];
+        const avgValue = averageByFuel[fuelName]?.[key];
+        if (typeof avgValue === 'number' && typeof weight === 'number') {
+            weightedSum += avgValue * weight;
+            weightForSum += weight;
+        }
+    }
+    if (weightForSum > 0) {
+      (finalAverages as any)[key] = weightedSum / weightForSum;
+    }
+  });
 
   return finalAverages;
 }
+
 
 export async function addAshAnalysis(data: Omit<AshAnalysis, 'id'>): Promise<string> {
     const docRef = await addDoc(collection(db, 'analyses_cendres'), data);
