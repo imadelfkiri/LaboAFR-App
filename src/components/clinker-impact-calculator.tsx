@@ -23,6 +23,8 @@ type OxideAnalysis = {
 };
 
 const OXIDE_KEYS: (keyof OxideAnalysis)[] = ['pf', 'sio2', 'al2o3', 'fe2o3', 'cao', 'mgo', 'so3', 'k2o', 'tio2', 'mno', 'p2o5'];
+const ASH_OXIDE_KEYS: Exclude<keyof OxideAnalysis, 'pf' | 'pourcentage_cendres'>[] = ['sio2', 'al2o3', 'fe2o3', 'cao', 'mgo', 'so3', 'k2o', 'tio2', 'mno', 'p2o5'];
+
 
 const initialOxideState: OxideAnalysis = {
     pf: 34.5, sio2: 13.5, al2o3: 3.5, fe2o3: 2.2, cao: 42.5, mgo: 1.5, so3: 0.5, k2o: 0.8, tio2: 0.2, mno: 0.1, p2o5: 0.1
@@ -68,15 +70,24 @@ const useClinkerCalculations = (
 ) => {
     return useMemo(() => {
         const clinkerizeWithoutAsh = (inputAnalysis: OxideAnalysis) => {
-            const pf = inputAnalysis.pf || 0;
-            if (pf >= 100) return {};
-            const factor = 100 / (100 - pf);
+            const clinkerizableOxidesSum = OXIDE_KEYS.reduce((sum, key) => {
+                if (key !== 'pf' && inputAnalysis[key] !== undefined) {
+                    sum += inputAnalysis[key] || 0;
+                }
+                return sum;
+            }, 0);
+            
+            if (clinkerizableOxidesSum === 0) return {};
+
+            const factor = 100 / clinkerizableOxidesSum;
             const clinkerAnalysis: OxideAnalysis = {};
+            
             OXIDE_KEYS.forEach(key => {
                 if (key !== 'pf' && inputAnalysis[key] !== undefined) {
                     clinkerAnalysis[key] = (inputAnalysis[key] || 0) * factor;
                 }
             });
+            
             return clinkerAnalysis;
         }
 
@@ -133,7 +144,7 @@ const useClinkerCalculations = (
         });
 
         const totalMaterialFlow = rawMealFlow + afFlow + grignonsFlow + petCokePrecaFlow + petCokeTuyereFlow;
-        if (totalMaterialFlow === 0) return { clinkerWithoutAsh: {}, clinkerWithAsh: {} };
+        if (totalMaterialFlow === 0) return { clinkerWithoutAsh: {}, clinkerWithAsh: {}, averageAshAnalysis: {} };
 
         const mixedRawAnalysis: OxideAnalysis = {};
         const totalOxideFlowSum = Object.values(totalOxideFlows).reduce((s, v) => s + (v || 0), 0);
@@ -146,7 +157,30 @@ const useClinkerCalculations = (
         
         const clinkerWithAsh = clinkerizeWithAsh(mixedRawAnalysis);
         
-        return { clinkerWithoutAsh, clinkerWithAsh };
+        const fuelSources = [
+            { flow: afFlow, analysis: afAshAnalysis },
+            { flow: grignonsFlow, analysis: grignonsAshAnalysis },
+            { flow: petCokePrecaFlow, analysis: petCokePrecaAshAnalysis },
+            { flow: petCokeTuyereFlow, analysis: petCokeTuyereAshAnalysis },
+        ];
+
+        const totalAshFlow = fuelSources.reduce((sum, source) => {
+             return sum + source.flow * ((source.analysis.pourcentage_cendres || 0) / 100);
+        }, 0);
+
+        const averageAshAnalysis: OxideAnalysis = {};
+        if (totalAshFlow > 0) {
+            ASH_OXIDE_KEYS.forEach(key => {
+                const totalOxideInAshFlow = fuelSources.reduce((sum, source) => {
+                    const ashContentPercent = source.analysis.pourcentage_cendres || 0;
+                    const oxidePercentInAsh = source.analysis[key] || 0;
+                    return sum + source.flow * (ashContentPercent / 100) * (oxidePercentInAsh / 100);
+                }, 0);
+                averageAshAnalysis[key] = (totalOxideInAshFlow / totalAshFlow) * 100;
+            });
+        }
+        
+        return { clinkerWithoutAsh, clinkerWithAsh, averageAshAnalysis };
     }, [rawMealFlow, rawMealAnalysis, afFlow, afAshAnalysis, grignonsFlow, grignonsAshAnalysis, petCokePrecaFlow, petCokePrecaAshAnalysis, petCokeTuyereFlow, petCokeTuyereAshAnalysis]);
 };
 
@@ -248,7 +282,7 @@ export function ClinkerImpactCalculator() {
         fetchData();
     }, [fetchData]);
 
-    const { clinkerWithoutAsh, clinkerWithAsh } = useClinkerCalculations(
+    const { clinkerWithoutAsh, clinkerWithAsh, averageAshAnalysis } = useClinkerCalculations(
         rawMealFlow, rawMealAnalysis,
         afFlow, afAshAnalysis,
         grignonsFlow, grignonsAshAnalysis,
@@ -276,14 +310,16 @@ export function ClinkerImpactCalculator() {
         key: keyof OxideAnalysis | 'ms' | 'af' | 'lsf' | 'c3s' | 'somme' | 'titre',
         options: { decimals?: number, suffix?: string } = {}
     ) => {
-        let rawValue: number | undefined, withoutValue: number | undefined, withValue: number | undefined;
+        let rawValue: number | undefined, ashValue: number | undefined, withoutValue: number | undefined, withValue: number | undefined;
 
         if (key === 'pf' || OXIDE_KEYS.includes(key as any)) {
             rawValue = rawMealAnalysis[key as keyof OxideAnalysis];
+            ashValue = averageAshAnalysis[key as keyof OxideAnalysis];
             withoutValue = clinkerWithoutAsh[key as keyof OxideAnalysis];
             withValue = clinkerWithAsh[key as keyof OxideAnalysis];
         } else if (key === 'somme') {
              rawValue = OXIDE_KEYS.filter(k=>k!=='pf').reduce((s, k) => s + (rawMealAnalysis[k] || 0), 0);
+             ashValue = ASH_OXIDE_KEYS.reduce((s, k) => s + (averageAshAnalysis[k] || 0), 0);
              withoutValue = OXIDE_KEYS.filter(k=>k!=='pf').reduce((s, k) => s + (clinkerWithoutAsh[k] || 0), 0);
              withValue = OXIDE_KEYS.filter(k=>k!=='pf').reduce((s, k) => s + (clinkerWithAsh[k] || 0), 0);
         } else if (key === 'titre') {
@@ -291,19 +327,23 @@ export function ClinkerImpactCalculator() {
             const withoutCaO = clinkerWithoutAsh.cao || 0;
             const withCaO = clinkerWithAsh.cao || 0;
             rawValue = rawCaO / (100 - (rawMealAnalysis.pf || 0)) * 100;
+            ashValue = undefined;
             withoutValue = withoutCaO;
             withValue = withCaO;
         } else {
             const rawModules = calculateModules(rawMealAnalysis);
+            const ashModules = calculateModules(averageAshAnalysis);
             const withoutModules = calculateModules(clinkerWithoutAsh);
             const withModules = calculateModules(clinkerWithAsh);
             
             if(key === 'c3s') {
                 rawValue = calculateC3S(rawMealAnalysis, freeLime); // Not really applicable for raw meal
+                ashValue = undefined;
                 withoutValue = calculateC3S(clinkerWithoutAsh, freeLime);
                 withValue = calculateC3S(clinkerWithAsh, freeLime);
             } else {
                 rawValue = rawModules[key as 'ms' | 'af' | 'lsf'];
+                ashValue = ashModules[key as 'ms' | 'af' | 'lsf'];
                 withoutValue = withoutModules[key as 'ms' | 'af' | 'lsf'];
                 withValue = withModules[key as 'ms' | 'af' | 'lsf'];
             }
@@ -315,6 +355,7 @@ export function ClinkerImpactCalculator() {
             <TableRow key={key}>
                 <TableHead>{label}</TableHead>
                 <TableCell className="text-right tabular-nums">{renderResultCell(rawValue, options)}</TableCell>
+                <TableCell className="text-right tabular-nums">{renderResultCell(ashValue, options)}</TableCell>
                 <TableCell className="text-right tabular-nums font-medium">{renderResultCell(withoutValue, options)}</TableCell>
                 <TableCell className={`text-right tabular-nums font-bold ${diffClass}`}>
                     <TooltipProvider>
@@ -422,6 +463,7 @@ export function ClinkerImpactCalculator() {
                             <TableRow>
                                 <TableHead>Paramètre</TableHead>
                                 <TableHead className="text-right">Farine Brute</TableHead>
+                                <TableHead className="text-right">Cendres Mélange</TableHead>
                                 <TableHead className="text-right">Clinker sans Cendres</TableHead>
                                 <TableHead className="text-right">Clinker avec Cendres</TableHead>
                             </TableRow>
@@ -438,7 +480,7 @@ export function ClinkerImpactCalculator() {
                             {renderResultRow('TiO₂ (%)', 'tio2', { decimals: 3 })}
                             {renderResultRow('MnO (%)', 'mno', { decimals: 3 })}
                             {renderResultRow('P₂O₅ (%)', 'p2o5', { decimals: 3 })}
-                            <TableRow className="bg-muted/30 font-bold"><TableCell colSpan={4} className="py-2"></TableCell></TableRow>
+                            <TableRow className="bg-muted/30 font-bold"><TableCell colSpan={5} className="py-2"></TableCell></TableRow>
                             {renderResultRow('MS', 'ms', { decimals: 2 })}
                             {renderResultRow('A/F', 'af', { decimals: 2 })}
                             {renderResultRow('LSF', 'lsf', { decimals: 2 })}
