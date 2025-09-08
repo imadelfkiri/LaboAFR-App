@@ -439,8 +439,6 @@ export function ClinkerImpactCalculator() {
                             {renderResultRow('MnO (%)', 'mno', { decimals: 3 })}
                             {renderResultRow('P₂O₅ (%)', 'p2o5', { decimals: 3 })}
                             <TableRow className="bg-muted/30 font-bold"><TableCell colSpan={4} className="py-2"></TableCell></TableRow>
-                            {renderResultRow('Somme', 'somme', { decimals: 2 })}
-                            {renderResultRow('Titre', 'titre', { decimals: 2 })}
                             {renderResultRow('MS', 'ms', { decimals: 2 })}
                             {renderResultRow('A/F', 'af', { decimals: 2 })}
                             {renderResultRow('LSF', 'lsf', { decimals: 2 })}
@@ -466,6 +464,8 @@ export function ClinkerImpactCalculator() {
         </div>
     );
 }
+    
+
     
 
     
