@@ -45,12 +45,13 @@ const calculateModules = (analysis: OxideAnalysis) => {
     };
 };
 
-const calculateC3S = (analysis: OxideAnalysis) => {
+const calculateC3S = (analysis: OxideAnalysis, freeLime: number) => {
     const s = analysis.sio2 || 0;
     const a = analysis.al2o3 || 0;
     const f = analysis.fe2o3 || 0;
     const c = analysis.cao || 0;
-    return (4.07 * c) - (7.60 * s) - (6.72 * a) - (1.43 * f);
+    const effectiveCao = c - freeLime;
+    return (4.07 * effectiveCao) - (7.60 * s) - (6.72 * a) - (1.43 * f);
 }
 
 const useClinkerCalculations = (
@@ -66,25 +67,20 @@ const useClinkerCalculations = (
     petCokeTuyereAshAnalysis: OxideAnalysis
 ) => {
     return useMemo(() => {
-        // Simplified clinkerization for "Clinker without Ash"
         const clinkerizeWithoutAsh = (inputAnalysis: OxideAnalysis) => {
             const pf = inputAnalysis.pf || 0;
             if (pf >= 100) return {};
-
             const factor = 100 / (100 - pf);
             const clinkerAnalysis: OxideAnalysis = {};
-
             OXIDE_KEYS.forEach(key => {
                 if (key !== 'pf' && inputAnalysis[key] !== undefined) {
                     clinkerAnalysis[key] = (inputAnalysis[key] || 0) * factor;
                 }
             });
-            
             return clinkerAnalysis;
         }
 
-        // Clinkerization for "Clinker with Ash"
-         const clinkerizeWithAsh = (inputAnalysis: OxideAnalysis) => {
+        const clinkerizeWithAsh = (inputAnalysis: OxideAnalysis) => {
             const clinkerizableOxidesSum = OXIDE_KEYS.reduce((sum, key) => {
                 if (key !== 'pf' && inputAnalysis[key] !== undefined) {
                     sum += inputAnalysis[key] || 0;
@@ -191,6 +187,7 @@ export function ClinkerImpactCalculator() {
     const [rawMealFlow, setRawMealFlow] = useState(200);
     const [rawMealAnalysis, setRawMealAnalysis] = useState<OxideAnalysis>(initialOxideState);
     const [clinkerFactor, setClinkerFactor] = useState(0.66);
+    const [freeLime, setFreeLime] = useState(1.5);
     
     const [petCokePrecaFlow, setPetCokePrecaFlow] = useState(1.5);
     const [petCokePrecaAsh, setPetCokePrecaAsh] = useState<OxideAnalysis>({ pourcentage_cendres: 10, sio2: 45, al2o3: 25, fe2o3: 15, cao: 5 });
@@ -207,12 +204,12 @@ export function ClinkerImpactCalculator() {
         if (!latestSession) return 0;
         let totalAfFlow = 0;
         if (latestSession.hallAF?.flowRate && latestSession.hallAF.fuels) {
-             const nonGrignonsFuels = Object.keys(latestSession.hallAF.fuels).filter(f => f.toLowerCase() !== 'grignons').length;
-             if (nonGrignonsFuels > 0) totalAfFlow += latestSession.hallAF.flowRate;
+             const nonGrignonsFuels = Object.keys(latestSession.hallAF.fuels).filter(f => f.toLowerCase() !== 'grignons').length > 0;
+             if (nonGrignonsFuels) totalAfFlow += latestSession.hallAF.flowRate;
         }
          if (latestSession.ats?.flowRate && latestSession.ats.fuels) {
-             const nonGrignonsFuels = Object.keys(latestSession.ats.fuels).filter(f => f.toLowerCase() !== 'grignons').length;
-             if (nonGrignonsFuels > 0) totalAfFlow += latestSession.ats.flowRate;
+             const nonGrignonsFuels = Object.keys(latestSession.ats.fuels).filter(f => f.toLowerCase() !== 'grignons').length > 0;
+             if (nonGrignonsFuels) totalAfFlow += latestSession.ats.flowRate;
         }
         return totalAfFlow;
     }, [latestSession]);
@@ -302,9 +299,9 @@ export function ClinkerImpactCalculator() {
             const withModules = calculateModules(clinkerWithAsh);
             
             if(key === 'c3s') {
-                rawValue = calculateC3S(rawMealAnalysis); // Not really applicable for raw meal
-                withoutValue = calculateC3S(clinkerWithoutAsh);
-                withValue = calculateC3S(clinkerWithAsh);
+                rawValue = calculateC3S(rawMealAnalysis, freeLime); // Not really applicable for raw meal
+                withoutValue = calculateC3S(clinkerWithoutAsh, freeLime);
+                withValue = calculateC3S(clinkerWithAsh, freeLime);
             } else {
                 rawValue = rawModules[key as 'ms' | 'af' | 'lsf'];
                 withoutValue = withoutModules[key as 'ms' | 'af' | 'lsf'];
@@ -450,9 +447,25 @@ export function ClinkerImpactCalculator() {
                             {renderResultRow('C₃S (Alite)', 'c3s', { decimals: 2 })}
                         </TableBody>
                     </Table>
+                    <div className="mt-4 p-4 border rounded-lg max-w-xs">
+                        <Label htmlFor="free-lime">Chaux Libre (%)</Label>
+                        <Input
+                            id="free-lime"
+                            type="number"
+                            step="0.1"
+                            value={freeLime}
+                            onChange={e => setFreeLime(parseFloat(e.target.value) || 0)}
+                            className="mt-1"
+                        />
+                         <p className="text-xs text-muted-foreground mt-2">
+                            Ajustez cette valeur pour affiner le calcul du C₃S (Alite).
+                        </p>
+                    </div>
                 </CardContent>
             </Card>
         </div>
     );
 }
+    
+
     
