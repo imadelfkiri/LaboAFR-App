@@ -66,31 +66,24 @@ const useClinkerCalculations = (
 ) => {
     return useMemo(() => {
         const clinkerize = (inputAnalysis: OxideAnalysis) => {
-            const rawSum = OXIDE_KEYS.reduce((sum, key) => sum + (inputAnalysis[key] || 0), 0);
-            const pf = inputAnalysis.pf || 0;
-            
-            if (rawSum === pf) return {}; // Avoid division by zero if only PF is present
+            const clinkerizableOxidesSum = OXIDE_KEYS.reduce((sum, key) => {
+                if (key !== 'pf') {
+                    sum += inputAnalysis[key] || 0;
+                }
+                return sum;
+            }, 0);
 
-            const factor = 100 / (rawSum - pf);
+            if (clinkerizableOxidesSum === 0) return {};
+
             const clinkerAnalysis: OxideAnalysis = {};
-            
+            const factor = 99.8 / clinkerizableOxidesSum;
+
             OXIDE_KEYS.forEach(key => {
                 if (key !== 'pf' && inputAnalysis[key] !== undefined) {
                     clinkerAnalysis[key] = (inputAnalysis[key] || 0) * factor;
                 }
             });
-
-            const clinkerSumWithoutPF = OXIDE_KEYS.reduce((sum, key) => {
-                if (key !== 'pf') sum += (clinkerAnalysis[key] || 0);
-                return sum;
-            }, 0);
-
-            const finalFactor = 99.8 / clinkerSumWithoutPF;
             
-            Object.keys(clinkerAnalysis).forEach(key => {
-                clinkerAnalysis[key as keyof OxideAnalysis]! *= finalFactor;
-            });
-
             clinkerAnalysis.pf = 0.2;
             return clinkerAnalysis;
         };
@@ -194,8 +187,11 @@ export function ClinkerImpactCalculator() {
     const afFlow = useMemo(() => {
         if (!latestSession) return 0;
         // Sum of Hall AF and ATS flow rates, excluding Grignons
-        return (latestSession.hallAF?.flowRate || 0) + (latestSession.ats?.flowRate || 0);
+        const hallFlow = latestSession.hallAF?.flowRate || 0;
+        const atsFlow = latestSession.ats?.flowRate || 0;
+        return hallFlow + atsFlow;
     }, [latestSession]);
+    
     const grignonsFlow = useMemo(() => latestSession?.grignons?.flowRate || 0, [latestSession]);
 
     const fetchData = useCallback(async () => {
@@ -421,3 +417,4 @@ export function ClinkerImpactCalculator() {
         </div>
     );
 }
+    
