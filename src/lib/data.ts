@@ -41,8 +41,10 @@ export interface MixtureSession {
     timestamp: Timestamp;
     hallAF: any;
     ats: any;
+    grignons: any; // Add grignons to the session
     globalIndicators: any;
     availableFuels: Record<string, AverageAnalysis>;
+    analysisDateRange?: { from: Timestamp; to: Timestamp };
 }
 
 export interface FuelCost {
@@ -78,13 +80,14 @@ export interface MixtureScenario {
     date_creation: Timestamp;
     donnees_hall: any;
     donnees_ats: any;
+    donnees_grignons: any;
 }
 
 export interface AshAnalysis {
-    id: string;
-    date_arrivage: Timestamp;
-    type_combustible: string;
-    fournisseur: string;
+    id?: string;
+    date_arrivage?: Timestamp;
+    type_combustible?: string;
+    fournisseur?: string;
     pourcentage_cendres?: number | null;
     paf?: number | null;
     sio2?: number | null;
@@ -609,6 +612,83 @@ export async function getAshAnalyses(): Promise<AshAnalysis[]> {
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AshAnalysis));
 }
 
+export async function getAverageAshAnalysisForFuels(
+  fuelNames: string[],
+  weights?: number[]
+): Promise<AshAnalysis> {
+  const finalAverages: AshAnalysis = {};
+
+  if (!fuelNames || fuelNames.length === 0) {
+    return {};
+  }
+
+  const q = query(collection(db, 'analyses_cendres'), where('type_combustible', 'in', fuelNames));
+  const snapshot = await getDocs(q);
+  const dbResults = snapshot.docs.map(doc => doc.data() as AshAnalysis);
+
+  const analysesByFuel: Record<string, AshAnalysis[]> = {};
+  fuelNames.forEach(name => {
+    analysesByFuel[name] = [];
+  });
+  dbResults.forEach(res => {
+    if (res.type_combustible && analysesByFuel[res.type_combustible]) {
+      analysesByFuel[res.type_combustible].push(res);
+    }
+  });
+
+  const averageByFuel: Record<string, AshAnalysis> = {};
+  const keysToAverage: (keyof AshAnalysis)[] = ['paf', 'pourcentage_cendres', 'sio2', 'al2o3', 'fe2o3', 'cao', 'mgo', 'so3', 'k2o', 'tio2', 'mno', 'p2o5'];
+
+  for (const fuelName of fuelNames) {
+    const fuelAnalyses = analysesByFuel[fuelName];
+    const avg: AshAnalysis = {};
+    if (fuelAnalyses.length > 0) {
+      for (const key of keysToAverage) {
+        const values = fuelAnalyses.map(a => a[key]).filter(v => typeof v === 'number') as number[];
+        if (values.length > 0) {
+          (avg as any)[key] = values.reduce((sum, val) => sum + val, 0) / values.length;
+        }
+      }
+    }
+    averageByFuel[fuelName] = avg;
+  }
+  
+  if (!weights || weights.length !== fuelNames.length) {
+    // Simple average if no weights provided
+    keysToAverage.forEach(key => {
+        const allValues = fuelNames.map(name => averageByFuel[name]?.[key]).filter(v => typeof v === 'number') as number[];
+        if (allValues.length > 0) {
+           (finalAverages as any)[key] = allValues.reduce((sum, val) => sum + val, 0) / allValues.length;
+        }
+    });
+    return finalAverages;
+  }
+  
+  // Weighted average
+  const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+  if (totalWeight === 0) return {};
+
+  keysToAverage.forEach(key => {
+    let weightedSum = 0;
+    let weightForSum = 0;
+    for (let i = 0; i < fuelNames.length; i++) {
+        const fuelName = fuelNames[i];
+        const weight = weights[i];
+        const avgValue = averageByFuel[fuelName]?.[key];
+        if (typeof avgValue === 'number' && typeof weight === 'number') {
+            weightedSum += avgValue * weight;
+            weightForSum += weight;
+        }
+    }
+    if (weightForSum > 0) {
+      (finalAverages as any)[key] = weightedSum / weightForSum;
+    }
+  });
+
+  return finalAverages;
+}
+
+
 export async function addAshAnalysis(data: Omit<AshAnalysis, 'id'>): Promise<string> {
     const docRef = await addDoc(collection(db, 'analyses_cendres'), data);
     return docRef.id;
@@ -664,5 +744,3 @@ export async function addManyResults(results: ResultToSave[]): Promise<void> {
 
     await batch.commit();
 }
-
-    

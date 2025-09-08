@@ -4,13 +4,14 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { BrainCircuit, Calendar as CalendarIcon, Save, Settings, ChevronDown, CheckCircle, AlertTriangle, Copy, Mail } from 'lucide-react';
 import { DateRange } from "react-day-picker";
-import { format, subDays, startOfDay, endOfDay, parseISO } from 'date-fns';
+import { format, subDays, startOfDay, endOfDay, parseISO, isValid } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
+import { Timestamp } from 'firebase/firestore';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -38,6 +39,11 @@ interface InstallationState {
   fuels: Record<string, { buckets: number }>;
 }
 
+interface GrignonsState {
+    flowRate: number;
+}
+
+
 interface MixtureThresholds {
     pci_min: number;
     humidity_max: number;
@@ -52,6 +58,7 @@ interface MixtureSummary {
         name: string; 
         percentage: number;
         totalBuckets: number;
+        totalWeight: number;
     }[];
 }
 
@@ -103,7 +110,15 @@ function IndicatorCard({ title, value, unit, tooltipText, status = 'neutral' }: 
   )
 }
 
-function useMixtureCalculations(hallAF: InstallationState, ats: InstallationState, availableFuels: Record<string, AverageAnalysis>, fuelData: Record<string, FuelData>, fuelCosts: Record<string, FuelCost>, thresholds: MixtureThresholds) {
+function useMixtureCalculations(
+    hallAF: InstallationState, 
+    ats: InstallationState, 
+    grignons: GrignonsState,
+    availableFuels: Record<string, AverageAnalysis>, 
+    fuelData: Record<string, FuelData>, 
+    fuelCosts: Record<string, FuelCost>, 
+    thresholds: MixtureThresholds
+) {
    return useMemo(() => {
     const processInstallation = (state: InstallationState) => {
         let totalWeight = 0;
@@ -138,7 +153,6 @@ function useMixtureCalculations(hallAF: InstallationState, ats: InstallationStat
             }
 
             let correctedPciBrut = analysisData.pci_brut;
-            // Correction pour les pneus: le taux de fils réduit le PCI global
             if (fuelName.toLowerCase().includes('pneu') && analysisData.taux_fils_metalliques && analysisData.taux_fils_metalliques > 0 && analysisData.taux_fils_metalliques < 100) {
                 const correctionFactor = 1 - (analysisData.taux_fils_metalliques / 100);
                 correctedPciBrut = analysisData.pci_brut * correctionFactor;
@@ -167,23 +181,50 @@ function useMixtureCalculations(hallAF: InstallationState, ats: InstallationStat
 
     const hallIndicators = processInstallation(hallAF);
     const atsIndicators = processInstallation(ats);
-    
-    const flowHall = hallAF.flowRate || 0;
-    const flowAts = ats.flowRate || 0;
-    const totalFlow = flowHall + flowAts;
 
-    const weightedAvg = (valHall: number, weightHall: number, valAts: number, weightAts: number) => {
-      const totalWeight = weightHall + weightAts;
-      if (totalWeight === 0) return 0;
-      return (valHall * weightHall + valAts * weightAts) / totalWeight;
+    const grignonsAnalysis = availableFuels['Grignons'];
+    const grignonsFlow = grignons.flowRate || 0;
+
+    let allFlows = [
+      { flow: hallAF.flowRate || 0, indicators: hallIndicators },
+      { flow: ats.flowRate || 0, indicators: atsIndicators },
+    ];
+    
+    if (grignonsFlow > 0 && grignonsAnalysis && grignonsAnalysis.count > 0) {
+      allFlows.push({
+        flow: grignonsFlow,
+        indicators: {
+          pci: grignonsAnalysis.pci_brut,
+          humidity: grignonsAnalysis.h2o,
+          ash: grignonsAnalysis.cendres,
+          chlorine: grignonsAnalysis.chlore,
+          cost: fuelCosts['Grignons']?.cost || 0,
+          tireRate: 0, // Grignons are not tires
+        }
+      });
     }
 
-    const pci = weightedAvg(hallIndicators.pci, flowHall, atsIndicators.pci, flowAts);
-    const chlorine = weightedAvg(hallIndicators.chlorine, flowHall, atsIndicators.chlorine, flowAts);
-    const humidity = weightedAvg(hallIndicators.humidity, flowHall, atsIndicators.humidity, flowAts);
-    const ash = weightedAvg(hallIndicators.ash, flowHall, atsIndicators.ash, flowAts);
-    const cost = weightedAvg(hallIndicators.cost, flowHall, atsIndicators.cost, flowAts);
-    const tireRate = weightedAvg(hallIndicators.tireRate, flowHall, atsIndicators.tireRate, flowAts);
+    const totalFlow = allFlows.reduce((sum, item) => sum + item.flow, 0);
+
+    const weightedAvg = (valueKey: keyof typeof hallIndicators) => {
+        if (totalFlow === 0) return 0;
+        const totalValue = allFlows.reduce((sum, item) => {
+            const indicatorValue = item.indicators[valueKey as keyof typeof item.indicators];
+            if (typeof indicatorValue === 'number') {
+                return sum + item.flow * indicatorValue;
+            }
+            return sum;
+        }, 0);
+        return totalValue / totalFlow;
+    };
+    
+    const pci = weightedAvg('pci');
+    const chlorine = weightedAvg('chlorine');
+    const humidity = weightedAvg('humidity');
+    const ash = weightedAvg('ash');
+    const cost = weightedAvg('cost');
+    const tireRate = weightedAvg('tireRate');
+
 
     const getStatus = (value: number, min: number | undefined, max: number | undefined): IndicatorStatus => {
         if (min === undefined && max === undefined) return 'neutral';
@@ -205,9 +246,15 @@ function useMixtureCalculations(hallAF: InstallationState, ats: InstallationStat
     Object.entries(hallIndicators.fuelWeights).forEach(([fuel, weight]) => {
         globalFuelWeights[fuel] = (globalFuelWeights[fuel] || 0) + weight;
     });
-     Object.entries(atsIndicators.fuelWeights).forEach(([fuel, weight]) => {
+    Object.entries(atsIndicators.fuelWeights).forEach(([fuel, weight]) => {
         globalFuelWeights[fuel] = (globalFuelWeights[fuel] || 0) + weight;
     });
+    // Add grignons weight
+    if (grignonsFlow > 0) {
+      // Weight is flow rate for grignons as it's a direct input
+      globalFuelWeights['Grignons'] = (globalFuelWeights['Grignons'] || 0) + grignonsFlow;
+    }
+
 
     return {
       globalIndicators: {
@@ -222,7 +269,7 @@ function useMixtureCalculations(hallAF: InstallationState, ats: InstallationStat
       },
       globalFuelWeights
     };
-  }, [hallAF, ats, availableFuels, fuelData, fuelCosts, thresholds]);
+  }, [hallAF, ats, grignons, availableFuels, fuelData, fuelCosts, thresholds]);
 }
 
 
@@ -234,6 +281,7 @@ export function MixtureCalculator() {
   
   const [hallAF, setHallAF] = useState<InstallationState>({ flowRate: 0, fuels: {} });
   const [ats, setAts] = useState<InstallationState>({ flowRate: 0, fuels: {} });
+  const [grignons, setGrignons] = useState<GrignonsState>({ flowRate: 0 });
   
   // History state
   const [historySessions, setHistorySessions] = useState<MixtureSession[]>([]);
@@ -276,18 +324,43 @@ export function MixtureCalculator() {
     }
   }
 
- const fetchData = useCallback(async () => {
-    if (!analysisDateRange?.from || !analysisDateRange?.to) return;
+ const fetchData = useCallback(async (newDateRange?: DateRange) => {
+    const dateRangeToUse = newDateRange ?? analysisDateRange;
+    if (!dateRangeToUse?.from || !dateRangeToUse?.to) return;
+
     setLoading(true);
     try {
-        // Fetch all data concurrently
-        const [allFuelData, costs, latestSession, allStocks, globalSpec] = await Promise.all([
+        const [allFuelData, costs, allStocks, globalSpec, latestSession] = await Promise.all([
             getFuelData(),
             getFuelCosts(),
-            getLatestMixtureSession(),
             getStocks(),
             getGlobalMixtureSpecification(),
+            getLatestMixtureSession(),
         ]);
+        
+        let finalDateRange = dateRangeToUse;
+        if (latestSession?.analysisDateRange?.from && latestSession.analysisDateRange.to) {
+            const fromDate = latestSession.analysisDateRange.from.toDate();
+            const toDate = latestSession.analysisDateRange.to.toDate();
+            if (isValid(fromDate) && isValid(toDate)) {
+                finalDateRange = { from: fromDate, to: toDate };
+                setAnalysisDateRange(finalDateRange);
+            }
+        }
+
+        const allPossibleFuelNames = new Set(allStocks.map(s => s.nom_combustible));
+        if (latestSession) {
+            Object.keys(latestSession.hallAF?.fuels || {}).forEach(name => allPossibleFuelNames.add(name));
+            Object.keys(latestSession.ats?.fuels || {}).forEach(name => allPossibleFuelNames.add(name));
+            if(latestSession.grignons) allPossibleFuelNames.add('Grignons');
+        } else {
+            allPossibleFuelNames.add('Grignons');
+        }
+
+        const fuelNamesArray = Array.from(allPossibleFuelNames);
+        const fuelsAnalysis = await getAverageAnalysisForFuels(fuelNamesArray, finalDateRange);
+        
+        setAvailableFuels(fuelsAnalysis);
 
         if (globalSpec) {
              setThresholds({
@@ -298,39 +371,43 @@ export function MixtureCalculator() {
                 tireRate_max: globalSpec.tireRate_max ?? defaultThresholds.tireRate_max,
             });
         }
-
-        const fuelDataMap = allFuelData.reduce((acc, fd) => {
-            acc[fd.nom_combustible] = fd;
-            return acc;
-        }, {} as Record<string, FuelData>);
+        const fuelDataMap = allFuelData.reduce((acc, fd) => { acc[fd.nom_combustible] = fd; return acc; }, {} as Record<string, FuelData>);
         setFuelData(fuelDataMap);
-        
-        const fuelNames = allStocks.map(s => s.nom_combustible);
-
-        const fuelsAnalysis = await getAverageAnalysisForFuels(fuelNames, analysisDateRange);
-
-        const initialFuelState = allStocks.reduce((acc, stock) => {
-            acc[stock.nom_combustible] = { buckets: 0 };
-            return acc;
-        }, {} as InstallationState['fuels']);
-
-        setAvailableFuels(fuelsAnalysis);
         setFuelCosts(costs);
 
-        if(latestSession){
-            setHallAF({
+        const initialFuelState = fuelNamesArray
+            .filter(name => name.toLowerCase() !== 'grignons')
+            .reduce((acc, name) => {
+                acc[name] = { buckets: 0 };
+                return acc;
+            }, {} as InstallationState['fuels']);
+        
+        let initialHallState = { flowRate: 0, fuels: { ...initialFuelState } };
+        let initialAtsState = { flowRate: 0, fuels: { ...initialFuelState } };
+        let initialGrignonsState = { flowRate: 0 };
+        
+        if (latestSession) {
+            initialHallState = {
                 flowRate: latestSession.hallAF?.flowRate || 0,
-                fuels: { ...initialFuelState, ...(latestSession.hallAF?.fuels || {}) }
-            });
-             setAts({
+                fuels: { ...initialHallState.fuels, ...(latestSession.hallAF?.fuels || {}) }
+            };
+            initialAtsState = {
                 flowRate: latestSession.ats?.flowRate || 0,
-                fuels: { ...initialFuelState, ...(latestSession.ats?.fuels || {}) }
-            });
-            toast({title: "Dernière session chargée", description: "La dernière configuration a été chargée."});
-        } else {
-            setHallAF(prev => ({...prev, fuels: { ...initialFuelState }}));
-            setAts(prev => ({...prev, fuels: { ...initialFuelState }}));
+                fuels: { ...initialAtsState.fuels, ...(latestSession.ats?.fuels || {}) }
+            };
+            initialGrignonsState = {
+                flowRate: latestSession.grignons?.flowRate || 0
+            };
+            if(!newDateRange){ // Only show toast on initial load, not on date change
+                setTimeout(() => {
+                    toast({ title: "Dernière session chargée", description: "La dernière configuration a été chargée." });
+                }, 100);
+            }
         }
+        
+        setHallAF(initialHallState);
+        setAts(initialAtsState);
+        setGrignons(initialGrignonsState);
 
     } catch (error) {
         console.error("Error fetching fuel data:", error);
@@ -340,9 +417,17 @@ export function MixtureCalculator() {
     }
   }, [analysisDateRange, toast]);
 
+
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+  }, []);
+
+  const handleDateRangeChange = (newRange: DateRange | undefined) => {
+      if(newRange){
+          setAnalysisDateRange(newRange);
+          fetchData(newRange);
+      }
+  }
 
 
   const fetchHistoryData = useCallback(async () => {
@@ -363,7 +448,7 @@ export function MixtureCalculator() {
     fetchHistoryData();
   }, [fetchHistoryData]);
 
-  const { globalIndicators, globalFuelWeights } = useMixtureCalculations(hallAF, ats, availableFuels, fuelData, fuelCosts, thresholds);
+  const { globalIndicators, globalFuelWeights } = useMixtureCalculations(hallAF, ats, grignons, availableFuels, fuelData, fuelCosts, thresholds);
 
   const historyChartData = useMemo(() => {
     if (!historySessions || historySessions.length === 0) return [];
@@ -387,8 +472,8 @@ export function MixtureCalculator() {
       return { ...prev, fuels: newFuels };
     });
   };
-
-  const handleFlowRateChange = (setter: React.Dispatch<React.SetStateAction<InstallationState>>, value: string) => {
+  
+  const handleFlowRateChange = (setter: React.Dispatch<React.SetStateAction<any>>, value: string) => {
     const flowRate = parseFloat(value);
     setter(prev => ({ ...prev, flowRate: isNaN(flowRate) ? 0 : flowRate }));
   };
@@ -399,11 +484,15 @@ export function MixtureCalculator() {
     const composition = Object.entries(globalFuelWeights)
       .filter(([, weight]) => weight > 0)
       .map(([name, weight]) => {
-        const totalBuckets = (hallAF.fuels[name]?.buckets || 0) + (ats.fuels[name]?.buckets || 0);
+          let totalBuckets = 0;
+          if (name !== 'Grignons') {
+              totalBuckets = (hallAF.fuels[name]?.buckets || 0) + (ats.fuels[name]?.buckets || 0);
+          }
         return {
             name,
             percentage: totalWeight > 0 ? (weight / totalWeight) * 100 : 0,
             totalBuckets,
+            totalWeight: weight,
         }
       })
       .sort((a, b) => b.percentage - a.percentage);
@@ -419,11 +508,20 @@ export function MixtureCalculator() {
     setIsSaving(true);
     setIsSaveModalOpen(false);
     try {
+        if (!analysisDateRange?.from || !analysisDateRange?.to) {
+            throw new Error("La plage de dates d'analyse n'est pas définie.");
+        }
+
         const sessionData: Omit<MixtureSession, 'id' | 'timestamp'> = {
             hallAF,
             ats,
+            grignons,
             globalIndicators,
             availableFuels,
+            analysisDateRange: {
+                from: Timestamp.fromDate(analysisDateRange.from),
+                to: Timestamp.fromDate(analysisDateRange.to),
+            },
         };
         await saveMixtureSession(sessionData);
         toast({ title: "Succès", description: "La session de mélange a été enregistrée." });
@@ -553,10 +651,13 @@ const fuelOrder = [
     const { globalIndicators: summaryIndicators, composition } = mixtureSummary;
 
     const generateSummaryText = () => {
-        // Find maximum length for each column to calculate padding
-        const headers = ["Combustible", "Nb Godets", "% Poids"];
-        const col1Width = Math.max(headers[0].length, ...composition.map(item => item.name.length));
-        const col2Width = Math.max(headers[1].length, ...composition.map(item => item.totalBuckets.toString().length));
+        const headers = ["Combustible", "Nb Godets", "% Poids", "Poids (t)"];
+        const colWidths = {
+            col1: Math.max(headers[0].length, ...composition.map(item => item.name.length)),
+            col2: Math.max(headers[1].length, ...composition.map(item => item.name === 'Grignons' ? '-' : item.totalBuckets.toString().length)),
+            col3: Math.max(headers[2].length, ...composition.map(item => `${item.percentage.toFixed(2)} %`.length)),
+            col4: Math.max(headers[3].length, ...composition.map(item => item.totalWeight.toFixed(2).length))
+        };
         
         let textToCopy = "";
 
@@ -574,21 +675,23 @@ const fuelOrder = [
         
         // Table Header
         const headerRow = [
-            headers[0].padEnd(col1Width),
-            headers[1].padEnd(col2Width),
-            headers[2]
-        ].join('  ');
+            headers[0].padEnd(colWidths.col1),
+            headers[1].padStart(colWidths.col2),
+            headers[2].padStart(colWidths.col3),
+            headers[3].padStart(colWidths.col4)
+        ].join(' | ');
         textToCopy += headerRow + '\n';
         textToCopy += '-'.repeat(headerRow.length) + '\n';
         
         // Table Rows
         composition.forEach(item => {
             const row = [
-                item.name.padEnd(col1Width),
-                item.totalBuckets.toString().padEnd(col2Width),
-                `${item.percentage.toFixed(2)} %`
+                item.name.padEnd(colWidths.col1),
+                (item.name === 'Grignons' ? '-' : item.totalBuckets.toString()).padStart(colWidths.col2),
+                `${item.percentage.toFixed(2)} %`.padStart(colWidths.col3),
+                `${item.totalWeight.toFixed(2)}`.padStart(colWidths.col4)
             ];
-            textToCopy += row.join('  ') + '\n';
+            textToCopy += row.join(' | ') + '\n';
         });
 
         return textToCopy;
@@ -652,14 +755,16 @@ const fuelOrder = [
                                     <TableHead>Combustible</TableHead>
                                     <TableHead className="text-center">Nb Godets</TableHead>
                                     <TableHead className="text-right">% Poids</TableHead>
+                                    <TableHead className="text-right">Poids (t)</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {composition.map(item => (
                                     <TableRow key={item.name}>
                                         <TableCell className="font-medium">{item.name}</TableCell>
-                                        <TableCell className="text-center">{item.totalBuckets}</TableCell>
+                                        <TableCell className="text-center">{item.name === 'Grignons' ? '-' : item.totalBuckets}</TableCell>
                                         <TableCell className="text-right">{item.percentage.toFixed(2)} %</TableCell>
+                                        <TableCell className="text-right">{item.totalWeight.toFixed(2)}</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -748,7 +853,7 @@ const fuelOrder = [
                           mode="range"
                           defaultMonth={analysisDateRange?.from}
                           selected={analysisDateRange}
-                          onSelect={setAnalysisDateRange}
+                          onSelect={handleDateRangeChange}
                           numberOfMonths={2}
                           locale={fr}
                       />
@@ -773,8 +878,8 @@ const fuelOrder = [
         </div>
       </div>
 
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="shadow-md rounded-xl bg-white">
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="shadow-md rounded-xl bg-white lg:col-span-1">
           <CardHeader className="flex flex-row items-center justify-between p-6">
             <CardTitle className='text-gray-800'>Hall des AF</CardTitle>
             <div className="flex items-center gap-2">
@@ -787,7 +892,7 @@ const fuelOrder = [
           </CardContent>
         </Card>
         
-        <Card className="shadow-md rounded-xl bg-white">
+        <Card className="shadow-md rounded-xl bg-white lg:col-span-1">
           <CardHeader className="flex flex-row items-center justify-between p-6">
             <CardTitle className='text-gray-800'>ATS</CardTitle>
             <div className="flex items-center gap-2">
@@ -797,6 +902,21 @@ const fuelOrder = [
           </CardHeader>
           <CardContent className="space-y-4 p-6">
             <FuelInputList installationState={ats} setInstallationState={setAts} installationName="ats" />
+          </CardContent>
+        </Card>
+        
+        <Card className="shadow-md rounded-xl bg-white lg:col-span-1">
+          <CardHeader className="flex flex-row items-center justify-between p-6">
+            <CardTitle className='text-gray-800'>Grignons</CardTitle>
+            <div className="flex items-center gap-2">
+                <Label htmlFor="flow-grignons" className="text-sm text-gray-600">Débit (t/h)</Label>
+                <Input id="flow-grignons" type="number" className="w-32 h-9" value={grignons.flowRate || ''} onChange={(e) => handleFlowRateChange(setGrignons, e.target.value)} />
+            </div>
+          </CardHeader>
+           <CardContent className="p-6">
+             <p className="text-sm text-muted-foreground text-center">
+                Le débit des grignons est directement pris en compte dans le calcul des indicateurs globaux.
+             </p>
           </CardContent>
         </Card>
       </section>
@@ -887,5 +1007,3 @@ const fuelOrder = [
     </div>
   );
 }
-
-    
