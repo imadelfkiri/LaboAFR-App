@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { BrainCircuit, Calendar as CalendarIcon, Save, Settings, ChevronDown, CheckCircle, AlertTriangle, Copy, Mail } from 'lucide-react';
+import { BrainCircuit, Calendar as CalendarIcon, Save, Settings, ChevronDown, CheckCircle, AlertTriangle, Copy, Mail, Flame } from 'lucide-react';
 import { DateRange } from "react-day-picker";
 import { format, subDays, startOfDay, endOfDay, parseISO, isValid } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -39,7 +39,7 @@ interface InstallationState {
   fuels: Record<string, { buckets: number }>;
 }
 
-interface GrignonsState {
+interface DirectInputState {
     flowRate: number;
 }
 
@@ -113,7 +113,7 @@ function IndicatorCard({ title, value, unit, tooltipText, status = 'neutral' }: 
 function useMixtureCalculations(
     hallAF: InstallationState, 
     ats: InstallationState, 
-    grignons: GrignonsState,
+    directInputs: Record<string, DirectInputState>,
     availableFuels: Record<string, AverageAnalysis>, 
     fuelData: Record<string, FuelData>, 
     fuelCosts: Record<string, FuelCost>, 
@@ -182,26 +182,29 @@ function useMixtureCalculations(
     const hallIndicators = processInstallation(hallAF);
     const atsIndicators = processInstallation(ats);
 
-    const grignonsAnalysis = availableFuels['Grignons'];
-    const grignonsFlow = grignons.flowRate || 0;
-
     let allFlows = [
       { flow: hallAF.flowRate || 0, indicators: hallIndicators },
       { flow: ats.flowRate || 0, indicators: atsIndicators },
     ];
     
-    if (grignonsFlow > 0 && grignonsAnalysis && grignonsAnalysis.count > 0) {
-      allFlows.push({
-        flow: grignonsFlow,
-        indicators: {
-          pci: grignonsAnalysis.pci_brut,
-          humidity: grignonsAnalysis.h2o,
-          ash: grignonsAnalysis.cendres,
-          chlorine: grignonsAnalysis.chlore,
-          cost: fuelCosts['Grignons']?.cost || 0,
-          tireRate: 0, // Grignons are not tires
+    // Add direct inputs to flows
+    for (const fuelName in directInputs) {
+        const inputState = directInputs[fuelName];
+        const flow = inputState.flowRate || 0;
+        const analysis = availableFuels[fuelName];
+        if (flow > 0 && analysis && analysis.count > 0) {
+            allFlows.push({
+                flow,
+                indicators: {
+                    pci: analysis.pci_brut,
+                    humidity: analysis.h2o,
+                    ash: analysis.cendres,
+                    chlorine: analysis.chlore,
+                    cost: fuelCosts[fuelName]?.cost || 0,
+                    tireRate: fuelName.toLowerCase().includes('pneu') ? 100 : 0,
+                }
+            });
         }
-      });
     }
 
     const totalFlow = allFlows.reduce((sum, item) => sum + item.flow, 0);
@@ -249,10 +252,13 @@ function useMixtureCalculations(
     Object.entries(atsIndicators.fuelWeights).forEach(([fuel, weight]) => {
         globalFuelWeights[fuel] = (globalFuelWeights[fuel] || 0) + weight;
     });
-    // Add grignons weight
-    if (grignonsFlow > 0) {
-      // Weight is flow rate for grignons as it's a direct input
-      globalFuelWeights['Grignons'] = (globalFuelWeights['Grignons'] || 0) + grignonsFlow;
+    
+    // Add direct inputs weight
+    for (const fuelName in directInputs) {
+        const flow = directInputs[fuelName].flowRate || 0;
+        if(flow > 0) {
+            globalFuelWeights[fuelName] = (globalFuelWeights[fuelName] || 0) + flow;
+        }
     }
 
 
@@ -269,7 +275,7 @@ function useMixtureCalculations(
       },
       globalFuelWeights
     };
-  }, [hallAF, ats, grignons, availableFuels, fuelData, fuelCosts, thresholds]);
+  }, [hallAF, ats, directInputs, availableFuels, fuelData, fuelCosts, thresholds]);
 }
 
 
@@ -281,7 +287,12 @@ export function MixtureCalculator() {
   
   const [hallAF, setHallAF] = useState<InstallationState>({ flowRate: 0, fuels: {} });
   const [ats, setAts] = useState<InstallationState>({ flowRate: 0, fuels: {} });
-  const [grignons, setGrignons] = useState<GrignonsState>({ flowRate: 0 });
+  const [directInputs, setDirectInputs] = useState<Record<string, DirectInputState>>({
+    'Grignons GO1': { flowRate: 0 },
+    'Grignons GO2': { flowRate: 0 },
+    'Pet-Coke Preca': { flowRate: 0 },
+    'Pet-Coke Tuyere': { flowRate: 0 },
+  });
   
   // History state
   const [historySessions, setHistorySessions] = useState<MixtureSession[]>([]);
@@ -347,20 +358,27 @@ export function MixtureCalculator() {
                 setAnalysisDateRange(finalDateRange);
             }
         }
-
+        
+        const directInputFuelNames = ['Grignons GO1', 'Grignons GO2', 'Pet-Coke Preca', 'Pet-Coke Tuyere'];
+        const directInputBaseNames = ['Grignons', 'Pet-Coke'];
         const allPossibleFuelNames = new Set(allStocks.map(s => s.nom_combustible));
         if (latestSession) {
             Object.keys(latestSession.hallAF?.fuels || {}).forEach(name => allPossibleFuelNames.add(name));
             Object.keys(latestSession.ats?.fuels || {}).forEach(name => allPossibleFuelNames.add(name));
-            if(latestSession.grignons) allPossibleFuelNames.add('Grignons');
-        } else {
-            allPossibleFuelNames.add('Grignons');
         }
+        directInputBaseNames.forEach(name => allPossibleFuelNames.add(name));
+
 
         const fuelNamesArray = Array.from(allPossibleFuelNames);
         const fuelsAnalysis = await getAverageAnalysisForFuels(fuelNamesArray, finalDateRange);
         
-        setAvailableFuels(fuelsAnalysis);
+        const extendedAnalyses = {...fuelsAnalysis};
+        extendedAnalyses['Grignons GO1'] = fuelsAnalysis['Grignons'];
+        extendedAnalyses['Grignons GO2'] = fuelsAnalysis['Grignons'];
+        extendedAnalyses['Pet-Coke Preca'] = fuelsAnalysis['Pet-Coke'];
+        extendedAnalyses['Pet-Coke Tuyere'] = fuelsAnalysis['Pet-Coke'];
+
+        setAvailableFuels(extendedAnalyses);
 
         if (globalSpec) {
              setThresholds({
@@ -376,7 +394,7 @@ export function MixtureCalculator() {
         setFuelCosts(costs);
 
         const initialFuelState = fuelNamesArray
-            .filter(name => name.toLowerCase() !== 'grignons')
+            .filter(name => !directInputBaseNames.includes(name))
             .reduce((acc, name) => {
                 acc[name] = { buckets: 0 };
                 return acc;
@@ -384,7 +402,7 @@ export function MixtureCalculator() {
         
         let initialHallState = { flowRate: 0, fuels: { ...initialFuelState } };
         let initialAtsState = { flowRate: 0, fuels: { ...initialFuelState } };
-        let initialGrignonsState = { flowRate: 0 };
+        let initialDirectInputs = { ...directInputs };
         
         if (latestSession) {
             initialHallState = {
@@ -395,9 +413,15 @@ export function MixtureCalculator() {
                 flowRate: latestSession.ats?.flowRate || 0,
                 fuels: { ...initialAtsState.fuels, ...(latestSession.ats?.fuels || {}) }
             };
-            initialGrignonsState = {
-                flowRate: latestSession.grignons?.flowRate || 0
-            };
+            
+            // Handle direct inputs from old and new format
+            if (latestSession.directInputs) {
+              initialDirectInputs = { ...initialDirectInputs, ...latestSession.directInputs };
+            } else if ((latestSession as any).grignons) {
+                // backward compatibility
+                initialDirectInputs['Grignons GO1'] = { flowRate: (latestSession as any).grignons.flowRate || 0 };
+            }
+
             if(!newDateRange){ // Only show toast on initial load, not on date change
                 setTimeout(() => {
                     toast({ title: "Dernière session chargée", description: "La dernière configuration a été chargée." });
@@ -407,7 +431,7 @@ export function MixtureCalculator() {
         
         setHallAF(initialHallState);
         setAts(initialAtsState);
-        setGrignons(initialGrignonsState);
+        setDirectInputs(initialDirectInputs);
 
     } catch (error) {
         console.error("Error fetching fuel data:", error);
@@ -448,7 +472,7 @@ export function MixtureCalculator() {
     fetchHistoryData();
   }, [fetchHistoryData]);
 
-  const { globalIndicators, globalFuelWeights } = useMixtureCalculations(hallAF, ats, grignons, availableFuels, fuelData, fuelCosts, thresholds);
+  const { globalIndicators, globalFuelWeights } = useMixtureCalculations(hallAF, ats, directInputs, availableFuels, fuelData, fuelCosts, thresholds);
 
   const historyChartData = useMemo(() => {
     if (!historySessions || historySessions.length === 0) return [];
@@ -478,6 +502,14 @@ export function MixtureCalculator() {
     setter(prev => ({ ...prev, flowRate: isNaN(flowRate) ? 0 : flowRate }));
   };
 
+  const handleDirectInputChange = (fuelName: string, value: string) => {
+      const flowRate = parseFloat(value);
+      setDirectInputs(prev => ({
+          ...prev,
+          [fuelName]: { flowRate: isNaN(flowRate) ? 0 : flowRate }
+      }));
+  }
+
   const handlePrepareSave = () => {
     const totalWeight = Object.values(globalFuelWeights).reduce((sum, weight) => sum + weight, 0);
 
@@ -485,7 +517,7 @@ export function MixtureCalculator() {
       .filter(([, weight]) => weight > 0)
       .map(([name, weight]) => {
           let totalBuckets = 0;
-          if (name !== 'Grignons') {
+          if (!directInputs[name]) {
               totalBuckets = (hallAF.fuels[name]?.buckets || 0) + (ats.fuels[name]?.buckets || 0);
           }
         return {
@@ -515,7 +547,7 @@ export function MixtureCalculator() {
         const sessionData: Omit<MixtureSession, 'id' | 'timestamp'> = {
             hallAF,
             ats,
-            grignons,
+            directInputs,
             globalIndicators,
             availableFuels,
             analysisDateRange: {
@@ -540,7 +572,6 @@ export function MixtureCalculator() {
         return <Skeleton className="h-48 w-full" />;
     }
      const sortedFuelNames = Object.keys(installationState.fuels)
-        .filter(name => name.toLowerCase() !== 'grignons')
         .sort((a, b) => {
             const indexA = fuelOrder.indexOf(a);
             const indexB = fuelOrder.indexOf(b);
@@ -654,7 +685,7 @@ const fuelOrder = [
         const headers = ["Combustible", "Nb Godets", "% Poids", "Poids (t)"];
         const colWidths = {
             col1: Math.max(headers[0].length, ...composition.map(item => item.name.length)),
-            col2: Math.max(headers[1].length, ...composition.map(item => item.name === 'Grignons' ? '-' : item.totalBuckets.toString().length)),
+            col2: Math.max(headers[1].length, ...composition.map(item => item.totalBuckets === 0 ? '-' : item.totalBuckets.toString().length)),
             col3: Math.max(headers[2].length, ...composition.map(item => `${item.percentage.toFixed(2)} %`.length)),
             col4: Math.max(headers[3].length, ...composition.map(item => item.totalWeight.toFixed(2).length))
         };
@@ -687,7 +718,7 @@ const fuelOrder = [
         composition.forEach(item => {
             const row = [
                 item.name.padEnd(colWidths.col1),
-                (item.name === 'Grignons' ? '-' : item.totalBuckets.toString()).padStart(colWidths.col2),
+                (item.totalBuckets === 0 ? '-' : item.totalBuckets.toString()).padStart(colWidths.col2),
                 `${item.percentage.toFixed(2)} %`.padStart(colWidths.col3),
                 `${item.totalWeight.toFixed(2)}`.padStart(colWidths.col4)
             ];
@@ -762,7 +793,7 @@ const fuelOrder = [
                                 {composition.map(item => (
                                     <TableRow key={item.name}>
                                         <TableCell className="font-medium">{item.name}</TableCell>
-                                        <TableCell className="text-center">{item.name === 'Grignons' ? '-' : item.totalBuckets}</TableCell>
+                                        <TableCell className="text-center">{item.totalBuckets === 0 ? '-' : item.totalBuckets}</TableCell>
                                         <TableCell className="text-right">{item.percentage.toFixed(2)} %</TableCell>
                                         <TableCell className="text-right">{item.totalWeight.toFixed(2)}</TableCell>
                                     </TableRow>
@@ -906,17 +937,29 @@ const fuelOrder = [
         </Card>
         
         <Card className="shadow-md rounded-xl bg-white lg:col-span-1">
-          <CardHeader className="flex flex-row items-center justify-between p-6">
-            <CardTitle className='text-gray-800'>Grignons</CardTitle>
-            <div className="flex items-center gap-2">
-                <Label htmlFor="flow-grignons" className="text-sm text-gray-600">Débit (t/h)</Label>
-                <Input id="flow-grignons" type="number" className="w-32 h-9" value={grignons.flowRate || ''} onChange={(e) => handleFlowRateChange(setGrignons, e.target.value)} />
-            </div>
+          <CardHeader className="p-6">
+            <CardTitle className="flex items-center gap-2 text-gray-800">
+                <Flame className="h-5 w-5 text-orange-500" />
+                Autres Combustibles
+            </CardTitle>
+            <CardDescription>Entrées directes pour les combustibles non-mélangés.</CardDescription>
           </CardHeader>
-           <CardContent className="p-6">
-             <p className="text-sm text-muted-foreground text-center">
-                Le débit des grignons est directement pris en compte dans le calcul des indicateurs globaux.
-             </p>
+           <CardContent className="space-y-4 p-6">
+             {Object.keys(directInputs).map(fuelName => (
+                <div key={fuelName} className="flex items-center gap-4">
+                    <Label htmlFor={`flow-${fuelName}`} className="flex-1 text-sm font-medium">{fuelName}</Label>
+                    <div className="flex items-center gap-2">
+                        <Input 
+                            id={`flow-${fuelName}`} 
+                            type="number" 
+                            className="w-32 h-9" 
+                            value={directInputs[fuelName].flowRate || ''} 
+                            onChange={(e) => handleDirectInputChange(fuelName, e.target.value)}
+                        />
+                        <span className="text-sm text-muted-foreground">t/h</span>
+                    </div>
+                </div>
+             ))}
           </CardContent>
         </Card>
       </section>
@@ -1007,3 +1050,5 @@ const fuelOrder = [
     </div>
   );
 }
+
+    

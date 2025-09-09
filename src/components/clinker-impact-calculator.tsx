@@ -232,9 +232,6 @@ export function ClinkerImpactCalculator() {
     const [rawMealAnalysis, setRawMealAnalysis] = useState<OxideAnalysis>(initialOxideState);
     const [clinkerFactor, setClinkerFactor] = useState(0.66);
     const [freeLime, setFreeLime] = useState(1.5);
-    
-    const [petCokePrecaFlow, setPetCokePrecaFlow] = useState(1.5);
-    const [petCokeTuyereFlow, setPetCokeTuyereFlow] = useState(1.0);
 
     // Auto-loaded data
     const [latestSession, setLatestSession] = useState<MixtureSession | null>(null);
@@ -242,7 +239,6 @@ export function ClinkerImpactCalculator() {
     const [grignonsAshAnalysis, setGrignonsAshAnalysis] = useState<OxideAnalysis>({});
     const [petCokePrecaAsh, setPetCokePrecaAsh] = useState<OxideAnalysis>({});
     const [petCokeTuyereAsh, setPetCokeTuyereAsh] = useState<OxideAnalysis>({});
-
 
     const afFlow = useMemo(() => {
         if (!latestSession) return 0;
@@ -267,22 +263,17 @@ export function ClinkerImpactCalculator() {
     const grignonsFlow = useMemo(() => {
         if (!latestSession) return 0;
         let totalGrignonsFlow = 0;
-        const processInstallation = (installation: any) => {
-             if (!installation || !installation.flowRate || !installation.fuels) return 0;
-             const grignonsBuckets = installation.fuels['Grignons']?.buckets || 0;
-             if (grignonsBuckets > 0) {
-                 const totalBuckets = Object.values(installation.fuels).reduce((sum: number, fuel: any) => sum + (fuel.buckets || 0), 0);
-                 if (totalBuckets > 0) {
-                     return installation.flowRate * (grignonsBuckets / totalBuckets);
-                 }
-             }
-             return 0;
-        };
-        totalGrignonsFlow += processInstallation(latestSession.hallAF);
-        totalGrignonsFlow += processInstallation(latestSession.ats);
-        totalGrignonsFlow += latestSession.grignons?.flowRate || 0;
+        if (latestSession.directInputs) {
+            totalGrignonsFlow += latestSession.directInputs['Grignons GO1']?.flowRate || 0;
+            totalGrignonsFlow += latestSession.directInputs['Grignons GO2']?.flowRate || 0;
+        } else if ((latestSession as any).grignons) { // backward compat
+            totalGrignonsFlow += (latestSession as any).grignons.flowRate || 0;
+        }
         return totalGrignonsFlow;
     }, [latestSession]);
+
+    const petCokePrecaFlow = useMemo(() => latestSession?.directInputs?.['Pet-Coke Preca']?.flowRate || 0, [latestSession]);
+    const petCokeTuyereFlow = useMemo(() => latestSession?.directInputs?.['Pet-Coke Tuyere']?.flowRate || 0, [latestSession]);
 
 
     const fetchData = useCallback(async () => {
@@ -495,38 +486,15 @@ export function ClinkerImpactCalculator() {
                 <div className="space-y-6">
                     <Card>
                         <CardHeader>
-                             <CardTitle className="flex items-center gap-2"><Flame className="h-5 w-5 text-orange-500" /> Débits et Cendres des Combustibles</CardTitle>
-                            <CardDescription>Les débits des AFs sont automatiques. Entrez les données pour les Pet-Cokes.</CardDescription>
+                             <CardTitle className="flex items-center gap-2"><Flame className="h-5 w-5 text-orange-500" /> Débits des Combustibles</CardTitle>
+                            <CardDescription>Les débits sont chargés depuis la dernière session de calcul de mélange.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="grid grid-cols-2 gap-4 p-4 border rounded-lg bg-muted/30">
                                 <div><Label>Débit AFs (t/h)</Label><Input value={afFlow.toFixed(2)} readOnly disabled /></div>
                                 <div><Label>Débit Grignons (t/h)</Label><Input value={grignonsFlow.toFixed(2)} readOnly disabled /></div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label>Pet Coke Précalcinateur</Label>
-                                 <div><Label htmlFor="pet-coke-preca-flow" className="text-xs">Débit (t/h)</Label>
-                                    <Input 
-                                        id="pet-coke-preca-flow"
-                                        type="text"
-                                        inputMode="decimal"
-                                        value={String(petCokePrecaFlow).replace('.', ',')}
-                                        onChange={e => setPetCokePrecaFlow(toNum(e.target.value))}
-                                    />
-                                 </div>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Pet Coke Tuyère</Label>
-                                <div><Label htmlFor="pet-coke-tuyere-flow" className="text-xs">Débit (t/h)</Label>
-                                    <Input
-                                        id="pet-coke-tuyere-flow"
-                                        type="text"
-                                        inputMode="decimal"
-                                        value={String(petCokeTuyereFlow).replace('.', ',')}
-                                        onChange={e => setPetCokeTuyereFlow(toNum(e.target.value))}
-                                    />
-                                </div>
+                                <div><Label>Débit Pet-Coke Préca (t/h)</Label><Input value={petCokePrecaFlow.toFixed(2)} readOnly disabled /></div>
+                                <div><Label>Débit Pet-Coke Tuyère (t/h)</Label><Input value={petCokeTuyereFlow.toFixed(2)} readOnly disabled /></div>
                             </div>
                         </CardContent>
                     </Card>

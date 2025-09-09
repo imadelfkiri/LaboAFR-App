@@ -41,7 +41,7 @@ export interface MixtureSession {
     timestamp: Timestamp;
     hallAF: any;
     ats: any;
-    grignons: any; // Add grignons to the session
+    directInputs: any;
     globalIndicators: any;
     availableFuels: Record<string, AverageAnalysis>;
     analysisDateRange?: { from: Timestamp; to: Timestamp };
@@ -744,3 +744,5 @@ export async function addManyResults(results: ResultToSave[]): Promise<void> {
 
     await batch.commit();
 }
+
+    
