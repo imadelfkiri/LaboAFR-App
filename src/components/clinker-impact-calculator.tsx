@@ -71,17 +71,16 @@ const useClinkerCalculations = (
         const clinkerize = (inputAnalysis: OxideAnalysis) => {
             const pf = inputAnalysis.paf || 0;
             if (pf >= 100) return {};
-
+            
             const factor = 100 / (100 - pf);
             const clinkerAnalysis: OxideAnalysis = {};
             
-            // On ne normalise plus à 99.8, on applique juste le facteur de concentration
             OXIDE_KEYS.forEach(key => {
                 if (key !== 'paf') {
-                    clinkerAnalysis[key] = (inputAnalysis[key] || 0) * factor;
+                     clinkerAnalysis[key] = (inputAnalysis[key] || 0) * factor;
                 }
             });
-            clinkerAnalysis.paf = 0; // After clinkerization, PF is theoretically 0
+            clinkerAnalysis.paf = 0;
 
             return clinkerAnalysis;
         }
@@ -141,6 +140,10 @@ const useClinkerCalculations = (
                 }, 0);
                 averageAshAnalysis[key] = (totalOxideInAshFlow / totalAshFlow) * 100;
             });
+             averageAshAnalysis.paf = fuelSources.reduce((sum, source) => {
+                const ashFlow = source.flow * ((source.analysis.pourcentage_cendres || 0) / 100);
+                return sum + ashFlow * ((source.analysis.paf || 0) / 100);
+            }, 0) / totalAshFlow * 100;
         }
         
         return { clinkerWithoutAsh, clinkerWithAsh, averageAshAnalysis };
@@ -334,7 +337,12 @@ export function ClinkerImpactCalculator() {
     ) => {
         let rawValue: number | undefined, ashValue: number | undefined, withoutValue: number | undefined, withValue: number | undefined;
 
-        if (OXIDE_KEYS.includes(key as any)) {
+        if (key === 'paf') {
+            rawValue = rawMealAnalysis.paf;
+            ashValue = averageAshAnalysis.paf;
+            withoutValue = 0; // Clinker PF is always 0
+            withValue = 0;
+        } else if (OXIDE_KEYS.includes(key as any)) {
             rawValue = rawMealAnalysis[key as keyof OxideAnalysis];
             ashValue = averageAshAnalysis[key as keyof OxideAnalysis];
             withoutValue = clinkerWithoutAsh[key as keyof OxideAnalysis];
@@ -404,8 +412,8 @@ export function ClinkerImpactCalculator() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><Beaker className="h-5 w-5 text-blue-500" /> Analyse de la Farine</CardTitle>
-                        <CardDescription>Entrez la composition chimique, le débit de votre farine, et le facteur de clinkérisation.</CardDescription>
+                        <CardTitle className="flex items-center gap-2"><Beaker className="h-5 w-5 text-blue-500" /> Paramètres du Cru et du Clinker</CardTitle>
+                        <CardDescription>Entrez la composition de la farine, son débit, et le facteur de clinkérisation.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
@@ -443,14 +451,14 @@ export function ClinkerImpactCalculator() {
                                 <Label>Pet Coke Précalcinateur</Label>
                                 <div className="grid grid-cols-2 gap-4">
                                      <div><Label htmlFor="pet-coke-preca-flow" className="text-xs">Débit (t/h)</Label><Input id="pet-coke-preca-flow" type="number" value={petCokePrecaFlow} onChange={e => setPetCokePrecaFlow(parseFloat(e.target.value) || 0)} /></div>
-                                     <div><Label htmlFor="pet-coke-preca-ash" className="text-xs">% Cendres</Label><Input id="pet-coke-preca-ash" type="number" value={petCokePrecaAsh.pourcentage_cendres ?? ''} onChange={e => setPetCokePrecaAsh(prev => ({...prev, pourcentage_cendres: parseFloat(e.target.value) || 0}))} /></div>
+                                     <div><Label htmlFor="pet-coke-preca-ash" className="text-xs">% Cendres</Label><Input id="pet-coke-preca-ash" type="number" value={petCokePrecaAsh.pourcentage_cendres ?? ''} onChange={e => setPetCokePrecaAsh(prev => ({...prev, pourcentage_cendres: parseFloat(e.target.value) || undefined}))} /></div>
                                 </div>
                             </div>
                             <div className="space-y-2">
                                 <Label>Pet Coke Tuyère</Label>
                                 <div className="grid grid-cols-2 gap-4">
                                      <div><Label htmlFor="pet-coke-tuyere-flow" className="text-xs">Débit (t/h)</Label><Input id="pet-coke-tuyere-flow" type="number" value={petCokeTuyereFlow} onChange={e => setPetCokeTuyereFlow(parseFloat(e.target.value) || 0)} /></div>
-                                     <div><Label htmlFor="pet-coke-tuyere-ash" className="text-xs">% Cendres</Label><Input id="pet-coke-tuyere-ash" type="number" value={petCokeTuyereAsh.pourcentage_cendres ?? ''} onChange={e => setPetCokeTuyereAsh(prev => ({...prev, pourcentage_cendres: parseFloat(e.target.value) || 0}))} /></div>
+                                     <div><Label htmlFor="pet-coke-tuyere-ash" className="text-xs">% Cendres</Label><Input id="pet-coke-tuyere-ash" type="number" value={petCokeTuyereAsh.pourcentage_cendres ?? ''} onChange={e => setPetCokeTuyereAsh(prev => ({...prev, pourcentage_cendres: parseFloat(e.target.value) || undefined}))} /></div>
                                 </div>
                             </div>
                         </CardContent>
@@ -518,3 +526,4 @@ export function ClinkerImpactCalculator() {
     
 
     
+
