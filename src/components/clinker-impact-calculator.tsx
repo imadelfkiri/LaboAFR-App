@@ -74,6 +74,11 @@ const useClinkerCalculations = (
     return useMemo(() => {
         const clinkerize = (inputAnalysis: OxideAnalysis) => {
             const pf = inputAnalysis.paf || 0;
+            if (pf >= 100) { 
+                const emptyOxides: OxideAnalysis = {};
+                OXIDE_KEYS.forEach(key => { emptyOxides[key] = 0; });
+                return emptyOxides;
+            }
             const factor = 100 / (100 - pf);
             const clinkerAnalysis: OxideAnalysis = {};
             
@@ -134,7 +139,6 @@ const useClinkerCalculations = (
         const averageAshAnalysis: OxideAnalysis = {};
         if (totalAshFlow > 0) {
           OXIDE_KEYS.forEach((key) => {
-            if (key === "paf") { averageAshAnalysis.paf = 0; return; } // cendre ≈ déjà oxydée
             const oxideFlowInAsh = fuelSources.reduce((sum, source) => {
               const ashFrac = resolveAshPercent(source.name, source.analysis) / 100;
               const oxideFracInAsh = ((source.analysis[key] ?? 0) as number) / 100;
@@ -338,7 +342,7 @@ export function ClinkerImpactCalculator() {
               sio2: 2.0, al2o3: 2.0, fe2o3: 6.0, cao: 1.5, mgo: 0.7, so3: 2.0, k2o: 0.3, tio2: 0.2, mno: 0.1, p2o5: 0.2, paf: 0
             };
             
-            const petCokeAnalysis = Object.keys(avgPetCokeAsh || {}).length > 1 ? avgPetCokeAsh : petCokeFallback;
+            const petCokeAnalysis = (avgPetCokeAsh && Object.keys(avgPetCokeAsh).length > 1) ? avgPetCokeAsh : petCokeFallback;
             setPetCokePrecaAsh(petCokeAnalysis);
             setPetCokeTuyereAsh(petCokeAnalysis);
 
@@ -586,3 +590,5 @@ export function ClinkerImpactCalculator() {
         </div>
     );
 }
+
+    
