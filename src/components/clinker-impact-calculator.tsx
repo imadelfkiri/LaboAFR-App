@@ -70,8 +70,9 @@ const useClinkerCalculations = (
     return useMemo(() => {
         const clinkerize = (inputAnalysis: OxideAnalysis) => {
             const pf = inputAnalysis.paf || 0;
-            if (pf >= 100) return {};
-            
+            // Handle edge case where pf could be 100 or more
+            if (pf >= 100) return OXIDE_KEYS.reduce((acc, key) => ({ ...acc, [key]: 0 }), { paf: 0 });
+
             const factor = 100 / (100 - pf);
             const clinkerAnalysis: OxideAnalysis = {};
             
@@ -80,7 +81,7 @@ const useClinkerCalculations = (
                      clinkerAnalysis[key] = (inputAnalysis[key] || 0) * factor;
                 }
             });
-            clinkerAnalysis.paf = 0;
+            clinkerAnalysis.paf = 0.20; // Standard target PF for clinker
 
             return clinkerAnalysis;
         }
@@ -90,9 +91,6 @@ const useClinkerCalculations = (
 
 
         // --- Clinker Avec Cendres ---
-        const mixedRawAnalysis: OxideAnalysis = {};
-
-        const totalOxideFlows: OxideAnalysis = {};
         const fuelSources = [
             { flow: afFlow, analysis: afAshAnalysis },
             { flow: grignonsFlow, analysis: grignonsAshAnalysis },
@@ -100,12 +98,14 @@ const useClinkerCalculations = (
             { flow: petCokeTuyereFlow, analysis: petCokeTuyereAshAnalysis },
         ].filter(source => source.flow > 0); // Only consider active fuel sources
         
-        // Farine
+        const totalOxideFlows: OxideAnalysis = {};
+
+        // Start with raw meal oxides
         OXIDE_KEYS.forEach(key => {
             totalOxideFlows[key] = rawMealFlow * ((rawMealAnalysis[key] || 0) / 100);
         });
         
-        // Cendres des combustibles
+        // Add ash oxides from active fuel sources
         fuelSources.forEach(source => {
             const ashContent = (source.analysis.pourcentage_cendres || 0) / 100;
             OXIDE_KEYS.forEach(key => {
@@ -117,6 +117,7 @@ const useClinkerCalculations = (
         const totalAshAdded = fuelSources.reduce((sum, s) => sum + s.flow * ((s.analysis.pourcentage_cendres || 0) / 100), 0);
         const totalMaterialFlow = rawMealFlow + totalAshAdded;
         
+        const mixedRawAnalysis: OxideAnalysis = {};
         if (totalMaterialFlow > 0) {
             OXIDE_KEYS.forEach(key => {
                  mixedRawAnalysis[key] = ((totalOxideFlows[key] || 0) / totalMaterialFlow) * 100;
@@ -140,10 +141,6 @@ const useClinkerCalculations = (
                 }, 0);
                 averageAshAnalysis[key] = (totalOxideInAshFlow / totalAshFlow) * 100;
             });
-             averageAshAnalysis.paf = fuelSources.reduce((sum, source) => {
-                const ashFlow = source.flow * ((source.analysis.pourcentage_cendres || 0) / 100);
-                return sum + ashFlow * ((source.analysis.paf || 0) / 100);
-            }, 0) / totalAshFlow * 100;
         }
         
         return { clinkerWithoutAsh, clinkerWithAsh, averageAshAnalysis };
@@ -289,7 +286,6 @@ export function ClinkerImpactCalculator() {
             setAfAshAnalysis(avgAfAsh);
             setGrignonsAshAnalysis(avgGrignonsAsh || {});
             
-            // Set both pet-coke ashes to the same fetched analysis
             const petCokeAnalysis = avgPetCokeAsh || {};
             setPetCokePrecaAsh(petCokeAnalysis);
             setPetCokeTuyereAsh(petCokeAnalysis);
@@ -340,8 +336,8 @@ export function ClinkerImpactCalculator() {
         if (key === 'paf') {
             rawValue = rawMealAnalysis.paf;
             ashValue = averageAshAnalysis.paf;
-            withoutValue = 0; // Clinker PF is always 0
-            withValue = 0;
+            withoutValue = clinkerWithoutAsh.paf;
+            withValue = clinkerWithAsh.paf;
         } else if (OXIDE_KEYS.includes(key as any)) {
             rawValue = rawMealAnalysis[key as keyof OxideAnalysis];
             ashValue = averageAshAnalysis[key as keyof OxideAnalysis];
@@ -527,3 +523,6 @@ export function ClinkerImpactCalculator() {
 
     
 
+
+
+    
