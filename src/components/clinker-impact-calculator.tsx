@@ -23,8 +23,6 @@ type OxideAnalysis = {
 };
 
 const OXIDE_KEYS: (keyof OxideAnalysis)[] = ['paf', 'sio2', 'al2o3', 'fe2o3', 'cao', 'mgo', 'so3', 'k2o', 'tio2', 'mno', 'p2o5'];
-const RAW_MEAL_OXIDE_KEYS: (keyof OxideAnalysis)[] = ['paf', ...OXIDE_KEYS.filter(k => k !== 'paf')];
-const ASH_OXIDE_KEYS: (keyof OxideAnalysis)[] = ['paf', ...OXIDE_KEYS.filter(k => k !== 'paf')];
 
 
 const initialOxideState: OxideAnalysis = {
@@ -71,10 +69,16 @@ const useClinkerCalculations = (
 ) => {
     return useMemo(() => {
         const clinkerize = (inputAnalysis: OxideAnalysis) => {
-            const paf = inputAnalysis.paf || 0;
-            if (paf >= 100) return {};
-            
-            const factor = 100 / (100 - paf);
+            const totalOxides = OXIDE_KEYS.reduce((sum, key) => {
+                 if(key !== 'paf'){
+                    return sum + (inputAnalysis[key] || 0);
+                 }
+                 return sum;
+            }, 0);
+
+            if (totalOxides === 0) return {};
+
+            const factor = 100 / totalOxides;
             const clinkerAnalysis: OxideAnalysis = {};
 
             OXIDE_KEYS.forEach(key => {
@@ -95,7 +99,7 @@ const useClinkerCalculations = (
         const totalOxideFlows: OxideAnalysis = {};
         
         // Farine
-        RAW_MEAL_OXIDE_KEYS.forEach(key => {
+        OXIDE_KEYS.forEach(key => {
             totalOxideFlows[key] = rawMealFlow * ((rawMealAnalysis[key] || 0) / 100);
         });
 
@@ -109,7 +113,7 @@ const useClinkerCalculations = (
 
         fuelSources.forEach(source => {
             const ashContent = (source.analysis.pourcentage_cendres || 0) / 100;
-            ASH_OXIDE_KEYS.forEach(key => {
+            OXIDE_KEYS.forEach(key => {
                 const oxidePercentInAsh = (source.analysis[key] || 0) / 100;
                 totalOxideFlows[key] = (totalOxideFlows[key] || 0) + (source.flow * ashContent * oxidePercentInAsh);
             });
@@ -120,7 +124,7 @@ const useClinkerCalculations = (
         
         const mixedRawAnalysis: OxideAnalysis = {};
         if (totalMaterialFlow > 0) {
-            RAW_MEAL_OXIDE_KEYS.forEach(key => {
+            OXIDE_KEYS.forEach(key => {
                  mixedRawAnalysis[key] = ((totalOxideFlows[key] || 0) / totalMaterialFlow) * 100;
             });
         }
@@ -134,7 +138,7 @@ const useClinkerCalculations = (
 
         const averageAshAnalysis: OxideAnalysis = {};
         if (totalAshFlow > 0) {
-            ASH_OXIDE_KEYS.forEach(key => {
+            OXIDE_KEYS.forEach(key => {
                 const totalOxideInAshFlow = fuelSources.reduce((sum, source) => {
                     const ashContentPercent = source.analysis.pourcentage_cendres || 0;
                     const oxidePercentInAsh = source.analysis[key] || 0;
@@ -159,7 +163,7 @@ const OxideInputRow = ({ analysis, onAnalysisChange }: { analysis: OxideAnalysis
     
     return (
         <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-            {RAW_MEAL_OXIDE_KEYS.map(key => (
+            {OXIDE_KEYS.map(key => (
                  <div key={key}>
                     <Label htmlFor={`raw-meal-${key}`} className="text-xs uppercase">{key}</Label>
                     <Input
@@ -189,10 +193,10 @@ export function ClinkerImpactCalculator() {
     const [freeLime, setFreeLime] = useState(1.5);
     
     const [petCokePrecaFlow, setPetCokePrecaFlow] = useState(1.5);
-    const [petCokePrecaAsh, setPetCokePrecaAsh] = useState<OxideAnalysis>({ paf: 0.5, pourcentage_cendres: 10, sio2: 45, al2o3: 25, fe2o3: 15, cao: 5 });
+    const [petCokePrecaAsh, setPetCokePrecaAsh] = useState<OxideAnalysis>({});
     
     const [petCokeTuyereFlow, setPetCokeTuyereFlow] = useState(1.0);
-    const [petCokeTuyereAsh, setPetCokeTuyereAsh] = useState<OxideAnalysis>({ paf: 0.5, pourcentage_cendres: 10, sio2: 45, al2o3: 25, fe2o3: 15, cao: 5 });
+    const [petCokeTuyereAsh, setPetCokeTuyereAsh] = useState<OxideAnalysis>({});
 
     // Auto-loaded data
     const [latestSession, setLatestSession] = useState<MixtureSession | null>(null);
@@ -278,13 +282,19 @@ export function ClinkerImpactCalculator() {
             const afFuelNames = Object.keys(allAfFuelsInSession);
             const afFuelWeights = Object.values(allAfFuelsInSession);
 
-            const [avgAfAsh, avgGrignonsAsh] = await Promise.all([
+            const [avgAfAsh, avgGrignonsAsh, avgPetCokeAsh] = await Promise.all([
                 getAverageAshAnalysisForFuels(afFuelNames, afFuelWeights),
                 getAverageAshAnalysisForFuels(['Grignons']),
+                getAverageAshAnalysisForFuels(['Pet-Coke']),
             ]);
 
             setAfAshAnalysis(avgAfAsh);
             setGrignonsAshAnalysis(avgGrignonsAsh || {});
+            
+            // Set both pet-coke ashes to the same fetched analysis
+            setPetCokePrecaAsh(avgPetCokeAsh || {});
+            setPetCokeTuyereAsh(avgPetCokeAsh || {});
+
 
         } catch (error) {
             console.error(error);
