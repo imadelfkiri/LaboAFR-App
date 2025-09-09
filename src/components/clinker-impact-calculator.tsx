@@ -63,9 +63,10 @@ const useClinkerCalculations = (
     grignonsFlow: number,
     grignonsAshAnalysis: OxideAnalysis,
     petCokePrecaFlow: number,
-    petCokePrecaAshAnalysis: OxideAnalysis,
+    petCokePrecaAsh: OxideAnalysis,
     petCokeTuyereFlow: number,
-    petCokeTuyereAshAnalysis: OxideAnalysis
+    petCokeTuyereAsh: OxideAnalysis,
+    fuelDataMap: Record<string, FuelData>
 ) => {
     return useMemo(() => {
         const clinkerize = (inputAnalysis: OxideAnalysis) => {
@@ -88,28 +89,48 @@ const useClinkerCalculations = (
 
         // --- Analyse moyenne des cendres ---
         const fuelSources = [
-            { name: 'AF', flow: afFlow, analysis: afAshAnalysis },
-            { name: 'Grignons', flow: grignonsFlow, analysis: grignonsAshAnalysis },
-            { name: 'PetCokePreca', flow: petCokePrecaFlow, analysis: petCokePrecaAshAnalysis },
-            { name: 'PetCokeTuyere', flow: petCokeTuyereFlow, analysis: petCokeTuyereAshAnalysis },
-        ].filter(source => source.flow > 0 && source.analysis.pourcentage_cendres);
+          { name: 'AF',            flow: afFlow,              analysis: afAshAnalysis },
+          { name: 'Grignons',      flow: grignonsFlow,        analysis: grignonsAshAnalysis },
+          { name: 'PetCokePreca',  flow: petCokePrecaFlow,    analysis: petCokePrecaAsh },
+          { name: 'PetCokeTuyere', flow: petCokeTuyereFlow,   analysis: petCokeTuyereAsh },
+        ];
+        
+        // Helper function to resolve ash percentage with a fallback.
+        const resolveAshPercent = (name: string, analysis: OxideAnalysis) => {
+          let ash = analysis.pourcentage_cendres;
+          if (ash == null) {
+            // Fallback for Pet-Cokes or other fuels without specific ash analysis
+            const fuelName = name.replace(/Preca|Tuyere/i, '');
+            const fd = fuelDataMap[fuelName];
+             // The user mentioned taux_cendres, but it's not in the data model.
+             // Let's assume pet-coke analysis (% cendres) is what's needed.
+             // The most reliable fallback is from the analysis object itself, even if it's an average.
+            if (analysis && analysis.pourcentage_cendres != null) {
+              ash = analysis.pourcentage_cendres;
+            }
+          }
+          return (ash ?? 0) / 100; // Return as a factor
+        };
 
-        const totalAshFlow = fuelSources.reduce((sum, source) => {
-            const ashContent = (source.analysis.pourcentage_cendres || 0) / 100;
+        const activeFuelSources = fuelSources.filter(source => source.flow > 0);
+
+        const totalAshFlow = activeFuelSources.reduce((sum, source) => {
+            const ashContent = resolveAshPercent(source.name, source.analysis);
             return sum + (source.flow * ashContent);
         }, 0);
 
         const averageAshAnalysis: OxideAnalysis = {};
         if (totalAshFlow > 0) {
-            const allOxideKeys: (keyof OxideAnalysis)[] = ['pourcentage_cendres', ...OXIDE_KEYS];
+            const allOxideKeys: (keyof OxideAnalysis)[] = ['paf', 'sio2', 'al2o3', 'fe2o3', 'cao', 'mgo', 'so3', 'k2o', 'tio2', 'mno', 'p2o5'];
             allOxideKeys.forEach(key => {
-                const totalOxideFlowInAsh = fuelSources.reduce((sum, source) => {
-                    const ashContent = (source.analysis.pourcentage_cendres || 0) / 100;
+                const totalOxideFlowInAsh = activeFuelSources.reduce((sum, source) => {
+                    const ashContent = resolveAshPercent(source.name, source.analysis);
                     const oxidePercentInAsh = (source.analysis[key] || 0) / 100;
                     return sum + (source.flow * ashContent * oxidePercentInAsh);
                 }, 0);
                 (averageAshAnalysis as any)[key] = (totalOxideFlowInAsh / totalAshFlow) * 100;
             });
+            averageAshAnalysis.pourcentage_cendres = 100; // By definition
         }
 
 
@@ -122,8 +143,8 @@ const useClinkerCalculations = (
         });
         
         // Add ash oxides from active fuel sources
-        fuelSources.forEach(source => {
-            const ashContent = (source.analysis.pourcentage_cendres || 0) / 100;
+        activeFuelSources.forEach(source => {
+            const ashContent = resolveAshPercent(source.name, source.analysis);
             OXIDE_KEYS.forEach(key => {
                 const oxidePercentInAsh = (source.analysis[key] || 0) / 100;
                 totalOxideFlows[key] = (totalOxideFlows[key] || 0) + (source.flow * ashContent * oxidePercentInAsh);
@@ -142,7 +163,7 @@ const useClinkerCalculations = (
         const clinkerWithAsh = clinkerize(mixedRawAnalysis);
         
         return { clinkerWithoutAsh, clinkerWithAsh, averageAshAnalysis };
-    }, [rawMealFlow, rawMealAnalysis, afFlow, afAshAnalysis, grignonsFlow, grignonsAshAnalysis, petCokePrecaFlow, petCokePrecaAshAnalysis, petCokeTuyereFlow, petCokeTuyereAshAnalysis]);
+    }, [rawMealFlow, rawMealAnalysis, afFlow, afAshAnalysis, grignonsFlow, grignonsAshAnalysis, petCokePrecaFlow, petCokePrecaAsh, petCokeTuyereFlow, petCokeTuyereAsh, fuelDataMap]);
 };
 
 const OxideInputRow = ({ analysis, onAnalysisChange }: { analysis: OxideAnalysis, onAnalysisChange: (newAnalysis: OxideAnalysis) => void }) => {
@@ -305,7 +326,8 @@ export function ClinkerImpactCalculator() {
         afFlow, afAshAnalysis,
         grignonsFlow, grignonsAshAnalysis,
         petCokePrecaFlow, petCokePrecaAsh,
-        petCokeTuyereFlow, petCokeTuyereAsh
+        petCokeTuyereFlow, petCokeTuyereAsh,
+        fuelDataMap
     );
     
     const clinkerFlow = useMemo(() => rawMealFlow * clinkerFactor, [rawMealFlow, clinkerFactor]);
@@ -521,3 +543,6 @@ export function ClinkerImpactCalculator() {
     
 
 
+
+
+    
