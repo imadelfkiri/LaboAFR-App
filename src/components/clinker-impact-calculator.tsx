@@ -68,31 +68,41 @@ const useClinkerCalculations = (
     petCokeTuyereAshAnalysis: OxideAnalysis
 ) => {
     return useMemo(() => {
-        const clinkerize = (inputAnalysis: OxideAnalysis) => {
-            const totalOxides = OXIDE_KEYS.reduce((sum, key) => {
-                 if(key !== 'paf'){
-                    return sum + (inputAnalysis[key] || 0);
-                 }
-                 return sum;
-            }, 0);
+        const clinkerizeWithoutAsh = (inputAnalysis: OxideAnalysis) => {
+            const pf = inputAnalysis.paf || 0;
+            if (pf >= 100) return {};
 
-            if (totalOxides === 0) return {};
-
-            const factor = 100 / totalOxides;
+            const factor = 100 / (100 - pf);
             const clinkerAnalysis: OxideAnalysis = {};
 
             OXIDE_KEYS.forEach(key => {
-                 if(key !== 'paf'){
+                if (key !== 'paf') {
                     clinkerAnalysis[key] = (inputAnalysis[key] || 0) * factor;
-                 }
+                }
             });
-            clinkerAnalysis.paf = 0.2; // Target PF for clinker
-
+            clinkerAnalysis.paf = 0; // After clinkerization, PF is theoretically 0
+            
             return clinkerAnalysis;
         }
 
+        const clinkerizeWithAsh = (mixedRawAnalysis: OxideAnalysis) => {
+             const pf = mixedRawAnalysis.paf || 0;
+             if (pf >= 100) return {};
+             const factor = 100 / (100 - pf);
+             const clinkerAnalysis: OxideAnalysis = {};
+
+             OXIDE_KEYS.forEach(key => {
+                 if (key !== 'paf') {
+                     clinkerAnalysis[key] = (mixedRawAnalysis[key] || 0) * factor;
+                 }
+             });
+             clinkerAnalysis.paf = 0;
+             return clinkerAnalysis;
+        }
+
+
         // --- Clinker Sans Cendres ---
-        const clinkerWithoutAsh = clinkerize(rawMealAnalysis);
+        const clinkerWithoutAsh = clinkerizeWithoutAsh(rawMealAnalysis);
 
 
         // --- Clinker Avec Cendres ---
@@ -129,7 +139,7 @@ const useClinkerCalculations = (
             });
         }
        
-        const clinkerWithAsh = clinkerize(mixedRawAnalysis);
+        const clinkerWithAsh = clinkerizeWithAsh(mixedRawAnalysis);
         
         // --- Analyse moyenne des cendres ---
         const totalAshFlow = fuelSources.reduce((sum, source) => {
