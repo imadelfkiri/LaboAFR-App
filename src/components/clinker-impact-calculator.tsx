@@ -70,8 +70,14 @@ const useClinkerCalculations = (
     return useMemo(() => {
         const clinkerize = (inputAnalysis: OxideAnalysis) => {
             const pf = inputAnalysis.paf || 0;
-            // Handle edge case where pf could be 100 or more
-            if (pf >= 100) return OXIDE_KEYS.reduce((acc, key) => ({ ...acc, [key]: 0 }), { paf: 0 });
+            if (pf >= 100) {
+                 const clinkerAnalysis: OxideAnalysis = {};
+                 OXIDE_KEYS.forEach(key => {
+                    clinkerAnalysis[key] = 0;
+                 });
+                 clinkerAnalysis.paf = 0;
+                 return clinkerAnalysis;
+            }
 
             const factor = 100 / (100 - pf);
             const clinkerAnalysis: OxideAnalysis = {};
@@ -445,17 +451,11 @@ export function ClinkerImpactCalculator() {
 
                             <div className="space-y-2">
                                 <Label>Pet Coke Précalcinateur</Label>
-                                <div className="grid grid-cols-2 gap-4">
-                                     <div><Label htmlFor="pet-coke-preca-flow" className="text-xs">Débit (t/h)</Label><Input id="pet-coke-preca-flow" type="number" value={petCokePrecaFlow} onChange={e => setPetCokePrecaFlow(parseFloat(e.target.value) || 0)} /></div>
-                                     <div><Label htmlFor="pet-coke-preca-ash" className="text-xs">% Cendres</Label><Input id="pet-coke-preca-ash" type="number" value={petCokePrecaAsh.pourcentage_cendres ?? ''} onChange={e => setPetCokePrecaAsh(prev => ({...prev, pourcentage_cendres: parseFloat(e.target.value) || undefined}))} /></div>
-                                </div>
+                                 <div><Label htmlFor="pet-coke-preca-flow" className="text-xs">Débit (t/h)</Label><Input id="pet-coke-preca-flow" type="number" value={petCokePrecaFlow} onChange={e => setPetCokePrecaFlow(parseFloat(e.target.value) || 0)} /></div>
                             </div>
                             <div className="space-y-2">
                                 <Label>Pet Coke Tuyère</Label>
-                                <div className="grid grid-cols-2 gap-4">
-                                     <div><Label htmlFor="pet-coke-tuyere-flow" className="text-xs">Débit (t/h)</Label><Input id="pet-coke-tuyere-flow" type="number" value={petCokeTuyereFlow} onChange={e => setPetCokeTuyereFlow(parseFloat(e.target.value) || 0)} /></div>
-                                     <div><Label htmlFor="pet-coke-tuyere-ash" className="text-xs">% Cendres</Label><Input id="pet-coke-tuyere-ash" type="number" value={petCokeTuyereAsh.pourcentage_cendres ?? ''} onChange={e => setPetCokeTuyereAsh(prev => ({...prev, pourcentage_cendres: parseFloat(e.target.value) || undefined}))} /></div>
-                                </div>
+                                <div><Label htmlFor="pet-coke-tuyere-flow" className="text-xs">Débit (t/h)</Label><Input id="pet-coke-tuyere-flow" type="number" value={petCokeTuyereFlow} onChange={e => setPetCokeTuyereFlow(parseFloat(e.target.value) || 0)} /></div>
                             </div>
                         </CardContent>
                     </Card>
@@ -524,5 +524,7 @@ export function ClinkerImpactCalculator() {
     
 
 
+
+    
 
     
