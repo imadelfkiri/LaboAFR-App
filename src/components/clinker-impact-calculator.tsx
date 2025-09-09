@@ -102,7 +102,7 @@ const useClinkerCalculations = (
             { flow: grignonsFlow, analysis: grignonsAshAnalysis },
             { flow: petCokePrecaFlow, analysis: petCokePrecaAshAnalysis },
             { flow: petCokeTuyereFlow, analysis: petCokeTuyereAshAnalysis },
-        ].filter(source => source.flow > 0); // Only consider active fuel sources
+        ].filter(source => source.flow > 0);
         
         const totalOxideFlows: OxideAnalysis = {};
 
@@ -139,13 +139,14 @@ const useClinkerCalculations = (
 
         const averageAshAnalysis: OxideAnalysis = {};
         if (totalAshFlow > 0) {
-            OXIDE_KEYS.forEach(key => {
+            const oxideKeysWithAsh = [...OXIDE_KEYS, 'pourcentage_cendres'];
+            oxideKeysWithAsh.forEach(key => {
                 const totalOxideInAshFlow = fuelSources.reduce((sum, source) => {
                     const ashContentPercent = source.analysis.pourcentage_cendres || 0;
-                    const oxidePercentInAsh = source.analysis[key] || 0;
+                    const oxidePercentInAsh = source.analysis[key as keyof OxideAnalysis] || 0;
                     return sum + source.flow * (ashContentPercent / 100) * (oxidePercentInAsh / 100);
                 }, 0);
-                averageAshAnalysis[key] = (totalOxideInAshFlow / totalAshFlow) * 100;
+                (averageAshAnalysis as any)[key] = (totalOxideInAshFlow / totalAshFlow) * 100;
             });
         }
         
@@ -528,3 +529,4 @@ export function ClinkerImpactCalculator() {
     
 
     
+
