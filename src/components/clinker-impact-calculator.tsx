@@ -98,30 +98,29 @@ const useClinkerCalculations = (
           { name: "PetCokeTuyere", flow: petCokeTuyereFlow, analysis: petCokeTuyereAsh },
         ].filter(s => s.flow > 0);
 
-        // Normalisation des noms pour la clé fuelDataMap (synonymes fréquents)
-        const normalizeFuelKey = (raw: string) => {
-          const s = String(raw).toLowerCase().trim();
-          if (s.includes("grignon")) return "Grignons";
-          if (s.includes("preca") || s.includes("tuyere") || s.includes("petcoke") || s.includes("pet coke")) return "Pet-Coke";
-          if (s === "af" || s.includes("alt") || s.includes("csr") || s.includes("dmb")) return "AF";
-          return raw;
+        // Trouve la clé la plus proche dans fuelDataMap
+        const findFuelKey = (raw: string) => {
+          const norm = (s: string) => s.toLowerCase().replace(/[\s_\-]/g, '');
+          const target = norm(raw);
+          const keys = Object.keys(fuelDataMap || {});
+          // match exact après normalisation
+          let hit = keys.find(k => norm(k) === target);
+          if (hit) return hit;
+          // quelques heuristiques robustes
+          hit = keys.find(k => /pet.?coke/.test(norm(k)) && /pet.?coke/.test(target));
+          if (hit) return hit;
+          hit = keys.find(k => /grignon/.test(norm(k)) && /grignon/.test(target));
+          if (hit) return hit;
+          hit = keys.find(k => /af|csr|dmb|alt/.test(norm(k)) && /af|csr|dmb|alt/.test(target));
+          return hit || raw;
         };
 
-        // Récupère le % cendres (plusieurs fallbacks possibles)
         const resolveAshPercent = (name: string, analysis: OxideAnalysis): number => {
-          // 1) Valeur portée par l'analyse moyenne de cendre (si présente)
           if (analysis?.pourcentage_cendres != null) return Number(analysis.pourcentage_cendres);
-
-          // 2) FuelDataMap (champ taux_cendres ou pourcentage_cendres)
-          const key = normalizeFuelKey(name);
-          const fd = fuelDataMap?.[key];
-          if (fd) {
-            const tc: any = (fd as any).taux_cendres ?? (fd as any).pourcentage_cendres ?? (fd as any).cendres;
-            if (tc != null) return Number(tc);
-          }
-
-          // 3) Rien trouvé → 0
-          return 0;
+          const fk = findFuelKey(name);
+          const fd = fuelDataMap?.[fk];
+          const tc: any = fd && ((fd as any).taux_cendres ?? (fd as any).pourcentage_cendres ?? (fd as any).cendres);
+          return tc != null ? Number(tc) : 0;
         };
 
         // === Débit total de cendres (t/h)
@@ -155,7 +154,7 @@ const useClinkerCalculations = (
         fuelSources.forEach((source) => {
           const ashFrac = resolveAshPercent(source.name, source.analysis) / 100;
           OXIDE_KEYS.forEach((key) => {
-            const oxideFracInAsh = ((source.analysis[key] || 0) as number) / 100;
+            const oxideFracInAsh = ((source.analysis[key] ?? 0) as number) / 100;
             totalOxideFlows[key] = (totalOxideFlows[key] || 0) + (source.flow * ashFrac * oxideFracInAsh);
           });
         });
@@ -177,11 +176,11 @@ const useClinkerCalculations = (
               fuel: s.name,
               flow_th: s.flow,
               ash_percent: resolveAshPercent(s.name, s.analysis),
+              SUM_OXIDES: ['sio2','al2o3','fe2o3','cao','mgo','so3','k2o','tio2','mno','p2o5']
+                .reduce((acc,k)=> acc + (Number(s.analysis[k] || 0)), 0).toFixed(2),
               SiO2: s.analysis.sio2 ?? 0,
-              Al2O3: s.analysis.al2o3 ?? 0,
               Fe2O3: s.analysis.fe2o3 ?? 0,
               CaO: s.analysis.cao ?? 0,
-              SO3: s.analysis.so3 ?? 0,
             }))
           );
         }
@@ -319,17 +318,27 @@ export function ClinkerImpactCalculator() {
 
             const afFuelNames = Object.keys(allAfFuelsInSession);
             const afFuelWeights = Object.values(allAfFuelsInSession);
+            
+            // Cherche toutes les variantes "pet coke" disponibles côté données
+            const petKeys = Object.keys(fuelDataMap || {}).filter(k =>
+              /pet.?coke/i.test(k.replace(/\s|_/g, ''))
+            );
+            const petQueryNames = petKeys.length ? petKeys : ['Pet-Coke'];
 
             const [avgAfAsh, avgGrignonsAsh, avgPetCokeAsh] = await Promise.all([
                 getAverageAshAnalysisForFuels(afFuelNames, afFuelWeights),
                 getAverageAshAnalysisForFuels(['Grignons']),
-                getAverageAshAnalysisForFuels(['Pet-Coke']),
+                getAverageAshAnalysisForFuels(petQueryNames),
             ]);
 
             setAfAshAnalysis(avgAfAsh);
             setGrignonsAshAnalysis(avgGrignonsAsh || {});
             
-            const petCokeAnalysis = avgPetCokeAsh || {};
+            const petCokeFallback: OxideAnalysis = {
+              sio2: 2.0, al2o3: 2.0, fe2o3: 6.0, cao: 1.5, mgo: 0.7, so3: 2.0, k2o: 0.3, tio2: 0.2, mno: 0.1, p2o5: 0.2, paf: 0
+            };
+            
+            const petCokeAnalysis = Object.keys(avgPetCokeAsh || {}).length > 1 ? avgPetCokeAsh : petCokeFallback;
             setPetCokePrecaAsh(petCokeAnalysis);
             setPetCokeTuyereAsh(petCokeAnalysis);
 
@@ -445,6 +454,11 @@ export function ClinkerImpactCalculator() {
             </Card>
         );
     }
+    
+    const toNum = (v: string) => {
+      const x = parseFloat(v.replace(',', '.'));
+      return Number.isFinite(x) ? x : 0;
+    };
 
     return (
         <div className="space-y-6">
@@ -488,11 +502,27 @@ export function ClinkerImpactCalculator() {
 
                             <div className="space-y-2">
                                 <Label>Pet Coke Précalcinateur</Label>
-                                 <div><Label htmlFor="pet-coke-preca-flow" className="text-xs">Débit (t/h)</Label><Input id="pet-coke-preca-flow" type="number" value={petCokePrecaFlow} onChange={e => setPetCokePrecaFlow(parseFloat(e.target.value) || 0)} /></div>
+                                 <div><Label htmlFor="pet-coke-preca-flow" className="text-xs">Débit (t/h)</Label>
+                                    <Input 
+                                        id="pet-coke-preca-flow"
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={String(petCokePrecaFlow).replace('.', ',')}
+                                        onChange={e => setPetCokePrecaFlow(toNum(e.target.value))}
+                                    />
+                                 </div>
                             </div>
                             <div className="space-y-2">
                                 <Label>Pet Coke Tuyère</Label>
-                                <div><Label htmlFor="pet-coke-tuyere-flow" className="text-xs">Débit (t/h)</Label><Input id="pet-coke-tuyere-flow" type="number" value={petCokeTuyereFlow} onChange={e => setPetCokeTuyereFlow(parseFloat(e.target.value) || 0)} /></div>
+                                <div><Label htmlFor="pet-coke-tuyere-flow" className="text-xs">Débit (t/h)</Label>
+                                    <Input
+                                        id="pet-coke-tuyere-flow"
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={String(petCokeTuyereFlow).replace('.', ',')}
+                                        onChange={e => setPetCokeTuyereFlow(toNum(e.target.value))}
+                                    />
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
