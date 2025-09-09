@@ -68,59 +68,45 @@ const useClinkerCalculations = (
     petCokeTuyereAshAnalysis: OxideAnalysis
 ) => {
     return useMemo(() => {
-        const clinkerizeWithoutAsh = (inputAnalysis: OxideAnalysis) => {
+        const clinkerize = (inputAnalysis: OxideAnalysis) => {
             const pf = inputAnalysis.paf || 0;
             if (pf >= 100) return {};
 
             const factor = 100 / (100 - pf);
             const clinkerAnalysis: OxideAnalysis = {};
-
+            
+            // On ne normalise plus à 99.8, on applique juste le facteur de concentration
             OXIDE_KEYS.forEach(key => {
                 if (key !== 'paf') {
                     clinkerAnalysis[key] = (inputAnalysis[key] || 0) * factor;
                 }
             });
             clinkerAnalysis.paf = 0; // After clinkerization, PF is theoretically 0
-            
+
             return clinkerAnalysis;
         }
 
-        const clinkerizeWithAsh = (mixedRawAnalysis: OxideAnalysis) => {
-             const pf = mixedRawAnalysis.paf || 0;
-             if (pf >= 100) return {};
-             const factor = 100 / (100 - pf);
-             const clinkerAnalysis: OxideAnalysis = {};
-
-             OXIDE_KEYS.forEach(key => {
-                 if (key !== 'paf') {
-                     clinkerAnalysis[key] = (mixedRawAnalysis[key] || 0) * factor;
-                 }
-             });
-             clinkerAnalysis.paf = 0;
-             return clinkerAnalysis;
-        }
-
-
         // --- Clinker Sans Cendres ---
-        const clinkerWithoutAsh = clinkerizeWithoutAsh(rawMealAnalysis);
+        const clinkerWithoutAsh = clinkerize(rawMealAnalysis);
 
 
         // --- Clinker Avec Cendres ---
-        const totalOxideFlows: OxideAnalysis = {};
-        
-        // Farine
-        OXIDE_KEYS.forEach(key => {
-            totalOxideFlows[key] = rawMealFlow * ((rawMealAnalysis[key] || 0) / 100);
-        });
+        const mixedRawAnalysis: OxideAnalysis = {};
 
-        // Cendres des combustibles
+        const totalOxideFlows: OxideAnalysis = {};
         const fuelSources = [
             { flow: afFlow, analysis: afAshAnalysis },
             { flow: grignonsFlow, analysis: grignonsAshAnalysis },
             { flow: petCokePrecaFlow, analysis: petCokePrecaAshAnalysis },
             { flow: petCokeTuyereFlow, analysis: petCokeTuyereAshAnalysis },
         ].filter(source => source.flow > 0); // Only consider active fuel sources
-
+        
+        // Farine
+        OXIDE_KEYS.forEach(key => {
+            totalOxideFlows[key] = rawMealFlow * ((rawMealAnalysis[key] || 0) / 100);
+        });
+        
+        // Cendres des combustibles
         fuelSources.forEach(source => {
             const ashContent = (source.analysis.pourcentage_cendres || 0) / 100;
             OXIDE_KEYS.forEach(key => {
@@ -132,14 +118,13 @@ const useClinkerCalculations = (
         const totalAshAdded = fuelSources.reduce((sum, s) => sum + s.flow * ((s.analysis.pourcentage_cendres || 0) / 100), 0);
         const totalMaterialFlow = rawMealFlow + totalAshAdded;
         
-        const mixedRawAnalysis: OxideAnalysis = {};
         if (totalMaterialFlow > 0) {
             OXIDE_KEYS.forEach(key => {
                  mixedRawAnalysis[key] = ((totalOxideFlows[key] || 0) / totalMaterialFlow) * 100;
             });
         }
        
-        const clinkerWithAsh = clinkerizeWithAsh(mixedRawAnalysis);
+        const clinkerWithAsh = clinkerize(mixedRawAnalysis);
         
         // --- Analyse moyenne des cendres ---
         const totalAshFlow = fuelSources.reduce((sum, source) => {
@@ -302,8 +287,9 @@ export function ClinkerImpactCalculator() {
             setGrignonsAshAnalysis(avgGrignonsAsh || {});
             
             // Set both pet-coke ashes to the same fetched analysis
-            setPetCokePrecaAsh(avgPetCokeAsh || {});
-            setPetCokeTuyereAsh(avgPetCokeAsh || {});
+            const petCokeAnalysis = avgPetCokeAsh || {};
+            setPetCokePrecaAsh(petCokeAnalysis);
+            setPetCokeTuyereAsh(petCokeAnalysis);
 
 
         } catch (error) {
