@@ -17,16 +17,16 @@ import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/comp
 type OxideAnalysis = {
     [key: string]: number | undefined;
     pourcentage_cendres?: number;
-    paf?: number; sio2?: number; al2o3?: number; fe2o3?: number;
+    pf?: number; sio2?: number; al2o3?: number; fe2o3?: number;
     cao?: number; mgo?: number; so3?: number; k2o?: number;
     tio2?: number; mno?: number; p2o5?: number;
 };
 
-const OXIDE_KEYS: (keyof OxideAnalysis)[] = ['paf', 'sio2', 'al2o3', 'fe2o3', 'cao', 'mgo', 'so3', 'k2o', 'tio2', 'mno', 'p2o5'];
+const OXIDE_KEYS: (keyof OxideAnalysis)[] = ['pf', 'sio2', 'al2o3', 'fe2o3', 'cao', 'mgo', 'so3', 'k2o', 'tio2', 'mno', 'p2o5'];
 
 
 const initialOxideState: OxideAnalysis = {
-    paf: 34.5, sio2: 13.5, al2o3: 3.5, fe2o3: 2.2, cao: 42.5, mgo: 1.5, so3: 0.5, k2o: 0.8, tio2: 0.2, mno: 0.1, p2o5: 0.1
+    pf: 34.5, sio2: 13.5, al2o3: 3.5, fe2o3: 2.2, cao: 42.5, mgo: 1.5, so3: 0.5, k2o: 0.8, tio2: 0.2, mno: 0.1, p2o5: 0.1
 };
 
 const calculateModules = (analysis: OxideAnalysis) => {
@@ -73,7 +73,7 @@ const useClinkerCalculations = (
 ) => {
     return useMemo(() => {
         const clinkerize = (inputAnalysis: OxideAnalysis) => {
-            const pf = inputAnalysis.paf || 0;
+            const pf = inputAnalysis.pf || 0;
             if (pf >= 100) { 
                 const emptyOxides: OxideAnalysis = {};
                 OXIDE_KEYS.forEach(key => { emptyOxides[key] = 0; });
@@ -83,11 +83,11 @@ const useClinkerCalculations = (
             const clinkerAnalysis: OxideAnalysis = {};
             
             OXIDE_KEYS.forEach(key => {
-                if (key !== 'paf') {
+                if (key !== 'pf') {
                      clinkerAnalysis[key] = (inputAnalysis[key] || 0) * factor;
                 }
             });
-            clinkerAnalysis.paf = 0.20; // Standard target PF for clinker
+            clinkerAnalysis.pf = 0.20; // Standard target PF for clinker
 
             return clinkerAnalysis;
         }
@@ -139,7 +139,7 @@ const useClinkerCalculations = (
         const averageAshAnalysis: OxideAnalysis = {};
         if (totalAshFlow > 0) {
           OXIDE_KEYS.forEach((key) => {
-            if (key === "paf") { (averageAshAnalysis as any)[key] = 0; return; }
+            if (key === "pf") { (averageAshAnalysis as any)[key] = 0; return; }
             const oxideFlowInAsh = fuelSources.reduce((sum, source) => {
               const ashFrac = resolveAshPercent(source.name, source.analysis) / 100;
               const oxideFracInAsh = ((source.analysis[key] ?? 0) as number) / 100;
@@ -331,7 +331,7 @@ export function ClinkerImpactCalculator() {
             setGrignonsAshAnalysis(avgGrignonsAsh || {});
             
             const petCokeFallback: OxideAnalysis = {
-              sio2: 2.0, al2o3: 2.0, fe2o3: 6.0, cao: 1.5, mgo: 0.7, so3: 2.0, k2o: 0.3, tio2: 0.2, mno: 0.1, p2o5: 0.2, paf: 0
+              sio2: 2.0, al2o3: 2.0, fe2o3: 6.0, cao: 1.5, mgo: 0.7, so3: 2.0, k2o: 0.3, tio2: 0.2, mno: 0.1, p2o5: 0.2, pf: 0
             };
             
             const petCokeAnalysis = (avgPetCokeAsh && Object.keys(avgPetCokeAsh).length > 1) ? avgPetCokeAsh : petCokeFallback;
@@ -381,11 +381,11 @@ export function ClinkerImpactCalculator() {
     ) => {
         let rawValue: number | undefined, ashValue: number | undefined, withoutValue: number | undefined, withValue: number | undefined;
 
-        if (key === 'paf') {
-            rawValue = rawMealAnalysis.paf;
-            ashValue = averageAshAnalysis.paf;
-            withoutValue = clinkerWithoutAsh.paf;
-            withValue = clinkerWithAsh.paf;
+        if (key === 'pf') {
+            rawValue = rawMealAnalysis.pf;
+            ashValue = averageAshAnalysis.pf;
+            withoutValue = clinkerWithoutAsh.pf;
+            withValue = clinkerWithAsh.pf;
         } else if (OXIDE_KEYS.includes(key as any)) {
             rawValue = rawMealAnalysis[key as keyof OxideAnalysis];
             ashValue = averageAshAnalysis[key as keyof OxideAnalysis];
@@ -505,7 +505,7 @@ export function ClinkerImpactCalculator() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {renderResultRow('PF (%)', 'paf', { decimals: 2 })}
+                            {renderResultRow('PF (%)', 'pf', { decimals: 2 })}
                             {renderResultRow('SiO₂ (%)', 'sio2', { decimals: 2 })}
                             {renderResultRow('Al₂O₃ (%)', 'al2o3', { decimals: 2 })}
                             {renderResultRow('Fe₂O₃ (%)', 'fe2o3', { decimals: 2 })}
@@ -542,7 +542,3 @@ export function ClinkerImpactCalculator() {
         </div>
     );
 }
-
-    
-
-    

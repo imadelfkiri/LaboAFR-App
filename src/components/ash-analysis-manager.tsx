@@ -88,7 +88,7 @@ const analysisSchema = z.object({
   type_combustible: z.string().nonempty({ message: "Requis." }),
   fournisseur: z.string().nonempty({ message: "Requis." }),
   pourcentage_cendres: z.coerce.number().optional().nullable(),
-  paf: z.coerce.number().optional().nullable(),
+  pf: z.coerce.number().optional().nullable(),
   sio2: z.coerce.number().optional().nullable(),
   al2o3: z.coerce.number().optional().nullable(),
   fe2o3: z.coerce.number().optional().nullable(),
@@ -170,7 +170,7 @@ const AnalysisForm = ({
         </div>
         <Card><CardContent className="pt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
             <FormField control={form.control} name="pourcentage_cendres" render={({ field }) => (<FormItem><FormLabel>% Cendres</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
-            <FormField control={form.control} name="paf" render={({ field }) => (<FormItem><FormLabel>PAF</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="pf" render={({ field }) => (<FormItem><FormLabel>PF</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
             <FormField control={form.control} name="sio2" render={({ field }) => (<FormItem><FormLabel>SiO2</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
             <FormField control={form.control} name="al2o3" render={({ field }) => (<FormItem><FormLabel>Al2O3</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
             <FormField control={form.control} name="fe2o3" render={({ field }) => (<FormItem><FormLabel>Fe2O3</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
@@ -243,7 +243,7 @@ function AnalysesCendresView({
     { label: "Combustible", key: "type_combustible" },
     { label: "Fournisseur", key: "fournisseur" },
     { label: "% Cendres", key: "pourcentage_cendres", align: "right" },
-    { label: "PAF", key: "paf", align: "right" },
+    { label: "PF", key: "pf", align: "right" },
     { label: "SiO2", key: "sio2", align: "right" },
     { label: "Al2O3", key: "al2o3", align: "right" },
     { label: "Fe2O3", key: "fe2o3", align: "right" },
@@ -289,7 +289,7 @@ function AnalysesCendresView({
                       <td className="p-2 font-medium">{r.combustible}</td>
                       <td className="p-2">{r.fournisseur}</td>
                       <td className="p-2 text-right tabular-nums">{r.oxides?.['%Cendres']}</td>
-                      <td className="p-2 text-right tabular-nums">{r.oxides?.PAF}</td>
+                      <td className="p-2 text-right tabular-nums">{r.oxides?.PF}</td>
                       <td className="p-2 text-right tabular-nums">{r.oxides?.SiO2}</td>
                       <td className="p-2 text-right tabular-nums">{r.oxides?.Al2O3}</td>
                       <td className="p-2 text-right tabular-nums">{r.oxides?.Fe2O3}</td>
@@ -390,7 +390,7 @@ export function AshAnalysisManager() {
                 date_arrivage: new Date(),
                 type_combustible: '',
                 fournisseur: '',
-                pourcentage_cendres: null, paf: null, sio2: null, al2o3: null, fe2o3: null,
+                pourcentage_cendres: null, pf: null, sio2: null, al2o3: null, fe2o3: null,
                 cao: null, mgo: null, so3: null, k2o: null, tio2: null, mno: null, p2o5: null,
             });
         }
@@ -478,7 +478,9 @@ export function AshAnalysisManager() {
         'cendres': 'pourcentage_cendres',
         '% cendre': 'pourcentage_cendres',
         'cendre': 'pourcentage_cendres',
-        'paf': 'paf',
+        'paf': 'pf',
+        'pf': 'pf',
+        'perte au feu': 'pf',
         'sio2': 'sio2',
         'al2o3': 'al2o3',
         'fe2o3': 'fe2o3',
@@ -637,7 +639,7 @@ export function AshAnalysisManager() {
                 "Combustible": a.type_combustible,
                 "Fournisseur": a.fournisseur,
                 "% Cendres": a.pourcentage_cendres,
-                "PAF": a.paf,
+                "PF": a.pf,
                 "SiO2": a.sio2,
                 "Al2O3": a.al2o3,
                 "Fe2O3": a.fe2o3,
@@ -673,7 +675,7 @@ export function AshAnalysisManager() {
         doc.text(`Généré le: ${generationDate}`, doc.internal.pageSize.getWidth() / 2, 22, { align: 'center' });
 
         const head = [[
-            "Date", "Combustible", "Fourn.", "% Cendres", "PAF",
+            "Date", "Combustible", "Fourn.", "% Cendres", "PF",
             "SiO2", "Al2O3", "Fe2O3", "CaO", "MgO", "SO3", "K2O", "TiO2", "MnO", "P2O5",
             "MS", "A/F", "LSF"
         ]];
@@ -685,7 +687,7 @@ export function AshAnalysisManager() {
                 a.type_combustible,
                 a.fournisseur,
                 a.pourcentage_cendres?.toFixed(1) ?? '-',
-                a.paf?.toFixed(1) ?? '-',
+                a.pf?.toFixed(1) ?? '-',
                 a.sio2?.toFixed(1) ?? '-',
                 a.al2o3?.toFixed(1) ?? '-',
                 a.fe2o3?.toFixed(1) ?? '-',
@@ -724,7 +726,7 @@ export function AshAnalysisManager() {
                 fournisseur: analysis.fournisseur,
                 oxides: {
                     '%Cendres': formatNumberForTable(analysis.pourcentage_cendres, 1),
-                    PAF: formatNumberForTable(analysis.paf, 1),
+                    PF: formatNumberForTable(analysis.pf, 1),
                     SiO2: formatNumberForTable(analysis.sio2, 1),
                     Al2O3: formatNumberForTable(analysis.al2o3, 1),
                     Fe2O3: formatNumberForTable(analysis.fe2o3, 1),

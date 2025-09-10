@@ -89,7 +89,7 @@ export interface AshAnalysis {
     type_combustible?: string;
     fournisseur?: string;
     pourcentage_cendres?: number | null;
-    paf?: number | null;
+    pf?: number | null;
     sio2?: number | null;
     al2o3?: number | null;
     fe2o3?: number | null;
@@ -637,7 +637,7 @@ export async function getAverageAshAnalysisForFuels(
   });
 
   const averageByFuel: Record<string, AshAnalysis> = {};
-  const keysToAverage: (keyof AshAnalysis)[] = ['paf', 'pourcentage_cendres', 'sio2', 'al2o3', 'fe2o3', 'cao', 'mgo', 'so3', 'k2o', 'tio2', 'mno', 'p2o5'];
+  const keysToAverage: (keyof AshAnalysis)[] = ['pf', 'pourcentage_cendres', 'sio2', 'al2o3', 'fe2o3', 'cao', 'mgo', 'so3', 'k2o', 'tio2', 'mno', 'p2o5'];
 
   for (const fuelName of fuelNames) {
     const fuelAnalyses = analysesByFuel[fuelName];
@@ -744,5 +744,3 @@ export async function addManyResults(results: ResultToSave[]): Promise<void> {
 
     await batch.commit();
 }
-
-    
