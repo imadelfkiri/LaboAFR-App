@@ -139,6 +139,7 @@ const useClinkerCalculations = (
         const averageAshAnalysis: OxideAnalysis = {};
         if (totalAshFlow > 0) {
           OXIDE_KEYS.forEach((key) => {
+            if (key === "paf") { (averageAshAnalysis as any)[key] = 0; return; }
             const oxideFlowInAsh = fuelSources.reduce((sum, source) => {
               const ashFrac = resolveAshPercent(source.name, source.analysis) / 100;
               const oxideFracInAsh = ((source.analysis[key] ?? 0) as number) / 100;
@@ -457,49 +458,30 @@ export function ClinkerImpactCalculator() {
 
     return (
         <div className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><Beaker className="h-5 w-5 text-blue-500" /> Paramètres du Cru et du Clinker</CardTitle>
-                        <CardDescription>Entrez la composition de la farine, son débit, et le facteur de clinkérisation.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-                            <div>
-                                <Label htmlFor="raw-meal-flow">Débit Farine (t/h)</Label>
-                                <Input id="raw-meal-flow" type="number" value={rawMealFlow} onChange={e => setRawMealFlow(parseFloat(e.target.value) || 0)} />
-                            </div>
-                            <div>
-                                <Label htmlFor="clinker-factor">Facteur de clinkérisation</Label>
-                                <Input id="clinker-factor" type="number" step="0.01" value={clinkerFactor} onChange={e => setClinkerFactor(parseFloat(e.target.value) || 0)} />
-                            </div>
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><Beaker className="h-5 w-5 text-blue-500" /> Paramètres du Cru et du Clinker</CardTitle>
+                    <CardDescription>Entrez la composition de la farine, son débit, et le facteur de clinkérisation.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                        <div>
+                            <Label htmlFor="raw-meal-flow">Débit Farine (t/h)</Label>
+                            <Input id="raw-meal-flow" type="number" value={rawMealFlow} onChange={e => setRawMealFlow(parseFloat(e.target.value) || 0)} />
                         </div>
-                         <div className="flex items-center justify-center gap-4 p-3 bg-muted rounded-lg">
-                            <Label>Débit Clinker (t/h)</Label>
-                            <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-lg font-bold text-primary">{clinkerFlow.toFixed(2)}</span>
+                        <div>
+                            <Label htmlFor="clinker-factor">Facteur de clinkérisation</Label>
+                            <Input id="clinker-factor" type="number" step="0.01" value={clinkerFactor} onChange={e => setClinkerFactor(parseFloat(e.target.value) || 0)} />
                         </div>
-                        <OxideInputRow analysis={rawMealAnalysis} onAnalysisChange={setRawMealAnalysis} />
-                    </CardContent>
-                </Card>
-
-                <div className="space-y-6">
-                    <Card>
-                        <CardHeader>
-                             <CardTitle className="flex items-center gap-2"><Flame className="h-5 w-5 text-orange-500" /> Débits des Combustibles</CardTitle>
-                            <CardDescription>Les débits sont chargés depuis la dernière session de calcul de mélange.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4 p-4 border rounded-lg bg-muted/30">
-                                <div><Label>Débit AFs (t/h)</Label><Input value={afFlow.toFixed(2)} readOnly disabled /></div>
-                                <div><Label>Débit Grignons (t/h)</Label><Input value={grignonsFlow.toFixed(2)} readOnly disabled /></div>
-                                <div><Label>Débit Pet-Coke Préca (t/h)</Label><Input value={petCokePrecaFlow.toFixed(2)} readOnly disabled /></div>
-                                <div><Label>Débit Pet-Coke Tuyère (t/h)</Label><Input value={petCokeTuyereFlow.toFixed(2)} readOnly disabled /></div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-            </div>
+                    </div>
+                     <div className="flex items-center justify-center gap-4 p-3 bg-muted rounded-lg">
+                        <Label>Débit Clinker (t/h)</Label>
+                        <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-lg font-bold text-primary">{clinkerFlow.toFixed(2)}</span>
+                    </div>
+                    <OxideInputRow analysis={rawMealAnalysis} onAnalysisChange={setRawMealAnalysis} />
+                </CardContent>
+            </Card>
 
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
@@ -558,5 +540,7 @@ export function ClinkerImpactCalculator() {
         </div>
     );
 }
+
+    
 
     
