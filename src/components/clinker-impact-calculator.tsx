@@ -204,9 +204,9 @@ const OxideInputRow = ({ analysis, onAnalysisChange }: { analysis: OxideAnalysis
     };
     
     return (
-        <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-11 gap-2">
             {OXIDE_KEYS.map(key => (
-                 <div key={key}>
+                 <div key={key} className="flex-1 min-w-[70px]">
                     <Label htmlFor={`raw-meal-${key}`} className="text-xs uppercase">{key}</Label>
                     <Input
                         id={`raw-meal-${key}`}
@@ -464,22 +464,24 @@ export function ClinkerImpactCalculator() {
                     <CardDescription>Entrez la composition de la farine, son débit, et le facteur de clinkérisation.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-                        <div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-2 items-center">
+                        <div className="flex-1">
                             <Label htmlFor="raw-meal-flow">Débit Farine (t/h)</Label>
                             <Input id="raw-meal-flow" type="number" value={rawMealFlow} onChange={e => setRawMealFlow(parseFloat(e.target.value) || 0)} />
                         </div>
-                        <div>
+                        <div className="flex-1">
                             <Label htmlFor="clinker-factor">Facteur de clinkérisation</Label>
                             <Input id="clinker-factor" type="number" step="0.01" value={clinkerFactor} onChange={e => setClinkerFactor(parseFloat(e.target.value) || 0)} />
                         </div>
+                         <div className="flex items-center justify-center gap-2 p-2 bg-muted rounded-lg mt-4">
+                            <Label>Débit Clinker (t/h)</Label>
+                            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-lg font-bold text-primary">{clinkerFlow.toFixed(2)}</span>
+                        </div>
                     </div>
-                     <div className="flex items-center justify-center gap-4 p-3 bg-muted rounded-lg">
-                        <Label>Débit Clinker (t/h)</Label>
-                        <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-lg font-bold text-primary">{clinkerFlow.toFixed(2)}</span>
+                    <div className="pt-2">
+                        <OxideInputRow analysis={rawMealAnalysis} onAnalysisChange={setRawMealAnalysis} />
                     </div>
-                    <OxideInputRow analysis={rawMealAnalysis} onAnalysisChange={setRawMealAnalysis} />
                 </CardContent>
             </Card>
 
