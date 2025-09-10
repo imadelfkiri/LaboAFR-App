@@ -139,7 +139,6 @@ const useClinkerCalculations = (
         const averageAshAnalysis: OxideAnalysis = {};
         if (totalAshFlow > 0) {
           OXIDE_KEYS.forEach((key) => {
-            if (key === "pf") { (averageAshAnalysis as any)[key] = 0; return; }
             const oxideFlowInAsh = fuelSources.reduce((sum, source) => {
               const ashFrac = resolveAshPercent(source.name, source.analysis) / 100;
               const oxideFracInAsh = ((source.analysis[key] ?? 0) as number) / 100;
@@ -451,11 +450,6 @@ export function ClinkerImpactCalculator() {
         );
     }
     
-    const toNum = (v: string) => {
-      const x = parseFloat(v.replace(',', '.'));
-      return Number.isFinite(x) ? x : 0;
-    };
-
     return (
         <div className="space-y-6">
             <Card>
