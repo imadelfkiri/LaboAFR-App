@@ -104,6 +104,7 @@ export interface AshAnalysis {
 
 interface ResultToSave {
     date_arrivage: Timestamp;
+    type_analyse: string;
     type_combustible: string;
     fournisseur: string;
     pcs: number;
@@ -744,3 +745,5 @@ export async function addManyResults(results: ResultToSave[]): Promise<void> {
 
     await batch.commit();
 }
+
+    

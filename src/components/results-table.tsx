@@ -72,6 +72,7 @@ import { SidebarTrigger } from "./ui/sidebar";
 interface Result {
   id: string;
   date_arrivage: { seconds: number; nanoseconds: number } | string;
+  type_analyse: string;
   type_combustible: string;
   fournisseur: string;
   pcs: number | null;
@@ -94,6 +95,7 @@ declare module "jspdf" {
 
 const importSchema = z.object({
   date_arrivage: z.date({ required_error: "Date requise." }),
+  type_analyse: z.string().optional().nullable(),
   type_combustible: z.string().nonempty({message: "Le type de combustible est requis."}),
   fournisseur: z.string().nonempty({message: "Le fournisseur est requis."}),
   pcs: z.coerce.number({invalid_type_error: "PCS doit être un nombre."}).optional().nullable(),
@@ -167,6 +169,7 @@ function ResultsPagePro({
   
   const headers: { label: string; key: SortableKeys; }[] = [
     { label: "Date Arrivage", key: "date_arrivage" },
+    { label: "Type Analyse", key: "type_analyse" },
     { label: "Type Combustible", key: "type_combustible" },
     { label: "Fournisseur", key: "fournisseur" },
     { label: "PCI sur Brut", key: "pci" },
@@ -278,6 +281,7 @@ function ResultsPagePro({
                   {rows.map((r:any, i:number)=>(
                     <tr key={r.id ?? i} className="border-b last:border-0 even:bg-muted/30 hover:bg-muted/50 transition-colors">
                       <td className="p-2 text-muted-foreground whitespace-nowrap">{r.dateArrivage}</td>
+                      <td className="p-2">{r.typeAnalyse}</td>
                       <td className="p-2 font-medium">{r.typeCombustible}</td>
                       <td className="p-2">{r.fournisseur}</td>
                       <td className={`p-2 text-right font-semibold tabular-nums ${r.pciAlert ? "text-red-600" : ""}`}>{r.pci}</td>
@@ -604,6 +608,8 @@ export default function ResultsTable() {
                     'date': 'date_arrivage',
                     'date arrivage': 'date_arrivage',
                     'date_arrivage': 'date_arrivage',
+                    'type analyse': 'type_analyse',
+                    'type_analyse': 'type_analyse',
                     'combustible': 'type_combustible',
                     'type combustible': 'type_combustible',
                     'type_combustible': 'type_combustible',
@@ -637,7 +643,7 @@ export default function ResultsTable() {
                         const targetKey = headerMapping[normalizedHeader];
                         if (targetKey) {
                              let value = row[header];
-                            if(typeof value === 'string' && !['date_arrivage', 'type_combustible', 'fournisseur', 'remarques'].includes(targetKey)) {
+                            if(typeof value === 'string' && !['date_arrivage', 'type_combustible', 'fournisseur', 'remarques', 'type_analyse'].includes(targetKey)) {
                                 value = value.replace(',', '.');
                             }
                             mappedRow[targetKey] = value;
@@ -678,6 +684,7 @@ export default function ResultsTable() {
 
                         return { 
                             ...validatedData,
+                            type_analyse: validatedData.type_analyse || 'Arrivage',
                             pcs: validatedData.pcs ?? null,
                             pci_brut: finalPci,
                             date_creation: Timestamp.now(),
@@ -714,6 +721,7 @@ export default function ResultsTable() {
         return {
             id: result.id,
             dateArrivage: normalizeDate(result.date_arrivage) ? format(normalizeDate(result.date_arrivage)!, 'dd/MM/yyyy') : 'Date invalide',
+            typeAnalyse: result.type_analyse || 'Arrivage',
             typeCombustible: result.type_combustible,
             fournisseur: result.fournisseur,
             pci: formatNumber(result.pci_brut, 0),
@@ -794,6 +802,7 @@ export default function ResultsTable() {
              const alerte = generateAlerts(row);
              return {
                 "Date Arrivage": date ? format(date, "dd/MM/yyyy") : "Date invalide",
+                "Type Analyse": row.type_analyse || 'Arrivage',
                 "Type Combustible": row.type_combustible,
                 "Fournisseur": row.fournisseur,
                 "PCS (kcal/kg)": row.pcs,
@@ -812,12 +821,13 @@ export default function ResultsTable() {
     } else {
         const doc = new jsPDF({ orientation: 'landscape' });
         doc.text(reportTitle, 14, 15);
-        const head = [["Date", "Combustible", "Fournisseur", "PCS", "PCI Brut", "H2O", "Cl-", "Cendres", "Alertes", "Remarques"]];
+        const head = [["Date", "Analyse", "Combustible", "Fournisseur", "PCS", "PCI Brut", "H2O", "Cl-", "Cendres", "Alertes", "Remarques"]];
         const body = dataToExport.map(row => {
           const date = normalizeDate(row.date_arrivage);
           const alerte = generateAlerts(row);
           return [
             date ? format(date, "dd/MM/yy") : "Date invalide",
+            row.type_analyse || 'Arrivage',
             row.type_combustible,
             row.fournisseur,
             formatNumber(row.pcs, 0),
@@ -919,3 +929,5 @@ export default function ResultsTable() {
       </>
   );
 }
+
+    

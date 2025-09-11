@@ -63,6 +63,7 @@ const formSchema = z.object({
   date_arrivage: z.date({
     required_error: "Une date d'arrivée est requise.",
   }),
+  type_analyse: z.string().nonempty({ message: "Veuillez sélectionner un type d'analyse." }),
   type_combustible: z.string().nonempty({ message: "Veuillez sélectionner un type de combustible." }),
   fournisseur: z.string().nonempty({ message: "Veuillez sélectionner un fournisseur." }),
   pcs: z.coerce.number({required_error: "Veuillez renseigner une valeur valide pour le PCS.", invalid_type_error: "Veuillez entrer un nombre."}).positive({ message: "Le PCS doit être un nombre positif." }),
@@ -116,6 +117,7 @@ export function PciCalculator() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      type_analyse: "Arrivage",
       type_combustible: "",
       fournisseur: "",
       pcs: undefined,
@@ -139,6 +141,7 @@ export function PciCalculator() {
   const resetForm = () => {
     reset({
         date_arrivage: subDays(new Date(), 1),
+        type_analyse: "Arrivage",
         type_combustible: "",
         fournisseur: "",
         pcs: '' as any,
@@ -397,48 +400,72 @@ export function PciCalculator() {
                     </CardHeader>
                     <CardContent className="p-0">
                         <div className="space-y-6">
-                            <FormField
-                                control={form.control}
-                                name="date_arrivage"
-                                render={({ field }) => (
-                                    <FormItem>
-                                    <FormLabel>Date d'arrivage</FormLabel>
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                        <FormControl>
-                                            <Button
-                                            variant={"outline"}
-                                            className={cn(
-                                                "w-full justify-start text-left font-normal rounded-lg h-11 px-4 text-sm",
-                                                !field.value && "text-muted-foreground"
-                                            )}
-                                            >
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {field.value ? (
-                                                format(field.value, "PPP", { locale: fr })
-                                            ) : (
-                                                <span>Choisir une date</span>
-                                            )}
-                                            </Button>
-                                        </FormControl>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar
-                                            mode="single"
-                                            selected={field.value}
-                                            onSelect={field.onChange}
-                                            disabled={(date) =>
-                                            date > new Date() || date < new Date("1900-01-01")
-                                            }
-                                            initialFocus
-                                            locale={fr}
-                                        />
-                                        </PopoverContent>
-                                    </Popover>
-                                    <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <FormField
+                                    control={form.control}
+                                    name="date_arrivage"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                        <FormLabel>Date</FormLabel>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button
+                                                variant={"outline"}
+                                                className={cn(
+                                                    "w-full justify-start text-left font-normal rounded-lg h-11 px-4 text-sm",
+                                                    !field.value && "text-muted-foreground"
+                                                )}
+                                                >
+                                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                                {field.value ? (
+                                                    format(field.value, "PPP", { locale: fr })
+                                                ) : (
+                                                    <span>Choisir une date</span>
+                                                )}
+                                                </Button>
+                                            </FormControl>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar
+                                                mode="single"
+                                                selected={field.value}
+                                                onSelect={field.onChange}
+                                                disabled={(date) =>
+                                                date > new Date() || date < new Date("1900-01-01")
+                                                }
+                                                initialFocus
+                                                locale={fr}
+                                            />
+                                            </PopoverContent>
+                                        </Popover>
+                                        <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="type_analyse"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Type d'analyse</FormLabel>
+                                            <Select onValueChange={field.onChange} value={field.value}>
+                                                <FormControl>
+                                                <SelectTrigger className="rounded-lg h-11 px-4 text-sm">
+                                                    <SelectValue placeholder="Sélectionner..." />
+                                                </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent side="bottom" avoidCollisions={false} className="z-50">
+                                                    <SelectItem value="Arrivage">Arrivage</SelectItem>
+                                                    <SelectItem value="Prospections">Prospections</SelectItem>
+                                                    <SelectItem value="Consommation">Consommation</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <FormField
                                 control={form.control}
@@ -679,3 +706,5 @@ export function PciCalculator() {
     </div>
   );
 }
+
+    
