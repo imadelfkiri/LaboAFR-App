@@ -70,7 +70,7 @@ const formSchema = z.object({
   chlore: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le chlore ne peut être négatif." }).optional().or(z.literal('')),
   cendres: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le % de cendres ne peut être négatif." }).optional().or(z.literal('')),
   remarques: z.string().optional(),
-  taux_fils_metalliques: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, "Le taux doit être positif.").max(100, "Le taux ne peut dépasser 100%").optional().or(z.literal('')),
+  taux_metal: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, "Le taux doit être positif.").max(100, "Le taux ne peut dépasser 100%").optional().or(z.literal('')),
 });
 
 const newFuelTypeSchema = z.object({
@@ -123,14 +123,13 @@ export function PciCalculator() {
       chlore: '',
       cendres: '',
       remarques: "",
-      taux_fils_metalliques: '',
+      taux_metal: '',
     },
   });
 
   const { watch, reset, getValues, setValue } = form;
 
   const watchedTypeCombustible = watch("type_combustible");
-  const showTauxFilsMetalliques = watchedTypeCombustible && watchedTypeCombustible.toLowerCase().includes('pneu');
 
   useEffect(() => {
     // Set the default date only on the client side to avoid hydration errors
@@ -147,7 +146,7 @@ export function PciCalculator() {
         chlore: '' as any,
         cendres: '' as any,
         remarques: "",
-        taux_fils_metalliques: '' as any,
+        taux_metal: '' as any,
     });
     setPciResult(null);
   };
@@ -183,16 +182,14 @@ export function PciCalculator() {
   const watchedFournisseur = watch("fournisseur");
   const watchedChlore = watch("chlore");
   const watchedCendres = watch("cendres");
-  const watchedTauxFilsMetalliques = watch("taux_fils_metalliques");
+  const watchedTauxMetal = watch("taux_metal");
 
   useEffect(() => {
     if (watchedPcs !== undefined && watchedH2o !== undefined && hValue !== null) {
       let pcsToUse = Number(watchedPcs);
-      // If taux_fils_metalliques is provided, it reduces the overall PCS of the sample.
-      if (showTauxFilsMetalliques && watchedTauxFilsMetalliques) {
-          const taux = Number(watchedTauxFilsMetalliques);
+      if (watchedTauxMetal) {
+          const taux = Number(watchedTauxMetal);
           if (taux > 0 && taux < 100) {
-            // The metal part has no caloric value, so we reduce the PCS by that percentage.
             pcsToUse = pcsToUse * (1 - taux / 100);
           }
       }
@@ -201,7 +198,7 @@ export function PciCalculator() {
     } else {
       setPciResult(null);
     }
-  }, [watchedPcs, watchedH2o, hValue, showTauxFilsMetalliques, watchedTauxFilsMetalliques]);
+  }, [watchedPcs, watchedH2o, hValue, watchedTauxMetal]);
 
   useEffect(() => {
     if (watchedTypeCombustible) {
@@ -321,8 +318,8 @@ export function PciCalculator() {
       }
       
       let pcsToUse = values.pcs;
-      if (showTauxFilsMetalliques && values.taux_fils_metalliques) {
-          const taux = Number(values.taux_fils_metalliques);
+      if (values.taux_metal) {
+          const taux = Number(values.taux_metal);
           if (taux > 0 && taux < 100) {
             pcsToUse = pcsToUse * (1 - taux / 100);
           }
@@ -344,7 +341,7 @@ export function PciCalculator() {
         pci_brut,
         chlore: values.chlore ? Number(values.chlore) : null,
         cendres: values.cendres ? Number(values.cendres) : null,
-        taux_fils_metalliques: values.taux_fils_metalliques ? Number(values.taux_fils_metalliques) : null,
+        taux_metal: values.taux_metal ? Number(values.taux_metal) : null,
         remarques: values.remarques || "",
         date_creation: serverTimestamp(),
       };
@@ -610,21 +607,19 @@ export function PciCalculator() {
                                 </FormItem>
                                 )}
                             />
-                            {showTauxFilsMetalliques ? (
-                                <FormField
-                                    control={form.control}
-                                    name="taux_fils_metalliques"
-                                    render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Taux Fils Métalliques (%)</FormLabel>
-                                        <FormControl>
-                                        <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className="rounded-lg h-11 px-4 text-sm"/>
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                    )}
-                                />
-                            ) : <div />}
+                            <FormField
+                                control={form.control}
+                                name="taux_metal"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Taux du Métal (%)</FormLabel>
+                                    <FormControl>
+                                    <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className="rounded-lg h-11 px-4 text-sm"/>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
                             <div className={cn("p-4 rounded-lg border text-center md:col-span-2", 
                                 validationStatus.pci === 'conform' && 'bg-green-50 border-green-200',
                                 validationStatus.pci === 'non-conform' && 'bg-red-50 border-red-200',
@@ -684,5 +679,3 @@ export function PciCalculator() {
     </div>
   );
 }
-
-    

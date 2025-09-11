@@ -81,7 +81,7 @@ interface Result {
   pci_brut: number | null;
   poids_godet: number | null;
   remarques: string;
-  taux_fils_metalliques?: number | null;
+  taux_metal?: number | null;
 }
 
 type SortableKeys = keyof Result | 'pci' | 'h2o' | 'chlore' | 'cendres';
@@ -102,7 +102,7 @@ const importSchema = z.object({
   chlore: z.coerce.number({invalid_type_error: "Chlore doit être un nombre."}).min(0).optional().nullable(),
   cendres: z.coerce.number({invalid_type_error: "Cendres doit être un nombre."}).min(0).optional().nullable(),
   remarques: z.string().optional().nullable(),
-  taux_fils_metalliques: z.coerce.number().min(0).max(100).optional().nullable(),
+  taux_metal: z.coerce.number().min(0).max(100).optional().nullable(),
 });
 
 function ResultsPagePro({
@@ -623,9 +623,9 @@ export default function ResultsTable() {
                     'cendres': 'cendres',
                     '% cendres': 'cendres',
                     'remarques': 'remarques',
-                    'taux fils metalliques': 'taux_fils_metalliques',
-                    'taux fils': 'taux_fils_metalliques',
-                    'fils metalliques': 'taux_fils_metalliques',
+                    'taux metal': 'taux_metal',
+                    'taux du metal': 'taux_metal',
+                    'taux du métal (%)': 'taux_metal',
                 };
 
                 const parsedResults = json.map((row, index) => {
@@ -662,8 +662,8 @@ export default function ResultsTable() {
                                 console.warn(`Teneur en hydrogène non définie pour "${validatedData.type_combustible}" (ligne ${rowNum}). Le PCI ne peut être calculé.`);
                             } else {
                                 let pcsToUse = validatedData.pcs;
-                                if (validatedData.type_combustible.toLowerCase().includes('pneu') && validatedData.taux_fils_metalliques) {
-                                    const taux = Number(validatedData.taux_fils_metalliques);
+                                if (validatedData.taux_metal) {
+                                    const taux = Number(validatedData.taux_metal);
                                     if (taux > 0 && taux < 100) {
                                        pcsToUse = pcsToUse * (1 - taux / 100);
                                     }

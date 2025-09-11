@@ -32,7 +32,7 @@ export interface AverageAnalysis {
     h2o: number;
     chlore: number;
     cendres: number;
-    taux_fils_metalliques?: number;
+    taux_metal?: number;
     count: number;
 }
 
@@ -111,7 +111,7 @@ interface ResultToSave {
     chlore: number | null;
     cendres: number | null;
     remarques: string | null;
-    taux_fils_metalliques: number | null;
+    taux_metal: number | null;
     pci_brut: number;
 }
 
@@ -273,12 +273,12 @@ export async function getAverageAnalysisForFuels(
     h2o: number[];
     chlore: number[];
     cendres: number[];
-    taux_fils_metalliques: number[];
+    taux_metal: number[];
   }> = {};
 
   // Initialize analysis object for all requested fuel names
   fuelNames.forEach(name => {
-    analysis[name] = { pci_brut: [], h2o: [], chlore: [], cendres: [], taux_fils_metalliques: [] };
+    analysis[name] = { pci_brut: [], h2o: [], chlore: [], cendres: [], taux_metal: [] };
   });
 
   // Populate with data from the database
@@ -290,7 +290,7 @@ export async function getAverageAnalysisForFuels(
       if (typeof res.h2o === 'number') target.h2o.push(res.h2o);
       if (typeof res.chlore === 'number') target.chlore.push(res.chlore);
       if (typeof res.cendres === 'number') target.cendres.push(res.cendres);
-      if (typeof res.taux_fils_metalliques === 'number') target.taux_fils_metalliques.push(res.taux_fils_metalliques);
+      if (typeof res.taux_metal === 'number') target.taux_metal.push(res.taux_metal);
     }
   });
 
@@ -304,7 +304,7 @@ export async function getAverageAnalysisForFuels(
       h2o: avg(data.h2o),
       chlore: avg(data.chlore),
       cendres: avg(data.cendres),
-      taux_fils_metalliques: avg(data.taux_fils_metalliques),
+      taux_metal: avg(data.taux_metal),
       count: data.pci_brut.length
     };
   }

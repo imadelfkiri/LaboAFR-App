@@ -153,8 +153,8 @@ function useMixtureCalculations(
             }
 
             let correctedPciBrut = analysisData.pci_brut;
-            if (fuelName.toLowerCase().includes('pneu') && analysisData.taux_fils_metalliques && analysisData.taux_fils_metalliques > 0 && analysisData.taux_fils_metalliques < 100) {
-                const correctionFactor = 1 - (analysisData.taux_fils_metalliques / 100);
+            if (analysisData.taux_metal && analysisData.taux_metal > 0 && analysisData.taux_metal < 100) {
+                const correctionFactor = 1 - (analysisData.taux_metal / 100);
                 correctedPciBrut = analysisData.pci_brut * correctionFactor;
             }
             
