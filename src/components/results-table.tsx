@@ -111,8 +111,10 @@ function ResultsPagePro({
   rows = [],
   fuels = [],
   suppliers = [],
+  analysisTypes = [],
   fuel="__ALL__", setFuel=()=>{},
   supplier="__ALL__", setSupplier=()=>{},
+  analysisType="__ALL__", setAnalysisType=()=>{},
   from="", setFrom=()=>{},
   to="", setTo=()=>{},
   onExport=(type: 'excel' | 'pdf', scope: 'current' | 'daily' | 'weekly' | 'monthly' | 'last_month')=>{}, 
@@ -186,11 +188,23 @@ function ResultsPagePro({
             <Card className="rounded-2xl shadow-sm border">
                 <CardContent className="p-2">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-center">
-                    <div className="lg:col-span-4 flex items-center gap-2 text-[12px]">
+                    <div className="lg:col-span-3 flex items-center gap-2 text-[12px]">
                         <SidebarTrigger className="mr-2" />
                         <Badge tone="muted">Total: {stats.total}</Badge>
                         <Badge tone="ok"><CheckCircle2 className="w-3 h-3 mr-1" /> {stats.conformes} conformes</Badge>
                         <Badge tone="warn"><AlertTriangle className="w-3 h-3 mr-1" /> {stats.non} non conf.</Badge>
+                    </div>
+                    
+                    <div className="lg:col-span-2">
+                    <Select value={analysisType} onValueChange={setAnalysisType}>
+                        <SelectTrigger className="h-9 rounded-xl text-[13px]">
+                        <SelectValue placeholder="Type d'analyse" />
+                        </SelectTrigger>
+                        <SelectContent>
+                        <SelectItem value="__ALL__">Toutes les analyses</SelectItem>
+                        {analysisTypes.map((a:string)=><SelectItem key={a} value={a}>{a}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
                     </div>
 
                     <div className="lg:col-span-2">
@@ -216,7 +230,7 @@ function ResultsPagePro({
                     </Select>
                     </div>
 
-                    <div className="lg:col-span-2">
+                    <div className="lg:col-span-1">
                     <Popover>
                         <PopoverTrigger asChild>
                         <Button variant="outline" className="w-full h-9 rounded-xl justify-start text-[13px]">
@@ -327,6 +341,7 @@ export default function ResultsTable() {
   const [loading, setLoading] = useState(true);
   const [fuelTypeFilter, setFuelTypeFilter] = useState('__ALL__');
   const [fournisseurFilter, setFournisseurFilter] = useState('__ALL__');
+  const [analysisTypeFilter, setAnalysisTypeFilter] = useState('__ALL__');
   const [dateFromFilter, setDateFromFilter] = useState('');
   const [dateToFilter, setDateToFilter] = useState('');
   
@@ -393,11 +408,12 @@ export default function ResultsTable() {
     };
   }, [fetchInitialData]);
 
-  const { uniqueFuelTypes, allUniqueFournisseurs } = useMemo(() => {
+  const { uniqueFuelTypes, allUniqueFournisseurs, uniqueAnalysisTypes } = useMemo(() => {
     const allResults = results; // Use all results to populate filters
     const fuelTypes = [...new Set(allResults.map((r) => r.type_combustible))].sort();
     const fournisseurs = [...new Set(allResults.map((r) => r.fournisseur))].sort();
-    return { uniqueFuelTypes: fuelTypes, allUniqueFournisseurs: fournisseurs };
+    const analysisTypes = [...new Set(allResults.map((r) => r.type_analyse || 'Arrivage'))].sort();
+    return { uniqueFuelTypes: fuelTypes, allUniqueFournisseurs: fournisseurs, uniqueAnalysisTypes: analysisTypes };
   }, [results]);
 
   useEffect(() => {
@@ -457,13 +473,14 @@ export default function ResultsTable() {
 
       const typeMatch = fuelTypeFilter === '__ALL__' || result.type_combustible === fuelTypeFilter;
       const fournisseurMatch = fournisseurFilter === '__ALL__' || result.fournisseur === fournisseurFilter;
+      const analysisTypeMatch = analysisTypeFilter === '__ALL__' || (result.type_analyse || 'Arrivage') === analysisTypeFilter;
       
       const dateFrom = dateFromFilter ? startOfDay(parseISO(dateFromFilter)) : null;
       const dateTo = dateToFilter ? endOfDay(parseISO(dateToFilter)) : null;
 
       const dateMatch = (!dateFrom || dateArrivage >= dateFrom) && (!dateTo || dateArrivage <= dateTo);
       
-      return typeMatch && fournisseurMatch && dateMatch;
+      return typeMatch && fournisseurMatch && analysisTypeMatch && dateMatch;
     });
     
     if (sortConfig !== null) {
@@ -483,7 +500,7 @@ export default function ResultsTable() {
     
     return sortableItems;
     
-  }, [results, fuelTypeFilter, fournisseurFilter, dateFromFilter, dateToFilter, sortConfig]);
+  }, [results, fuelTypeFilter, fournisseurFilter, analysisTypeFilter, dateFromFilter, dateToFilter, sortConfig]);
 
   const handleDelete = async () => {
     if (!resultToDelete) return;
@@ -873,10 +890,13 @@ export default function ResultsTable() {
             rows={tableRows}
             fuels={uniqueFuelTypes}
             suppliers={availableFournisseurs}
+            analysisTypes={uniqueAnalysisTypes}
             fuel={fuelTypeFilter}
             setFuel={setFuelTypeFilter}
             supplier={fournisseurFilter}
             setSupplier={setFournisseurFilter}
+            analysisType={analysisTypeFilter}
+            setAnalysisType={setAnalysisTypeFilter}
             from={dateFromFilter}
             setFrom={setDateFromFilter}
             to={dateToFilter}
