@@ -1,7 +1,6 @@
 // app/calcul-impact/page.tsx
 "use client"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { DataTable } from "@/components/table/DataTable"
 import { DeltaPill } from "@/components/badges/DeltaPill"
 import { Button } from "@/components/ui/button"
 import { Flame, Beaker, Gauge, Save, Trash2, FileDown } from "lucide-react"
@@ -401,33 +400,31 @@ export default function CalculImpactPage() {
           </div>
       </section>
 
-      <section className="space-y-3 pt-4">
-        <h2 className="text-lg font-medium text-white">Résultats de l’Impact sur le Clinker</h2>
-        <div className="overflow-hidden rounded-2xl border border-brand-line/60 bg-brand-surface/60">
-            <div className="max-h-[62vh] overflow-auto">
-                <table className="min-w-full text-sm">
-                    <thead className="sticky top-0 z-10 bg-brand-surface/90 backdrop-blur supports-[backdrop-filter]:bg-brand-surface/60">
-                        <tr>
-                            {columns.map((c) => (
-                                <th key={c.key} className={`px-4 py-3 text-left font-medium text-neutral-300 border-b border-brand-line/60 ${c.align === "right" ? "text-right" : ""}`}>
-                                    {c.label}
-                                </th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {rows.map((r, idx) => (
-                            <tr key={idx} className="border-b border-brand-line/40 even:bg-brand-muted/30 hover:bg-brand-muted/50 transition-colors">
-                                {columns.map((c) => (
-                                    <td key={c.key} className={`px-4 py-3 text-neutral-200 ${c.align === "right" ? "text-right tabular-nums" : ""}`}>
-                                        {r[c.key as keyof typeof r]}
-                                    </td>
-                                ))}
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+      <section className="space-y-3 pt-4 overflow-hidden rounded-2xl border border-brand-line/60 bg-brand-surface/60">
+        <h2 className="text-lg font-medium text-white px-4 pt-4">Résultats de l’Impact sur le Clinker</h2>
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+              <thead className="sticky top-0 z-10 bg-brand-surface/90 backdrop-blur supports-[backdrop-filter]:bg-brand-surface/60">
+                  <tr>
+                      {columns.map((c) => (
+                          <th key={c.key} className={`px-4 py-3 text-left font-medium text-neutral-300 border-b border-brand-line/60 ${c.align === "right" ? "text-right" : ""}`}>
+                              {c.label}
+                          </th>
+                      ))}
+                  </tr>
+              </thead>
+              <tbody>
+                  {rows.map((r, idx) => (
+                      <tr key={idx} className="border-b border-brand-line/40 even:bg-brand-muted/30 hover:bg-brand-muted/50 transition-colors">
+                          {columns.map((c) => (
+                              <td key={c.key} className={`px-4 py-3 text-neutral-200 ${c.align === "right" ? "text-right tabular-nums" : ""}`}>
+                                  {r[c.key as keyof typeof r]}
+                              </td>
+                          ))}
+                      </tr>
+                  ))}
+              </tbody>
+          </table>
         </div>
       </section>
     </div>
