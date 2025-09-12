@@ -752,12 +752,6 @@ export function MixtureCalculator() {
 
     return (
       <Dialog open={isSaveModalOpen} onOpenChange={setIsSaveModalOpen}>
-        <DialogTrigger asChild>
-            <Button disabled={isSaving} onClick={handlePrepareSave}>
-              <Save className="mr-2 h-4 w-4" />
-              {isSaving ? "Enregistrement..." : "Enregistrer la Session"}
-            </Button>
-        </DialogTrigger>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Résumé et Confirmation du Mélange</DialogTitle>
@@ -899,7 +893,11 @@ export function MixtureCalculator() {
               </Popover>
             </div>
             <div className="flex items-center gap-2">
-              <SaveConfirmationModal />
+                <Button disabled={isSaving} onClick={handlePrepareSave}>
+                    <Save className="mr-2 h-4 w-4" />
+                    {isSaving ? "Enregistrement..." : "Enregistrer la Session"}
+                </Button>
+                <SaveConfirmationModal />
             </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
@@ -956,7 +954,7 @@ export function MixtureCalculator() {
                         <Input 
                             id={`flow-${fuelName}`} 
                             type="number" 
-                            className="w-24 h-9" 
+                            className="w-32 h-9" 
                             value={directInputs[fuelName].flowRate || ''} 
                             onChange={(e) => handleDirectInputChange(fuelName, e.target.value)}
                         />
