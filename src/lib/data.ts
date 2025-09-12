@@ -1,4 +1,3 @@
-
 // src/lib/data.ts
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, arrayUnion, orderBy, Timestamp, setDoc,getCountFromServer, limit } from 'firebase/firestore';
 import { db } from './firebase';
@@ -72,6 +71,7 @@ export interface FuelData {
     nom_combustible: string;
     poids_godet: number;
     teneur_hydrogene: number;
+    taux_cendres?: number;
 }
 
 export interface MixtureScenario {
@@ -114,6 +114,20 @@ interface ResultToSave {
     remarques: string | null;
     taux_metal: number | null;
     pci_brut: number;
+}
+
+export type RawMealAnalysis = {
+    [key: string]: number | undefined;
+    pf?: number; sio2?: number; al2o3?: number; fe2o3?: number;
+    cao?: number; mgo?: number; so3?: number; k2o?: number;
+    tio2?: number; mno?: number; p2o5?: number;
+};
+
+export interface RawMealPreset {
+    id: string;
+    name: string;
+    analysis: RawMealAnalysis;
+    createdAt: Timestamp;
 }
 
 
@@ -746,4 +760,26 @@ export async function addManyResults(results: ResultToSave[]): Promise<void> {
     await batch.commit();
 }
 
+// --- Raw Meal Presets ---
+
+export async function getRawMealPresets(): Promise<RawMealPreset[]> {
+    const presetsCollection = collection(db, 'raw_meal_presets');
+    const q = query(presetsCollection, orderBy("createdAt", "desc"));
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return [];
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RawMealPreset));
+}
+
+export async function saveRawMealPreset(name: string, analysis: RawMealAnalysis): Promise<void> {
+    const preset: Omit<RawMealPreset, 'id'> = {
+        name,
+        analysis,
+        createdAt: Timestamp.now(),
+    };
+    await addDoc(collection(db, 'raw_meal_presets'), preset);
+}
+
+export async function deleteRawMealPreset(id: string): Promise<void> {
+    await deleteDoc(doc(db, 'raw_meal_presets', id));
+}
     
