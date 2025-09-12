@@ -72,17 +72,19 @@ const useClinkerCalculations = (
     rawMealFlow: number, rawMealAnalysis: OxideAnalysis, afFlow: number, afAshAnalysis: OxideAnalysis, grignonsFlow: number, grignonsAshAnalysis: OxideAnalysis, petCokePrecaFlow: number, petCokePrecaAsh: OxideAnalysis, petCokeTuyereFlow: number, petCokeTuyereAsh: OxideAnalysis, fuelDataMap: Record<string, FuelData>, so3Target: number, pfClinkerTarget: number
 ) => {
     return useMemo(() => {
-        const clinkerize = (input: OxideAnalysis) => {
-            const pf = input.pf || 0;
-            const factor = pf < 100 ? 100 / (100 - pf) : 0;
-            const clinker: OxideAnalysis = { pf: pfClinkerTarget };
+        const clinkerize = (input: OxideAnalysis, targetPf: number) => {
+            const currentPf = input.pf ?? 0;
+            const factor = (100 - currentPf) !== 0 ? 100 / (100 - currentPf) : 0;
+            const clinkerized: OxideAnalysis = { pf: targetPf };
             OXIDE_KEYS.forEach(key => {
-                if (key !== 'pf' && input[key] !== undefined) clinker[key] = (input[key] as number) * factor;
+                if (key !== 'pf' && input[key] !== undefined) {
+                    clinkerized[key] = (input[key] as number) * factor;
+                }
             });
-            return clinker;
+            return clinkerized;
         };
 
-        const clinkerWithoutAsh = clinkerize(rawMealAnalysis);
+        const clinkerWithoutAsh = clinkerize(rawMealAnalysis, pfClinkerTarget);
 
         const resolveAshPercent = (name: string, analysis: OxideAnalysis) => Number((analysis as any)?.pourcentage_cendres ?? fuelDataMap[name]?.taux_cendres ?? 0);
 
@@ -107,48 +109,45 @@ const useClinkerCalculations = (
             });
         }
         
-        const clinkerizedRawMealFlows: OxideAnalysis = {};
-        OXIDE_KEYS.forEach(key => {
-            clinkerizedRawMealFlows[key] = (rawMealFlow * (100 - (rawMealAnalysis.pf ?? 0))/100) * ((clinkerWithoutAsh[key] ?? 0) / 100);
-        });
-
-        const ashFlows: OxideAnalysis = {};
-        OXIDE_KEYS.forEach(key => {
-            ashFlows[key] = totalAshFlow * ((averageAshAnalysis[key] ?? 0) / 100);
-        });
-        
-        const clinkerWithAshFlows: OxideAnalysis = {};
-        OXIDE_KEYS.forEach(key => {
-            clinkerWithAshFlows[key] = (clinkerizedRawMealFlows[key] ?? 0) + (ashFlows[key] ?? 0);
-        });
-
-        const clinkerProduction = rawMealFlow * (100 - (rawMealAnalysis.pf ?? 0)) / 100;
+        const rawMealNonVolatileFlow = rawMealFlow * (100 - (rawMealAnalysis.pf ?? 0)) / 100;
+        const clinkerProduction = rawMealNonVolatileFlow;
         const totalClinkerWithAshFlow = clinkerProduction + totalAshFlow;
 
-        const clinkerWithAsh_preSO3: OxideAnalysis = {};
-        if (totalClinkerWithAshFlow > 0) {
-            OXIDE_KEYS.forEach(key => {
-                clinkerWithAsh_preSO3[key] = ((clinkerWithAshFlows[key] ?? 0) / totalClinkerWithAshFlow) * 100;
-            });
-        }
-        clinkerWithAsh_preSO3.pf = pfClinkerTarget;
+        const clinkerWithAsh_preNormalization: OxideAnalysis = {};
+        OXIDE_KEYS.forEach(key => {
+             const rawMealOxideFlow = rawMealNonVolatileFlow * ((clinkerize(rawMealAnalysis, 0)[key] ?? 0) / 100);
+             const ashOxideFlow = totalAshFlow * ((averageAshAnalysis[key] ?? 0) / 100);
+             const totalOxideFlow = rawMealOxideFlow + ashOxideFlow;
 
-        // --- SO3 Normalization Step ---
+             if (totalClinkerWithAshFlow > 0) {
+                clinkerWithAsh_preNormalization[key] = (totalOxideFlow / totalClinkerWithAshFlow) * 100;
+             } else {
+                clinkerWithAsh_preNormalization[key] = 0;
+             }
+        });
+
+        // --- Normalization Step for SO3 and PF ---
         const clinkerWithAsh: OxideAnalysis = {};
-        const calculatedSO3 = clinkerWithAsh_preSO3.so3 ?? 0;
+        const sumPreNormalization = OXIDE_KEYS.reduce((acc, key) => {
+            if (key !== 'so3' && key !== 'pf') {
+                return acc + (clinkerWithAsh_preNormalization[key] ?? 0);
+            }
+            return acc;
+        }, 0);
         
-        const dilutionFactor = (calculatedSO3 !== 100) 
-            ? (100 - so3Target) / (100 - calculatedSO3) 
+        const dilutionFactor = sumPreNormalization > 0 
+            ? (100 - so3Target - pfClinkerTarget) / sumPreNormalization
             : 0;
 
         OXIDE_KEYS.forEach(key => {
             if (key === 'so3') {
                 clinkerWithAsh[key] = so3Target;
-            } else if (key !== 'pf') {
-                 clinkerWithAsh[key] = (clinkerWithAsh_preSO3[key] ?? 0) * dilutionFactor;
+            } else if (key === 'pf') {
+                 clinkerWithAsh[key] = pfClinkerTarget;
+            } else {
+                 clinkerWithAsh[key] = (clinkerWithAsh_preNormalization[key] ?? 0) * dilutionFactor;
             }
         });
-        clinkerWithAsh.pf = pfClinkerTarget;
 
         return { clinkerWithoutAsh, clinkerWithAsh, averageAshAnalysis };
     }, [rawMealFlow, rawMealAnalysis, afFlow, afAshAnalysis, grignonsFlow, grignonsAshAnalysis, petCokePrecaFlow, petCokePrecaAsh, petCokeTuyereFlow, petCokeTuyereAsh, fuelDataMap, so3Target, pfClinkerTarget]);
