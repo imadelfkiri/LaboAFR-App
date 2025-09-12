@@ -74,11 +74,19 @@ const useClinkerCalculations = (
     return useMemo(() => {
         const clinkerize = (input: OxideAnalysis, targetPf: number) => {
             const currentPf = input.pf ?? 0;
-            const factor = (100 - currentPf) !== 0 ? 100 / (100 - currentPf) : 0;
-            const clinkerized: OxideAnalysis = { pf: targetPf };
-            OXIDE_KEYS.forEach(key => {
+            const sumNonVolatile = OXIDE_KEYS.reduce((acc, key) => {
                 if (key !== 'pf' && input[key] !== undefined) {
-                    clinkerized[key] = (input[key] as number) * factor;
+                    return acc + (input[key] as number);
+                }
+                return acc;
+            }, 0);
+            
+            const factor = sumNonVolatile > 0 ? 100 / sumNonVolatile : 0;
+
+            const clinkerized: OxideAnalysis = { pf: targetPf };
+             OXIDE_KEYS.forEach(key => {
+                if (key !== 'pf' && input[key] !== undefined) {
+                    clinkerized[key] = ((input[key] as number) * factor) * ((100 - targetPf)/100);
                 }
             });
             return clinkerized;
