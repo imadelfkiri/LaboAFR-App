@@ -753,7 +753,7 @@ export function MixtureCalculator() {
     return (
       <Dialog open={isSaveModalOpen} onOpenChange={setIsSaveModalOpen}>
         <DialogTrigger asChild>
-            <Button disabled={isSaving}>
+            <Button disabled={isSaving} onClick={handlePrepareSave}>
               <Save className="mr-2 h-4 w-4" />
               {isSaving ? "Enregistrement..." : "Enregistrer la Session"}
             </Button>
@@ -810,19 +810,23 @@ export function MixtureCalculator() {
             </div>
 
           </div>
-          <DialogFooter className="gap-2 sm:justify-end flex-wrap">
-            <Button type="button" variant="secondary" onClick={() => setIsSaveModalOpen(false)}>Annuler</Button>
-            <Button type="button" variant="outline" onClick={handleCopySummary}>
-                <Copy className="mr-2 h-4 w-4" />
-                Copier le résumé
-            </Button>
-             <Button type="button" variant="outline" onClick={handleEmailSummary}>
-                <Mail className="mr-2 h-4 w-4" />
-                Envoyer par Email
-            </Button>
-            <Button type="button" onClick={handleConfirmSave} disabled={isSaving}>
-              {isSaving ? "Enregistrement..." : "Confirmer et Enregistrer"}
-            </Button>
+          <DialogFooter className="gap-2 sm:justify-between flex-wrap">
+            <div>
+              <Button type="button" variant="outline" onClick={handleCopySummary}>
+                  <Copy className="mr-2 h-4 w-4" />
+                  Copier
+              </Button>
+               <Button type="button" variant="outline" onClick={handleEmailSummary} className="ml-2">
+                  <Mail className="mr-2 h-4 w-4" />
+                  Email
+              </Button>
+            </div>
+            <div>
+              <Button type="button" variant="secondary" onClick={() => setIsSaveModalOpen(false)}>Annuler</Button>
+              <Button type="button" onClick={handleConfirmSave} disabled={isSaving} className="ml-2">
+                {isSaving ? "Enregistrement..." : "Confirmer et Enregistrer"}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -946,17 +950,17 @@ export function MixtureCalculator() {
           </CardHeader>
            <CardContent className="space-y-4 p-6">
              {Object.keys(directInputs).map(fuelName => (
-                <div key={fuelName} className="flex items-center gap-4">
-                    <Label htmlFor={`flow-${fuelName}`} className="flex-1 text-sm font-medium">{fuelName}</Label>
+                <div key={fuelName} className="flex items-center gap-4 justify-between">
+                    <Label htmlFor={`flow-${fuelName}`} className="text-sm font-medium">{fuelName}</Label>
                     <div className="flex items-center gap-2">
                         <Input 
                             id={`flow-${fuelName}`} 
                             type="number" 
-                            className="w-32 h-9" 
+                            className="w-24 h-9" 
                             value={directInputs[fuelName].flowRate || ''} 
                             onChange={(e) => handleDirectInputChange(fuelName, e.target.value)}
                         />
-                        <span className="text-sm text-muted-foreground">t/h</span>
+                        <span className="text-sm text-muted-foreground w-8">t/h</span>
                     </div>
                 </div>
              ))}
@@ -1048,3 +1052,5 @@ export function MixtureCalculator() {
     </div>
   );
 }
+
+    
