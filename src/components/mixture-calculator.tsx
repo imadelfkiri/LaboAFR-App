@@ -752,6 +752,12 @@ export function MixtureCalculator() {
 
     return (
       <Dialog open={isSaveModalOpen} onOpenChange={setIsSaveModalOpen}>
+        <DialogTrigger asChild>
+            <Button disabled={isSaving}>
+              <Save className="mr-2 h-4 w-4" />
+              {isSaving ? "Enregistrement..." : "Enregistrer la Session"}
+            </Button>
+        </DialogTrigger>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Résumé et Confirmation du Mélange</DialogTitle>
@@ -889,10 +895,7 @@ export function MixtureCalculator() {
               </Popover>
             </div>
             <div className="flex items-center gap-2">
-              <Button onClick={handlePrepareSave} disabled={isSaving}>
-                  <Save className="mr-2 h-4 w-4" />
-                  {isSaving ? "Enregistrement..." : "Enregistrer la Session"}
-              </Button>
+              <SaveConfirmationModal />
             </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
@@ -1042,8 +1045,6 @@ export function MixtureCalculator() {
             </CollapsibleContent>
         </Card>
       </Collapsible>
-      
-      <SaveConfirmationModal />
     </div>
   );
 }
