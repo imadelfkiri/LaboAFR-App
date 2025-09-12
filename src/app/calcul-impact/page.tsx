@@ -22,6 +22,29 @@ type OxideAnalysis = {
 const OXIDE_KEYS: (keyof OxideAnalysis)[] = ['pf', 'sio2', 'al2o3', 'fe2o3', 'cao', 'mgo', 'so3', 'k2o', 'tio2', 'mno', 'p2o5'];
 const initialOxideState: OxideAnalysis = { pf: 34.5, sio2: 13.5, al2o3: 3.5, fe2o3: 2.2, cao: 42.5, mgo: 1.5, so3: 0.5, k2o: 0.8, tio2: 0.2, mno: 0.1, p2o5: 0.1 };
 
+// --- LocalStorage Hook ---
+function usePersistentState<T>(key: string, defaultValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
+    const [state, setState] = useState<T>(() => {
+        try {
+            const storedValue = localStorage.getItem(key);
+            return storedValue ? JSON.parse(storedValue) : defaultValue;
+        } catch {
+            return defaultValue;
+        }
+    });
+
+    useEffect(() => {
+        try {
+            localStorage.setItem(key, JSON.stringify(state));
+        } catch (error) {
+            console.error("Could not save to localStorage", error);
+        }
+    }, [key, state]);
+
+    return [state, setState];
+}
+
+
 // --- Hooks and Logic ---
 const calculateModules = (analysis: OxideAnalysis) => {
     const s = analysis.sio2 || 0, a = analysis.al2o3 || 0, f = analysis.fe2o3 || 0, c = analysis.cao || 0;
@@ -173,10 +196,10 @@ export default function CalculImpactPage() {
     const [loading, setLoading] = useState(true);
     const [fuelDataMap, setFuelDataMap] = useState<Record<string, FuelData>>({});
 
-    const [rawMealFlow, setRawMealFlow] = useState(200);
+    const [rawMealFlow, setRawMealFlow] = usePersistentState<number>('calculImpact_rawMealFlow', 200);
     const [rawMealAnalysis, setRawMealAnalysis] = useState<OxideAnalysis>(initialOxideState);
-    const [clinkerFactor, setClinkerFactor] = useState(0.66);
-    const [freeLime, setFreeLime] = useState(1.5);
+    const [clinkerFactor, setClinkerFactor] = usePersistentState<number>('calculImpact_clinkerFactor', 0.66);
+    const [freeLime, setFreeLime] = usePersistentState<number>('calculImpact_freeLime', 1.5);
 
     const [latestSession, setLatestSession] = useState<MixtureSession | null>(null);
     const [afAshAnalysis, setAfAshAnalysis] = useState<OxideAnalysis>({});
@@ -189,10 +212,21 @@ export default function CalculImpactPage() {
     const fetchPresets = useCallback(async () => {
         const fetchedPresets = await getRawMealPresets();
         setPresets(fetchedPresets);
-        if (fetchedPresets.length > 0) {
+        if (fetchedPresets.length > 0 && !localStorage.getItem('calculImpact_rawMealAnalysis')) {
              setRawMealAnalysis(fetchedPresets[0].analysis);
         }
     }, []);
+
+    useEffect(() => {
+        const savedAnalysis = localStorage.getItem('calculImpact_rawMealAnalysis');
+        if (savedAnalysis) {
+            setRawMealAnalysis(JSON.parse(savedAnalysis));
+        }
+    }, []);
+
+    useEffect(() => {
+        localStorage.setItem('calculImpact_rawMealAnalysis', JSON.stringify(rawMealAnalysis));
+    }, [rawMealAnalysis]);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -203,7 +237,7 @@ export default function CalculImpactPage() {
             setFuelDataMap(fuelDataMap);
             setPresets(mealPresets);
 
-            if (mealPresets.length > 0) {
+            if (mealPresets.length > 0 && !localStorage.getItem('calculImpact_rawMealAnalysis')) {
                  setRawMealAnalysis(mealPresets[0].analysis);
             }
 
