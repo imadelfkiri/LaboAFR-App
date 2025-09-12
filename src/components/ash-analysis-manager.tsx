@@ -216,9 +216,9 @@ function AnalysesCendresView({
     const n = typeof v === "number" && isFinite(v) ? v : undefined
     const base = "inline-flex items-center justify-center rounded-md px-1.5 py-0.5 text-[11px] font-medium tabular-nums"
     if (n === undefined) return <span className={`${base} bg-muted text-muted-foreground`}>-</span>
-    if (t === "MS") return <span className={`${base} ${n<1.5?"bg-red-100 text-red-700":n<2.0?"bg-yellow-100 text-yellow-800":"bg-green-100 text-green-800"}`}>{n.toFixed(2)}</span>
-    if (t === "AF") return <span className={`${base} ${n<0.5?"bg-red-100 text-red-700":n<1.5?"bg-yellow-100 text-yellow-800":"bg-green-100 text-green-800"}`}>{n.toFixed(2)}</span>
-    return <span className={`${base} ${n<0.80?"bg-red-100 text-red-700":n<=1.00?"bg-yellow-100 text-yellow-800":"bg-green-100 text-green-800"}`}>{n.toFixed(2)}</span>
+    if (t === "MS") return <span className={`${base} ${n<1.5?"bg-red-500/20 text-red-300":n<2.0?"bg-yellow-500/20 text-yellow-300":"bg-green-500/20 text-green-300"}`}>{n.toFixed(2)}</span>
+    if (t === "AF") return <span className={`${base} ${n<0.5?"bg-red-500/20 text-red-300":n<1.5?"bg-yellow-500/20 text-yellow-300":"bg-green-500/20 text-green-300"}`}>{n.toFixed(2)}</span>
+    return <span className={`${base} ${n<0.80?"bg-red-500/20 text-red-300":n<=1.00?"bg-yellow-500/20 text-yellow-300":"bg-green-500/20 text-green-300"}`}>{n.toFixed(2)}</span>
   }
 
   const SortableHeader = ({ label, sortKey }: { label: string; sortKey: SortableKeys }) => {
@@ -226,12 +226,12 @@ function AnalysesCendresView({
     return (
       <th
         onClick={() => onSort(sortKey)}
-        className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-left font-semibold border-b cursor-pointer hover:bg-muted/50"
+        className="sticky top-0 z-20 bg-brand-surface/95 backdrop-blur p-2 text-left font-semibold border-b border-brand-line/60 cursor-pointer hover:bg-brand-muted/50"
       >
         <div className="flex items-center gap-2">
             <span>{label}</span>
             {isSorted && (
-                <ArrowUpDown className="h-4 w-4 text-foreground" />
+                <ArrowUpDown className="h-4 w-4" />
             )}
         </div>
       </th>
@@ -272,19 +272,19 @@ function AnalysesCendresView({
       />
 
       <div className="flex-grow px-3 md:px-5 pb-3 md:pb-5">
-        <Card className="rounded-2xl shadow-md h-full">
+        <Card className="rounded-2xl shadow-md h-full bg-transparent">
           <CardContent className="p-0 h-full">
-            <div className="max-h-[70vh] overflow-auto rounded-2xl border-t bg-background h-full">
+            <div className="max-h-[70vh] overflow-auto rounded-2xl border-t border-brand-line/60 bg-brand-surface h-full">
               <table className="w-full text-[13px] border-separate border-spacing-0">
-                <thead className="text-muted-foreground">
+                <thead className="text-neutral-300">
                   <tr>
                     {headers.map(h => <SortableHeader key={h.key} label={h.label} sortKey={h.key} />)}
-                    <th className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-center font-semibold border-b">Actions</th>
+                    <th className="sticky top-0 z-20 bg-brand-surface/95 backdrop-blur p-2 text-center font-semibold border-b border-brand-line/60">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(rows ?? []).map((r: any, i: number) => (
-                    <tr key={r.id ?? i} className="border-b last:border-0 even:bg-muted/30 hover:bg-muted/50 transition-colors">
+                    <tr key={r.id ?? i} className="border-b border-brand-line/40 last:border-0 even:bg-brand-muted/30 hover:bg-brand-muted/50 transition-colors">
                       <td className="p-2 text-muted-foreground whitespace-nowrap">{r.dateArrivage}</td>
                       <td className="p-2 font-medium">{r.combustible}</td>
                       <td className="p-2">{r.fournisseur}</td>
@@ -835,5 +835,3 @@ export function AshAnalysisManager() {
       </>
     );
 }
-
-    

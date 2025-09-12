@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function SimulationMelangePage() {
   return (
-     <div className="flex-1">
+     <div className="flex-1 bg-brand-bg">
         <MixtureSimulator />
     </div>
   );

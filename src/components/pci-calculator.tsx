@@ -409,10 +409,10 @@ export function PciCalculator() {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card className="p-6 rounded-xl shadow-md">
+                <Card className="p-6 rounded-2xl">
                     <CardHeader className="p-0 pb-6">
                        <CardTitle>
-                          <div className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                          <div className="text-xl font-bold flex items-center gap-2">
                             <ClipboardList className="h-5 w-5" />
                             <span>Informations Générales</span>
                           </div>
@@ -559,7 +559,7 @@ export function PciCalculator() {
                                 render={({ field }) => (
                                 <FormItem>
                                      <FormLabel>
-                                        <div className="flex items-center gap-2 text-gray-700">
+                                        <div className="flex items-center gap-2">
                                         <MessageSquareText className="h-4 w-4" />
                                         <span>Remarques</span>
                                         </div>
@@ -580,9 +580,9 @@ export function PciCalculator() {
                     </CardContent>
                 </Card>
 
-                <Card className="p-6 rounded-xl shadow-md">
+                <Card className="p-6 rounded-2xl">
                     <CardHeader className="p-0 pb-6">
-                        <CardTitle className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                        <CardTitle className="text-xl font-bold flex items-center gap-2">
                             <FlaskConical className="w-5 h-5 text-green-600" /> 
                             <span>Données Analytiques</span>
                         </CardTitle>
@@ -623,7 +623,7 @@ export function PciCalculator() {
                                     readOnly 
                                     disabled 
                                     value={hValue !== null ? hValue.toFixed(2) : ''} 
-                                    className="rounded-lg h-11 px-4 text-sm bg-gray-100" 
+                                    className="rounded-lg h-11 px-4 text-sm bg-muted text-muted-foreground" 
                                     placeholder={watchedTypeCombustible ? (hValue === null ? 'Non défini' : '') : '-'}
                                 />
                                 </FormControl>
@@ -668,20 +668,20 @@ export function PciCalculator() {
                                 )}
                             />
                             <div className={cn("p-4 rounded-lg border text-center md:col-span-2", 
-                                validationStatus.pci === 'conform' && 'bg-green-50 border-green-200',
-                                validationStatus.pci === 'non-conform' && 'bg-red-50 border-red-200',
-                                validationStatus.pci === 'neutral' && 'bg-gray-100 border-gray-200'
+                                validationStatus.pci === 'conform' && 'bg-green-500/10 border-green-500/20',
+                                validationStatus.pci === 'non-conform' && 'bg-red-500/10 border-red-500/20',
+                                validationStatus.pci === 'neutral' && 'bg-muted'
                             )}>
                                  <p className={cn("text-sm font-medium",
-                                    validationStatus.pci === 'conform' && 'text-green-800',
-                                    validationStatus.pci === 'non-conform' && 'text-red-800',
-                                    validationStatus.pci === 'neutral' && 'text-gray-700'
+                                    validationStatus.pci === 'conform' && 'text-green-400',
+                                    validationStatus.pci === 'non-conform' && 'text-red-400',
+                                    validationStatus.pci === 'neutral' && 'text-muted-foreground'
                                  )}>PCI sur Brut (kcal/kg)</p>
                                 <p className={cn(
                                     "text-3xl font-bold tracking-tight transition-opacity duration-300",
-                                    validationStatus.pci === 'conform' && 'text-green-600',
-                                    validationStatus.pci === 'non-conform' && 'text-red-600',
-                                     pciResult !== null ? "opacity-100" : "text-gray-400 opacity-50"
+                                    validationStatus.pci === 'conform' && 'text-green-400',
+                                    validationStatus.pci === 'non-conform' && 'text-red-400',
+                                     pciResult !== null ? "opacity-100" : "text-muted-foreground opacity-50"
                                 )}>
                                     {pciResult !== null ? pciResult.toLocaleString('fr-FR') : '-'}
                                 </p>
@@ -694,7 +694,7 @@ export function PciCalculator() {
             <Button 
                 type="submit" 
                 disabled={isSaving || pciResult === null} 
-                className="fixed bottom-6 right-6 bg-primary hover:bg-primary/90 text-white rounded-full h-12 px-6 shadow-lg text-base"
+                className="fixed bottom-6 right-6 rounded-full h-12 px-6 shadow-lg text-base"
             >
                 {isSaving ? "Enregistrement..." : "Enregistrer"}
             </Button>
@@ -726,5 +726,3 @@ export function PciCalculator() {
     </div>
   );
 }
-
-    

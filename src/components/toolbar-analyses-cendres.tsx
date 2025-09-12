@@ -38,7 +38,8 @@ export default function ToolbarAnalysesCendres({
   }, [from, to])
 
   return (
-    <Card className="rounded-2xl shadow-sm border">
+    <div className="p-3 md:p-5">
+    <Card className="rounded-2xl shadow-sm border border-brand-line/60 bg-brand-surface/60">
       <CardContent className="p-3">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-center">
           {/* Filtres à gauche */}
@@ -112,6 +113,7 @@ export default function ToolbarAnalysesCendres({
         </div>
       </CardContent>
     </Card>
+    </div>
   )
 }
 

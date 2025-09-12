@@ -76,10 +76,10 @@ type IndicatorStatus = 'alert' | 'conform' | 'neutral';
 function IndicatorCard({ title, value, unit, tooltipText, status = 'neutral' }: { title: string; value: string | number; unit?: string; tooltipText?: string, status?: IndicatorStatus }) {
   const cardContent = (
      <Card className={cn(
-        "text-center transition-colors",
-        "bg-white shadow-md rounded-xl",
-        status === 'alert' && "border-red-500 bg-red-50 text-red-900",
-        status === 'conform' && "border-green-500 bg-green-50 text-green-900",
+        "text-center transition-colors rounded-xl",
+        status === 'alert' && "border-red-500/30 bg-red-500/10 text-red-300",
+        status === 'conform' && "border-green-500/30 bg-green-500/10 text-green-300",
+        status === 'neutral' && "border-brand-line/60 bg-brand-surface/60"
         )}>
       <CardHeader className="p-2 pb-1">
         <CardTitle className={cn("text-xs font-medium", status === 'neutral' ? 'text-muted-foreground' : 'text-inherit')}>
@@ -91,7 +91,7 @@ function IndicatorCard({ title, value, unit, tooltipText, status = 'neutral' }: 
         </CardTitle>
       </CardHeader>
       <CardContent className="p-2 pt-0">
-        <p className={cn("text-xl font-bold", status === 'neutral' ? 'text-foreground' : 'text-inherit')}>
+        <p className={cn("text-xl font-bold", status === 'neutral' ? 'text-white' : 'text-inherit')}>
           {value} <span className="text-base opacity-70">{unit}</span>
         </p>
       </CardContent>
@@ -842,12 +842,12 @@ export function MixtureCalculator() {
 
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 space-y-6 bg-gray-50">
-      <div className="sticky top-0 z-10 bg-gray-50/95 backdrop-blur-sm py-4 space-y-4">
+    <div className="p-4 md:p-6 lg:p-8 space-y-6">
+      <div className="sticky top-0 z-10 bg-brand-bg/95 backdrop-blur-sm py-4 space-y-4 -mx-4 -mt-4 px-4 pt-4">
         <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className='flex items-center gap-2'>
-                <h1 className="text-2xl font-bold text-gray-800">Indicateurs Globaux</h1>
+                <h1 className="text-2xl font-bold text-white">Indicateurs Globaux</h1>
                 <ThresholdSettingsModal />
               </div>
                <Popover>
@@ -856,7 +856,7 @@ export function MixtureCalculator() {
                           id="date"
                           variant={"outline"}
                           className={cn(
-                              "w-[300px] justify-start text-left font-normal bg-white",
+                              "w-[300px] justify-start text-left font-normal",
                               !analysisDateRange && "text-muted-foreground"
                           )}
                       >
@@ -907,9 +907,9 @@ export function MixtureCalculator() {
       </div>
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="shadow-md rounded-xl bg-white lg:col-span-1">
+        <Card className="shadow-md rounded-xl lg:col-span-1">
           <CardHeader className="flex flex-row items-center justify-between p-6">
-            <CardTitle className='text-gray-800'>Hall des AF</CardTitle>
+            <CardTitle>Hall des AF</CardTitle>
             <div className="flex items-center gap-2">
                 <Label htmlFor="flow-hall" className="text-sm text-gray-600">Débit (t/h)</Label>
                 <Input id="flow-hall" type="number" className="w-32 h-9" value={hallAF.flowRate || ''} onChange={(e) => handleFlowRateChange(setHallAF, e.target.value)} />
@@ -920,9 +920,9 @@ export function MixtureCalculator() {
           </CardContent>
         </Card>
         
-        <Card className="shadow-md rounded-xl bg-white lg:col-span-1">
+        <Card className="shadow-md rounded-xl lg:col-span-1">
           <CardHeader className="flex flex-row items-center justify-between p-6">
-            <CardTitle className='text-gray-800'>ATS</CardTitle>
+            <CardTitle>ATS</CardTitle>
             <div className="flex items-center gap-2">
                 <Label htmlFor="flow-ats" className="text-sm text-gray-600">Débit (t/h)</Label>
                 <Input id="flow-ats" type="number" className="w-32 h-9" value={ats.flowRate || ''} onChange={(e) => handleFlowRateChange(setAts, e.target.value)} />
@@ -933,9 +933,9 @@ export function MixtureCalculator() {
           </CardContent>
         </Card>
         
-        <Card className="shadow-md rounded-xl bg-white lg:col-span-1">
+        <Card className="shadow-md rounded-xl lg:col-span-1">
           <CardHeader className="p-6">
-            <CardTitle className="flex items-center gap-2 text-gray-800">
+            <CardTitle className="flex items-center gap-2">
                 <Flame className="h-5 w-5 text-orange-500" />
                 Autres Combustibles
             </CardTitle>
@@ -961,12 +961,12 @@ export function MixtureCalculator() {
         </Card>
       </section>
 
-      <Collapsible defaultOpen={false} className="rounded-xl border bg-white text-card-foreground shadow-md">
+      <Collapsible defaultOpen={false} className="rounded-xl border bg-card text-card-foreground shadow-md">
         <Card>
             <CardHeader className="p-6">
                 <div className="flex items-center justify-between">
                     <div>
-                        <CardTitle className='text-gray-800'>Historique Global des Indicateurs</CardTitle>
+                        <CardTitle>Historique Global des Indicateurs</CardTitle>
                         <CardDescription>Évolution des indicateurs basée sur les sessions enregistrées.</CardDescription>
                     </div>
                     <CollapsibleTrigger asChild>
@@ -1047,5 +1047,3 @@ export function MixtureCalculator() {
     </div>
   );
 }
-
-    
