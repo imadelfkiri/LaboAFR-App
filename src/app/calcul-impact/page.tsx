@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { DeltaPill } from "@/components/badges/DeltaPill"
 import { Button } from "@/components/ui/button"
-import { Flame, Beaker, Gauge, Save, Trash2, FileDown, Wind } from "lucide-react"
+import { Flame, Beaker, Gauge, Save, Trash2, FileDown, Wind, Zap } from "lucide-react"
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from "@/components/ui/skeleton";
@@ -69,13 +69,13 @@ const calculateC3S = (analysis: OxideAnalysis, freeLime: number) => {
 };
 
 const useClinkerCalculations = (
-    rawMealFlow: number, rawMealAnalysis: OxideAnalysis, afFlow: number, afAshAnalysis: OxideAnalysis, grignonsFlow: number, grignonsAshAnalysis: OxideAnalysis, petCokePrecaFlow: number, petCokePrecaAsh: OxideAnalysis, petCokeTuyereFlow: number, petCokeTuyereAsh: OxideAnalysis, fuelDataMap: Record<string, FuelData>, so3Target: number
+    rawMealFlow: number, rawMealAnalysis: OxideAnalysis, afFlow: number, afAshAnalysis: OxideAnalysis, grignonsFlow: number, grignonsAshAnalysis: OxideAnalysis, petCokePrecaFlow: number, petCokePrecaAsh: OxideAnalysis, petCokeTuyereFlow: number, petCokeTuyereAsh: OxideAnalysis, fuelDataMap: Record<string, FuelData>, so3Target: number, pfClinkerTarget: number
 ) => {
     return useMemo(() => {
         const clinkerize = (input: OxideAnalysis) => {
             const pf = input.pf || 0;
             const factor = pf < 100 ? 100 / (100 - pf) : 0;
-            const clinker: OxideAnalysis = { pf: 0.5 };
+            const clinker: OxideAnalysis = { pf: pfClinkerTarget };
             OXIDE_KEYS.forEach(key => {
                 if (key !== 'pf' && input[key] !== undefined) clinker[key] = (input[key] as number) * factor;
             });
@@ -131,7 +131,7 @@ const useClinkerCalculations = (
                 clinkerWithAsh_preSO3[key] = ((clinkerWithAshFlows[key] ?? 0) / totalClinkerWithAshFlow) * 100;
             });
         }
-        clinkerWithAsh_preSO3.pf = 0.5;
+        clinkerWithAsh_preSO3.pf = pfClinkerTarget;
 
         // --- SO3 Normalization Step ---
         const clinkerWithAsh: OxideAnalysis = {};
@@ -148,10 +148,10 @@ const useClinkerCalculations = (
                  clinkerWithAsh[key] = (clinkerWithAsh_preSO3[key] ?? 0) * dilutionFactor;
             }
         });
-        clinkerWithAsh.pf = 0.5;
+        clinkerWithAsh.pf = pfClinkerTarget;
 
         return { clinkerWithoutAsh, clinkerWithAsh, averageAshAnalysis };
-    }, [rawMealFlow, rawMealAnalysis, afFlow, afAshAnalysis, grignonsFlow, grignonsAshAnalysis, petCokePrecaFlow, petCokePrecaAsh, petCokeTuyereFlow, petCokeTuyereAsh, fuelDataMap, so3Target]);
+    }, [rawMealFlow, rawMealAnalysis, afFlow, afAshAnalysis, grignonsFlow, grignonsAshAnalysis, petCokePrecaFlow, petCokePrecaAsh, petCokeTuyereFlow, petCokeTuyereAsh, fuelDataMap, so3Target, pfClinkerTarget]);
 };
 
 // --- Components ---
@@ -218,11 +218,12 @@ export default function CalculImpactPage() {
     const [loading, setLoading] = useState(true);
     const [fuelDataMap, setFuelDataMap] = useState<Record<string, FuelData>>({});
 
-    const [rawMealFlow, setRawMealFlow] = usePersistentState<number>('calculImpact_rawMealFlow', 200);
+    const [rawMealFlow, setRawMealFlow] = usePersistentState<number>('calculImpact_rawMealFlow', 180);
     const [rawMealAnalysis, setRawMealAnalysis] = usePersistentState<OxideAnalysis>('calculImpact_rawMealAnalysis', initialOxideState);
-    const [clinkerFactor, setClinkerFactor] = usePersistentState<number>('calculImpact_clinkerFactor', 0.66);
+    const [clinkerFactor, setClinkerFactor] = usePersistentState<number>('calculImpact_clinkerFactor', 0.6);
     const [freeLime, setFreeLime] = usePersistentState<number>('calculImpact_freeLime', 1.5);
     const [so3Target, setSo3Target] = usePersistentState<number>('calculImpact_so3Target', 1.4);
+    const [pfClinkerTarget, setPfClinkerTarget] = usePersistentState<number>('calculImpact_pfClinker', 0.5);
 
 
     const [latestSession, setLatestSession] = useState<MixtureSession | null>(null);
@@ -313,7 +314,7 @@ export default function CalculImpactPage() {
     const petCokeTuyereFlow = useMemo(() => latestSession?.directInputs?.['Pet-Coke Tuyere']?.flowRate || 0, [latestSession]);
     
     const { clinkerWithoutAsh, clinkerWithAsh, averageAshAnalysis } = useClinkerCalculations(
-        rawMealFlow, rawMealAnalysis, afFlow, afAshAnalysis, grignonsFlow, grignonsAshAnalysis, petCokePrecaFlow, petCokePrecaAsh, petCokeTuyereFlow, petCokeTuyereAsh, fuelDataMap, so3Target
+        rawMealFlow, rawMealAnalysis, afFlow, afAshAnalysis, grignonsFlow, grignonsAshAnalysis, petCokePrecaFlow, petCokePrecaAsh, petCokeTuyereFlow, petCokeTuyereAsh, fuelDataMap, so3Target, pfClinkerTarget
     );
 
     const debitClinker = useMemo(() => (rawMealFlow * clinkerFactor), [rawMealFlow, clinkerFactor]);
@@ -386,7 +387,7 @@ export default function CalculImpactPage() {
     }
   
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-6 space-y-6">
+    <div className="mx-auto w-full max-w-[90rem] px-4 py-6 space-y-6">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
                 <h1 className="text-2xl font-semibold text-white tracking-tight">Calcul d’Impact Clinker</h1>
@@ -399,7 +400,7 @@ export default function CalculImpactPage() {
       
       <section>
           <h2 className="text-lg font-medium text-white mb-3">Paramètres de Simulation</h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5 mb-6">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6 mb-6">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-sm font-medium">Débit Farine (t/h)</CardTitle>
@@ -442,6 +443,15 @@ export default function CalculImpactPage() {
                 </CardHeader>
                 <CardContent>
                     <Input type="number" step="0.1" value={so3Target} onChange={e => setSo3Target(parseFloat(e.target.value) || 0)} className="bg-transparent border-0 text-2xl font-bold text-white p-0 h-auto focus-visible:ring-0" />
+                </CardContent>
+              </Card>
+               <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium">PF Clinker (%)</CardTitle>
+                    <Zap className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <Input type="number" step="0.1" value={pfClinkerTarget} onChange={e => setPfClinkerTarget(parseFloat(e.target.value) || 0)} className="bg-transparent border-0 text-2xl font-bold text-white p-0 h-auto focus-visible:ring-0" />
                 </CardContent>
               </Card>
           </div>
