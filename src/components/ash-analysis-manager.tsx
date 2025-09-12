@@ -10,7 +10,7 @@ import {
     addAshAnalysis,
     updateAshAnalysis,
     deleteAshAnalysis,
-    getUniqueFuelTypesFromResultats,
+    getUniqueFuelTypes,
     getFournisseurs,
     type AshAnalysis,
     addManyAshAnalyses,
@@ -328,6 +328,16 @@ function AnalysesCendresView({
   )
 }
 
+const fuelOrder = [
+    "Pneus",
+    "CSR",
+    "DMB",
+    "Plastiques",
+    "CSR DD",
+    "Bois",
+    "Mélange"
+];
+
 export function AshAnalysisManager() {
     const [analyses, setAnalyses] = useState<AshAnalysis[]>([]);
     const [loading, setLoading] = useState(true);
@@ -361,12 +371,20 @@ export function AshAnalysisManager() {
         try {
             const [analysesData, fTypes, founisseursList] = await Promise.all([
                 getAshAnalyses(),
-                getUniqueFuelTypesFromResultats(),
+                getUniqueFuelTypes(),
                 getFournisseurs()
             ]);
             
             setAnalyses(analysesData);
-            setFuelTypes(fTypes.sort());
+            const sortedFuelTypes = [...fTypes].sort((a, b) => {
+                const indexA = fuelOrder.indexOf(a);
+                const indexB = fuelOrder.indexOf(b);
+                if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                if (indexA !== -1) return -1;
+                if (indexB !== -1) return 1;
+                return a.localeCompare(b);
+            });
+            setFuelTypes(sortedFuelTypes);
             setFournisseurs(founisseursList.sort());
 
         } catch (error) {
@@ -478,7 +496,6 @@ export function AshAnalysisManager() {
         'cendres': 'pourcentage_cendres',
         '% cendre': 'pourcentage_cendres',
         'cendre': 'pourcentage_cendres',
-        'paf': 'pf',
         'pf': 'pf',
         'perte au feu': 'pf',
         'sio2': 'sio2',
@@ -818,3 +835,5 @@ export function AshAnalysisManager() {
       </>
     );
 }
+
+    

@@ -279,6 +279,16 @@ function useMixtureCalculations(
 }
 
 
+const fuelOrder = [
+    "Pneus",
+    "CSR",
+    "DMB",
+    "Plastiques",
+    "CSR DD",
+    "Bois",
+    "Mélange"
+];
+
 export function MixtureCalculator() {
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -417,9 +427,6 @@ export function MixtureCalculator() {
             // Handle direct inputs from old and new format
             if (latestSession.directInputs) {
               initialDirectInputs = { ...initialDirectInputs, ...latestSession.directInputs };
-            } else if ((latestSession as any).grignons) {
-                // backward compatibility
-                initialDirectInputs['Grignons GO1'] = { flowRate: (latestSession as any).grignons.flowRate || 0 };
             }
 
             if(!newDateRange){ // Only show toast on initial load, not on date change
@@ -601,16 +608,6 @@ export function MixtureCalculator() {
     );
   };
   
-  // Define the custom order for fuels
-const fuelOrder = [
-    "Pneus",
-    "CSR",
-    "DMB",
-    "Plastiques",
-    "CSR DD",
-    "Bois",
-    "Mélange"
-];
 
   const ThresholdSettingsModal = () => {
     const [currentThresholds, setCurrentThresholds] = useState(thresholds);

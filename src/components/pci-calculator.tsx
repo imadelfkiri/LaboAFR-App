@@ -55,7 +55,7 @@ import {
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator";
 import { calculerPCI } from '@/lib/pci';
-import { getFuelTypes, type FuelType, getFuelSupplierMap, addSupplierToFuel, SPEC_MAP, getSpecifications, addFuelType, getFuelData, FuelData } from '@/lib/data';
+import { getFuelTypes, type FuelType, getFuelSupplierMap, addSupplierToFuel, SPEC_MAP, getSpecifications, addFuelType, getFuelData, FuelData, getUniqueFuelTypes } from '@/lib/data';
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from './ui/skeleton';
 
@@ -91,12 +91,23 @@ type FieldValidationStatus = {
     cendres: ValidationStatus;
 };
 
+const fuelOrder = [
+    "Pneus",
+    "CSR",
+    "DMB",
+    "Plastiques",
+    "CSR DD",
+    "Bois",
+    "Mélange"
+];
+
+
 export function PciCalculator() {
   const [pciResult, setPciResult] = useState<number | null>(null);
   const [hValue, setHValue] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [allFuelTypes, setAllFuelTypes] = useState<FuelType[]>([]);
+  const [allFuelTypes, setAllFuelTypes] = useState<string[]>([]);
   const [fuelSupplierMap, setFuelSupplierMap] = useState<Record<string, string[]>>({});
   const [fuelDataMap, setFuelDataMap] = useState<Map<string, FuelData>>(new Map());
   
@@ -158,13 +169,22 @@ export function PciCalculator() {
       setLoading(true);
       try {
         const [fetchedFuelTypes, map, _specs, fuelData] = await Promise.all([
-          getFuelTypes(),
+          getUniqueFuelTypes(),
           getFuelSupplierMap(),
           getSpecifications(),
           getFuelData()
         ]);
         
-        setAllFuelTypes(fetchedFuelTypes);
+        const sortedFuelTypes = [...fetchedFuelTypes].sort((a, b) => {
+            const indexA = fuelOrder.indexOf(a);
+            const indexB = fuelOrder.indexOf(b);
+            if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+            if (indexA !== -1) return -1;
+            if (indexB !== -1) return 1;
+            return a.localeCompare(b);
+        });
+
+        setAllFuelTypes(sortedFuelTypes);
         setFuelSupplierMap(map);
         setFuelDataMap(new Map(fuelData.map(fd => [fd.nom_combustible, fd])));
       } catch (e) {
@@ -481,8 +501,8 @@ export function PciCalculator() {
                                             </FormControl>
                                             <SelectContent side="bottom" avoidCollisions={false} className="z-50">
                                                 {allFuelTypes.map((fuel) => (
-                                                    <SelectItem key={fuel.id} value={fuel.name}>
-                                                        {fuel.name}
+                                                    <SelectItem key={fuel} value={fuel}>
+                                                        {fuel}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
