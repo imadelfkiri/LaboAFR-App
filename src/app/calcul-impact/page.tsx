@@ -219,7 +219,7 @@ export default function CalculImpactPage() {
     const [fuelDataMap, setFuelDataMap] = useState<Record<string, FuelData>>({});
 
     const [rawMealFlow, setRawMealFlow] = usePersistentState<number>('calculImpact_rawMealFlow', 200);
-    const [rawMealAnalysis, setRawMealAnalysis] = useState<OxideAnalysis>(initialOxideState);
+    const [rawMealAnalysis, setRawMealAnalysis] = usePersistentState<OxideAnalysis>('calculImpact_rawMealAnalysis', initialOxideState);
     const [clinkerFactor, setClinkerFactor] = usePersistentState<number>('calculImpact_clinkerFactor', 0.66);
     const [freeLime, setFreeLime] = usePersistentState<number>('calculImpact_freeLime', 1.5);
     const [so3Target, setSo3Target] = usePersistentState<number>('calculImpact_so3Target', 1.4);
@@ -236,26 +236,21 @@ export default function CalculImpactPage() {
     const fetchPresets = useCallback(async () => {
         const fetchedPresets = await getRawMealPresets();
         setPresets(fetchedPresets);
-        const savedAnalysis = localStorage.getItem('calculImpact_rawMealAnalysis');
-        if (fetchedPresets.length > 0 && !savedAnalysis) {
-             setRawMealAnalysis(fetchedPresets[0].analysis);
-        }
     }, []);
 
     useEffect(() => {
-        const savedAnalysis = localStorage.getItem('calculImpact_rawMealAnalysis');
-        if (savedAnalysis) {
-            try {
-                setRawMealAnalysis(JSON.parse(savedAnalysis));
-            } catch {
-                // if parsing fails, it will fall back to initial state
+        const fetchInitialPresets = async () => {
+            const fetchedPresets = await getRawMealPresets();
+            setPresets(fetchedPresets);
+            // Only set from preset if localStorage is empty
+            const savedAnalysis = localStorage.getItem('calculImpact_rawMealAnalysis');
+            if (!savedAnalysis && fetchedPresets.length > 0) {
+                 setRawMealAnalysis(fetchedPresets[0].analysis);
             }
-        }
-    }, []);
+        };
+        fetchInitialPresets();
+    }, [setRawMealAnalysis]);
 
-    useEffect(() => {
-        localStorage.setItem('calculImpact_rawMealAnalysis', JSON.stringify(rawMealAnalysis));
-    }, [rawMealAnalysis]);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -266,7 +261,8 @@ export default function CalculImpactPage() {
             setFuelDataMap(fuelDataMap);
             setPresets(mealPresets);
 
-            if (mealPresets.length > 0 && !localStorage.getItem('calculImpact_rawMealAnalysis')) {
+            const savedAnalysis = localStorage.getItem('calculImpact_rawMealAnalysis');
+            if (mealPresets.length > 0 && !savedAnalysis) {
                  setRawMealAnalysis(mealPresets[0].analysis);
             }
 
@@ -307,7 +303,7 @@ export default function CalculImpactPage() {
         } finally {
             setLoading(false);
         }
-    }, [toast]);
+    }, [toast, setRawMealAnalysis]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
