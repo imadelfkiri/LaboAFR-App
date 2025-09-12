@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { DeltaPill } from "@/components/badges/DeltaPill"
 import { Button } from "@/components/ui/button"
-import { Flame, Beaker, Gauge, Save, Trash2, FileDown } from "lucide-react"
+import { Flame, Beaker, Gauge, Save, Trash2, FileDown, Wind } from "lucide-react"
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,6 +26,9 @@ const initialOxideState: OxideAnalysis = { pf: 34.5, sio2: 13.5, al2o3: 3.5, fe2
 function usePersistentState<T>(key: string, defaultValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
     const [state, setState] = useState<T>(() => {
         try {
+            if (typeof window === 'undefined') {
+                return defaultValue;
+            }
             const storedValue = localStorage.getItem(key);
             return storedValue ? JSON.parse(storedValue) : defaultValue;
         } catch {
@@ -35,7 +38,9 @@ function usePersistentState<T>(key: string, defaultValue: T): [T, React.Dispatch
 
     useEffect(() => {
         try {
-            localStorage.setItem(key, JSON.stringify(state));
+            if (typeof window !== 'undefined') {
+                localStorage.setItem(key, JSON.stringify(state));
+            }
         } catch (error) {
             console.error("Could not save to localStorage", error);
         }
@@ -64,7 +69,7 @@ const calculateC3S = (analysis: OxideAnalysis, freeLime: number) => {
 };
 
 const useClinkerCalculations = (
-    rawMealFlow: number, rawMealAnalysis: OxideAnalysis, afFlow: number, afAshAnalysis: OxideAnalysis, grignonsFlow: number, grignonsAshAnalysis: OxideAnalysis, petCokePrecaFlow: number, petCokePrecaAsh: OxideAnalysis, petCokeTuyereFlow: number, petCokeTuyereAsh: OxideAnalysis, fuelDataMap: Record<string, FuelData>
+    rawMealFlow: number, rawMealAnalysis: OxideAnalysis, afFlow: number, afAshAnalysis: OxideAnalysis, grignonsFlow: number, grignonsAshAnalysis: OxideAnalysis, petCokePrecaFlow: number, petCokePrecaAsh: OxideAnalysis, petCokeTuyereFlow: number, petCokeTuyereAsh: OxideAnalysis, fuelDataMap: Record<string, FuelData>, so3Target: number
 ) => {
     return useMemo(() => {
         const clinkerize = (input: OxideAnalysis) => {
@@ -120,16 +125,33 @@ const useClinkerCalculations = (
         const clinkerProduction = rawMealFlow * (100 - (rawMealAnalysis.pf ?? 0)) / 100;
         const totalClinkerWithAshFlow = clinkerProduction + totalAshFlow;
 
-        const clinkerWithAsh: OxideAnalysis = {};
+        const clinkerWithAsh_preSO3: OxideAnalysis = {};
         if (totalClinkerWithAshFlow > 0) {
             OXIDE_KEYS.forEach(key => {
-                clinkerWithAsh[key] = ((clinkerWithAshFlows[key] ?? 0) / totalClinkerWithAshFlow) * 100;
+                clinkerWithAsh_preSO3[key] = ((clinkerWithAshFlows[key] ?? 0) / totalClinkerWithAshFlow) * 100;
             });
         }
+        clinkerWithAsh_preSO3.pf = 0.5;
+
+        // --- SO3 Normalization Step ---
+        const clinkerWithAsh: OxideAnalysis = {};
+        const calculatedSO3 = clinkerWithAsh_preSO3.so3 ?? 0;
+        
+        const dilutionFactor = (calculatedSO3 !== 100) 
+            ? (100 - so3Target) / (100 - calculatedSO3) 
+            : 0;
+
+        OXIDE_KEYS.forEach(key => {
+            if (key === 'so3') {
+                clinkerWithAsh[key] = so3Target;
+            } else if (key !== 'pf') {
+                 clinkerWithAsh[key] = (clinkerWithAsh_preSO3[key] ?? 0) * dilutionFactor;
+            }
+        });
         clinkerWithAsh.pf = 0.5;
 
         return { clinkerWithoutAsh, clinkerWithAsh, averageAshAnalysis };
-    }, [rawMealFlow, rawMealAnalysis, afFlow, afAshAnalysis, grignonsFlow, grignonsAshAnalysis, petCokePrecaFlow, petCokePrecaAsh, petCokeTuyereFlow, petCokeTuyereAsh, fuelDataMap]);
+    }, [rawMealFlow, rawMealAnalysis, afFlow, afAshAnalysis, grignonsFlow, grignonsAshAnalysis, petCokePrecaFlow, petCokePrecaAsh, petCokeTuyereFlow, petCokeTuyereAsh, fuelDataMap, so3Target]);
 };
 
 // --- Components ---
@@ -200,6 +222,8 @@ export default function CalculImpactPage() {
     const [rawMealAnalysis, setRawMealAnalysis] = useState<OxideAnalysis>(initialOxideState);
     const [clinkerFactor, setClinkerFactor] = usePersistentState<number>('calculImpact_clinkerFactor', 0.66);
     const [freeLime, setFreeLime] = usePersistentState<number>('calculImpact_freeLime', 1.5);
+    const [so3Target, setSo3Target] = usePersistentState<number>('calculImpact_so3Target', 1.4);
+
 
     const [latestSession, setLatestSession] = useState<MixtureSession | null>(null);
     const [afAshAnalysis, setAfAshAnalysis] = useState<OxideAnalysis>({});
@@ -212,7 +236,8 @@ export default function CalculImpactPage() {
     const fetchPresets = useCallback(async () => {
         const fetchedPresets = await getRawMealPresets();
         setPresets(fetchedPresets);
-        if (fetchedPresets.length > 0 && !localStorage.getItem('calculImpact_rawMealAnalysis')) {
+        const savedAnalysis = localStorage.getItem('calculImpact_rawMealAnalysis');
+        if (fetchedPresets.length > 0 && !savedAnalysis) {
              setRawMealAnalysis(fetchedPresets[0].analysis);
         }
     }, []);
@@ -220,7 +245,11 @@ export default function CalculImpactPage() {
     useEffect(() => {
         const savedAnalysis = localStorage.getItem('calculImpact_rawMealAnalysis');
         if (savedAnalysis) {
-            setRawMealAnalysis(JSON.parse(savedAnalysis));
+            try {
+                setRawMealAnalysis(JSON.parse(savedAnalysis));
+            } catch {
+                // if parsing fails, it will fall back to initial state
+            }
         }
     }, []);
 
@@ -288,7 +317,7 @@ export default function CalculImpactPage() {
     const petCokeTuyereFlow = useMemo(() => latestSession?.directInputs?.['Pet-Coke Tuyere']?.flowRate || 0, [latestSession]);
     
     const { clinkerWithoutAsh, clinkerWithAsh, averageAshAnalysis } = useClinkerCalculations(
-        rawMealFlow, rawMealAnalysis, afFlow, afAshAnalysis, grignonsFlow, grignonsAshAnalysis, petCokePrecaFlow, petCokePrecaAsh, petCokeTuyereFlow, petCokeTuyereAsh, fuelDataMap
+        rawMealFlow, rawMealAnalysis, afFlow, afAshAnalysis, grignonsFlow, grignonsAshAnalysis, petCokePrecaFlow, petCokePrecaAsh, petCokeTuyereFlow, petCokeTuyereAsh, fuelDataMap, so3Target
     );
 
     const debitClinker = useMemo(() => (rawMealFlow * clinkerFactor), [rawMealFlow, clinkerFactor]);
@@ -374,7 +403,7 @@ export default function CalculImpactPage() {
       
       <section>
           <h2 className="text-lg font-medium text-white mb-3">Paramètres de Simulation</h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5 mb-6">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-sm font-medium">Débit Farine (t/h)</CardTitle>
@@ -408,6 +437,15 @@ export default function CalculImpactPage() {
                 </CardHeader>
                 <CardContent>
                     <Input type="number" step="0.1" value={freeLime} onChange={e => setFreeLime(parseFloat(e.target.value) || 0)} className="bg-transparent border-0 text-2xl font-bold text-white p-0 h-auto focus-visible:ring-0" />
+                </CardContent>
+              </Card>
+               <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium">Cible SO₃ Clinker (%)</CardTitle>
+                    <Wind className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <Input type="number" step="0.1" value={so3Target} onChange={e => setSo3Target(parseFloat(e.target.value) || 0)} className="bg-transparent border-0 text-2xl font-bold text-white p-0 h-auto focus-visible:ring-0" />
                 </CardContent>
               </Card>
           </div>
