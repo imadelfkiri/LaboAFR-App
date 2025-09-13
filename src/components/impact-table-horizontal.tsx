@@ -158,121 +158,123 @@ export default function ImpactTableHorizontal({
       </CardHeader>
 
       <CardContent className="relative">
-        <Table role="table">
-          <TableHeader>
-            <TableRow className="sticky top-0 z-10 bg-background">
-              <TableHead className="sticky left-0 top-0 z-20 bg-background border-r px-3 text-left min-w-[200px]">
-                Paramètre
-              </TableHead>
-
-              {ELEMENTS.map((el) => (
-                <TableHead key={String(el)} className="text-center px-1">
-                  {ELEMENT_LABELS[el]}
+        <div className="relative">
+          <Table role="table">
+            <TableHeader>
+              <TableRow className="sticky top-0 z-10 bg-background">
+                <TableHead className="sticky left-0 top-0 z-20 bg-background border-r px-3 text-left min-w-[200px]">
+                  Paramètre
                 </TableHead>
-              ))}
-               <TableHead className="text-center px-1 font-bold border-l">Somme</TableHead>
-               <TableHead className="text-center px-1 font-bold">MS</TableHead>
-               <TableHead className="text-center px-1 font-bold">AF</TableHead>
-               <TableHead className="text-center px-1 font-bold">LSF</TableHead>
-               <TableHead className="text-center px-1 font-bold">C3S</TableHead>
-            </TableRow>
-          </TableHeader>
-
-          <TableBody>
-            {/* --- Ligne de saisie pour l'analyse du cru --- */}
-            <TableRow>
-                <TableCell className="sticky left-0 z-10 bg-background border-r font-medium px-3 whitespace-nowrap">
-                   <span>Farine</span>
-                </TableCell>
-                {ELEMENTS.map(key => (
-                    <TableCell key={key} className="px-1">
-                        <Input
-                            type="number"
-                            step="any"
-                            value={rawMealAnalysis[key] ?? ''}
-                            onChange={e => handleInputChange(key, e.target.value)}
-                            className="h-8 w-20 text-center bg-brand-surface/80 border-brand-line/80"
-                        />
-                    </TableCell>
-                ))}
-                <TableCell className="px-1 text-center tabular-nums font-medium border-l">{fmt(calculateSum(rawMealAnalysis))}</TableCell>
-                {/* Modules for raw meal */}
-                <TableCell className="px-1 text-center tabular-nums font-medium">{fmt(modulesFarine?.ms)}</TableCell>
-                <TableCell className="px-1 text-center tabular-nums font-medium">{fmt(modulesFarine?.af)}</TableCell>
-                <TableCell className="px-1 text-center tabular-nums font-medium">{fmt(modulesFarine?.lsf)}</TableCell>
-                <TableCell></TableCell>
-            </TableRow>
-
-
-            {rows.map((r) => (
-              <TableRow key={r.label}>
-                <TableCell className="sticky left-0 z-10 bg-background border-r font-medium px-3 whitespace-nowrap">
-                  {r.label}
-                </TableCell>
 
                 {ELEMENTS.map((el) => (
-                  <TableCell key={String(el)} className="px-1 text-center tabular-nums">
-                    {fmt(r.data?.[el])}
-                  </TableCell>
+                  <TableHead key={String(el)} className="text-center px-1">
+                    {ELEMENT_LABELS[el]}
+                  </TableHead>
                 ))}
-                <TableCell className="px-1 text-center tabular-nums font-medium border-l">{fmt(r.sum)}</TableCell>
-                <TableCell className="px-1 text-center tabular-nums font-medium">{fmt(r.modules?.ms)}</TableCell>
-                <TableCell className="px-1 text-center tabular-nums font-medium">{fmt(r.modules?.af)}</TableCell>
-                <TableCell className="px-1 text-center tabular-nums font-medium">{fmt(r.modules?.lsf)}</TableCell>
-                <TableCell className="px-1 text-center tabular-nums font-medium">{fmt(r.c3s)}</TableCell>
+                <TableHead className="text-center px-1 font-bold border-l">Somme</TableHead>
+                <TableHead className="text-center px-1 font-bold">MS</TableHead>
+                <TableHead className="text-center px-1 font-bold">AF</TableHead>
+                <TableHead className="text-center px-1 font-bold">LSF</TableHead>
+                <TableHead className="text-center px-1 font-bold">C3S</TableHead>
               </TableRow>
-            ))}
+            </TableHeader>
 
-            {showDelta && (
+            <TableBody>
+              {/* --- Ligne de saisie pour l'analyse du cru --- */}
               <TableRow>
-                <TableCell className="sticky left-0 z-10 bg-background border-r font-medium px-3 whitespace-nowrap">
-                  Δ (Avec - Sans)
-                </TableCell>
-                {ELEMENTS.map((el) => {
-                  const d = delta(clinkerAvec?.[el], clinkerSans?.[el]);
-                   const cls = d == null ? "" : d >= 0.001 ? "bg-emerald-600/15 text-emerald-500" : d <= -0.001 ? "bg-rose-600/15 text-rose-500" : "text-muted-foreground";
-                  return (
-                    <TableCell key={`delta-${String(el)}`} className="px-1 text-center">
-                      {d == null ? "–" : (
-                        <span className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
-                          {(d>=0?"+":"")}{d.toFixed(2)}
-                        </span>
-                      )}
-                    </TableCell>
-                  );
-                })}
-                {/* Delta for Sum */}
-                <TableCell className="px-1 text-center border-l">
-                  {(() => {
-                    const d = delta(calculateSum(clinkerAvec), calculateSum(clinkerSans));
-                    const cls = d == null ? "" : d >= 0.001 ? "bg-emerald-600/15 text-emerald-500" : d <= -0.001 ? "bg-rose-600/15 text-rose-500" : "text-muted-foreground";
-                    return d == null ? "–" : (
-                      <span className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
-                        {(d>=0?"+":"")}{d.toFixed(2)}
-                      </span>
-                    );
-                  })()}
-                </TableCell>
-                 {[ 'ms', 'af', 'lsf', 'c3s'].map((mod) => {
-                  const d = delta(
-                    mod === 'c3s' ? c3sAvec : modulesAvec[mod as keyof Modules],
-                    mod === 'c3s' ? c3sSans : modulesSans[mod as keyof Modules]
-                  );
-                  const cls = d == null ? "" : d >= 0.001 ? "bg-emerald-600/15 text-emerald-500" : d <= -0.001 ? "bg-rose-600/15 text-rose-500" : "text-muted-foreground";
-                  return (
-                    <TableCell key={`delta-${mod}`} className={`px-1 text-center font-medium`}>
-                      {d == null ? "–" : (
-                        <span className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
-                          {(d>=0?"+":"")}{d.toFixed(2)}
-                        </span>
-                      )}
-                    </TableCell>
-                  )
-                })}
+                  <TableCell className="sticky left-0 z-10 bg-background border-r font-medium px-3 whitespace-nowrap">
+                    <span>Farine</span>
+                  </TableCell>
+                  {ELEMENTS.map(key => (
+                      <TableCell key={key} className="px-1">
+                          <Input
+                              type="number"
+                              step="any"
+                              value={rawMealAnalysis[key] ?? ''}
+                              onChange={e => handleInputChange(key, e.target.value)}
+                              className="h-8 w-16 text-center bg-brand-surface/80 border-brand-line/80"
+                          />
+                      </TableCell>
+                  ))}
+                  <TableCell className="px-1 text-center tabular-nums font-medium border-l">{fmt(calculateSum(rawMealAnalysis))}</TableCell>
+                  {/* Modules for raw meal */}
+                  <TableCell className="px-1 text-center tabular-nums font-medium">{fmt(modulesFarine?.ms)}</TableCell>
+                  <TableCell className="px-1 text-center tabular-nums font-medium">{fmt(modulesFarine?.af)}</TableCell>
+                  <TableCell className="px-1 text-center tabular-nums font-medium">{fmt(modulesFarine?.lsf)}</TableCell>
+                  <TableCell></TableCell>
               </TableRow>
-            )}
-          </TableBody>
-        </Table>
+
+
+              {rows.map((r) => (
+                <TableRow key={r.label}>
+                  <TableCell className="sticky left-0 z-10 bg-background border-r font-medium px-3 whitespace-nowrap">
+                    {r.label}
+                  </TableCell>
+
+                  {ELEMENTS.map((el) => (
+                    <TableCell key={String(el)} className="px-1 text-center tabular-nums">
+                      {fmt(r.data?.[el])}
+                    </TableCell>
+                  ))}
+                  <TableCell className="px-1 text-center tabular-nums font-medium border-l">{fmt(r.sum)}</TableCell>
+                  <TableCell className="px-1 text-center tabular-nums font-medium">{fmt(r.modules?.ms)}</TableCell>
+                  <TableCell className="px-1 text-center tabular-nums font-medium">{fmt(r.modules?.af)}</TableCell>
+                  <TableCell className="px-1 text-center tabular-nums font-medium">{fmt(r.modules?.lsf)}</TableCell>
+                  <TableCell className="px-1 text-center tabular-nums font-medium">{fmt(r.c3s)}</TableCell>
+                </TableRow>
+              ))}
+
+              {showDelta && (
+                <TableRow>
+                  <TableCell className="sticky left-0 z-10 bg-background border-r font-medium px-3 whitespace-nowrap">
+                    Δ (Avec - Sans)
+                  </TableCell>
+                  {ELEMENTS.map((el) => {
+                    const d = delta(clinkerAvec?.[el], clinkerSans?.[el]);
+                    const cls = d == null ? "" : d >= 0.001 ? "bg-emerald-600/15 text-emerald-500" : d <= -0.001 ? "bg-rose-600/15 text-rose-500" : "text-muted-foreground";
+                    return (
+                      <TableCell key={`delta-${String(el)}`} className="px-1 text-center">
+                        {d == null ? "–" : (
+                          <span className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
+                            {(d>=0?"+":"")}{d.toFixed(2)}
+                          </span>
+                        )}
+                      </TableCell>
+                    );
+                  })}
+                  {/* Delta for Sum */}
+                  <TableCell className="px-1 text-center border-l">
+                    {(() => {
+                      const d = delta(calculateSum(clinkerAvec), calculateSum(clinkerSans));
+                      const cls = d == null ? "" : d >= 0.001 ? "bg-emerald-600/15 text-emerald-500" : d <= -0.001 ? "bg-rose-600/15 text-rose-500" : "text-muted-foreground";
+                      return d == null ? "–" : (
+                        <span className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
+                          {(d>=0?"+":"")}{d.toFixed(2)}
+                        </span>
+                      );
+                    })()}
+                  </TableCell>
+                  {[ 'ms', 'af', 'lsf', 'c3s'].map((mod) => {
+                    const d = delta(
+                      mod === 'c3s' ? c3sAvec : modulesAvec[mod as keyof Modules],
+                      mod === 'c3s' ? c3sSans : modulesSans[mod as keyof Modules]
+                    );
+                    const cls = d == null ? "" : d >= 0.001 ? "bg-emerald-600/15 text-emerald-500" : d <= -0.001 ? "bg-rose-600/15 text-rose-500" : "text-muted-foreground";
+                    return (
+                      <TableCell key={`delta-${mod}`} className={`px-1 text-center font-medium`}>
+                        {d == null ? "–" : (
+                          <span className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
+                            {(d>=0?"+":"")}{d.toFixed(2)}
+                          </span>
+                        )}
+                      </TableCell>
+                    )
+                  })}
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </CardContent>
     </Card>
   );
