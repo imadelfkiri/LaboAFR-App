@@ -76,7 +76,7 @@ const calculateModules = (analysis: OxideAnalysis) => {
 const calculateC3S = (analysis: OxideAnalysis, freeLime: number) => {
   const s = analysis.sio2 || 0, a = analysis.al2o3 || 0, f = analysis.fe2o3 || 0, c = analysis.cao  || 0, so3 = analysis.so3 || 0;
   const effectiveCao = c - freeLime - 0.7 * so3; 
-  const c3s = (4.071 * effectiveCao) - (7.60 * s) - (6.718 * a) - (1.43 * f) - (2.852 * so3);
+  const c3s = (4.071 * effectiveCao) - (7.60 * s) - (6.718 * a) - (1.43 * f);
   return Math.max(0, c3s);
 };
 
