@@ -20,6 +20,11 @@ type OxideAnalysis = {
     tio2?: number; mno?: number; p2o5?: number;
 };
 const OXIDE_KEYS: (keyof OxideAnalysis)[] = ['pf', 'sio2', 'al2o3', 'fe2o3', 'cao', 'mgo', 'so3', 'k2o', 'tio2', 'mno', 'p2o5'];
+const OXIDE_LABELS: Record<keyof OxideAnalysis, string> = {
+    pf: 'PF', sio2: 'SiO2', al2o3: 'Al2O3', fe2o3: 'Fe2O3',
+    cao: 'CaO', mgo: 'MgO', so3: 'SO3', k2o: 'K2O',
+    tio2: 'TiO2', mno: 'MnO', p2o5: 'P2O5'
+};
 const initialOxideState: OxideAnalysis = { pf: 34.5, sio2: 13.5, al2o3: 3.5, fe2o3: 2.2, cao: 42.5, mgo: 1.5, so3: 0.5, k2o: 0.8, tio2: 0.2, mno: 0.1, p2o5: 0.1 };
 
 // --- LocalStorage Hook ---
@@ -166,7 +171,7 @@ const OxideInputRow = ({ analysis, onAnalysisChange }: { analysis: OxideAnalysis
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-11 gap-2">
             {OXIDE_KEYS.map(key => (
                  <div key={key} className="flex-1 min-w-[70px]">
-                    <label htmlFor={`raw-meal-${key}`} className="text-xs uppercase text-neutral-400">{key}</label>
+                    <label htmlFor={`raw-meal-${key}`} className="text-xs uppercase text-neutral-400">{OXIDE_LABELS[key]}</label>
                     <Input
                         id={`raw-meal-${key}`} type="number" step="any"
                         value={analysis[key] ?? ''}
@@ -368,7 +373,7 @@ export default function CalculImpactPage() {
     };
 
     const tableData = [
-        ...OXIDE_KEYS.map(key => mkRow(key.toUpperCase(), key)),
+        ...OXIDE_KEYS.map(key => mkRow(OXIDE_LABELS[key], key)),
         mkRow("---", "pf"), // Separator
         mkRow("MS", 'ms'), mkRow("A/F", 'af'), mkRow("LSF", 'lsf'),
         mkRow("---", "pf"), // Separator
