@@ -426,8 +426,8 @@ export default function CalculImpactPage() {
           </div>
       </section>
       
-      <section className="pt-4 grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div className="xl:col-span-2">
+      <section className="pt-4 space-y-6">
+        <div>
             <ImpactTableHorizontal
                 rawMealAnalysis={rawMealAnalysis}
                 onRawMealChange={setRawMealAnalysis}
