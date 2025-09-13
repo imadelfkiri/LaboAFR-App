@@ -16,14 +16,14 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 
 
 // --- Type Definitions ---
-type OxideAnalysis = {
+export type OxideAnalysis = {
     [key: string]: number | undefined | null;
     pf?: number | null; sio2?: number | null; al2o3?: number | null; fe2o3?: number | null;
     cao?: number | null; mgo?: number | null; so3?: number | null; k2o?: number | null;
     tio2?: number | null; mno?: number | null; p2o5?: number | null;
 };
-const OXIDE_KEYS: (keyof OxideAnalysis)[] = ['pf', 'sio2', 'al2o3', 'fe2o3', 'cao', 'mgo', 'so3', 'k2o', 'tio2', 'mno', 'p2o5'];
-const OXIDE_LABELS: Record<keyof OxideAnalysis, string> = {
+export const OXIDE_KEYS: (keyof OxideAnalysis)[] = ['pf', 'sio2', 'al2o3', 'fe2o3', 'cao', 'mgo', 'so3', 'k2o', 'tio2', 'mno', 'p2o5'];
+export const OXIDE_LABELS: Record<keyof OxideAnalysis, string> = {
     pf: 'PF', sio2: 'SiO2', al2o3: 'Al2O3', fe2o3: 'Fe2O3',
     cao: 'CaO', mgo: 'MgO', so3: 'SO3', k2o: 'K2O',
     tio2: 'TiO2', mno: 'MnO', p2o5: 'P2O5'
@@ -211,8 +211,8 @@ const SavePresetDialog = ({ currentAnalysis, onSave }: { currentAnalysis: OxideA
     return (
         <Dialog>
             <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="bg-transparent border-brand-accent/50 text-brand-accent/90 hover:bg-brand-accent/10 hover:text-brand-accent">
-                    <Save className="h-4 w-4 mr-2" /> Sauvegarder Preset
+                <Button variant="ghost" size="sm" className="bg-transparent border-brand-accent/50 text-brand-accent/90 hover:bg-brand-accent/10 hover:text-brand-accent">
+                    <Save className="h-4 w-4 mr-1" /> Preset
                 </Button>
             </DialogTrigger>
             <DialogContent className="bg-brand-surface border-brand-line text-white">
@@ -424,41 +424,26 @@ export default function CalculImpactPage() {
                 </CardContent>
               </Card>
           </div>
-          
-          <div className="p-4 rounded-2xl bg-brand-surface/60 border border-brand-line/60">
-              <div className="flex justify-between items-center mb-3">
-                  <h3 className="text-base font-medium text-neutral-200">Analyse de la Farine Brute</h3>
-                  <div className="flex items-center gap-2">
-                       <Select onValueChange={(id) => { const p = presets.find(p => p.id === id); if(p) setRawMealAnalysis(p.analysis); }}>
-                           <SelectTrigger className="w-[180px] h-9 text-sm bg-brand-surface border-brand-line"><SelectValue placeholder="Charger Preset..." /></SelectTrigger>
-                           <SelectContent className="bg-brand-surface border-brand-line text-white">
-                               {presets.map(p => (
-                                   <div key={p.id} className="flex items-center justify-between pr-2">
-                                       <SelectItem value={p.id} className="flex-grow">{p.name}</SelectItem>
-                                       <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); handleDeletePreset(p.id); }}><Trash2 className="h-3 w-3 text-red-500/80" /></Button>
-                                   </div>
-                               ))}
-                           </SelectContent>
-                       </Select>
-                      <SavePresetDialog currentAnalysis={rawMealAnalysis} onSave={fetchPresets} />
-                  </div>
-              </div>
-              <OxideInputRow analysis={rawMealAnalysis} onAnalysisChange={setRawMealAnalysis} />
-          </div>
       </section>
       
       <section className="pt-4 grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div className="xl:col-span-2">
             <ImpactTableHorizontal
-            cendresMelange={averageAshAnalysis}
-            clinkerSans={clinkerWithoutAsh}
-            clinkerAvec={clinkerWithAsh}
-            modulesCendres={modulesCendres}
-            modulesSans={modulesSans}
-            modulesAvec={modulesAvec}
-            c3sSans={c3sSans}
-            c3sAvec={c3sAvec}
-            showDelta={true}
+                rawMealAnalysis={rawMealAnalysis}
+                onRawMealChange={setRawMealAnalysis}
+                presets={presets}
+                onPresetLoad={(id) => { const p = presets.find(p => p.id === id); if(p) setRawMealAnalysis(p.analysis); }}
+                onPresetSave={fetchPresets}
+                onPresetDelete={handleDeletePreset}
+                cendresMelange={averageAshAnalysis}
+                clinkerSans={clinkerWithoutAsh}
+                clinkerAvec={clinkerWithAsh}
+                modulesCendres={modulesCendres}
+                modulesSans={modulesSans}
+                modulesAvec={modulesAvec}
+                c3sSans={c3sSans}
+                c3sAvec={c3sAvec}
+                showDelta={true}
             />
         </div>
         <Card>

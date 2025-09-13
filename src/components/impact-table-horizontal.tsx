@@ -1,12 +1,21 @@
 
 "use client";
 
-import React from "react";
+import React, {useState} from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Save, Trash2 } from "lucide-react";
+import { saveRawMealPreset, type RawMealPreset } from '@/lib/data';
+import { useToast } from "@/hooks/use-toast";
+
 
 // --- Types
 export type ChemSet = {
+  [key: string]: number | null | undefined;
   pf?: number | null;
   sio2?: number | null;
   al2o3?: number | null;
@@ -27,6 +36,12 @@ export type Modules = {
 };
 
 export interface ImpactTableHorizontalProps {
+  rawMealAnalysis: ChemSet;
+  onRawMealChange: (newAnalysis: ChemSet) => void;
+  presets: RawMealPreset[];
+  onPresetLoad: (id: string) => void;
+  onPresetSave: () => void;
+  onPresetDelete: (id: string) => void;
   cendresMelange: ChemSet;
   clinkerSans: ChemSet;
   clinkerAvec: ChemSet;
@@ -56,16 +71,61 @@ const delta = (a?: number | null, b?: number | null) => {
   return a - b;
 };
 
+const SavePresetDialog = ({ currentAnalysis, onSave }: { currentAnalysis: ChemSet, onSave: () => void }) => {
+    const [name, setName] = useState("");
+    const { toast } = useToast();
+
+    const handleSave = async () => {
+        if (!name.trim()) {
+            toast({ variant: "destructive", title: "Erreur", description: "Veuillez donner un nom au preset." });
+            return;
+        }
+        await saveRawMealPreset(name, currentAnalysis);
+        toast({ title: "Succès", description: `Preset "${name}" sauvegardé.` });
+        onSave();
+    };
+
+    return (
+        <Dialog>
+            <DialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8">
+                    <Save className="h-4 w-4 mr-1" /> Sauvegarder
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="bg-brand-surface border-brand-line text-white">
+                <DialogHeader>
+                    <DialogTitle>Sauvegarder l'analyse du cru</DialogTitle>
+                    <DialogDescription>Donnez un nom à ce préréglage pour le réutiliser plus tard.</DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                    <label htmlFor="preset-name" className="text-sm text-neutral-300">Nom du Preset</label>
+                    <Input id="preset-name" value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Cru standard Hiver" className="mt-1 bg-brand-bg border-brand-line text-white" />
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild><Button variant="secondary">Annuler</Button></DialogClose>
+                    <DialogClose asChild><Button onClick={handleSave} className="bg-brand-accent text-black hover:bg-brand-accent/80">Sauvegarder</Button></DialogClose>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+
 // --- Composant
 export default function ImpactTableHorizontal({
+  rawMealAnalysis, onRawMealChange, presets, onPresetLoad, onPresetSave, onPresetDelete,
   cendresMelange, clinkerSans, clinkerAvec, modulesCendres, modulesSans, modulesAvec, c3sSans, c3sAvec, showDelta = true
 }: ImpactTableHorizontalProps) {
 
   const rows = [
     { label: "Cendres Mélange", data: cendresMelange, modules: modulesCendres, c3s: null },
-    { label: "Clinker sans Cendres", data: clinkerSans, modules: modulesSans, c3s: c3sSans },
     { label: "Clinker avec Cendres", data: clinkerAvec, modules: modulesAvec, c3s: c3sAvec },
   ];
+  
+  const handleInputChange = (key: keyof ChemSet, value: string) => {
+    onRawMealChange({ ...rawMealAnalysis, [key]: parseFloat(value) || undefined });
+  };
+
 
   return (
     <Card className="w-full">
@@ -83,18 +143,57 @@ export default function ImpactTableHorizontal({
               </TableHead>
 
               {ELEMENTS.map((el) => (
-                <TableHead key={String(el)} className="text-center px-3">
+                <TableHead key={String(el)} className="text-center px-1">
                   {ELEMENT_LABELS[el]}
                 </TableHead>
               ))}
-               <TableHead className="text-center px-3 font-bold border-l">MS</TableHead>
-               <TableHead className="text-center px-3 font-bold">AF</TableHead>
-               <TableHead className="text-center px-3 font-bold">LSF</TableHead>
-               <TableHead className="text-center px-3 font-bold">C3S</TableHead>
+               <TableHead className="text-center px-1 font-bold border-l">MS</TableHead>
+               <TableHead className="text-center px-1 font-bold">AF</TableHead>
+               <TableHead className="text-center px-1 font-bold">LSF</TableHead>
+               <TableHead className="text-center px-1 font-bold">C3S</TableHead>
             </TableRow>
           </TableHeader>
 
           <TableBody>
+            {/* --- Ligne de saisie pour l'analyse du cru / clinker sans cendres --- */}
+            <TableRow>
+                <TableCell className="sticky left-0 z-10 bg-background border-r font-medium px-3 whitespace-nowrap">
+                   <div className="flex items-center gap-2">
+                     <span>Cru / Ck Sans Cendres</span>
+                     <div className="flex items-center gap-1">
+                       <Select onValueChange={onPresetLoad}>
+                           <SelectTrigger className="w-[120px] h-8 text-xs bg-brand-surface border-brand-line"><SelectValue placeholder="Charger..." /></SelectTrigger>
+                           <SelectContent className="bg-brand-surface border-brand-line text-white">
+                               {presets.map(p => (
+                                   <div key={p.id} className="flex items-center justify-between pr-2">
+                                       <SelectItem value={p.id} className="flex-grow">{p.name}</SelectItem>
+                                       <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); onPresetDelete(p.id); }}><Trash2 className="h-3 w-3 text-red-500/80" /></Button>
+                                   </div>
+                               ))}
+                           </SelectContent>
+                       </Select>
+                       <SavePresetDialog currentAnalysis={rawMealAnalysis} onSave={onPresetSave} />
+                    </div>
+                   </div>
+                </TableCell>
+                {ELEMENTS.map(key => (
+                    <TableCell key={key} className="px-1">
+                        <Input
+                            type="number"
+                            step="any"
+                            value={rawMealAnalysis[key] ?? ''}
+                            onChange={e => handleInputChange(key, e.target.value)}
+                            className="h-8 w-20 text-center bg-brand-surface/80 border-brand-line/80"
+                        />
+                    </TableCell>
+                ))}
+                <TableCell className="px-1 text-center tabular-nums font-medium border-l">{fmt(modulesSans?.ms)}</TableCell>
+                <TableCell className="px-1 text-center tabular-nums font-medium">{fmt(modulesSans?.af)}</TableCell>
+                <TableCell className="px-1 text-center tabular-nums font-medium">{fmt(modulesSans?.lsf)}</TableCell>
+                <TableCell className="px-1 text-center tabular-nums font-medium">{fmt(c3sSans)}</TableCell>
+            </TableRow>
+
+
             {rows.map((r) => (
               <TableRow key={r.label}>
                 <TableCell className="sticky left-0 z-10 bg-background border-r font-medium px-3 whitespace-nowrap">
@@ -102,14 +201,14 @@ export default function ImpactTableHorizontal({
                 </TableCell>
 
                 {ELEMENTS.map((el) => (
-                  <TableCell key={String(el)} className="px-3 text-center tabular-nums">
+                  <TableCell key={String(el)} className="px-1 text-center tabular-nums">
                     {fmt(r.data?.[el])}
                   </TableCell>
                 ))}
-                <TableCell className="px-3 text-center tabular-nums font-medium border-l">{fmt(r.modules?.ms)}</TableCell>
-                <TableCell className="px-3 text-center tabular-nums font-medium">{fmt(r.modules?.af)}</TableCell>
-                <TableCell className="px-3 text-center tabular-nums font-medium">{fmt(r.modules?.lsf)}</TableCell>
-                <TableCell className="px-3 text-center tabular-nums font-medium">{fmt(r.c3s)}</TableCell>
+                <TableCell className="px-1 text-center tabular-nums font-medium border-l">{fmt(r.modules?.ms)}</TableCell>
+                <TableCell className="px-1 text-center tabular-nums font-medium">{fmt(r.modules?.af)}</TableCell>
+                <TableCell className="px-1 text-center tabular-nums font-medium">{fmt(r.modules?.lsf)}</TableCell>
+                <TableCell className="px-1 text-center tabular-nums font-medium">{fmt(r.c3s)}</TableCell>
               </TableRow>
             ))}
 
@@ -122,7 +221,7 @@ export default function ImpactTableHorizontal({
                   const d = delta(clinkerAvec?.[el], clinkerSans?.[el]);
                    const cls = d == null ? "" : d >= 0.001 ? "bg-emerald-600/15 text-emerald-500" : d <= -0.001 ? "bg-rose-600/15 text-rose-500" : "text-muted-foreground";
                   return (
-                    <TableCell key={`delta-${String(el)}`} className="px-3 text-center">
+                    <TableCell key={`delta-${String(el)}`} className="px-1 text-center">
                       {d == null ? "–" : (
                         <span className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
                           {(d>=0?"+":"")}{d.toFixed(2)}
@@ -138,7 +237,7 @@ export default function ImpactTableHorizontal({
                   );
                   const cls = d == null ? "" : d >= 0.001 ? "bg-emerald-600/15 text-emerald-500" : d <= -0.001 ? "bg-rose-600/15 text-rose-500" : "text-muted-foreground";
                   return (
-                    <TableCell key={`delta-${mod}`} className={`px-3 text-center font-medium ${mod === 'ms' ? 'border-l' : ''}`}>
+                    <TableCell key={`delta-${mod}`} className={`px-1 text-center font-medium ${mod === 'ms' ? 'border-l' : ''}`}>
                       {d == null ? "–" : (
                         <span className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
                           {(d>=0?"+":"")}{d.toFixed(2)}
