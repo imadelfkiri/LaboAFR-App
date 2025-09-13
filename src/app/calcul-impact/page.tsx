@@ -1,5 +1,3 @@
-
-
 // app/calcul-impact/page.tsx
 "use client"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -78,14 +76,12 @@ const calculateC3S = (analysis: OxideAnalysis, freeLime: number, targetSo3?: num
   const so3 = targetSo3 !== undefined ? targetSo3 : (analysis.so3 || 0);
 
   // Formule complète de Bogue (prise du fichier Excel)
-  // C3S = 4.071 * (CaO - Chaux Libre - 0.7 * SO3 - [correction PF]) - 7.60 * SiO2 - 6.718 * Al2O3 - 1.43 * Fe2O3
-  // Le fichier Excel inclut un terme de correction pour la perte au feu (PF) qui semble être `1.27 * PF / 2`
-  // qui n'est pas standard dans Bogue mais on l'ajoute pour correspondre.
-  // La formule excel est: (4.07*(G37-(0.7*I37)-(1.27*B37/2)-C37))-((7.6*D37)+(6.72*E37)+(1.43*F37))
-  const pfCorrection = (1.27 * pf) / 2; // Ce terme est dans la formule Excel, mais pas standard.
+  // C3S = 4.07 * (CaO - Chaux Libre - 0.7 * SO3 - [correction PF]) - 7.60 * SiO2 - 6.72 * Al2O3 - 1.43 * Fe2O3
+  // Le terme de correction pour la perte au feu (PF) est `1.27 * PF / 2`
+  const pfCorrection = (1.27 * pf) / 2;
   const effectiveCao = c - freeLime - 0.7 * so3 - pfCorrection;
   
-  const c3s = (4.071 * effectiveCao) - (7.60 * s) - (6.72 * a) - (1.43 * f);
+  const c3s = (4.07 * effectiveCao) - (7.60 * s) - (6.72 * a) - (1.43 * f);
   return Math.max(0, c3s);
 };
 
