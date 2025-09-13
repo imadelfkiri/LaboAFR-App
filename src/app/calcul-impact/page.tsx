@@ -171,7 +171,7 @@ const OxideInputRow = ({ analysis, onAnalysisChange }: { analysis: OxideAnalysis
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-11 gap-2">
             {OXIDE_KEYS.map(key => (
                  <div key={key} className="flex-1 min-w-[70px]">
-                    <label htmlFor={`raw-meal-${key}`} className="text-xs uppercase text-neutral-400">{OXIDE_LABELS[key]}</label>
+                    <label htmlFor={`raw-meal-${key}`} className="text-xs text-neutral-400">{OXIDE_LABELS[key]}</label>
                     <Input
                         id={`raw-meal-${key}`} type="number" step="any"
                         value={analysis[key] ?? ''}
