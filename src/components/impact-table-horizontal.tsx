@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose, DialogTrigger } from "@/components/ui/dialog";
 import { Save, Trash2 } from "lucide-react";
 import { saveRawMealPreset, type RawMealPreset } from '@/lib/data';
 import { useToast } from "@/hooks/use-toast";
@@ -254,5 +254,3 @@ export default function ImpactTableHorizontal({
     </Card>
   );
 }
-
-    
