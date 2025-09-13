@@ -42,16 +42,20 @@ export interface ImpactTableHorizontalProps {
   onPresetLoad: (id: string) => void;
   onPresetSave: () => void;
   onPresetDelete: (id: string) => void;
-  onImport: () => void;
+  onImportRawMeal: () => void;
+  onImportRealClinker: () => void;
   cendresMelange: ChemSet;
   clinkerSans: ChemSet;
   clinkerAvec: ChemSet;
+  realClinkerAnalysis: ChemSet;
   modulesFarine: Modules;
   modulesCendres: Modules;
   modulesSans: Modules;
   modulesAvec: Modules;
+  modulesReel: Modules;
   c3sSans?: number | null;
   c3sAvec?: number | null;
+  c3sReel?: number | null;
   showDelta?: boolean;
 }
 
@@ -115,8 +119,8 @@ const SavePresetDialog = ({ currentAnalysis, onSave }: { currentAnalysis: ChemSe
 
 // --- Composant
 export default function ImpactTableHorizontal({
-  rawMealAnalysis, onRawMealChange, presets, onPresetLoad, onPresetSave, onPresetDelete, onImport,
-  cendresMelange, clinkerSans, clinkerAvec, modulesFarine, modulesCendres, modulesSans, modulesAvec, c3sSans, c3sAvec, showDelta = true
+  rawMealAnalysis, onRawMealChange, presets, onPresetLoad, onPresetSave, onPresetDelete, onImportRawMeal, onImportRealClinker,
+  cendresMelange, clinkerSans, clinkerAvec, realClinkerAnalysis, modulesFarine, modulesCendres, modulesSans, modulesAvec, modulesReel, c3sSans, c3sAvec, c3sReel, showDelta = true
 }: ImpactTableHorizontalProps) {
 
   const calculateSum = (data: ChemSet) => {
@@ -127,6 +131,7 @@ export default function ImpactTableHorizontal({
     { label: "Cendres Mélange", data: cendresMelange, modules: modulesCendres, c3s: null, sum: calculateSum(cendresMelange) },
     { label: "Clinker sans Cendres", data: clinkerSans, modules: modulesSans, c3s: c3sSans, sum: calculateSum(clinkerSans) },
     { label: "Clinker avec Cendres", data: clinkerAvec, modules: modulesAvec, c3s: c3sAvec, sum: calculateSum(clinkerAvec) },
+    { label: "Clinker Réel", data: realClinkerAnalysis, modules: modulesReel, c3s: c3sReel, sum: calculateSum(realClinkerAnalysis) },
   ];
   
   const handleInputChange = (key: keyof ChemSet, value: string) => {
@@ -142,8 +147,11 @@ export default function ImpactTableHorizontal({
                  <CardTitle>Calcul d'impact</CardTitle>
             </div>
              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="h-9" onClick={onImport}>
-                    <Upload className="h-4 w-4 mr-2" /> Importer de Excel
+                <Button variant="outline" size="sm" className="h-9" onClick={onImportRawMeal}>
+                    <Upload className="h-4 w-4 mr-2" /> Importer Farine
+                </Button>
+                 <Button variant="outline" size="sm" className="h-9" onClick={onImportRealClinker}>
+                    <Upload className="h-4 w-4 mr-2" /> Importer Clinker Réel
                 </Button>
                 <Select onValueChange={onPresetLoad}>
                     <SelectTrigger className="w-[180px] h-9 text-xs bg-brand-surface border-brand-line"><SelectValue placeholder="Charger un preset..." /></SelectTrigger>
@@ -229,9 +237,10 @@ export default function ImpactTableHorizontal({
               ))}
 
               {showDelta && (
+                <>
                 <TableRow>
                   <TableCell className="sticky left-0 z-10 bg-background border-r font-medium px-3 whitespace-nowrap">
-                    Δ (Avec - Sans)
+                    Δ (Calculé - Sans Cendres)
                   </TableCell>
                   {ELEMENTS.map((el) => {
                     const d = delta(clinkerAvec?.[el], clinkerSans?.[el]);
@@ -275,6 +284,42 @@ export default function ImpactTableHorizontal({
                     )
                   })}
                 </TableRow>
+                 <TableRow>
+                  <TableCell className="sticky left-0 z-10 bg-background border-r font-medium px-3 whitespace-nowrap">
+                    Δ (Calculé - Réel)
+                  </TableCell>
+                  {ELEMENTS.map((el) => {
+                    const d = delta(clinkerAvec?.[el], realClinkerAnalysis?.[el]);
+                    const cls = d == null ? "" : d >= 0.001 ? "bg-emerald-600/15 text-emerald-500" : d <= -0.001 ? "bg-rose-600/15 text-rose-500" : "text-muted-foreground";
+                    return (
+                      <TableCell key={`delta-real-${String(el)}`} className="px-1 text-center">
+                        {d == null ? "–" : (
+                          <span className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
+                            {(d>=0?"+":"")}{d.toFixed(2)}
+                          </span>
+                        )}
+                      </TableCell>
+                    );
+                  })}
+                  <TableCell className="px-1 text-center border-l"></TableCell>
+                  {[ 'ms', 'af', 'lsf', 'c3s'].map((mod) => {
+                    const d = delta(
+                      mod === 'c3s' ? c3sAvec : modulesAvec[mod as keyof Modules],
+                      mod === 'c3s' ? c3sReel : modulesReel[mod as keyof Modules]
+                    );
+                    const cls = d == null ? "" : d >= 0.001 ? "bg-emerald-600/15 text-emerald-500" : d <= -0.001 ? "bg-rose-600/15 text-rose-500" : "text-muted-foreground";
+                    return (
+                      <TableCell key={`delta-real-${mod}`} className={`px-1 text-center font-medium`}>
+                        {d == null ? "–" : (
+                          <span className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
+                            {(d>=0?"+":"")}{d.toFixed(2)}
+                          </span>
+                        )}
+                      </TableCell>
+                    )
+                  })}
+                </TableRow>
+                </>
               )}
             </TableBody>
           </Table>
@@ -283,5 +328,3 @@ export default function ImpactTableHorizontal({
     </Card>
   );
 }
-
-    

@@ -1,5 +1,4 @@
 
-
 // app/calcul-impact/page.tsx
 "use client"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -32,6 +31,7 @@ export const OXIDE_LABELS: Record<keyof OxideAnalysis, string> = {
     tio2: 'TiO2', mno: 'MnO', p2o5: 'P2O5'
 };
 const initialOxideState: OxideAnalysis = { pf: 34.5, sio2: 13.5, al2o3: 3.5, fe2o3: 2.2, cao: 42.5, mgo: 1.5, so3: 0.5, k2o: 0.8, tio2: 0.2, mno: 0.1, p2o5: 0.1 };
+const initialRealClinkerState: OxideAnalysis = OXIDE_KEYS.reduce((acc, key) => ({...acc, [key]: 0}), {});
 
 // --- LocalStorage Hook ---
 function usePersistentState<T>(key: string, defaultValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
@@ -192,6 +192,7 @@ export default function CalculImpactPage() {
     const [so3Target, setSo3Target] = usePersistentState<number>('calculImpact_so3Target', 1.4);
     const [pfClinkerTarget, setPfClinkerTarget] = usePersistentState<number>('calculImpact_pfClinker', 0.5);
 
+    const [realClinkerAnalysis, setRealClinkerAnalysis] = usePersistentState<OxideAnalysis>('calculImpact_realClinkerAnalysis', initialRealClinkerState);
 
     const [latestSession, setLatestSession] = useState<MixtureSession | null>(null);
     const [afAshAnalysis, setAfAshAnalysis] = useState<OxideAnalysis>({});
@@ -200,7 +201,8 @@ export default function CalculImpactPage() {
     const [petCokeTuyereAsh, setPetCokeTuyereAsh] = useState<OxideAnalysis>({});
     
     const [presets, setPresets] = useState<RawMealPreset[]>([]);
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    const rawMealFileInputRef = useRef<HTMLInputElement>(null);
+    const realClinkerFileInputRef = useRef<HTMLInputElement>(null);
 
     const fetchPresets = useCallback(async () => {
         const fetchedPresets = await getRawMealPresets();
@@ -285,6 +287,9 @@ export default function CalculImpactPage() {
         rawMealFlow, rawMealAnalysis, afFlow, afAshAnalysis, grignonsFlow, grignonsAshAnalysis, petCokePrecaFlow, petCokePrecaAsh, petCokeTuyereFlow, petCokeTuyereAsh, fuelDataMap, so3Target, pfClinkerTarget, freeLime
     );
 
+    const modulesReel = useMemo(() => calculateModules(realClinkerAnalysis), [realClinkerAnalysis]);
+    const c3sReel = useMemo(() => calculateC3S(realClinkerAnalysis, freeLime), [realClinkerAnalysis, freeLime]);
+
     const debitClinker = useMemo(() => (rawMealFlow * clinkerFactor), [rawMealFlow, clinkerFactor]);
 
     const handleDeletePreset = async (id: string) => {
@@ -293,7 +298,7 @@ export default function CalculImpactPage() {
         fetchPresets();
     };
 
-    const handleImportFile = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleRawMealImport = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
 
@@ -316,7 +321,7 @@ export default function CalculImpactPage() {
 
                 OXIDE_KEYS.forEach((key, index) => {
                     const value = values[index];
-                    if (typeof value === 'number') {
+                    if (typeof value === 'number' && !isNaN(value)) {
                         newAnalysis[key] = value;
                     } else if (typeof value === 'string') {
                         const parsed = parseFloat(value.replace(',', '.'));
@@ -334,8 +339,71 @@ export default function CalculImpactPage() {
                 toast({ variant: "destructive", title: "Erreur d'importation", description: errorMessage });
             } finally {
                 // Reset file input
-                if (fileInputRef.current) {
-                    fileInputRef.current.value = "";
+                if (rawMealFileInputRef.current) {
+                    rawMealFileInputRef.current.value = "";
+                }
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    };
+
+    const handleRealClinkerImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = new Uint8Array(e.target?.result as ArrayBuffer);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                
+                if (jsonData.length < 37) {
+                    throw new Error("Le fichier Excel ne contient pas de données à la ligne 37.");
+                }
+                const rowData: any[] = jsonData[36]; // Line 37
+
+                const newAnalysis: OxideAnalysis = {};
+                
+                // Extract columns B, and D to M
+                const values = [
+                    rowData[1], // B
+                    rowData[3], // D
+                    rowData[4], // E
+                    rowData[5], // F
+                    rowData[6], // G
+                    rowData[7], // H
+                    rowData[8], // I
+                    rowData[9], // J
+                    rowData[10], // K
+                    rowData[11], // L
+                    rowData[12], // M
+                ];
+
+                OXIDE_KEYS.forEach((key, index) => {
+                    const value = values[index];
+                    if (typeof value === 'number' && !isNaN(value)) {
+                        newAnalysis[key] = value;
+                    } else if (typeof value === 'string') {
+                        const parsed = parseFloat(value.replace(',', '.'));
+                        newAnalysis[key] = isNaN(parsed) ? 0 : parsed;
+                    } else {
+                        newAnalysis[key] = 0;
+                    }
+                });
+                
+                setRealClinkerAnalysis(newAnalysis);
+                toast({ title: "Importation réussie", description: "L'analyse du clinker réel a été mise à jour." });
+
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
+                toast({ variant: "destructive", title: "Erreur d'importation", description: errorMessage });
+            } finally {
+                // Reset file input
+                if (realClinkerFileInputRef.current) {
+                    realClinkerFileInputRef.current.value = "";
                 }
             }
         };
@@ -366,8 +434,15 @@ export default function CalculImpactPage() {
     <div className="mx-auto w-full max-w-[90rem] px-4 py-6 space-y-6">
        <input
         type="file"
-        ref={fileInputRef}
-        onChange={handleImportFile}
+        ref={rawMealFileInputRef}
+        onChange={handleRawMealImport}
+        className="hidden"
+        accept=".xlsx, .xls"
+      />
+       <input
+        type="file"
+        ref={realClinkerFileInputRef}
+        onChange={handleRealClinkerImport}
         className="hidden"
         accept=".xlsx, .xls"
       />
@@ -438,16 +513,20 @@ export default function CalculImpactPage() {
                 onPresetLoad={(id) => { const p = presets.find(p => p.id === id); if(p) setRawMealAnalysis(p.analysis); }}
                 onPresetSave={fetchPresets}
                 onPresetDelete={handleDeletePreset}
-                onImport={() => fileInputRef.current?.click()}
+                onImportRawMeal={() => rawMealFileInputRef.current?.click()}
+                onImportRealClinker={() => realClinkerFileInputRef.current?.click()}
                 cendresMelange={averageAshAnalysis}
                 clinkerSans={clinkerWithoutAsh}
                 clinkerAvec={clinkerWithAsh}
+                realClinkerAnalysis={realClinkerAnalysis}
                 modulesFarine={modulesFarine}
                 modulesCendres={modulesCendres}
                 modulesSans={modulesSans}
                 modulesAvec={modulesAvec}
+                modulesReel={modulesReel}
                 c3sSans={c3sSans}
                 c3sAvec={c3sAvec}
+                c3sReel={c3sReel}
                 showDelta={true}
             />
         </div>
@@ -480,5 +559,3 @@ export default function CalculImpactPage() {
     </div>
   )
 }
-
-    
