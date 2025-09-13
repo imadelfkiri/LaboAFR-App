@@ -103,7 +103,8 @@ const analysisSchema = z.object({
 
 type FormValues = z.infer<typeof analysisSchema>;
 type SortableKeys = keyof AshAnalysis | 'ms' | 'af' | 'lsf';
-
+type Oxides = Omit<AshAnalysis, 'id' | 'date_arrivage' | 'type_combustible' | 'fournisseur'>;
+type OxideKeys = keyof Oxides;
 
 const calculateModules = (sio2?: number | null, al2o3?: number | null, fe2o3?: number | null, cao?: number | null) => {
     const s = sio2 || 0;
@@ -194,6 +195,7 @@ function AnalysesCendresView({
   rows = [],
   fuels = [],
   suppliers = [],
+  averages,
   onAdd = () => {},
   onEdit = () => {},
   onDelete = () => {},
@@ -259,6 +261,31 @@ function AnalysesCendresView({
     { label: "LSF", key: "lsf", align: "center" },
   ];
 
+  const AverageRow = ({ label, data }: { label: string; data: any; }) => {
+    if (!data || data.count === 0) return null;
+    return (
+        <tr className="border-b border-brand-line/40 last:border-0 bg-brand-muted/50 hover:bg-brand-muted font-semibold">
+            <td className="p-2 text-muted-foreground whitespace-nowrap" colSpan={3}>{label} ({data.count})</td>
+            <td className="p-2 text-right tabular-nums">{data.oxides?.['%Cendres']}</td>
+            <td className="p-2 text-right tabular-nums">{data.oxides?.PF}</td>
+            <td className="p-2 text-right tabular-nums">{data.oxides?.SiO2}</td>
+            <td className="p-2 text-right tabular-nums">{data.oxides?.Al2O3}</td>
+            <td className="p-2 text-right tabular-nums">{data.oxides?.Fe2O3}</td>
+            <td className="p-2 text-right tabular-nums">{data.oxides?.CaO}</td>
+            <td className="p-2 text-right tabular-nums">{data.oxides?.MgO}</td>
+            <td className="p-2 text-right tabular-nums">{data.oxides?.SO3}</td>
+            <td className="p-2 text-right tabular-nums">{data.oxides?.K2O}</td>
+            <td className="p-2 text-right tabular-nums">{data.oxides?.TiO2}</td>
+            <td className="p-2 text-right tabular-nums">{data.oxides?.MnO}</td>
+            <td className="p-2 text-right tabular-nums">{data.oxides?.P2O5}</td>
+            <td className="p-2 text-center">{chip(data.modules?.MS, "MS")}</td>
+            <td className="p-2 text-center">{chip(data.modules?.AF, "AF")}</td>
+            <td className="p-2 text-center">{chip(data.modules?.LSF, "LSF")}</td>
+            <td className="p-2"></td>
+        </tr>
+    );
+  };
+
   return (
     <div className="flex flex-col h-full">
       <ToolbarAnalysesCendres
@@ -319,6 +346,11 @@ function AnalysesCendresView({
                     <tr><td colSpan={19} className="p-6 text-center text-muted-foreground">Aucune donnée.</td></tr>
                   )}
                 </tbody>
+                 <tfoot className="sticky bottom-0 bg-brand-surface/95 backdrop-blur-sm">
+                    <AverageRow label="Moyenne Pet coke" data={averages.petCoke} />
+                    <AverageRow label="Moyenne Grignons" data={averages.grignons} />
+                    <AverageRow label="Moyenne AFs" data={averages.afs} />
+                </tfoot>
               </table>
             </div>
           </CardContent>
@@ -732,6 +764,68 @@ export function AshAnalysisManager() {
 
         doc.save(`Rapport_Analyses_Cendres_AFs_${format(new Date(), "yyyy-MM-dd")}.pdf`);
     };
+
+    const processAnalysisGroup = (analyses: AshAnalysis[]) => {
+        if (analyses.length === 0) {
+            return { count: 0, oxides: {}, modules: {} };
+        }
+
+        const avg = (key: OxideKeys) => {
+            const values = analyses.map(a => a[key]).filter((v): v is number => typeof v === 'number' && isFinite(v));
+            return values.length > 0 ? values.reduce((s, v) => s + v, 0) / values.length : null;
+        };
+
+        const averageOxides = {
+            pourcentage_cendres: avg('pourcentage_cendres'),
+            pf: avg('pf'),
+            sio2: avg('sio2'),
+            al2o3: avg('al2o3'),
+            fe2o3: avg('fe2o3'),
+            cao: avg('cao'),
+            mgo: avg('mgo'),
+            so3: avg('so3'),
+            k2o: avg('k2o'),
+            tio2: avg('tio2'),
+            mno: avg('mno'),
+            p2o5: avg('p2o5'),
+        };
+
+        const { ms, af, lsf } = calculateModules(averageOxides.sio2, averageOxides.al2o3, averageOxides.fe2o3, averageOxides.cao);
+        
+        const formattedOxides = {
+            '%Cendres': formatNumberForTable(averageOxides.pourcentage_cendres, 1),
+            PF: formatNumberForTable(averageOxides.pf, 1),
+            SiO2: formatNumberForTable(averageOxides.sio2, 1),
+            Al2O3: formatNumberForTable(averageOxides.al2o3, 1),
+            Fe2O3: formatNumberForTable(averageOxides.fe2o3, 1),
+            CaO: formatNumberForTable(averageOxides.cao, 1),
+            MgO: formatNumberForTable(averageOxides.mgo, 1),
+            SO3: formatNumberForTable(averageOxides.so3, 1),
+            K2O: formatNumberForTable(averageOxides.k2o, 1),
+            TiO2: formatNumberForTable(averageOxides.tio2, 1),
+            MnO: formatNumberForTable(averageOxides.mno, 1),
+            P2O5: formatNumberForTable(averageOxides.p2o5, 1),
+        };
+        
+        return {
+            count: analyses.length,
+            oxides: formattedOxides,
+            modules: { MS: ms, AF: af, LSF: lsf },
+        };
+    };
+
+    const averages = useMemo(() => {
+        const petCokeAnalyses = sortedAndFilteredAnalyses.filter(a => a.type_combustible?.toLowerCase().includes('pet coke'));
+        const grignonsAnalyses = sortedAndFilteredAnalyses.filter(a => a.type_combustible?.toLowerCase().includes('grignons'));
+        const afsAnalyses = sortedAndFilteredAnalyses.filter(a => !a.type_combustible?.toLowerCase().includes('pet coke') && !a.type_combustible?.toLowerCase().includes('grignons'));
+
+        return {
+            petCoke: processAnalysisGroup(petCokeAnalyses),
+            grignons: processAnalysisGroup(grignonsAnalyses),
+            afs: processAnalysisGroup(afsAnalyses),
+        };
+
+    }, [sortedAndFilteredAnalyses]);
     
     const tableRows = useMemo(() => {
         return sortedAndFilteredAnalyses.map(analysis => {
@@ -782,6 +876,7 @@ export function AshAnalysisManager() {
           rows={tableRows}
           fuels={fuelTypes}
           suppliers={fournisseurs}
+          averages={averages}
           onAdd={() => handleModalOpen(null)}
           onEdit={(analysis) => handleModalOpen(analysis)}
           onDelete={(id) => setDeletingRowId(id)}
