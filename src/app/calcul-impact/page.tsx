@@ -303,18 +303,12 @@ export default function CalculImpactPage() {
                 const workbook = XLSX.read(data, { type: 'array' });
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
-                // Get the data from row 24 (index 23 in 0-based array)
                 const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
                 
                 if (jsonData.length < 24) {
                     throw new Error("Le fichier Excel ne contient pas de données à la ligne 24.");
                 }
                 const rowData: any[] = jsonData[23]; // Line 24
-
-                // Expecting 11 values from column B (index 1) to L (index 11)
-                if (rowData.length < 12) {
-                     throw new Error("La ligne 24 ne contient pas assez de colonnes (B à L).");
-                }
 
                 const newAnalysis: OxideAnalysis = {};
                 const values = rowData.slice(1, 12); // B to L -> index 1 to 11
@@ -380,7 +374,7 @@ export default function CalculImpactPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6 mb-6">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium">Débit Farine (t/h)</CardTitle>
+                    <CardTitle className="text-xs font-medium uppercase text-muted-foreground">Débit Farine (t/h)</CardTitle>
                     <Beaker className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -389,7 +383,7 @@ export default function CalculImpactPage() {
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium">Facteur de clinkérisation</CardTitle>
+                    <CardTitle className="text-xs font-medium uppercase text-muted-foreground">Facteur de clinkérisation</CardTitle>
                     <Gauge className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -398,7 +392,7 @@ export default function CalculImpactPage() {
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium">Débit Clinker (t/h)</CardTitle>
+                    <CardTitle className="text-xs font-medium uppercase text-muted-foreground">Débit Clinker (t/h)</CardTitle>
                     <Flame className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -407,7 +401,7 @@ export default function CalculImpactPage() {
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium">Chaux Libre (calcul C₃S)</CardTitle>
+                    <CardTitle className="text-xs font-medium uppercase text-muted-foreground">Chaux Libre (calcul C₃S)</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <Input type="number" step="0.1" value={freeLime} onChange={e => setFreeLime(parseFloat(e.target.value) || 0)} className="bg-transparent border-0 text-2xl font-bold text-white p-0 h-auto focus-visible:ring-0" />
@@ -415,7 +409,7 @@ export default function CalculImpactPage() {
               </Card>
                <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium">Cible SO₃ Clinker (%)</CardTitle>
+                    <CardTitle className="text-xs font-medium uppercase text-muted-foreground">Cible SO₃ Clinker (%)</CardTitle>
                     <Wind className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -424,7 +418,7 @@ export default function CalculImpactPage() {
               </Card>
                <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium">PF Clinker (%)</CardTitle>
+                    <CardTitle className="text-xs font-medium uppercase text-muted-foreground">PF Clinker (%)</CardTitle>
                     <Zap className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
