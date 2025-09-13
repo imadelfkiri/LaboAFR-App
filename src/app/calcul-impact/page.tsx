@@ -343,19 +343,6 @@ export default function CalculImpactPage() {
         fetchPresets();
     };
 
-    const fmt = (v: number | undefined | null) => (v != null ? v.toFixed(2) : "-");
-    
-    const delta = (a: number | undefined | null, b: number | undefined | null) => {
-      if (a == null || b == null) return null;
-      return a - b;
-    };
-    
-    const DeltaCell = ({val}: {val: number | null}) => {
-        if (val === null) return <TableCell className="text-center">-</TableCell>;
-        const cls = val > 0.001 ? "text-emerald-500" : val < -0.001 ? "text-rose-500" : "text-muted-foreground";
-        return <TableCell className={`text-center font-medium ${cls}`}>{(val > 0 ? "+" : "")}{val.toFixed(2)}</TableCell>;
-    };
-
     if (loading) {
         return (
             <div className="mx-auto w-full max-w-7xl px-4 py-6 space-y-6">
@@ -447,64 +434,23 @@ export default function CalculImpactPage() {
           </div>
       </section>
       
-      <section className="pt-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-            <ImpactTableHorizontal
-            farine={rawMealAnalysis}
-            cendresMelange={averageAshAnalysis}
-            clinkerSans={clinkerWithoutAsh}
-            clinkerAvec={clinkerWithAsh}
-            showDelta={true}
-            />
-        </div>
-        <Card>
-            <CardHeader>
-                <CardTitle>Modules du Clinker</CardTitle>
-                <CardDescription>Indicateurs de qualité du clinker.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Module</TableHead>
-                            <TableHead className="text-center">Sans Cendres</TableHead>
-                            <TableHead className="text-center">Avec Cendres</TableHead>
-                            <TableHead className="text-center">Δ</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        <TableRow>
-                            <TableCell className="font-medium">MS (Module Siliceux)</TableCell>
-                            <TableCell className="text-center">{fmt(modulesSans.ms)}</TableCell>
-                            <TableCell className="text-center">{fmt(modulesAvec.ms)}</TableCell>
-                            <DeltaCell val={delta(modulesAvec.ms, modulesSans.ms)} />
-                        </TableRow>
-                        <TableRow>
-                            <TableCell className="font-medium">AF (Module Alumino-Ferrique)</TableCell>
-                            <TableCell className="text-center">{fmt(modulesSans.af)}</TableCell>
-                            <TableCell className="text-center">{fmt(modulesAvec.af)}</TableCell>
-                            <DeltaCell val={delta(modulesAvec.af, modulesSans.af)} />
-                        </TableRow>
-                        <TableRow>
-                            <TableCell className="font-medium">LSF (Facteur de Saturation en Chaux)</TableCell>
-                            <TableCell className="text-center">{fmt(modulesSans.lsf)}</TableCell>
-                            <TableCell className="text-center">{fmt(modulesAvec.lsf)}</TableCell>
-                            <DeltaCell val={delta(modulesAvec.lsf, modulesSans.lsf)} />
-                        </TableRow>
-                        <TableRow>
-                            <TableCell className="font-medium">C₃S (Alite)</TableCell>
-                            <TableCell className="text-center">{fmt(c3sSans)}</TableCell>
-                            <TableCell className="text-center">{fmt(c3sAvec)}</TableCell>
-                            <DeltaCell val={delta(c3sAvec, c3sSans)} />
-                        </TableRow>
-                    </TableBody>
-                </Table>
-            </CardContent>
-        </Card>
+      <section className="pt-4">
+        <ImpactTableHorizontal
+          cendresMelange={averageAshAnalysis}
+          clinkerSans={clinkerWithoutAsh}
+          clinkerAvec={clinkerWithAsh}
+          modulesSans={modulesSans}
+          modulesAvec={modulesAvec}
+          c3sSans={c3sSans}
+          c3sAvec={c3sAvec}
+          showDelta={true}
+        />
       </section>
 
     </div>
   )
 }
+
+    
 
     
