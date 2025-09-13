@@ -73,7 +73,6 @@ const useClinkerCalculations = (
 ) => {
     return useMemo(() => {
         const clinkerize = (input: OxideAnalysis, targetPf: number) => {
-            const currentPf = input.pf ?? 0;
             const sumNonVolatile = OXIDE_KEYS.reduce((acc, key) => {
                 if (key !== 'pf' && input[key] !== undefined) {
                     return acc + (input[key] as number);
@@ -81,12 +80,12 @@ const useClinkerCalculations = (
                 return acc;
             }, 0);
             
-            const factor = sumNonVolatile > 0 ? 100 / sumNonVolatile : 0;
+            const factor = sumNonVolatile > 0 ? (100 - targetPf) / sumNonVolatile : 0;
 
             const clinkerized: OxideAnalysis = { pf: targetPf };
              OXIDE_KEYS.forEach(key => {
                 if (key !== 'pf' && input[key] !== undefined) {
-                    clinkerized[key] = ((input[key] as number) * factor) * ((100 - targetPf)/100);
+                    clinkerized[key] = (input[key] as number) * factor;
                 }
             });
             return clinkerized;
@@ -395,18 +394,11 @@ export default function CalculImpactPage() {
   
   return (
     <div className="mx-auto w-full max-w-[90rem] px-4 py-6 space-y-6">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-                <h1 className="text-2xl font-semibold text-white tracking-tight">Calcul d’Impact Clinker</h1>
-                <p className="text-sm text-neutral-300/80">Analyse de l'impact chimique des combustibles sur la composition du clinker</p>
-            </div>
-            <div className="flex items-center gap-2">
-                <Button variant="outline" onClick={() => console.log("exporting...")}><FileDown className="mr-2 h-4 w-4" /> Exporter</Button>
-            </div>
-        </div>
-      
       <section>
-          <h2 className="text-lg font-medium text-white mb-3">Paramètres de Simulation</h2>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-lg font-medium text-white">Paramètres de Simulation</h2>
+            <Button variant="outline" onClick={() => console.log("exporting...")}><FileDown className="mr-2 h-4 w-4" /> Exporter</Button>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6 mb-6">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
