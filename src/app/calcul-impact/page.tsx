@@ -1,3 +1,4 @@
+
 // app/calcul-impact/page.tsx
 "use client"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -173,64 +174,6 @@ const useClinkerCalculations = (
 
         return { clinkerWithoutAsh, clinkerWithAsh, averageAshAnalysis, modulesSans, modulesAvec, modulesCendres, c3sSans, c3sAvec };
     }, [rawMealFlow, rawMealAnalysis, afFlow, afAshAnalysis, grignonsFlow, grignonsAshAnalysis, petCokePrecaFlow, petCokePrecaAsh, petCokeTuyereFlow, petCokeTuyereAsh, fuelDataMap, so3Target, pfClinkerTarget, freeLime]);
-};
-
-// --- Components ---
-const OxideInputRow = ({ analysis, onAnalysisChange }: { analysis: OxideAnalysis, onAnalysisChange: (newAnalysis: OxideAnalysis) => void }) => {
-    return (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-11 gap-2">
-            {OXIDE_KEYS.map(key => (
-                 <div key={key} className="flex-1 min-w-[70px]">
-                    <label htmlFor={`raw-meal-${key}`} className="text-xs text-neutral-400">{OXIDE_LABELS[key]}</label>
-                    <Input
-                        id={`raw-meal-${key}`} type="number" step="any"
-                        value={analysis[key] ?? ''}
-                        onChange={e => onAnalysisChange({ ...analysis, [key]: parseFloat(e.target.value) || undefined })}
-                        className="h-9 bg-brand-surface/80 border-brand-line/80 text-white"
-                    />
-                </div>
-            ))}
-        </div>
-    );
-};
-
-const SavePresetDialog = ({ currentAnalysis, onSave }: { currentAnalysis: OxideAnalysis, onSave: () => void }) => {
-    const [name, setName] = useState("");
-    const { toast } = useToast();
-
-    const handleSave = async () => {
-        if (!name.trim()) {
-            toast({ variant: "destructive", title: "Erreur", description: "Veuillez donner un nom au preset." });
-            return;
-        }
-        await saveRawMealPreset(name, currentAnalysis);
-        toast({ title: "Succès", description: `Preset "${name}" sauvegardé.` });
-        onSave();
-    };
-
-    return (
-        <Dialog>
-            <DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="bg-transparent border-brand-accent/50 text-brand-accent/90 hover:bg-brand-accent/10 hover:text-brand-accent">
-                    <Save className="h-4 w-4 mr-1" /> Preset
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="bg-brand-surface border-brand-line text-white">
-                <DialogHeader>
-                    <DialogTitle>Sauvegarder l'analyse du cru</DialogTitle>
-                    <DialogDescription>Donnez un nom à ce préréglage pour le réutiliser plus tard.</DialogDescription>
-                </DialogHeader>
-                <div className="py-4">
-                    <label htmlFor="preset-name" className="text-sm text-neutral-300">Nom du Preset</label>
-                    <Input id="preset-name" value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Cru standard Hiver" className="mt-1 bg-brand-bg border-brand-line text-white" />
-                </div>
-                <DialogFooter>
-                    <DialogClose asChild><Button variant="secondary">Annuler</Button></DialogClose>
-                    <DialogClose asChild><Button onClick={handleSave} className="bg-brand-accent text-black hover:bg-brand-accent/80">Sauvegarder</Button></DialogClose>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
 };
 
 // --- Page Component ---

@@ -130,8 +130,26 @@ export default function ImpactTableHorizontal({
   return (
     <Card className="w-full">
       <CardHeader className="pb-2">
-        <CardTitle>Résultats horizontaux – Impact sur le Clinker</CardTitle>
-        <CardDescription>Éléments chimiques et modules fixés en haut • valeurs en %</CardDescription>
+        <div className="flex justify-between items-center">
+            <div>
+                 <CardTitle>Résultats horizontaux – Impact sur le Clinker</CardTitle>
+                <CardDescription>Éléments chimiques et modules fixés en haut • valeurs en %</CardDescription>
+            </div>
+             <div className="flex items-center gap-2">
+                <Select onValueChange={onPresetLoad}>
+                    <SelectTrigger className="w-[180px] h-9 text-xs bg-brand-surface border-brand-line"><SelectValue placeholder="Charger un preset..." /></SelectTrigger>
+                    <SelectContent className="bg-brand-surface border-brand-line text-white">
+                        {presets.map(p => (
+                            <div key={p.id} className="flex items-center justify-between pr-2">
+                                <SelectItem value={p.id} className="flex-grow">{p.name}</SelectItem>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); onPresetDelete(p.id); }}><Trash2 className="h-3 w-3 text-red-500/80" /></Button>
+                            </div>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <SavePresetDialog currentAnalysis={rawMealAnalysis} onSave={onPresetSave} />
+            </div>
+        </div>
       </CardHeader>
 
       <CardContent className="relative overflow-x-auto">
@@ -158,23 +176,7 @@ export default function ImpactTableHorizontal({
             {/* --- Ligne de saisie pour l'analyse du cru / clinker sans cendres --- */}
             <TableRow>
                 <TableCell className="sticky left-0 z-10 bg-background border-r font-medium px-3 whitespace-nowrap">
-                   <div className="flex items-center gap-2">
-                     <span>Cru / Ck Sans Cendres</span>
-                     <div className="flex items-center gap-1">
-                       <Select onValueChange={onPresetLoad}>
-                           <SelectTrigger className="w-[120px] h-8 text-xs bg-brand-surface border-brand-line"><SelectValue placeholder="Charger..." /></SelectTrigger>
-                           <SelectContent className="bg-brand-surface border-brand-line text-white">
-                               {presets.map(p => (
-                                   <div key={p.id} className="flex items-center justify-between pr-2">
-                                       <SelectItem value={p.id} className="flex-grow">{p.name}</SelectItem>
-                                       <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); onPresetDelete(p.id); }}><Trash2 className="h-3 w-3 text-red-500/80" /></Button>
-                                   </div>
-                               ))}
-                           </SelectContent>
-                       </Select>
-                       <SavePresetDialog currentAnalysis={rawMealAnalysis} onSave={onPresetSave} />
-                    </div>
-                   </div>
+                   <span>Cru / Ck Sans Cendres</span>
                 </TableCell>
                 {ELEMENTS.map(key => (
                     <TableCell key={key} className="px-1">
