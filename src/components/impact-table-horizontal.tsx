@@ -42,8 +42,7 @@ const ELEMENT_LABELS: Record<keyof ChemSet, string> = {
 const fmt = (v?: number | null) => (v != null ? Number(v).toFixed(2) : "–");
 const delta = (a?: number | null, b?: number | null) => {
   if (a == null || b == null) return undefined;
-  const base = Math.abs(b) < 1e-6 ? 1e-6 : b;
-  return ((a - b) / base) * 100;
+  return a - b;
 };
 
 // --- Composant
@@ -101,16 +100,16 @@ export default function ImpactTableHorizontal({
             {showDelta && (
               <TableRow>
                 <TableCell className="sticky left-0 z-10 bg-background border-r font-medium px-3 whitespace-nowrap">
-                  Δ% (Avec vs Sans)
+                  Δ (Avec - Sans)
                 </TableCell>
                 {ELEMENTS.map((el) => {
                   const d = delta(clinkerAvec?.[el], clinkerSans?.[el]);
-                   const cls = d == null ? "" : d >= 0 ? "bg-emerald-600/15 text-emerald-500" : "bg-rose-600/15 text-rose-500";
+                   const cls = d == null ? "" : d >= 0.001 ? "bg-emerald-600/15 text-emerald-500" : d <= -0.001 ? "bg-rose-600/15 text-rose-500" : "text-muted-foreground";
                   return (
                     <TableCell key={String(el)} className="px-3 text-center">
                       {d == null ? "–" : (
                         <span className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
-                          {(d>=0?"+":"")}{d.toFixed(2)}%
+                          {(d>=0?"+":"")}{d.toFixed(2)}
                         </span>
                       )}
                     </TableCell>
