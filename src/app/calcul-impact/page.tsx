@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Flame, Beaker, Gauge, Save, Trash2, FileDown, Wind, Zap } from "lucide-react"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from "@/components/ui/skeleton";
@@ -74,7 +75,7 @@ const calculateC3S = (analysis: OxideAnalysis, freeLime: number) => {
 };
 
 const useClinkerCalculations = (
-    rawMealFlow: number, rawMealAnalysis: OxideAnalysis, afFlow: number, afAshAnalysis: OxideAnalysis, grignonsFlow: number, grignonsAshAnalysis: OxideAnalysis, petCokePrecaFlow: number, petCokePrecaAsh: OxideAnalysis, petCokeTuyereFlow: number, petCokeTuyereAsh: OxideAnalysis, fuelDataMap: Record<string, FuelData>, so3Target: number, pfClinkerTarget: number
+    rawMealFlow: number, rawMealAnalysis: OxideAnalysis, afFlow: number, afAshAnalysis: OxideAnalysis, grignonsFlow: number, grignonsAshAnalysis: OxideAnalysis, petCokePrecaFlow: number, petCokePrecaAsh: OxideAnalysis, petCokeTuyereFlow: number, petCokeTuyereAsh: OxideAnalysis, fuelDataMap: Record<string, FuelData>, so3Target: number, pfClinkerTarget: number, freeLime: number
 ) => {
     return useMemo(() => {
         const clinkerize = (input: OxideAnalysis, targetPf: number) => {
@@ -160,9 +161,15 @@ const useClinkerCalculations = (
                  clinkerWithAsh[key] = (clinkerWithAsh_preNormalization[key] ?? 0) * dilutionFactor;
             }
         });
+        
+        const modulesSans = calculateModules(clinkerWithoutAsh);
+        const c3sSans = calculateC3S(clinkerWithoutAsh, freeLime);
+        const modulesAvec = calculateModules(clinkerWithAsh);
+        const c3sAvec = calculateC3S(clinkerWithAsh, freeLime);
 
-        return { clinkerWithoutAsh, clinkerWithAsh, averageAshAnalysis };
-    }, [rawMealFlow, rawMealAnalysis, afFlow, afAshAnalysis, grignonsFlow, grignonsAshAnalysis, petCokePrecaFlow, petCokePrecaAsh, petCokeTuyereFlow, petCokeTuyereAsh, fuelDataMap, so3Target, pfClinkerTarget]);
+
+        return { clinkerWithoutAsh, clinkerWithAsh, averageAshAnalysis, modulesSans, modulesAvec, c3sSans, c3sAvec };
+    }, [rawMealFlow, rawMealAnalysis, afFlow, afAshAnalysis, grignonsFlow, grignonsAshAnalysis, petCokePrecaFlow, petCokePrecaAsh, petCokeTuyereFlow, petCokeTuyereAsh, fuelDataMap, so3Target, pfClinkerTarget, freeLime]);
 };
 
 // --- Components ---
@@ -324,8 +331,8 @@ export default function CalculImpactPage() {
     const petCokePrecaFlow = useMemo(() => latestSession?.directInputs?.['Pet-Coke Preca']?.flowRate || 0, [latestSession]);
     const petCokeTuyereFlow = useMemo(() => latestSession?.directInputs?.['Pet-Coke Tuyere']?.flowRate || 0, [latestSession]);
     
-    const { clinkerWithoutAsh, clinkerWithAsh, averageAshAnalysis } = useClinkerCalculations(
-        rawMealFlow, rawMealAnalysis, afFlow, afAshAnalysis, grignonsFlow, grignonsAshAnalysis, petCokePrecaFlow, petCokePrecaAsh, petCokeTuyereFlow, petCokeTuyereAsh, fuelDataMap, so3Target, pfClinkerTarget
+    const { clinkerWithoutAsh, clinkerWithAsh, averageAshAnalysis, modulesSans, modulesAvec, c3sSans, c3sAvec } = useClinkerCalculations(
+        rawMealFlow, rawMealAnalysis, afFlow, afAshAnalysis, grignonsFlow, grignonsAshAnalysis, petCokePrecaFlow, petCokePrecaAsh, petCokeTuyereFlow, petCokeTuyereAsh, fuelDataMap, so3Target, pfClinkerTarget, freeLime
     );
 
     const debitClinker = useMemo(() => (rawMealFlow * clinkerFactor), [rawMealFlow, clinkerFactor]);
@@ -334,6 +341,19 @@ export default function CalculImpactPage() {
         await deleteRawMealPreset(id);
         toast({ title: "Preset supprimé." });
         fetchPresets();
+    };
+
+    const fmt = (v: number | undefined | null) => (v != null ? v.toFixed(2) : "-");
+    
+    const delta = (a: number | undefined | null, b: number | undefined | null) => {
+      if (a == null || b == null) return null;
+      return a - b;
+    };
+    
+    const DeltaCell = ({val}: {val: number | null}) => {
+        if (val === null) return <TableCell className="text-center">-</TableCell>;
+        const cls = val > 0.001 ? "text-emerald-500" : val < -0.001 ? "text-rose-500" : "text-muted-foreground";
+        return <TableCell className={`text-center font-medium ${cls}`}>{(val > 0 ? "+" : "")}{val.toFixed(2)}</TableCell>;
     };
 
     if (loading) {
@@ -427,16 +447,64 @@ export default function CalculImpactPage() {
           </div>
       </section>
       
-      <section className="pt-4">
-        <ImpactTableHorizontal
-          farine={rawMealAnalysis}
-          cendresMelange={averageAshAnalysis}
-          clinkerSans={clinkerWithoutAsh}
-          clinkerAvec={clinkerWithAsh}
-          showDelta={true}
-        />
+      <section className="pt-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+            <ImpactTableHorizontal
+            farine={rawMealAnalysis}
+            cendresMelange={averageAshAnalysis}
+            clinkerSans={clinkerWithoutAsh}
+            clinkerAvec={clinkerWithAsh}
+            showDelta={true}
+            />
+        </div>
+        <Card>
+            <CardHeader>
+                <CardTitle>Modules du Clinker</CardTitle>
+                <CardDescription>Indicateurs de qualité du clinker.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Module</TableHead>
+                            <TableHead className="text-center">Sans Cendres</TableHead>
+                            <TableHead className="text-center">Avec Cendres</TableHead>
+                            <TableHead className="text-center">Δ</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        <TableRow>
+                            <TableCell className="font-medium">MS (Module Siliceux)</TableCell>
+                            <TableCell className="text-center">{fmt(modulesSans.ms)}</TableCell>
+                            <TableCell className="text-center">{fmt(modulesAvec.ms)}</TableCell>
+                            <DeltaCell val={delta(modulesAvec.ms, modulesSans.ms)} />
+                        </TableRow>
+                        <TableRow>
+                            <TableCell className="font-medium">AF (Module Alumino-Ferrique)</TableCell>
+                            <TableCell className="text-center">{fmt(modulesSans.af)}</TableCell>
+                            <TableCell className="text-center">{fmt(modulesAvec.af)}</TableCell>
+                            <DeltaCell val={delta(modulesAvec.af, modulesSans.af)} />
+                        </TableRow>
+                        <TableRow>
+                            <TableCell className="font-medium">LSF (Facteur de Saturation en Chaux)</TableCell>
+                            <TableCell className="text-center">{fmt(modulesSans.lsf)}</TableCell>
+                            <TableCell className="text-center">{fmt(modulesAvec.lsf)}</TableCell>
+                            <DeltaCell val={delta(modulesAvec.lsf, modulesSans.lsf)} />
+                        </TableRow>
+                        <TableRow>
+                            <TableCell className="font-medium">C₃S (Alite)</TableCell>
+                            <TableCell className="text-center">{fmt(c3sSans)}</TableCell>
+                            <TableCell className="text-center">{fmt(c3sAvec)}</TableCell>
+                            <DeltaCell val={delta(c3sAvec, c3sSans)} />
+                        </TableRow>
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
       </section>
 
     </div>
   )
 }
+
+    
