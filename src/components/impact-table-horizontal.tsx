@@ -117,9 +117,14 @@ export default function ImpactTableHorizontal({
   cendresMelange, clinkerSans, clinkerAvec, modulesCendres, modulesSans, modulesAvec, c3sSans, c3sAvec, showDelta = true
 }: ImpactTableHorizontalProps) {
 
+  const calculateSum = (data: ChemSet) => {
+    return ELEMENTS.reduce((sum, key) => sum + (data[key] ?? 0), 0);
+  };
+  
   const rows = [
-    { label: "Cendres Mélange", data: cendresMelange, modules: modulesCendres, c3s: null },
-    { label: "Clinker avec Cendres", data: clinkerAvec, modules: modulesAvec, c3s: c3sAvec },
+    { label: "Cendres Mélange", data: cendresMelange, modules: modulesCendres, c3s: null, sum: calculateSum(cendresMelange) },
+    { label: "Clinker sans Cendres", data: clinkerSans, modules: modulesSans, c3s: c3sSans, sum: calculateSum(clinkerSans) },
+    { label: "Clinker avec Cendres", data: clinkerAvec, modules: modulesAvec, c3s: c3sAvec, sum: calculateSum(clinkerAvec) },
   ];
   
   const handleInputChange = (key: keyof ChemSet, value: string) => {
@@ -133,7 +138,7 @@ export default function ImpactTableHorizontal({
         <div className="flex justify-between items-center">
             <div>
                  <CardTitle>Résultats horizontaux – Impact sur le Clinker</CardTitle>
-                <CardDescription>Éléments chimiques et modules fixés en haut • valeurs en %</CardDescription>
+                <CardDescription>Éléments chimiques fixés en haut • valeurs en %</CardDescription>
             </div>
              <div className="flex items-center gap-2">
                 <Select onValueChange={onPresetLoad}>
@@ -165,7 +170,8 @@ export default function ImpactTableHorizontal({
                   {ELEMENT_LABELS[el]}
                 </TableHead>
               ))}
-               <TableHead className="text-center px-1 font-bold border-l">MS</TableHead>
+               <TableHead className="text-center px-1 font-bold border-l">Somme</TableHead>
+               <TableHead className="text-center px-1 font-bold">MS</TableHead>
                <TableHead className="text-center px-1 font-bold">AF</TableHead>
                <TableHead className="text-center px-1 font-bold">LSF</TableHead>
                <TableHead className="text-center px-1 font-bold">C3S</TableHead>
@@ -173,10 +179,10 @@ export default function ImpactTableHorizontal({
           </TableHeader>
 
           <TableBody>
-            {/* --- Ligne de saisie pour l'analyse du cru / clinker sans cendres --- */}
+            {/* --- Ligne de saisie pour l'analyse du cru --- */}
             <TableRow>
                 <TableCell className="sticky left-0 z-10 bg-background border-r font-medium px-3 whitespace-nowrap">
-                   <span>Cru / Ck Sans Cendres</span>
+                   <span>Farine</span>
                 </TableCell>
                 {ELEMENTS.map(key => (
                     <TableCell key={key} className="px-1">
@@ -189,10 +195,9 @@ export default function ImpactTableHorizontal({
                         />
                     </TableCell>
                 ))}
-                <TableCell className="px-1 text-center tabular-nums font-medium border-l">{fmt(modulesSans?.ms)}</TableCell>
-                <TableCell className="px-1 text-center tabular-nums font-medium">{fmt(modulesSans?.af)}</TableCell>
-                <TableCell className="px-1 text-center tabular-nums font-medium">{fmt(modulesSans?.lsf)}</TableCell>
-                <TableCell className="px-1 text-center tabular-nums font-medium">{fmt(c3sSans)}</TableCell>
+                <TableCell className="px-1 text-center tabular-nums font-medium border-l">{fmt(calculateSum(rawMealAnalysis))}</TableCell>
+                {/* Modules for raw meal are not typically shown, but calculated for clinker */}
+                <TableCell colSpan={4}></TableCell>
             </TableRow>
 
 
@@ -207,7 +212,8 @@ export default function ImpactTableHorizontal({
                     {fmt(r.data?.[el])}
                   </TableCell>
                 ))}
-                <TableCell className="px-1 text-center tabular-nums font-medium border-l">{fmt(r.modules?.ms)}</TableCell>
+                <TableCell className="px-1 text-center tabular-nums font-medium border-l">{fmt(r.sum)}</TableCell>
+                <TableCell className="px-1 text-center tabular-nums font-medium">{fmt(r.modules?.ms)}</TableCell>
                 <TableCell className="px-1 text-center tabular-nums font-medium">{fmt(r.modules?.af)}</TableCell>
                 <TableCell className="px-1 text-center tabular-nums font-medium">{fmt(r.modules?.lsf)}</TableCell>
                 <TableCell className="px-1 text-center tabular-nums font-medium">{fmt(r.c3s)}</TableCell>
@@ -232,6 +238,18 @@ export default function ImpactTableHorizontal({
                     </TableCell>
                   );
                 })}
+                {/* Delta for Sum */}
+                <TableCell className="px-1 text-center border-l">
+                  {(() => {
+                    const d = delta(calculateSum(clinkerAvec), calculateSum(clinkerSans));
+                    const cls = d == null ? "" : d >= 0.001 ? "bg-emerald-600/15 text-emerald-500" : d <= -0.001 ? "bg-rose-600/15 text-rose-500" : "text-muted-foreground";
+                    return d == null ? "–" : (
+                      <span className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
+                        {(d>=0?"+":"")}{d.toFixed(2)}
+                      </span>
+                    );
+                  })()}
+                </TableCell>
                  {[ 'ms', 'af', 'lsf', 'c3s'].map((mod) => {
                   const d = delta(
                     mod === 'c3s' ? c3sAvec : modulesAvec[mod as keyof Modules],
@@ -239,7 +257,7 @@ export default function ImpactTableHorizontal({
                   );
                   const cls = d == null ? "" : d >= 0.001 ? "bg-emerald-600/15 text-emerald-500" : d <= -0.001 ? "bg-rose-600/15 text-rose-500" : "text-muted-foreground";
                   return (
-                    <TableCell key={`delta-${mod}`} className={`px-1 text-center font-medium ${mod === 'ms' ? 'border-l' : ''}`}>
+                    <TableCell key={`delta-${mod}`} className={`px-1 text-center font-medium`}>
                       {d == null ? "–" : (
                         <span className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
                           {(d>=0?"+":"")}{d.toFixed(2)}
@@ -256,3 +274,4 @@ export default function ImpactTableHorizontal({
     </Card>
   );
 }
+
