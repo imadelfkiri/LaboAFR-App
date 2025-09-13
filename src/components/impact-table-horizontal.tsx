@@ -157,8 +157,8 @@ export default function ImpactTableHorizontal({
         </div>
       </CardHeader>
 
-      <CardContent className="relative overflow-x-auto">
-        <Table role="table" className="min-w-max">
+      <CardContent className="relative">
+        <Table role="table">
           <TableHeader>
             <TableRow className="sticky top-0 z-10 bg-background">
               <TableHead className="sticky left-0 top-0 z-20 bg-background border-r px-3 text-left min-w-[200px]">

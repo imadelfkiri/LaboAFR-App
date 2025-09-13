@@ -339,7 +339,7 @@ export default function CalculImpactPage() {
                     <Flame className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold text-brand-accent">{debitClinker.toFixed(2)}</div>
+                    <div className="text-xl font-bold text-brand-accent">{debitClinker.toFixed(2)}</div>
                 </CardContent>
               </Card>
               <Card>
