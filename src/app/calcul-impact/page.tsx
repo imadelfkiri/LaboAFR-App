@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { getLatestMixtureSession, getAverageAshAnalysisForFuels, getFuelData, type MixtureSession, type AshAnalysis, type FuelData, getRawMealPresets, saveRawMealPreset, deleteRawMealPreset, type RawMealPreset } from '@/lib/data';
 import ImpactTableHorizontal from "@/components/impact-table-horizontal";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import * as XLSX from 'xlsx';
+import *as XLSX from 'xlsx';
 
 
 // --- Type Definitions ---
@@ -429,7 +429,7 @@ export default function CalculImpactPage() {
           </div>
       </section>
       
-      <section className="pt-4 space-y-6">
+      <div className="space-y-6">
         <div>
             <ImpactTableHorizontal
                 rawMealAnalysis={rawMealAnalysis}
@@ -475,14 +475,10 @@ export default function CalculImpactPage() {
                 </ResponsiveContainer>
             </CardContent>
         </Card>
-      </section>
+      </div>
 
     </div>
   )
 }
-
-    
-
-    
 
     
