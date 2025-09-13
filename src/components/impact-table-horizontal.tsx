@@ -138,8 +138,7 @@ export default function ImpactTableHorizontal({
       <CardHeader className="pb-2">
         <div className="flex justify-between items-center">
             <div>
-                 <CardTitle>Résultats horizontaux – Impact sur le Clinker</CardTitle>
-                <CardDescription>Éléments chimiques fixés en haut • valeurs en %</CardDescription>
+                 <CardTitle>Calcul d'impact</CardTitle>
             </div>
              <div className="flex items-center gap-2">
                 <Select onValueChange={onPresetLoad}>
@@ -278,4 +277,3 @@ export default function ImpactTableHorizontal({
     </Card>
   );
 }
-
