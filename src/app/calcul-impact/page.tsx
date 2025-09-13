@@ -1,10 +1,11 @@
+
 // app/calcul-impact/page.tsx
 "use client"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Flame, Beaker, Gauge, Save, Trash2, FileDown, Wind, Zap } from "lucide-react"
+import { Flame, Beaker, Gauge, Save, Trash2, FileDown, Wind, Zap, Upload } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input"
@@ -13,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { getLatestMixtureSession, getAverageAshAnalysisForFuels, getFuelData, type MixtureSession, type AshAnalysis, type FuelData, getRawMealPresets, saveRawMealPreset, deleteRawMealPreset, type RawMealPreset } from '@/lib/data';
 import ImpactTableHorizontal from "@/components/impact-table-horizontal";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import * as XLSX from 'xlsx';
 
 
 // --- Type Definitions ---
@@ -197,6 +199,7 @@ export default function CalculImpactPage() {
     const [petCokeTuyereAsh, setPetCokeTuyereAsh] = useState<OxideAnalysis>({});
     
     const [presets, setPresets] = useState<RawMealPreset[]>([]);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const fetchPresets = useCallback(async () => {
         const fetchedPresets = await getRawMealPresets();
@@ -289,6 +292,61 @@ export default function CalculImpactPage() {
         fetchPresets();
     };
 
+    const handleImportFile = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = new Uint8Array(e.target?.result as ArrayBuffer);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                // Get the data from row 24 (index 23 in 0-based array)
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                
+                if (jsonData.length < 24) {
+                    throw new Error("Le fichier Excel ne contient pas de données à la ligne 24.");
+                }
+                const rowData: any[] = jsonData[23]; // Line 24
+
+                // Expecting 11 values from column B (index 1) to L (index 11)
+                if (rowData.length < 12) {
+                     throw new Error("La ligne 24 ne contient pas assez de colonnes (B à L).");
+                }
+
+                const newAnalysis: OxideAnalysis = {};
+                const values = rowData.slice(1, 12); // B to L -> index 1 to 11
+
+                OXIDE_KEYS.forEach((key, index) => {
+                    const value = values[index];
+                    if (typeof value === 'number') {
+                        newAnalysis[key] = value;
+                    } else if (typeof value === 'string') {
+                        const parsed = parseFloat(value.replace(',', '.'));
+                        newAnalysis[key] = isNaN(parsed) ? 0 : parsed;
+                    } else {
+                        newAnalysis[key] = 0;
+                    }
+                });
+                
+                setRawMealAnalysis(newAnalysis);
+                toast({ title: "Importation réussie", description: "L'analyse de la farine a été mise à jour." });
+
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
+                toast({ variant: "destructive", title: "Erreur d'importation", description: errorMessage });
+            } finally {
+                // Reset file input
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = "";
+                }
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    };
+
     const deltaChartData = useMemo(() => {
         const delta = (a?: number | null, b?: number | null) => (a ?? 0) - (b ?? 0);
         return [
@@ -311,6 +369,13 @@ export default function CalculImpactPage() {
   
   return (
     <div className="mx-auto w-full max-w-[90rem] px-4 py-6 space-y-6">
+       <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleImportFile}
+        className="hidden"
+        accept=".xlsx, .xls"
+      />
       <section>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6 mb-6">
               <Card>
@@ -378,6 +443,7 @@ export default function CalculImpactPage() {
                 onPresetLoad={(id) => { const p = presets.find(p => p.id === id); if(p) setRawMealAnalysis(p.analysis); }}
                 onPresetSave={fetchPresets}
                 onPresetDelete={handleDeletePreset}
+                onImport={() => fileInputRef.current?.click()}
                 cendresMelange={averageAshAnalysis}
                 clinkerSans={clinkerWithoutAsh}
                 clinkerAvec={clinkerWithAsh}
@@ -419,3 +485,5 @@ export default function CalculImpactPage() {
     </div>
   )
 }
+
+    

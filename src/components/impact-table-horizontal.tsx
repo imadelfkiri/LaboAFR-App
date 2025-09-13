@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose, DialogTrigger } from "@/components/ui/dialog";
-import { Save, Trash2 } from "lucide-react";
+import { Save, Trash2, Upload } from "lucide-react";
 import { saveRawMealPreset, type RawMealPreset } from '@/lib/data';
 import { useToast } from "@/hooks/use-toast";
 
@@ -42,6 +42,7 @@ export interface ImpactTableHorizontalProps {
   onPresetLoad: (id: string) => void;
   onPresetSave: () => void;
   onPresetDelete: (id: string) => void;
+  onImport: () => void;
   cendresMelange: ChemSet;
   clinkerSans: ChemSet;
   clinkerAvec: ChemSet;
@@ -114,7 +115,7 @@ const SavePresetDialog = ({ currentAnalysis, onSave }: { currentAnalysis: ChemSe
 
 // --- Composant
 export default function ImpactTableHorizontal({
-  rawMealAnalysis, onRawMealChange, presets, onPresetLoad, onPresetSave, onPresetDelete,
+  rawMealAnalysis, onRawMealChange, presets, onPresetLoad, onPresetSave, onPresetDelete, onImport,
   cendresMelange, clinkerSans, clinkerAvec, modulesFarine, modulesCendres, modulesSans, modulesAvec, c3sSans, c3sAvec, showDelta = true
 }: ImpactTableHorizontalProps) {
 
@@ -141,6 +142,9 @@ export default function ImpactTableHorizontal({
                  <CardTitle>Calcul d'impact</CardTitle>
             </div>
              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" className="h-9" onClick={onImport}>
+                    <Upload className="h-4 w-4 mr-2" /> Importer de Excel
+                </Button>
                 <Select onValueChange={onPresetLoad}>
                     <SelectTrigger className="w-[180px] h-9 text-xs bg-brand-surface border-brand-line"><SelectValue placeholder="Charger un preset..." /></SelectTrigger>
                     <SelectContent className="bg-brand-surface border-brand-line text-white">
@@ -279,3 +283,5 @@ export default function ImpactTableHorizontal({
     </Card>
   );
 }
+
+    
