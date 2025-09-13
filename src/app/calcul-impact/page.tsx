@@ -12,6 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getLatestMixtureSession, getAverageAshAnalysisForFuels, getFuelData, type MixtureSession, type AshAnalysis, type FuelData, getRawMealPresets, saveRawMealPreset, deleteRawMealPreset, type RawMealPreset } from '@/lib/data';
 import ImpactTableHorizontal from "@/components/impact-table-horizontal";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+
 
 // --- Type Definitions ---
 type OxideAnalysis = {
@@ -248,7 +250,7 @@ export default function CalculImpactPage() {
     const [afAshAnalysis, setAfAshAnalysis] = useState<OxideAnalysis>({});
     const [grignonsAshAnalysis, setGrignonsAshAnalysis] = useState<OxideAnalysis>({});
     const [petCokePrecaAsh, setPetCokePrecaAsh] = useState<OxideAnalysis>({});
-    const [petCokeTuyereAsh, setPetCokeTuyereAsh] =useState<OxideAnalysis>({});
+    const [petCokeTuyereAsh, setPetCokeTuyereAsh] = useState<OxideAnalysis>({});
     
     const [presets, setPresets] = useState<RawMealPreset[]>([]);
 
@@ -343,6 +345,16 @@ export default function CalculImpactPage() {
         fetchPresets();
     };
 
+    const deltaChartData = useMemo(() => {
+        const delta = (a?: number | null, b?: number | null) => (a ?? 0) - (b ?? 0);
+        return [
+            { name: 'Fe2O3', value: delta(clinkerWithAsh.fe2o3, clinkerWithoutAsh.fe2o3) },
+            { name: 'CaO', value: delta(clinkerWithAsh.cao, clinkerWithoutAsh.cao) },
+            { name: 'LSF', value: delta(modulesAvec.lsf, modulesSans.lsf) },
+            { name: 'C3S', value: delta(c3sAvec, c3sSans) }
+        ];
+    }, [clinkerWithAsh, clinkerWithoutAsh, modulesAvec, modulesSans, c3sAvec, c3sSans]);
+
     if (loading) {
         return (
             <div className="mx-auto w-full max-w-7xl px-4 py-6 space-y-6">
@@ -434,23 +446,45 @@ export default function CalculImpactPage() {
           </div>
       </section>
       
-      <section className="pt-4">
-        <ImpactTableHorizontal
-          cendresMelange={averageAshAnalysis}
-          clinkerSans={clinkerWithoutAsh}
-          clinkerAvec={clinkerWithAsh}
-          modulesSans={modulesSans}
-          modulesAvec={modulesAvec}
-          c3sSans={c3sSans}
-          c3sAvec={c3sAvec}
-          showDelta={true}
-        />
+      <section className="pt-4 grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <div className="xl:col-span-2">
+            <ImpactTableHorizontal
+            cendresMelange={averageAshAnalysis}
+            clinkerSans={clinkerWithoutAsh}
+            clinkerAvec={clinkerWithAsh}
+            modulesSans={modulesSans}
+            modulesAvec={modulesAvec}
+            c3sSans={c3sSans}
+            c3sAvec={c3sAvec}
+            showDelta={true}
+            />
+        </div>
+        <Card>
+            <CardHeader>
+                <CardTitle>Impact sur les Indicateurs Clés</CardTitle>
+                <CardDescription>Variation absolue (Avec Cendres - Sans Cendres)</CardDescription>
+            </CardHeader>
+            <CardContent>
+                 <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={deltaChartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                        <Tooltip
+                            contentStyle={{
+                                background: "hsl(var(--background))",
+                                border: "1px solid hsl(var(--border))",
+                                color: "hsl(var(--foreground))"
+                            }}
+                            cursor={{ fill: 'hsl(var(--muted))' }}
+                        />
+                        <Bar dataKey="value" name="Variation" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                </ResponsiveContainer>
+            </CardContent>
+        </Card>
       </section>
 
     </div>
   )
 }
-
-    
-
-    
