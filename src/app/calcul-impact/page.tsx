@@ -1,4 +1,5 @@
 
+
 // app/calcul-impact/page.tsx
 "use client"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -193,6 +194,7 @@ export default function CalculImpactPage() {
     const [pfClinkerTarget, setPfClinkerTarget] = usePersistentState<number>('calculImpact_pfClinker', 0.5);
 
     const [realClinkerAnalysis, setRealClinkerAnalysis] = usePersistentState<OxideAnalysis>('calculImpact_realClinkerAnalysis', initialRealClinkerState);
+    const [realFreeLime, setRealFreeLime] = usePersistentState<number>('calculImpact_realFreeLime', 1.5);
 
     const [latestSession, setLatestSession] = useState<MixtureSession | null>(null);
     const [afAshAnalysis, setAfAshAnalysis] = useState<OxideAnalysis>({});
@@ -288,7 +290,7 @@ export default function CalculImpactPage() {
     );
 
     const modulesReel = useMemo(() => calculateModules(realClinkerAnalysis), [realClinkerAnalysis]);
-    const c3sReel = useMemo(() => calculateC3S(realClinkerAnalysis, freeLime), [realClinkerAnalysis, freeLime]);
+    const c3sReel = useMemo(() => calculateC3S(realClinkerAnalysis, realFreeLime), [realClinkerAnalysis, realFreeLime]);
 
     const debitClinker = useMemo(() => (rawMealFlow * clinkerFactor), [rawMealFlow, clinkerFactor]);
 
@@ -367,23 +369,15 @@ export default function CalculImpactPage() {
 
                 const newAnalysis: OxideAnalysis = {};
                 
-                // Extract columns B, and D to M
-                const values = [
-                    rowData[1], // B
-                    rowData[3], // D
-                    rowData[4], // E
-                    rowData[5], // F
-                    rowData[6], // G
-                    rowData[7], // H
-                    rowData[8], // I
-                    rowData[9], // J
-                    rowData[10], // K
-                    rowData[11], // L
-                    rowData[12], // M
+                // Extract columns B, and D to M for oxides
+                const oxideValues = [
+                    rowData[1], // B (PF)
+                    rowData[3], rowData[4], rowData[5], rowData[6], rowData[7],
+                    rowData[8], rowData[9], rowData[10], rowData[11], rowData[12]
                 ];
 
                 OXIDE_KEYS.forEach((key, index) => {
-                    const value = values[index];
+                    const value = oxideValues[index];
                     if (typeof value === 'number' && !isNaN(value)) {
                         newAnalysis[key] = value;
                     } else if (typeof value === 'string') {
@@ -393,9 +387,19 @@ export default function CalculImpactPage() {
                         newAnalysis[key] = 0;
                     }
                 });
-                
                 setRealClinkerAnalysis(newAnalysis);
-                toast({ title: "Importation réussie", description: "L'analyse du clinker réel a été mise à jour." });
+
+                // Extract free lime from column C (index 2)
+                const freeLimeValue = rowData[2];
+                let parsedFreeLime = 0;
+                 if (typeof freeLimeValue === 'number' && !isNaN(freeLimeValue)) {
+                    parsedFreeLime = freeLimeValue;
+                } else if (typeof freeLimeValue === 'string') {
+                    parsedFreeLime = parseFloat(freeLimeValue.replace(',', '.')) || 0;
+                }
+                setRealFreeLime(parsedFreeLime);
+                
+                toast({ title: "Importation réussie", description: "L'analyse du clinker réel et la chaux libre ont été mises à jour." });
 
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
