@@ -351,15 +351,15 @@ export default function CalculImpactPage() {
         };
         const c3sVals = { without: calculateC3S(clinkerWithoutAsh, freeLime), with: calculateC3S(clinkerWithAsh, freeLime) };
 
-        let valRaw, valAsh, valWithout, valWith;
+        let valAsh, valWithout, valWith;
 
         if (key === 'c3s') {
             valWithout = c3sVals.without; valWith = c3sVals.with;
         } else if (['ms', 'af', 'lsf'].includes(key)) {
-            valRaw = modules.raw[key as 'ms'|'af'|'lsf']; valAsh = modules.ash[key as 'ms'|'af'|'lsf'];
+            valAsh = modules.ash[key as 'ms'|'af'|'lsf'];
             valWithout = modules.without[key as 'ms'|'af'|'lsf']; valWith = modules.with[key as 'ms'|'af'|'lsf'];
         } else {
-            valRaw = analyses.raw[key as keyof OxideAnalysis]; valAsh = analyses.ash[key as keyof OxideAnalysis];
+            valAsh = analyses.ash[key as keyof OxideAnalysis];
             valWithout = analyses.without[key as keyof OxideAnalysis]; valWith = analyses.with[key as keyof OxideAnalysis];
         }
 
