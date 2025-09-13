@@ -1,7 +1,6 @@
 // app/calcul-impact/page.tsx
 "use client"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { DeltaPill } from "@/components/badges/DeltaPill"
 import { Button } from "@/components/ui/button"
 import { Flame, Beaker, Gauge, Save, Trash2, FileDown, Wind, Zap } from "lucide-react"
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -11,13 +10,14 @@ import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, DialogClose } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getLatestMixtureSession, getAverageAshAnalysisForFuels, getFuelData, type MixtureSession, type AshAnalysis, type FuelData, getRawMealPresets, saveRawMealPreset, deleteRawMealPreset, type RawMealPreset } from '@/lib/data';
+import ImpactTableHorizontal from "@/components/impact-table-horizontal";
 
 // --- Type Definitions ---
 type OxideAnalysis = {
-    [key: string]: number | undefined;
-    pf?: number; sio2?: number; al2o3?: number; fe2o3?: number;
-    cao?: number; mgo?: number; so3?: number; k2o?: number;
-    tio2?: number; mno?: number; p2o5?: number;
+    [key: string]: number | undefined | null;
+    pf?: number | null; sio2?: number | null; al2o3?: number | null; fe2o3?: number | null;
+    cao?: number | null; mgo?: number | null; so3?: number | null; k2o?: number | null;
+    tio2?: number | null; mno?: number | null; p2o5?: number | null;
 };
 const OXIDE_KEYS: (keyof OxideAnalysis)[] = ['pf', 'sio2', 'al2o3', 'fe2o3', 'cao', 'mgo', 'so3', 'k2o', 'tio2', 'mno', 'p2o5'];
 const OXIDE_LABELS: Record<keyof OxideAnalysis, string> = {
@@ -79,7 +79,7 @@ const useClinkerCalculations = (
     return useMemo(() => {
         const clinkerize = (input: OxideAnalysis, targetPf: number) => {
             const sumNonVolatile = OXIDE_KEYS.reduce((acc, key) => {
-                if (key !== 'pf' && input[key] !== undefined) {
+                if (key !== 'pf' && input[key] != null) {
                     return acc + (input[key] as number);
                 }
                 return acc;
@@ -89,7 +89,7 @@ const useClinkerCalculations = (
 
             const clinkerized: OxideAnalysis = { pf: targetPf };
              OXIDE_KEYS.forEach(key => {
-                if (key !== 'pf' && input[key] !== undefined) {
+                if (key !== 'pf' && input[key] != null) {
                     clinkerized[key] = (input[key] as number) * factor;
                 }
             });
@@ -336,61 +336,6 @@ export default function CalculImpactPage() {
         fetchPresets();
     };
 
-    const n = (x: number | undefined) => x !== undefined ? <span className="tabular-nums">{x.toFixed(2)}</span> : "-";
-    const colorize = (x: number | undefined, mode: "base" | "compare") => {
-        if (x === undefined) return "-";
-        const cls = mode === "compare" ? "bg-emerald-500/10 text-emerald-300 ring-1 ring-inset ring-emerald-500/20 rounded-md px-2 py-1" : "text-neutral-200";
-        return <span className={`tabular-nums ${cls}`}>{x.toFixed(2)}</span>;
-    };
-    
-    const mkRow = (label: string, key: keyof OxideAnalysis | 'ms' | 'af' | 'lsf' | 'c3s') => {
-        const analyses = { raw: rawMealAnalysis, ash: averageAshAnalysis, without: clinkerWithoutAsh, with: clinkerWithAsh };
-        const modules = {
-            raw: calculateModules(rawMealAnalysis), ash: calculateModules(averageAshAnalysis),
-            without: calculateModules(clinkerWithoutAsh), with: calculateModules(clinkerWithAsh)
-        };
-        const c3sVals = { without: calculateC3S(clinkerWithoutAsh, freeLime), with: calculateC3S(clinkerWithAsh, freeLime) };
-
-        let valAsh, valWithout, valWith;
-
-        if (key === 'c3s') {
-            valWithout = c3sVals.without; valWith = c3sVals.with;
-        } else if (['ms', 'af', 'lsf'].includes(key)) {
-            valAsh = modules.ash[key as 'ms'|'af'|'lsf'];
-            valWithout = modules.without[key as 'ms'|'af'|'lsf']; valWith = modules.with[key as 'ms'|'af'|'lsf'];
-        } else {
-            valAsh = analyses.ash[key as keyof OxideAnalysis];
-            valWithout = analyses.without[key as keyof OxideAnalysis]; valWith = analyses.with[key as keyof OxideAnalysis];
-        }
-
-        const delta = (valWith !== undefined && valWithout !== undefined && valWithout !== 0) ? ((valWith - valWithout) / Math.max(Math.abs(valWithout), 1e-9)) * 100 : 0;
-
-        return {
-            param: label,
-            cm: n(valAsh),
-            cs: colorize(valWithout, "base"), 
-            cac: colorize(valWith, "compare"),
-            delta: <DeltaPill delta={delta} />
-        };
-    };
-
-    const tableData = [
-        ...OXIDE_KEYS.map(key => mkRow(OXIDE_LABELS[key], key)),
-        mkRow("---", "pf"), // Separator
-        mkRow("MS", 'ms'), mkRow("A/F", 'af'), mkRow("LSF", 'lsf'),
-        mkRow("---", "pf"), // Separator
-        mkRow("C₃S (Alite)", 'c3s')
-    ];
-    
-    const rows = tableData.filter(row => row.param !== "---");
-    const columns = [
-        { key: "param", label: "Paramètre" },
-        { key: "cm", label: "Cendres Mélange", align: "right" as const }, 
-        { key: "cs", label: "Clinker sans Cendres", align: "right" as const },
-        { key: "cac", label: "Clinker avec Cendres", align: "right" as const }, 
-        { key: "delta", label: "Δ (%)", align: "right" as const },
-    ];
-    
     if (loading) {
         return (
             <div className="mx-auto w-full max-w-7xl px-4 py-6 space-y-6">
@@ -481,34 +426,17 @@ export default function CalculImpactPage() {
               <OxideInputRow analysis={rawMealAnalysis} onAnalysisChange={setRawMealAnalysis} />
           </div>
       </section>
-
-      <section className="space-y-3 pt-4 overflow-hidden rounded-2xl border border-brand-line/60 bg-brand-surface/60">
-        <h2 className="text-lg font-medium text-white px-4 pt-4">Résultats de l’Impact sur le Clinker</h2>
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-              <thead className="sticky top-0 z-10 bg-brand-surface/90 backdrop-blur supports-[backdrop-filter]:bg-brand-surface/60">
-                  <tr>
-                      {columns.map((c) => (
-                          <th key={c.key} className={`px-4 py-3 text-left font-medium text-neutral-300 border-b border-brand-line/60 ${c.align === "right" ? "text-right" : ""}`}>
-                              {c.label}
-                          </th>
-                      ))}
-                  </tr>
-              </thead>
-              <tbody>
-                  {rows.map((r, idx) => (
-                      <tr key={idx} className="border-b border-brand-line/40 even:bg-brand-muted/30 hover:bg-brand-muted/50 transition-colors">
-                          {columns.map((c) => (
-                              <td key={c.key} className={`px-4 py-3 text-neutral-200 ${c.align === "right" ? "text-right tabular-nums" : ""}`}>
-                                  {r[c.key as keyof typeof r]}
-                              </td>
-                          ))}
-                      </tr>
-                  ))}
-              </tbody>
-          </table>
-        </div>
+      
+      <section className="pt-4">
+        <ImpactTableHorizontal
+          farine={rawMealAnalysis}
+          cendresMelange={averageAshAnalysis}
+          clinkerSans={clinkerWithoutAsh}
+          clinkerAvec={clinkerWithAsh}
+          showDelta={true}
+        />
       </section>
+
     </div>
   )
 }
