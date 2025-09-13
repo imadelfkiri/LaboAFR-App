@@ -395,10 +395,6 @@ export default function CalculImpactPage() {
   return (
     <div className="mx-auto w-full max-w-[90rem] px-4 py-6 space-y-6">
       <section>
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-medium text-white">Paramètres de Simulation</h2>
-            <Button variant="outline" onClick={() => console.log("exporting...")}><FileDown className="mr-2 h-4 w-4" /> Exporter</Button>
-          </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6 mb-6">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
