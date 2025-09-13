@@ -168,9 +168,10 @@ const useClinkerCalculations = (
         const c3sSans = calculateC3S(clinkerWithoutAsh, freeLime);
         const modulesAvec = calculateModules(clinkerWithAsh);
         const c3sAvec = calculateC3S(clinkerWithAsh, freeLime);
+        const modulesCendres = calculateModules(averageAshAnalysis);
 
 
-        return { clinkerWithoutAsh, clinkerWithAsh, averageAshAnalysis, modulesSans, modulesAvec, c3sSans, c3sAvec };
+        return { clinkerWithoutAsh, clinkerWithAsh, averageAshAnalysis, modulesSans, modulesAvec, modulesCendres, c3sSans, c3sAvec };
     }, [rawMealFlow, rawMealAnalysis, afFlow, afAshAnalysis, grignonsFlow, grignonsAshAnalysis, petCokePrecaFlow, petCokePrecaAsh, petCokeTuyereFlow, petCokeTuyereAsh, fuelDataMap, so3Target, pfClinkerTarget, freeLime]);
 };
 
@@ -333,7 +334,7 @@ export default function CalculImpactPage() {
     const petCokePrecaFlow = useMemo(() => latestSession?.directInputs?.['Pet-Coke Preca']?.flowRate || 0, [latestSession]);
     const petCokeTuyereFlow = useMemo(() => latestSession?.directInputs?.['Pet-Coke Tuyere']?.flowRate || 0, [latestSession]);
     
-    const { clinkerWithoutAsh, clinkerWithAsh, averageAshAnalysis, modulesSans, modulesAvec, c3sSans, c3sAvec } = useClinkerCalculations(
+    const { clinkerWithoutAsh, clinkerWithAsh, averageAshAnalysis, modulesSans, modulesAvec, modulesCendres, c3sSans, c3sAvec } = useClinkerCalculations(
         rawMealFlow, rawMealAnalysis, afFlow, afAshAnalysis, grignonsFlow, grignonsAshAnalysis, petCokePrecaFlow, petCokePrecaAsh, petCokeTuyereFlow, petCokeTuyereAsh, fuelDataMap, so3Target, pfClinkerTarget, freeLime
     );
 
@@ -452,6 +453,7 @@ export default function CalculImpactPage() {
             cendresMelange={averageAshAnalysis}
             clinkerSans={clinkerWithoutAsh}
             clinkerAvec={clinkerWithAsh}
+            modulesCendres={modulesCendres}
             modulesSans={modulesSans}
             modulesAvec={modulesAvec}
             c3sSans={c3sSans}

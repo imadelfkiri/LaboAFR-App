@@ -30,6 +30,7 @@ export interface ImpactTableHorizontalProps {
   cendresMelange: ChemSet;
   clinkerSans: ChemSet;
   clinkerAvec: ChemSet;
+  modulesCendres: Modules;
   modulesSans: Modules;
   modulesAvec: Modules;
   c3sSans?: number | null;
@@ -57,11 +58,11 @@ const delta = (a?: number | null, b?: number | null) => {
 
 // --- Composant
 export default function ImpactTableHorizontal({
-  cendresMelange, clinkerSans, clinkerAvec, modulesSans, modulesAvec, c3sSans, c3sAvec, showDelta = true
+  cendresMelange, clinkerSans, clinkerAvec, modulesCendres, modulesSans, modulesAvec, c3sSans, c3sAvec, showDelta = true
 }: ImpactTableHorizontalProps) {
 
   const rows = [
-    { label: "Cendres Mélange", data: cendresMelange, modules: {} },
+    { label: "Cendres Mélange", data: cendresMelange, modules: modulesCendres, c3s: null },
     { label: "Clinker sans Cendres", data: clinkerSans, modules: modulesSans, c3s: c3sSans },
     { label: "Clinker avec Cendres", data: clinkerAvec, modules: modulesAvec, c3s: c3sAvec },
   ];
