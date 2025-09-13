@@ -366,8 +366,10 @@ export default function CalculImpactPage() {
         const delta = (valWith !== undefined && valWithout !== undefined && valWithout !== 0) ? ((valWith - valWithout) / Math.max(Math.abs(valWithout), 1e-9)) * 100 : 0;
 
         return {
-            param: label, fb: n(valRaw), cm: n(valAsh),
-            cs: colorize(valWithout, "base"), cac: colorize(valWith, "compare"),
+            param: label,
+            cm: n(valAsh),
+            cs: colorize(valWithout, "base"), 
+            cac: colorize(valWith, "compare"),
             delta: <DeltaPill delta={delta} />
         };
     };
@@ -382,9 +384,11 @@ export default function CalculImpactPage() {
     
     const rows = tableData.filter(row => row.param !== "---");
     const columns = [
-        { key: "param", label: "Paramètre" }, { key: "fb", label: "Farine Brute", align: "right" as const },
-        { key: "cm", label: "Cendres Mélange", align: "right" as const }, { key: "cs", label: "Clinker sans Cendres", align: "right" as const },
-        { key: "cac", label: "Clinker avec Cendres", align: "right" as const }, { key: "delta", label: "Δ (%)", align: "right" as const },
+        { key: "param", label: "Paramètre" },
+        { key: "cm", label: "Cendres Mélange", align: "right" as const }, 
+        { key: "cs", label: "Clinker sans Cendres", align: "right" as const },
+        { key: "cac", label: "Clinker avec Cendres", align: "right" as const }, 
+        { key: "delta", label: "Δ (%)", align: "right" as const },
     ];
     
     if (loading) {
