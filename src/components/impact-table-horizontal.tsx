@@ -45,6 +45,7 @@ export interface ImpactTableHorizontalProps {
   cendresMelange: ChemSet;
   clinkerSans: ChemSet;
   clinkerAvec: ChemSet;
+  modulesFarine: Modules;
   modulesCendres: Modules;
   modulesSans: Modules;
   modulesAvec: Modules;
@@ -114,7 +115,7 @@ const SavePresetDialog = ({ currentAnalysis, onSave }: { currentAnalysis: ChemSe
 // --- Composant
 export default function ImpactTableHorizontal({
   rawMealAnalysis, onRawMealChange, presets, onPresetLoad, onPresetSave, onPresetDelete,
-  cendresMelange, clinkerSans, clinkerAvec, modulesCendres, modulesSans, modulesAvec, c3sSans, c3sAvec, showDelta = true
+  cendresMelange, clinkerSans, clinkerAvec, modulesFarine, modulesCendres, modulesSans, modulesAvec, c3sSans, c3sAvec, showDelta = true
 }: ImpactTableHorizontalProps) {
 
   const calculateSum = (data: ChemSet) => {
@@ -196,8 +197,11 @@ export default function ImpactTableHorizontal({
                     </TableCell>
                 ))}
                 <TableCell className="px-1 text-center tabular-nums font-medium border-l">{fmt(calculateSum(rawMealAnalysis))}</TableCell>
-                {/* Modules for raw meal are not typically shown, but calculated for clinker */}
-                <TableCell colSpan={4}></TableCell>
+                {/* Modules for raw meal */}
+                <TableCell className="px-1 text-center tabular-nums font-medium">{fmt(modulesFarine?.ms)}</TableCell>
+                <TableCell className="px-1 text-center tabular-nums font-medium">{fmt(modulesFarine?.af)}</TableCell>
+                <TableCell className="px-1 text-center tabular-nums font-medium">{fmt(modulesFarine?.lsf)}</TableCell>
+                <TableCell></TableCell>
             </TableRow>
 
 

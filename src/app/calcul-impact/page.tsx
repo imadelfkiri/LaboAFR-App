@@ -1,4 +1,5 @@
 
+
 // app/calcul-impact/page.tsx
 "use client"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -101,6 +102,7 @@ const useClinkerCalculations = (
         };
 
         const clinkerWithoutAsh = clinkerize(rawMealAnalysis, pfClinkerTarget);
+        const modulesFarine = calculateModules(clinkerize(rawMealAnalysis, 0));
 
         const resolveAshPercent = (name: string, analysis: OxideAnalysis) => Number((analysis as any)?.pourcentage_cendres ?? fuelDataMap[name]?.taux_cendres ?? 0);
 
@@ -172,7 +174,7 @@ const useClinkerCalculations = (
         const modulesCendres = calculateModules(averageAshAnalysis);
 
 
-        return { clinkerWithoutAsh, clinkerWithAsh, averageAshAnalysis, modulesSans, modulesAvec, modulesCendres, c3sSans, c3sAvec };
+        return { clinkerWithoutAsh, clinkerWithAsh, averageAshAnalysis, modulesFarine, modulesSans, modulesAvec, modulesCendres, c3sSans, c3sAvec };
     }, [rawMealFlow, rawMealAnalysis, afFlow, afAshAnalysis, grignonsFlow, grignonsAshAnalysis, petCokePrecaFlow, petCokePrecaAsh, petCokeTuyereFlow, petCokeTuyereAsh, fuelDataMap, so3Target, pfClinkerTarget, freeLime]);
 };
 
@@ -277,7 +279,7 @@ export default function CalculImpactPage() {
     const petCokePrecaFlow = useMemo(() => latestSession?.directInputs?.['Pet-Coke Preca']?.flowRate || 0, [latestSession]);
     const petCokeTuyereFlow = useMemo(() => latestSession?.directInputs?.['Pet-Coke Tuyere']?.flowRate || 0, [latestSession]);
     
-    const { clinkerWithoutAsh, clinkerWithAsh, averageAshAnalysis, modulesSans, modulesAvec, modulesCendres, c3sSans, c3sAvec } = useClinkerCalculations(
+    const { clinkerWithoutAsh, clinkerWithAsh, averageAshAnalysis, modulesFarine, modulesSans, modulesAvec, modulesCendres, c3sSans, c3sAvec } = useClinkerCalculations(
         rawMealFlow, rawMealAnalysis, afFlow, afAshAnalysis, grignonsFlow, grignonsAshAnalysis, petCokePrecaFlow, petCokePrecaAsh, petCokeTuyereFlow, petCokeTuyereAsh, fuelDataMap, so3Target, pfClinkerTarget, freeLime
     );
 
@@ -381,6 +383,7 @@ export default function CalculImpactPage() {
                 cendresMelange={averageAshAnalysis}
                 clinkerSans={clinkerWithoutAsh}
                 clinkerAvec={clinkerWithAsh}
+                modulesFarine={modulesFarine}
                 modulesCendres={modulesCendres}
                 modulesSans={modulesSans}
                 modulesAvec={modulesAvec}
