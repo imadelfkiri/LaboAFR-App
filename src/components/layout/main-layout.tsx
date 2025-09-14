@@ -17,6 +17,7 @@ import { Fuel, Plus, PlusCircle } from 'lucide-react';
 import { SidebarNav } from './sidebar-nav';
 
 const pageTitles: { [key: string]: string } = {
+  '/': 'Tableau de Bord',
   '/calculateur': 'Calculateur PCI',
   '/resultats': 'Historique des Résultats',
   '/statistiques': 'Tableau de Bord des Statistiques',
