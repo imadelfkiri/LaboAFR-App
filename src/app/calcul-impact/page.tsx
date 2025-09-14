@@ -1,3 +1,4 @@
+
 // app/calcul-impact/page.tsx
 "use client"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -14,6 +15,7 @@ import { getLatestMixtureSession, getAverageAshAnalysisForFuels, getFuelData, ty
 import ImpactTableHorizontal from "@/components/impact-table-horizontal";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import *as XLSX from 'xlsx';
+import { Label } from "@/components/ui/label"
 
 
 // --- Type Definitions ---
@@ -457,61 +459,46 @@ export default function CalculImpactPage() {
         accept=".xlsx, .xls"
       />
       <section>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6 mb-6">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-xs font-medium uppercase text-muted-foreground">Débit Farine (t/h)</CardTitle>
-                    <Beaker className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <Input type="number" value={rawMealFlow} onChange={e => setRawMealFlow(parseFloat(e.target.value) || 0)} className="bg-transparent border-0 text-2xl font-bold text-white p-0 h-auto focus-visible:ring-0" />
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-xs font-medium uppercase text-muted-foreground">Facteur de clinkérisation</CardTitle>
-                    <Gauge className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <Input type="number" step="0.01" value={clinkerFactor} onChange={e => setClinkerFactor(parseFloat(e.target.value) || 0)} className="bg-transparent border-0 text-2xl font-bold text-white p-0 h-auto focus-visible:ring-0" />
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-xs font-medium uppercase text-muted-foreground">Débit Clinker (t/h)</CardTitle>
-                    <Flame className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-xl font-bold text-brand-accent">{debitClinker.toFixed(2)}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-xs font-medium uppercase text-muted-foreground">Chaux Libre (calcul C₃S)</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <Input type="number" step="0.1" value={freeLime} onChange={e => setFreeLime(parseFloat(e.target.value) || 0)} className="bg-transparent border-0 text-2xl font-bold text-white p-0 h-auto focus-visible:ring-0" />
-                </CardContent>
-              </Card>
-               <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-xs font-medium uppercase text-muted-foreground">Cible SO₃ Clinker (%)</CardTitle>
-                    <Wind className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <Input type="number" step="0.1" value={so3Target} onChange={e => setSo3Target(parseFloat(e.target.value) || 0)} className="bg-transparent border-0 text-2xl font-bold text-white p-0 h-auto focus-visible:ring-0" />
-                </CardContent>
-              </Card>
-               <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-xs font-medium uppercase text-muted-foreground">PF Clinker (%)</CardTitle>
-                    <Zap className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <Input type="number" step="0.1" value={pfClinkerTarget} onChange={e => setPfClinkerTarget(parseFloat(e.target.value) || 0)} className="bg-transparent border-0 text-2xl font-bold text-white p-0 h-auto focus-visible:ring-0" />
-                </CardContent>
-              </Card>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Paramètres du Four</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+                
+                <div className="space-y-2">
+                  <Label htmlFor="debit-farine" className="flex items-center gap-2 text-sm text-muted-foreground"><Beaker className="h-4 w-4" />Débit Farine (t/h)</Label>
+                  <Input id="debit-farine" type="number" value={rawMealFlow} onChange={e => setRawMealFlow(parseFloat(e.target.value) || 0)} className="h-10 text-lg" />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="facteur-clinkerisation" className="flex items-center gap-2 text-sm text-muted-foreground"><Gauge className="h-4 w-4" />Facteur Clinkérisation</Label>
+                  <Input id="facteur-clinkerisation" type="number" step="0.01" value={clinkerFactor} onChange={e => setClinkerFactor(parseFloat(e.target.value) || 0)} className="h-10 text-lg" />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="debit-clinker" className="flex items-center gap-2 text-sm text-muted-foreground"><Flame className="h-4 w-4" />Débit Clinker (t/h)</Label>
+                   <Input id="debit-clinker" type="text" value={debitClinker.toFixed(2)} readOnly disabled className="h-10 text-lg font-bold text-brand-accent bg-brand-muted border-brand-line/50" />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="chaux-libre" className="flex items-center gap-2 text-sm text-muted-foreground"><Zap className="h-4 w-4" />Chaux Libre (calcul C₃S)</Label>
+                  <Input id="chaux-libre" type="number" step="0.1" value={freeLime} onChange={e => setFreeLime(parseFloat(e.target.value) || 0)} className="h-10 text-lg" />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="cible-so3" className="flex items-center gap-2 text-sm text-muted-foreground"><Wind className="h-4 w-4" />Cible SO₃ Clinker (%)</Label>
+                  <Input id="cible-so3" type="number" step="0.1" value={so3Target} onChange={e => setSo3Target(parseFloat(e.target.value) || 0)} className="h-10 text-lg" />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="pf-clinker" className="flex items-center gap-2 text-sm text-muted-foreground"><Zap className="h-4 w-4" />PF Clinker (%)</Label>
+                  <Input id="pf-clinker" type="number" step="0.1" value={pfClinkerTarget} onChange={e => setPfClinkerTarget(parseFloat(e.target.value) || 0)} className="h-10 text-lg" />
+                </div>
+
+              </div>
+            </CardContent>
+          </Card>
       </section>
       
       <div className="space-y-6">
@@ -569,3 +556,5 @@ export default function CalculImpactPage() {
     </div>
   )
 }
+
+    
