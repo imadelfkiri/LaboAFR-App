@@ -290,7 +290,7 @@ export default function CalculImpactPage() {
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
-    const afFlow = useMemo(() => latestSession?.globalIndicators.flow || 0, [latestSession]);
+    const afFlow = useMemo(() => (latestSession?.hallAF?.flowRate || 0) + (latestSession?.ats?.flowRate || 0), [latestSession]);
     const grignonsFlow = useMemo(() => (latestSession?.directInputs?.['Grignons GO1']?.flowRate || 0) + (latestSession?.directInputs?.['Grignons GO2']?.flowRate || 0), [latestSession]);
     const petCokePrecaFlow = useMemo(() => latestSession?.directInputs?.['Pet-Coke Preca']?.flowRate || 0, [latestSession]);
     const petCokeTuyereFlow = useMemo(() => latestSession?.directInputs?.['Pet-Coke Tuyere']?.flowRate || 0, [latestSession]);
@@ -316,7 +316,7 @@ export default function CalculImpactPage() {
                     rawMealAnalysis, realClinkerAnalysis, averageAshAnalysis
                 },
                 results: {
-                    clinkerWithoutAsh, clinkerWithAsh, modulesFarine, modulesCendres, modulesSans, modulesAvec, modulesReel, c3sSans, c3sAvec, c3sReel,
+                    clinkerWithoutAsh, clinkerWithAsh, modulesFarine, modulesCendres, modulesSans, modulesAvec, modulesReel, c3sSans: c3sSans || 0, c3sAvec: c3sAvec || 0, c3sReel: c3sReel || 0,
                 }
             };
             await saveImpactAnalysis(analysisToSave);
