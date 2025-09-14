@@ -417,7 +417,7 @@ export default function CalculImpactPage() {
                     if (typeof value === 'number' && !isNaN(value)) {
                         newAnalysis[key] = value;
                     } else if (typeof value === 'string') {
-                        const parsed = parseFloat(value.replace(',', '.'));
+                        const parsed = parseFloat(value.replace(',', '.'))
                         newAnalysis[key] = isNaN(parsed) ? 0 : parsed;
                     } else {
                         newAnalysis[key] = 0;
