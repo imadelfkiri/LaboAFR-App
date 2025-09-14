@@ -1,4 +1,5 @@
 
+
 // app/calcul-impact/page.tsx
 "use client"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -13,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getLatestMixtureSession, getAverageAshAnalysisForFuels, getFuelData, type MixtureSession, type AshAnalysis, type FuelData, getRawMealPresets, saveRawMealPreset, deleteRawMealPreset, type RawMealPreset, saveImpactAnalysis, ImpactAnalysis } from '@/lib/data';
 import ImpactTableHorizontal from "@/components/impact-table-horizontal";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LabelList, Cell } from 'recharts';
 import *as XLSX from 'xlsx';
 import { Label } from "@/components/ui/label"
 
@@ -454,9 +455,13 @@ export default function CalculImpactPage() {
             { name: 'Fe2O3', value: delta(clinkerWithAsh.fe2o3, clinkerWithoutAsh.fe2o3) },
             { name: 'CaO', value: delta(clinkerWithAsh.cao, clinkerWithoutAsh.cao) },
             { name: 'LSF', value: delta(modulesAvec.lsf, modulesSans.lsf) },
-            { name: 'C3S', value: delta(c3sAvec, c3sSans) }
+            { name: 'C3S', value: delta(c3sAvec, c3sSans) },
+            { name: 'MS', value: delta(modulesAvec.ms, modulesSans.ms) },
+            { name: 'AF', value: delta(modulesAvec.af, modulesSans.af) }
         ];
     }, [clinkerWithAsh, clinkerWithoutAsh, modulesAvec, modulesSans, c3sAvec, c3sSans]);
+
+    const chartColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F'];
 
     if (loading) {
         return (
@@ -566,7 +571,7 @@ export default function CalculImpactPage() {
             </CardHeader>
             <CardContent>
                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={deltaChartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                    <BarChart data={deltaChartData} margin={{ top: 20, right: 20, left: -10, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                         <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
                         <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
@@ -578,7 +583,18 @@ export default function CalculImpactPage() {
                             }}
                             cursor={{ fill: 'hsl(var(--muted))' }}
                         />
-                        <Bar dataKey="value" name="Variation" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="value" name="Variation" radius={[4, 4, 0, 0]}>
+                            {deltaChartData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
+                            ))}
+                            <LabelList 
+                                dataKey="value" 
+                                position="top" 
+                                formatter={(value: number) => value.toFixed(2)}
+                                fill="hsl(var(--foreground))"
+                                fontSize={12}
+                            />
+                        </Bar>
                     </BarChart>
                 </ResponsiveContainer>
             </CardContent>
