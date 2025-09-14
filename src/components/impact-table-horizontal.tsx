@@ -95,7 +95,7 @@ const SavePresetDialog = ({ currentAnalysis, onSave }: { currentAnalysis: ChemSe
         <Dialog>
             <DialogTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-8">
-                    <Save className="h-4 w-4 mr-1" /> Sauvegarder
+                    <Save className="h-4 w-4 mr-1" /> Sauvegarder Preset
                 </Button>
             </DialogTrigger>
             <DialogContent className="bg-brand-surface border-brand-line text-white">
