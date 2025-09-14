@@ -29,7 +29,7 @@ export function ImpactHistoryTable() {
     }, []);
 
     const formatNumber = (num: number | null | undefined, digits: number = 2) => {
-        if (num === null || num === undefined) return 'N/A';
+        if (num === null || num === undefined) return '0,0'; // Change N/A to 0,0 for consistency
         return num.toLocaleString('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
     };
 
@@ -41,7 +41,10 @@ export function ImpactHistoryTable() {
 
     const deltaClass = (num: number | null | undefined) => {
         if (num === null || num === undefined) return '';
-        return num > 0 ? 'text-green-400' : 'text-red-400';
+        // A small threshold to avoid coloring for very small numbers
+        if (num > 0.001) return 'text-green-400';
+        if (num < -0.001) return 'text-red-400';
+        return '';
     };
 
 
@@ -84,7 +87,7 @@ export function ImpactHistoryTable() {
                                         return (
                                             <TableRow key={item.id}>
                                                 <TableCell className="font-medium">
-                                                    {format(item.createdAt.toDate(), "d MMM yyyy 'à' HH:mm", { locale: fr })}
+                                                    {item.createdAt ? format(item.createdAt.toDate(), "d MMM yyyy 'à' HH:mm", { locale: fr }) : 'Date invalide'}
                                                 </TableCell>
                                                 <TableCell className="text-right">{formatNumber(item.parameters.afFlow, 1)}</TableCell>
                                                 <TableCell className="text-right">{formatNumber(item.parameters.grignonsFlow, 1)}</TableCell>
