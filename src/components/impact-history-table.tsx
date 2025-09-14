@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -34,6 +33,17 @@ export function ImpactHistoryTable() {
         return num.toLocaleString('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
     };
 
+    const formatDelta = (num: number | null | undefined, digits: number = 2) => {
+        if (num === null || num === undefined) return 'N/A';
+        const sign = num > 0 ? '+' : '';
+        return `${sign}${formatNumber(num, digits)}`;
+    };
+
+    const deltaClass = (num: number | null | undefined) => {
+        if (num === null || num === undefined) return '';
+        return num > 0 ? 'text-green-400' : 'text-red-400';
+    };
+
 
     return (
         <Card>
@@ -55,29 +65,36 @@ export function ImpactHistoryTable() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Date</TableHead>
-                                    <TableHead className="text-right">Débit Farine (t/h)</TableHead>
-                                    <TableHead className="text-right">Facteur Clinker</TableHead>
-                                    <TableHead className="text-right">Chaux Libre</TableHead>
-                                    <TableHead className="text-right">Cible SO₃</TableHead>
-                                    <TableHead className="text-right">PF Clinker</TableHead>
-                                    <TableHead className="text-right">C3S (avec cendres)</TableHead>
+                                    <TableHead className="text-right">Débit AFs (t/h)</TableHead>
+                                    <TableHead className="text-right">Débit GO (t/h)</TableHead>
+                                    <TableHead className="text-right">Débit Pet Coke (t/h)</TableHead>
+                                    <TableHead className="text-right">Δ Fe2O3</TableHead>
+                                    <TableHead className="text-right">Δ LSF</TableHead>
+                                    <TableHead className="text-right">Δ C3S</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {analyses.length > 0 ? (
-                                    analyses.map((item) => (
-                                        <TableRow key={item.id}>
-                                            <TableCell className="font-medium">
-                                                {format(item.createdAt.toDate(), "d MMM yyyy 'à' HH:mm", { locale: fr })}
-                                            </TableCell>
-                                            <TableCell className="text-right">{formatNumber(item.parameters.rawMealFlow, 0)}</TableCell>
-                                            <TableCell className="text-right">{formatNumber(item.parameters.clinkerFactor, 2)}</TableCell>
-                                            <TableCell className="text-right">{formatNumber(item.parameters.freeLime, 2)}</TableCell>
-                                            <TableCell className="text-right">{formatNumber(item.parameters.so3Target, 2)}</TableCell>
-                                            <TableCell className="text-right">{formatNumber(item.parameters.pfClinkerTarget, 2)}</TableCell>
-                                            <TableCell className="text-right font-semibold">{formatNumber(item.results.c3sAvec, 2)}</TableCell>
-                                        </TableRow>
-                                    ))
+                                    analyses.map((item) => {
+                                        const petCokeTotal = (item.parameters.petCokePrecaFlow ?? 0) + (item.parameters.petCokeTuyereFlow ?? 0);
+                                        const deltaFe2O3 = (item.results.clinkerWithAsh.fe2o3 ?? 0) - (item.results.clinkerWithoutAsh.fe2o3 ?? 0);
+                                        const deltaLSF = (item.results.modulesAvec.lsf ?? 0) - (item.results.modulesSans.lsf ?? 0);
+                                        const deltaC3S = (item.results.c3sAvec ?? 0) - (item.results.c3sSans ?? 0);
+
+                                        return (
+                                            <TableRow key={item.id}>
+                                                <TableCell className="font-medium">
+                                                    {format(item.createdAt.toDate(), "d MMM yyyy 'à' HH:mm", { locale: fr })}
+                                                </TableCell>
+                                                <TableCell className="text-right">{formatNumber(item.parameters.afFlow, 1)}</TableCell>
+                                                <TableCell className="text-right">{formatNumber(item.parameters.grignonsFlow, 1)}</TableCell>
+                                                <TableCell className="text-right">{formatNumber(petCokeTotal, 1)}</TableCell>
+                                                <TableCell className={`text-right font-medium ${deltaClass(deltaFe2O3)}`}>{formatDelta(deltaFe2O3)}</TableCell>
+                                                <TableCell className={`text-right font-medium ${deltaClass(deltaLSF)}`}>{formatDelta(deltaLSF)}</TableCell>
+                                                <TableCell className={`text-right font-bold ${deltaClass(deltaC3S)}`}>{formatDelta(deltaC3S)}</TableCell>
+                                            </TableRow>
+                                        );
+                                    })
                                 ) : (
                                     <TableRow>
                                         <TableCell colSpan={7} className="h-24 text-center">

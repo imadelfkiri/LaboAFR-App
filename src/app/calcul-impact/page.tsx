@@ -310,6 +310,7 @@ export default function CalculImpactPage() {
             const analysisToSave: Omit<ImpactAnalysis, 'id' | 'createdAt'> = {
                 parameters: {
                     rawMealFlow, clinkerFactor, freeLime, so3Target, pfClinkerTarget, realFreeLime,
+                    afFlow, grignonsFlow, petCokePrecaFlow, petCokeTuyereFlow
                 },
                 inputs: {
                     rawMealAnalysis, realClinkerAnalysis, averageAshAnalysis
@@ -665,7 +666,3 @@ export default function CalculImpactPage() {
     </div>
   )
 }
-
-    
-
-    

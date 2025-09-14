@@ -141,6 +141,10 @@ export interface ImpactAnalysis {
         so3Target: number;
         pfClinkerTarget: number;
         realFreeLime: number;
+        afFlow?: number;
+        grignonsFlow?: number;
+        petCokePrecaFlow?: number;
+        petCokeTuyereFlow?: number;
     };
     inputs: {
         rawMealAnalysis: RawMealAnalysis;
