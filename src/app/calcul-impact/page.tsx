@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, DialogClose } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { getLatestMixtureSession, getAverageAshAnalysisForFuels, getFuelData, type MixtureSession, type AshAnalysis, type FuelData, getRawMealPresets, saveRawMealPreset, deleteRawMealPreset, type RawMealPreset } from '@/lib/data';
+import { getLatestMixtureSession, getAverageAshAnalysisForFuels, getFuelData, type MixtureSession, type AshAnalysis, type FuelData, getRawMealPresets, saveRawMealPreset, deleteRawMealPreset, type RawMealPreset, saveImpactAnalysis, ImpactAnalysis } from '@/lib/data';
 import ImpactTableHorizontal from "@/components/impact-table-horizontal";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import *as XLSX from 'xlsx';
@@ -192,6 +192,7 @@ const useClinkerCalculations = (
 export default function CalculImpactPage() {
     const { toast } = useToast();
     const [loading, setLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
     const [fuelDataMap, setFuelDataMap] = useState<Record<string, FuelData>>({});
 
     const [rawMealFlow, setRawMealFlow] = usePersistentState<number>('calculImpact_rawMealFlow', 180);
@@ -301,6 +302,31 @@ export default function CalculImpactPage() {
     const c3sReel = useMemo(() => calculateC3S(realClinkerAnalysis, realFreeLime), [realClinkerAnalysis, realFreeLime]);
 
     const debitClinker = useMemo(() => (rawMealFlow * clinkerFactor), [rawMealFlow, clinkerFactor]);
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            const analysisToSave: Omit<ImpactAnalysis, 'id' | 'createdAt'> = {
+                parameters: {
+                    rawMealFlow, clinkerFactor, freeLime, so3Target, pfClinkerTarget, realFreeLime,
+                },
+                inputs: {
+                    rawMealAnalysis, realClinkerAnalysis, averageAshAnalysis
+                },
+                results: {
+                    clinkerWithoutAsh, clinkerWithAsh, modulesFarine, modulesCendres, modulesSans, modulesAvec, modulesReel, c3sSans, c3sAvec, c3sReel,
+                }
+            };
+            await saveImpactAnalysis(analysisToSave);
+            toast({ title: "Analyse sauvegardée", description: "L'instantané du calcul a été enregistré dans l'historique." });
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
+            toast({ variant: "destructive", title: "Erreur de sauvegarde", description: errorMessage });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
 
     const handleDeletePreset = async (id: string) => {
         await deleteRawMealPreset(id);
@@ -461,7 +487,13 @@ export default function CalculImpactPage() {
       <section>
           <Card>
             <CardHeader>
-              <CardTitle>Paramètres du Four</CardTitle>
+                <div className="flex justify-between items-center">
+                    <CardTitle>Paramètres du Four</CardTitle>
+                    <Button onClick={handleSave} disabled={isSaving}>
+                        <Save className="mr-2 h-4 w-4" />
+                        {isSaving ? "Sauvegarde..." : "Sauvegarder l'Analyse"}
+                    </Button>
+                </div>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">

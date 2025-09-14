@@ -117,10 +117,10 @@ interface ResultToSave {
 }
 
 export type RawMealAnalysis = {
-    [key: string]: number | undefined;
-    pf?: number; sio2?: number; al2o3?: number; fe2o3?: number;
-    cao?: number; mgo?: number; so3?: number; k2o?: number;
-    tio2?: number; mno?: number; p2o5?: number;
+    [key: string]: number | undefined | null;
+    pf?: number | null; sio2?: number | null; al2o3?: number | null; fe2o3?: number | null;
+    cao?: number | null; mgo?: number | null; so3?: number | null; k2o?: number | null;
+    tio2?: number | null; mno?: number | null; p2o5?: number | null;
 };
 
 export interface RawMealPreset {
@@ -129,6 +129,38 @@ export interface RawMealPreset {
     analysis: RawMealAnalysis;
     createdAt: Timestamp;
 }
+
+// Nouvelle interface pour l'historique des calculs d'impact
+export interface ImpactAnalysis {
+    id?: string;
+    createdAt: Timestamp;
+    parameters: {
+        rawMealFlow: number;
+        clinkerFactor: number;
+        freeLime: number;
+        so3Target: number;
+        pfClinkerTarget: number;
+        realFreeLime: number;
+    };
+    inputs: {
+        rawMealAnalysis: RawMealAnalysis;
+        realClinkerAnalysis: RawMealAnalysis;
+        averageAshAnalysis: AshAnalysis;
+    };
+    results: {
+        clinkerWithoutAsh: RawMealAnalysis;
+        clinkerWithAsh: RawMealAnalysis;
+        modulesFarine: any;
+        modulesCendres: any;
+        modulesSans: any;
+        modulesAvec: any;
+        modulesReel: any;
+        c3sSans: number;
+        c3sAvec: number;
+        c3sReel: number;
+    };
+}
+
 
 
 export const SPEC_MAP = new Map<string, Specification>();
@@ -266,66 +298,80 @@ export async function deleteSpecification(id: string) {
 
 export async function getAverageAnalysisForFuels(
   fuelNames: string[],
-  dateRange: { from: Date, to: Date }
-): Promise<Record<string, AverageAnalysis>> {
-  
-  if (fuelNames.length === 0) {
+  weights?: number[]
+): Promise<AshAnalysis> {
+  const finalAverages: AshAnalysis = {};
+
+  if (!fuelNames || fuelNames.length === 0) {
     return {};
   }
-  
-  const q = query(
-    collection(db, 'resultats'),
-    where('date_arrivage', '>=', Timestamp.fromDate(dateRange.from)),
-    where('date_arrivage', '<=', Timestamp.fromDate(dateRange.to)),
-    where('type_combustible', 'in', fuelNames)
-  );
 
+  const q = query(collection(db, 'analyses_cendres'), where('type_combustible', 'in', fuelNames));
   const snapshot = await getDocs(q);
-  const dbResults = snapshot.docs.map(doc => doc.data());
+  const dbResults = snapshot.docs.map(doc => doc.data() as AshAnalysis);
 
-  const analysis: Record<string, {
-    pci_brut: number[];
-    h2o: number[];
-    chlore: number[];
-    cendres: number[];
-    taux_metal: number[];
-  }> = {};
-
-  // Initialize analysis object for all requested fuel names
+  const analysesByFuel: Record<string, AshAnalysis[]> = {};
   fuelNames.forEach(name => {
-    analysis[name] = { pci_brut: [], h2o: [], chlore: [], cendres: [], taux_metal: [] };
+    analysesByFuel[name] = [];
   });
-
-  // Populate with data from the database
   dbResults.forEach(res => {
-    const fuelName = res.type_combustible;
-    if (analysis[fuelName]) {
-      const target = analysis[fuelName];
-      if (typeof res.pci_brut === 'number') target.pci_brut.push(res.pci_brut);
-      if (typeof res.h2o === 'number') target.h2o.push(res.h2o);
-      if (typeof res.chlore === 'number') target.chlore.push(res.chlore);
-      if (typeof res.cendres === 'number') target.cendres.push(res.cendres);
-      if (typeof res.taux_metal === 'number') target.taux_metal.push(res.taux_metal);
+    if (res.type_combustible && analysesByFuel[res.type_combustible]) {
+      analysesByFuel[res.type_combustible].push(res);
     }
   });
 
-  const finalAverages: Record<string, AverageAnalysis> = {};
-  const avg = (arr: number[]) => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+  const averageByFuel: Record<string, AshAnalysis> = {};
+  const keysToAverage: (keyof AshAnalysis)[] = ['pf', 'pourcentage_cendres', 'sio2', 'al2o3', 'fe2o3', 'cao', 'mgo', 'so3', 'k2o', 'tio2', 'mno', 'p2o5'];
 
-  for (const name of fuelNames) {
-    const data = analysis[name];
-    finalAverages[name] = {
-      pci_brut: avg(data.pci_brut),
-      h2o: avg(data.h2o),
-      chlore: avg(data.chlore),
-      cendres: avg(data.cendres),
-      taux_metal: avg(data.taux_metal),
-      count: data.pci_brut.length
-    };
+  for (const fuelName of fuelNames) {
+    const fuelAnalyses = analysesByFuel[fuelName];
+    const avg: AshAnalysis = {};
+    if (fuelAnalyses.length > 0) {
+      for (const key of keysToAverage) {
+        const values = fuelAnalyses.map(a => a[key]).filter(v => typeof v === 'number') as number[];
+        if (values.length > 0) {
+          (avg as any)[key] = values.reduce((sum, val) => sum + val, 0) / values.length;
+        }
+      }
+    }
+    averageByFuel[fuelName] = avg;
   }
+  
+  if (!weights || weights.length !== fuelNames.length) {
+    // Simple average if no weights provided
+    keysToAverage.forEach(key => {
+        const allValues = fuelNames.map(name => averageByFuel[name]?.[key]).filter(v => typeof v === 'number') as number[];
+        if (allValues.length > 0) {
+           (finalAverages as any)[key] = allValues.reduce((sum, val) => sum + val, 0) / allValues.length;
+        }
+    });
+    return finalAverages;
+  }
+  
+  // Weighted average
+  const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+  if (totalWeight === 0) return {};
+
+  keysToAverage.forEach(key => {
+    let weightedSum = 0;
+    let weightForSum = 0;
+    for (let i = 0; i < fuelNames.length; i++) {
+        const fuelName = fuelNames[i];
+        const weight = weights[i];
+        const avgValue = averageByFuel[fuelName]?.[key];
+        if (typeof avgValue === 'number' && typeof weight === 'number') {
+            weightedSum += avgValue * weight;
+            weightForSum += weight;
+        }
+    }
+    if (weightForSum > 0) {
+      (finalAverages as any)[key] = weightedSum / weightForSum;
+    }
+  });
 
   return finalAverages;
 }
+
 
 export async function saveMixtureSession(sessionData: Omit<MixtureSession, 'id' | 'timestamp'>): Promise<void> {
     const dataToSave = {
@@ -781,5 +827,16 @@ export async function saveRawMealPreset(name: string, analysis: RawMealAnalysis)
 
 export async function deleteRawMealPreset(id: string): Promise<void> {
     await deleteDoc(doc(db, 'raw_meal_presets', id));
+}
+
+// --- Impact Analysis History ---
+
+export async function saveImpactAnalysis(analysis: Omit<ImpactAnalysis, 'id' | 'createdAt'>): Promise<string> {
+    const dataToSave = {
+        ...analysis,
+        createdAt: Timestamp.now(),
+    };
+    const docRef = await addDoc(collection(db, 'impact_analyses'), dataToSave);
+    return docRef.id;
 }
     
