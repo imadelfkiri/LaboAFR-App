@@ -1,3 +1,4 @@
+
 // src/lib/data.ts
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, arrayUnion, orderBy, Timestamp, setDoc,getCountFromServer, limit } from 'firebase/firestore';
 import { db } from './firebase';
@@ -141,10 +142,10 @@ export interface ImpactAnalysis {
         so3Target: number;
         pfClinkerTarget: number;
         realFreeLime: number;
-        afFlow?: number;
-        grignonsFlow?: number;
-        petCokePrecaFlow?: number;
-        petCokeTuyereFlow?: number;
+        afFlow: number;
+        grignonsFlow: number;
+        petCokePrecaFlow: number;
+        petCokeTuyereFlow: number;
     };
     inputs: {
         rawMealAnalysis: RawMealAnalysis;
