@@ -4,7 +4,7 @@
 "use client"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Flame, Beaker, Gauge, Save, Trash2, FileDown, Wind, Zap, Upload } from "lucide-react"
+import { Flame, Beaker, Gauge, Save, Trash2, FileDown, Wind, Zap, Upload, BrainCircuit } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
@@ -15,8 +15,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { getLatestMixtureSession, getAverageAshAnalysisForFuels, getFuelData, type MixtureSession, type AshAnalysis, type FuelData, getRawMealPresets, saveRawMealPreset, deleteRawMealPreset, type RawMealPreset, saveImpactAnalysis, ImpactAnalysis } from '@/lib/data';
 import ImpactTableHorizontal from "@/components/impact-table-horizontal";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LabelList, Cell } from 'recharts';
-import *as XLSX from 'xlsx';
+import* as XLSX from 'xlsx';
 import { Label } from "@/components/ui/label"
+import { handleInterpretImpact } from "@/lib/actions"
+import type { ImpactInterpreterInput, ImpactInterpreterOutput } from "@/ai/flows/impact-interpreter-flow"
 
 
 // --- Type Definitions ---
@@ -76,15 +78,10 @@ const calculateModules = (analysis: OxideAnalysis) => {
 
 const calculateC3S = (analysis: OxideAnalysis, freeLime: number, targetSo3?: number) => {
   const s = analysis.sio2 || 0, a = analysis.al2o3 || 0, f = analysis.fe2o3 || 0, c = analysis.cao  || 0, pf = analysis.pf || 0;
-  const so3 = targetSo3 !== undefined ? targetSo3 : (analysis.so3 || 0);
-
-  // Formule complète de Bogue (prise du fichier Excel)
-  // C3S = 4.07 * (CaO - Chaux Libre - 0.7 * SO3 - [correction PF]) - 7.60 * SiO2 - 6.72 * Al2O3 - 1.43 * Fe2O3
-  // Le terme de correction pour la perte au feu (PF) est `1.27 * PF / 2`
-  const pfCorrection = (1.27 * pf) / 2;
-  const effectiveCao = c - freeLime - 0.7 * so3 - pfCorrection;
   
+  const effectiveCao = c - freeLime - (0.7 * (targetSo3 ?? (analysis.so3 || 0)));
   const c3s = (4.07 * effectiveCao) - (7.60 * s) - (6.72 * a) - (1.43 * f);
+
   return Math.max(0, c3s);
 };
 
@@ -179,9 +176,9 @@ const useClinkerCalculations = (
         });
         
         const modulesSans = calculateModules(clinkerWithoutAsh);
-        const c3sSans = calculateC3S(clinkerWithoutAsh, freeLime, so3Target);
+        const c3sSans = calculateC3S(clinkerWithoutAsh, freeLime, clinkerWithoutAsh.so3);
         const modulesAvec = calculateModules(clinkerWithAsh);
-        const c3sAvec = calculateC3S(clinkerWithAsh, freeLime, so3Target);
+        const c3sAvec = calculateC3S(clinkerWithAsh, freeLime, clinkerWithAsh.so3);
         const modulesCendres = calculateModules(averageAshAnalysis);
 
 
@@ -215,6 +212,9 @@ export default function CalculImpactPage() {
     const [presets, setPresets] = useState<RawMealPreset[]>([]);
     const rawMealFileInputRef = useRef<HTMLInputElement>(null);
     const realClinkerFileInputRef = useRef<HTMLInputElement>(null);
+
+    const [isInterpreting, setIsInterpreting] = useState(false);
+    const [interpretation, setInterpretation] = useState<string | null>(null);
 
     const fetchPresets = useCallback(async () => {
         const fetchedPresets = await getRawMealPresets();
@@ -463,6 +463,32 @@ export default function CalculImpactPage() {
 
     const chartColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F'];
 
+    const onInterpret = async () => {
+        setIsInterpreting(true);
+        setInterpretation(null);
+        try {
+            const input: ImpactInterpreterInput = {
+                clinkerWithoutAsh: clinkerWithoutAsh,
+                clinkerWithAsh: clinkerWithAsh,
+                modulesSans: modulesSans,
+                modulesAvec: modulesAvec,
+                c3sSans: c3sSans,
+                c3sAvec: c3sAvec,
+            };
+            const result = await handleInterpretImpact(input);
+            if (result) {
+                setInterpretation(result.interpretation);
+            } else {
+                 throw new Error("L'assistant n'a pas retourné de réponse.");
+            }
+        } catch (error) {
+             const errorMessage = error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
+            toast({ variant: "destructive", title: "Erreur d'interprétation", description: errorMessage });
+        } finally {
+            setIsInterpreting(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className="mx-auto w-full max-w-7xl px-4 py-6 space-y-6">
@@ -566,8 +592,16 @@ export default function CalculImpactPage() {
         </div>
         <Card>
             <CardHeader>
-                <CardTitle>Impact sur les Indicateurs Clés</CardTitle>
-                <CardDescription>Variation absolue (Avec Cendres - Sans Cendres)</CardDescription>
+                <div className="flex justify-between items-center">
+                    <div>
+                        <CardTitle>Impact sur les Indicateurs Clés</CardTitle>
+                        <CardDescription>Variation absolue (Avec Cendres - Sans Cendres)</CardDescription>
+                    </div>
+                     <Button onClick={onInterpret} disabled={isInterpreting}>
+                        <BrainCircuit className="mr-2 h-4 w-4" />
+                        {isInterpreting ? "Analyse en cours..." : "Interpréter l'Impact"}
+                    </Button>
+                </div>
             </CardHeader>
             <CardContent>
                  <ResponsiveContainer width="100%" height={300}>
@@ -599,10 +633,39 @@ export default function CalculImpactPage() {
                 </ResponsiveContainer>
             </CardContent>
         </Card>
+
+        {isInterpreting && (
+            <Card>
+                <CardContent className="p-6">
+                     <div className="flex items-center space-x-4">
+                        <Skeleton className="h-12 w-12 rounded-full" />
+                        <div className="space-y-2">
+                            <Skeleton className="h-4 w-[250px]" />
+                            <Skeleton className="h-4 w-[200px]" />
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+        )}
+
+        {interpretation && (
+            <Card>
+                <CardHeader>
+                    <CardTitle>Interprétation de l'IA</CardTitle>
+                </CardHeader>
+                <CardContent className="prose prose-sm prose-invert max-w-none">
+                    {interpretation.split('\n').map((line, index) => (
+                        <p key={index}>{line}</p>
+                    ))}
+                </CardContent>
+            </Card>
+        )}
       </div>
 
     </div>
   )
 }
+
+    
 
     
