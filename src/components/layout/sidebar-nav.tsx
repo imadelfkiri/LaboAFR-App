@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
-import { Flame, Database, BarChart3, ClipboardCheck, Beaker, TrendingUp, Activity, DollarSign, Archive, Cog, FlaskConical, ClipboardList } from 'lucide-react';
+import { Flame, Database, BarChart3, ClipboardCheck, Beaker, TrendingUp, Activity, DollarSign, Archive, Cog, FlaskConical, ClipboardList, Book } from 'lucide-react';
 
 const links = [
   { href: '/calculateur', label: 'Calculateur PCI', icon: Flame },
@@ -19,6 +19,7 @@ const links = [
   { href: '/gestion-stock', label: 'Gestion du Stock', icon: Archive },
   { href: '/indicateurs', label: 'Indicateurs', icon: TrendingUp },
   { href: '/calcul-impact', label: "Calcul d'Impact", icon: Activity },
+  { href: '/historique-impact', label: "Historique Impact", icon: Book },
 ];
 
 export function SidebarNav() {

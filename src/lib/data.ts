@@ -298,78 +298,61 @@ export async function deleteSpecification(id: string) {
 
 export async function getAverageAnalysisForFuels(
   fuelNames: string[],
-  weights?: number[]
-): Promise<AshAnalysis> {
-  const finalAverages: AshAnalysis = {};
+  dateRange: { from: Date; to: Date }
+): Promise<Record<string, AverageAnalysis>> {
+  const analyses: Record<string, AverageAnalysis> = {};
+  if (!fuelNames || fuelNames.length === 0) return analyses;
 
-  if (!fuelNames || fuelNames.length === 0) {
-    return {};
-  }
+  const start = Timestamp.fromDate(startOfDay(dateRange.from));
+  const end = Timestamp.fromDate(endOfDay(dateRange.to));
 
-  const q = query(collection(db, 'analyses_cendres'), where('type_combustible', 'in', fuelNames));
+  const constraints = [
+      where('date_arrivage', '>=', start),
+      where('date_arrivage', '<=', end),
+      where('type_combustible', 'in', fuelNames)
+  ];
+  
+  const q = query(collection(db, 'resultats'), ...constraints);
+
   const snapshot = await getDocs(q);
-  const dbResults = snapshot.docs.map(doc => doc.data() as AshAnalysis);
-
-  const analysesByFuel: Record<string, AshAnalysis[]> = {};
+  const resultsByType: Record<string, any[]> = {};
   fuelNames.forEach(name => {
-    analysesByFuel[name] = [];
-  });
-  dbResults.forEach(res => {
-    if (res.type_combustible && analysesByFuel[res.type_combustible]) {
-      analysesByFuel[res.type_combustible].push(res);
-    }
+      resultsByType[name] = [];
   });
 
-  const averageByFuel: Record<string, AshAnalysis> = {};
-  const keysToAverage: (keyof AshAnalysis)[] = ['pf', 'pourcentage_cendres', 'sio2', 'al2o3', 'fe2o3', 'cao', 'mgo', 'so3', 'k2o', 'tio2', 'mno', 'p2o5'];
-
+  snapshot.forEach(doc => {
+      const data = doc.data();
+      resultsByType[data.type_combustible].push(data);
+  });
+  
   for (const fuelName of fuelNames) {
-    const fuelAnalyses = analysesByFuel[fuelName];
-    const avg: AshAnalysis = {};
-    if (fuelAnalyses.length > 0) {
-      for (const key of keysToAverage) {
-        const values = fuelAnalyses.map(a => a[key]).filter(v => typeof v === 'number') as number[];
-        if (values.length > 0) {
-          (avg as any)[key] = values.reduce((sum, val) => sum + val, 0) / values.length;
-        }
+      const fuelResults = resultsByType[fuelName];
+      const count = fuelResults.length;
+
+      if (count === 0) {
+          analyses[fuelName] = { pci_brut: 0, h2o: 0, chlore: 0, cendres: 0, count: 0 };
+          continue;
       }
-    }
-    averageByFuel[fuelName] = avg;
-  }
-  
-  if (!weights || weights.length !== fuelNames.length) {
-    // Simple average if no weights provided
-    keysToAverage.forEach(key => {
-        const allValues = fuelNames.map(name => averageByFuel[name]?.[key]).filter(v => typeof v === 'number') as number[];
-        if (allValues.length > 0) {
-           (finalAverages as any)[key] = allValues.reduce((sum, val) => sum + val, 0) / allValues.length;
-        }
-    });
-    return finalAverages;
-  }
-  
-  // Weighted average
-  const totalWeight = weights.reduce((sum, w) => sum + w, 0);
-  if (totalWeight === 0) return {};
+      
+      const sum = fuelResults.reduce((acc, curr) => {
+          acc.pci_brut += curr.pci_brut || 0;
+          acc.h2o += curr.h2o || 0;
+          acc.chlore += curr.chlore || 0;
+          acc.cendres += curr.cendres || 0;
+          acc.taux_metal += curr.taux_metal || 0;
+          return acc;
+      }, { pci_brut: 0, h2o: 0, chlore: 0, cendres: 0, taux_metal: 0 });
 
-  keysToAverage.forEach(key => {
-    let weightedSum = 0;
-    let weightForSum = 0;
-    for (let i = 0; i < fuelNames.length; i++) {
-        const fuelName = fuelNames[i];
-        const weight = weights[i];
-        const avgValue = averageByFuel[fuelName]?.[key];
-        if (typeof avgValue === 'number' && typeof weight === 'number') {
-            weightedSum += avgValue * weight;
-            weightForSum += weight;
-        }
-    }
-    if (weightForSum > 0) {
-      (finalAverages as any)[key] = weightedSum / weightForSum;
-    }
-  });
-
-  return finalAverages;
+      analyses[fuelName] = {
+          pci_brut: sum.pci_brut / count,
+          h2o: sum.h2o / count,
+          chlore: sum.chlore / count,
+          cendres: sum.cendres / count,
+          taux_metal: sum.taux_metal / count,
+          count: count,
+      };
+  }
+  return analyses;
 }
 
 
@@ -839,4 +822,11 @@ export async function saveImpactAnalysis(analysis: Omit<ImpactAnalysis, 'id' | '
     const docRef = await addDoc(collection(db, 'impact_analyses'), dataToSave);
     return docRef.id;
 }
-    
+
+export async function getImpactAnalyses(): Promise<ImpactAnalysis[]> {
+    const analysesCollection = collection(db, 'impact_analyses');
+    const q = query(analysesCollection, orderBy("createdAt", "desc"));
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return [];
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ImpactAnalysis));
+}
