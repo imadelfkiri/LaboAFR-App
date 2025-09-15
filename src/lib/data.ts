@@ -835,3 +835,8 @@ export async function getImpactAnalyses(): Promise<ImpactAnalysis[]> {
     if (snapshot.empty) return [];
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ImpactAnalysis));
 }
+
+export async function deleteImpactAnalysis(id: string): Promise<void> {
+    const analysisRef = doc(db, 'impact_analyses', id);
+    await deleteDoc(analysisRef);
+}
