@@ -844,7 +844,7 @@ export default function ResultsTable() {
         reader.readAsArrayBuffer(file);
     };
 
-  const { tableRows, averages } = useMemo(() => {
+    const { tableRows, averages } = useMemo(() => {
         const rows = sortedAndFilteredResults.map(result => {
             const alerte = generateAlerts(result);
             return {
@@ -864,7 +864,7 @@ export default function ResultsTable() {
                 cendresAlert: alerte.details.cendres,
                 alerte,
                 remarque: result.remarques,
-                original: result, // Keep original for editing and sorting
+                original: result,
             };
         });
 
@@ -888,7 +888,10 @@ export default function ResultsTable() {
         
         const petCokeAnalyses = sortedAndFilteredResults.filter(r => r.type_combustible?.toLowerCase().includes('pet coke'));
         const grignonsAnalyses = sortedAndFilteredResults.filter(r => r.type_combustible?.toLowerCase().includes('grignons'));
-        const afsAnalyses = sortedAndFilteredResults.filter(r => !r.type_combustible?.toLowerCase().includes('pet coke') && !r.type_combustible?.toLowerCase().includes('grignons'));
+        const afsAnalyses = sortedAndFilteredResults.filter(r => 
+            !r.type_combustible?.toLowerCase().includes('pet coke') && 
+            !r.type_combustible?.toLowerCase().includes('grignons')
+        );
 
         const calculatedAverages = {
             petCoke: processGroup(petCokeAnalyses),
