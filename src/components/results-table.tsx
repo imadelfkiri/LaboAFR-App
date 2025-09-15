@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
@@ -112,6 +113,7 @@ function ResultsPagePro({
   fuels = [],
   suppliers = [],
   analysisTypes = [],
+  averages,
   fuel="__ALL__", setFuel=()=>{},
   supplier="__ALL__", setSupplier=()=>{},
   analysisType="__ALL__", setAnalysisType=()=>{},
@@ -181,6 +183,21 @@ function ResultsPagePro({
     { label: "Alertes", key: "id" }, // Not sortable
     { label: "Remarques", key: "remarques" },
   ];
+  
+  const AverageRow = ({ label, data, count }: { label: string, data: any, count: number }) => {
+      if (count === 0) return null;
+      return (
+          <tr className="border-b border-border last:border-0 bg-secondary/30 hover:bg-secondary/40 font-semibold">
+              <td colSpan={4} className="p-2 text-secondary-foreground whitespace-nowrap">{label} ({count} analyses)</td>
+              <td className="p-2 text-right tabular-nums">{data.pci}</td>
+              <td className="p-2 text-right tabular-nums">{data.h2o}</td>
+              <td className="p-2 text-right tabular-nums">{data.cl}</td>
+              <td className="p-2 text-right tabular-nums">{data.cendres}</td>
+              <td colSpan={3}></td>
+          </tr>
+      )
+  };
+
 
   return (
     <div className="flex flex-col h-full">
@@ -325,6 +342,11 @@ function ResultsPagePro({
                     <tr><td colSpan={11} className="p-6 text-center text-muted-foreground">Aucun résultat.</td></tr>
                   )}
                 </tbody>
+                <tfoot>
+                    <AverageRow label="Moyenne Pet Coke" data={averages.petCoke} count={averages.petCoke.count} />
+                    <AverageRow label="Moyenne Grignons" data={averages.grignons} count={averages.grignons.count} />
+                    <AverageRow label="Moyenne AFs" data={averages.afs} count={averages.afs.count} />
+                </tfoot>
               </table>
             </div>
           </CardContent>
@@ -732,30 +754,63 @@ export default function ResultsTable() {
         reader.readAsArrayBuffer(file);
     };
 
-  const tableRows = useMemo(() => {
-    return sortedAndFilteredResults.map(result => {
-        const alerte = generateAlerts(result);
-        return {
-            id: result.id,
-            dateArrivage: normalizeDate(result.date_arrivage) ? format(normalizeDate(result.date_arrivage)!, 'dd/MM/yyyy') : 'Date invalide',
-            typeAnalyse: result.type_analyse || 'Arrivage',
-            typeCombustible: result.type_combustible,
-            fournisseur: result.fournisseur,
-            pci: formatNumber(result.pci_brut, 0),
-            h2o: formatNumber(result.h2o, 1),
-            cl: formatNumber(result.chlore, 2),
-            cendres: formatNumber(result.cendres, 1),
-            pcs: formatNumber(result.pcs, 0),
-            pciAlert: alerte.details.pci,
-            h2oAlert: alerte.details.h2o,
-            chloreAlert: alerte.details.chlore,
-            cendresAlert: alerte.details.cendres,
-            alerte,
-            remarque: result.remarques,
-            original: result, // Keep original for sorting
+    const { tableRows, averages } = useMemo(() => {
+        const rows = sortedAndFilteredResults.map(result => {
+            const alerte = generateAlerts(result);
+            return {
+                id: result.id,
+                dateArrivage: normalizeDate(result.date_arrivage) ? format(normalizeDate(result.date_arrivage)!, 'dd/MM/yyyy') : 'Date invalide',
+                typeAnalyse: result.type_analyse || 'Arrivage',
+                typeCombustible: result.type_combustible,
+                fournisseur: result.fournisseur,
+                pci: formatNumber(result.pci_brut, 0),
+                h2o: formatNumber(result.h2o, 1),
+                cl: formatNumber(result.chlore, 2),
+                cendres: formatNumber(result.cendres, 1),
+                pcs: formatNumber(result.pcs, 0),
+                pciAlert: alerte.details.pci,
+                h2oAlert: alerte.details.h2o,
+                chloreAlert: alerte.details.chlore,
+                cendresAlert: alerte.details.cendres,
+                alerte,
+                remarque: result.remarques,
+                original: result, // Keep original for sorting
+            };
+        });
+
+        const processGroup = (group: Result[]) => {
+            const count = group.length;
+            if (count === 0) return { count, pci: '-', h2o: '-', cl: '-', cendres: '-' };
+
+            const sums = group.reduce((acc, result) => {
+                acc.pci += result.pci_brut ?? 0;
+                acc.h2o += result.h2o ?? 0;
+                acc.cl += result.chlore ?? 0;
+                acc.cendres += result.cendres ?? 0;
+                return acc;
+            }, { pci: 0, h2o: 0, cl: 0, cendres: 0 });
+
+            return {
+                count,
+                pci: formatNumber(sums.pci / count, 0),
+                h2o: formatNumber(sums.h2o / count, 1),
+                cl: formatNumber(sums.cl / count, 2),
+                cendres: formatNumber(sums.cendres / count, 1),
+            };
         };
-    });
-  }, [sortedAndFilteredResults]);
+        
+        const petCokeAnalyses = sortedAndFilteredResults.filter(r => r.type_combustible?.toLowerCase().includes('pet coke'));
+        const grignonsAnalyses = sortedAndFilteredResults.filter(r => r.type_combustible?.toLowerCase().includes('grignons'));
+        const afsAnalyses = sortedAndFilteredResults.filter(r => !r.type_combustible?.toLowerCase().includes('pet coke') && !r.type_combustible?.toLowerCase().includes('grignons'));
+
+        const calculatedAverages = {
+            petCoke: processGroup(petCokeAnalyses),
+            grignons: processGroup(grignonsAnalyses),
+            afs: processGroup(afsAnalyses),
+        };
+
+        return { tableRows: rows, averages: calculatedAverages };
+    }, [sortedAndFilteredResults]);
   
   const exportData = (type: 'excel' | 'pdf', scope: 'current' | 'daily' | 'weekly' | 'monthly' | 'last_month') => {
     let dataToExport: Result[] = [];
@@ -891,6 +946,7 @@ export default function ResultsTable() {
             fuels={uniqueFuelTypes}
             suppliers={availableFournisseurs}
             analysisTypes={uniqueAnalysisTypes}
+            averages={averages}
             fuel={fuelTypeFilter}
             setFuel={setFuelTypeFilter}
             supplier={fournisseurFilter}
@@ -949,5 +1005,7 @@ export default function ResultsTable() {
       </>
   );
 }
+
+    
 
     
