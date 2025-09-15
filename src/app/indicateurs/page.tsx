@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -60,14 +61,30 @@ export default function IndicateursPage() {
     }, [toast]);
 
     const substitutionData = useMemo(() => {
-        if (!session) return null;
+        if (!session?.availableFuels) return null;
 
         const getPci = (fuelName: string) => session.availableFuels[fuelName]?.pci_brut || 0;
 
         // --- Énergie des AFs (Hall + ATS) ---
         const afFlow = (session.hallAF?.flowRate || 0) + (session.ats?.flowRate || 0);
-        const afPci = session.globalIndicators?.pci || 0; // PCI moyen du mélange AFs
-        const energyAFs = afFlow * afPci / 1000; // en Gcal/h
+
+        let afEnergyWeightedSum = 0;
+        let afWeightSum = 0;
+
+        const processInstallation = (installation: any) => {
+             if (!installation?.fuels || !installation.flowRate) return;
+             for (const [fuel, data] of Object.entries(installation.fuels as Record<string, {buckets: number}>)) {
+                const pci = getPci(fuel);
+                const weight = (data.buckets || 0) * (session.availableFuels[fuel]?.poids_godet || 1.5);
+                afEnergyWeightedSum += weight * pci;
+                afWeightSum += weight;
+             }
+        }
+        processInstallation(session.hallAF);
+        processInstallation(session.ats);
+        
+        const afPci = afWeightSum > 0 ? afEnergyWeightedSum / afWeightSum : 0;
+        const energyAFs = afFlow * afPci / 1000;
 
         // --- Énergie des Grignons ---
         const grignonsFlow = (session.directInputs?.['Grignons GO1']?.flowRate || 0) + (session.directInputs?.['Grignons GO2']?.flowRate || 0);
@@ -75,7 +92,9 @@ export default function IndicateursPage() {
         const energyGrignons = grignonsFlow * pciGrignons / 1000;
 
         // --- Énergie du Pet Coke ---
-        const petCokeFlow = (session.directInputs?.['Pet-Coke Preca']?.flowRate || 0) + (session.directInputs?.['Pet-Coke Tuyere']?.flowRate || 0);
+        const petCokePrecaFlow = session.directInputs?.['Pet-Coke Preca']?.flowRate || 0;
+        const petCokeTuyereFlow = session.directInputs?.['Pet-Coke Tuyere']?.flowRate || 0;
+        const petCokeFlow = petCokePrecaFlow + petCokeTuyereFlow;
         const pciPetCoke = getPci('Pet-Coke');
         const energyPetCoke = petCokeFlow * pciPetCoke / 1000;
 
