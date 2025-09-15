@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
@@ -421,55 +422,40 @@ export default function ResultsTable() {
     resolver: zodResolver(editSchema),
   });
 
+  const fetchResultsData = useCallback(async () => {
+    const q = query(collection(db, "resultats"), orderBy("date_arrivage", "desc"));
+    const querySnapshot = await getDocs(q);
+    const resultsData: Result[] = [];
+    querySnapshot.forEach((doc) => {
+        resultsData.push({ id: doc.id, ...doc.data() } as Result);
+    });
+    setResults(resultsData);
+  }, []);
+
   const fetchInitialData = useCallback(async () => {
     setLoading(true);
     try {
-      await getSpecifications(); 
-      const [map, fuelData] = await Promise.all([getFuelSupplierMap(), getFuelData()]);
-      setFuelSupplierMap(map);
-      setFuelDataMap(new Map(fuelData.map(fd => [fd.nom_combustible, fd])));
-
-      const q = query(collection(db, "resultats"));
-      const unsubscribe = onSnapshot(
-        q,
-        (querySnapshot) => {
-          const resultsData: Result[] = [];
-          querySnapshot.forEach((d) => {
-            resultsData.push({ id: d.id, ...(d.data() as any) } as Result);
-          });
-          setResults(resultsData);
-          setLoading(false);
-        },
-        (error) => {
-          console.error("Erreur de lecture des résultats:", error);
-          toast({
-            variant: "destructive",
-            title: "Erreur de lecture",
-            description: "Impossible de charger l'historique des résultats.",
-          });
-          setLoading(false);
-        }
-      );
-      return unsubscribe;
+        await Promise.all([
+            getSpecifications(),
+            getFuelSupplierMap().then(setFuelSupplierMap),
+            getFuelData().then(data => setFuelDataMap(new Map(data.map(fd => [fd.nom_combustible, fd])))),
+            fetchResultsData()
+        ]);
     } catch (error) {
-      console.error("Erreur lors de la récupération des données de base :", error);
-      toast({
-        variant: "destructive",
-        title: "Erreur de données",
-        description: "Impossible de charger les données de configuration.",
-      });
-      setLoading(false);
+        console.error("Erreur lors de la récupération des données de base :", error);
+        toast({
+            variant: "destructive",
+            title: "Erreur de données",
+            description: "Impossible de charger les données de configuration.",
+        });
+    } finally {
+        setLoading(false);
     }
-  }, [toast]);
+  }, [toast, fetchResultsData]);
+
 
   useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
-    fetchInitialData().then((unsub) => {
-      if (unsub) unsubscribe = unsub;
-    });
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
+    fetchInitialData();
   }, [fetchInitialData]);
 
   const { uniqueFuelTypes, allUniqueFournisseurs, uniqueAnalysisTypes } = useMemo(() => {
@@ -571,6 +557,7 @@ export default function ResultsTable() {
     try {
       await deleteDoc(doc(db, "resultats", resultToDelete));
       toast({ title: "Succès", description: "L'enregistrement a été supprimé." });
+      fetchResultsData(); // Refetch data
     } catch (error) {
       console.error("Erreur lors de la suppression:", error);
       toast({
@@ -587,6 +574,7 @@ export default function ResultsTable() {
     try {
       await deleteAllResults();
       toast({ title: "Succès", description: "Tous les résultats ont été supprimés." });
+      fetchResultsData(); // Refetch data
     } catch (error) {
       console.error("Erreur lors de la suppression de tous les résultats :", error);
       toast({
@@ -639,7 +627,7 @@ export default function ResultsTable() {
         toast({ title: "Succès", description: "Résultat mis à jour."});
         setIsEditModalOpen(false);
         setEditingResult(null);
-
+        fetchResultsData(); // Refetch data
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
         toast({ variant: "destructive", title: "Erreur de mise à jour", description: errorMessage });
@@ -830,6 +818,7 @@ export default function ResultsTable() {
 
                 await addManyResults(results as any);
                 toast({ title: "Succès", description: `${parsedResults.length} résultats ont été importés.` });
+                fetchResultsData();
 
             } catch (error) {
                 console.error("Error importing file:", error);
