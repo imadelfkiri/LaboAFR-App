@@ -80,15 +80,9 @@ export function ImpactHistoryTable() {
     return (
         <>
             <Card>
-                <CardHeader>
-                    <CardTitle>Historique des Calculs d'Impact</CardTitle>
-                    <CardDescription>
-                        Retrouvez ici toutes les simulations d'impact que vous avez sauvegardées.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
+                <CardContent className="p-0">
                     {loading ? (
-                        <div className="space-y-2">
+                        <div className="space-y-2 p-4">
                             <Skeleton className="h-10 w-full" />
                             <Skeleton className="h-64 w-full" />
                         </div>
