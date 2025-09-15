@@ -16,6 +16,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
 const formatNumber = (num: number | null | undefined, digits: number = 2) => {
     if (num === null || num === undefined || isNaN(num)) return '0,00';
