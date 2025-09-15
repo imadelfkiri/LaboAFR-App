@@ -738,7 +738,7 @@ export default function ResultsTable() {
                     }
                 });
 
-                await addManyResults(parsedResults as any);
+                await addManyResults(results as any);
                 toast({ title: "Succès", description: `${parsedResults.length} résultats ont été importés.` });
 
             } catch (error) {
@@ -779,23 +779,20 @@ export default function ResultsTable() {
         });
 
         const processGroup = (group: Result[]) => {
-            const count = group.length;
-            if (count === 0) return { count, pci: '-', h2o: '-', cl: '-', cendres: '-' };
-
-            const sums = group.reduce((acc, result) => {
-                acc.pci += result.pci_brut ?? 0;
-                acc.h2o += result.h2o ?? 0;
-                acc.cl += result.chlore ?? 0;
-                acc.cendres += result.cendres ?? 0;
+            const metrics: (keyof Result)[] = ['pci_brut', 'h2o', 'chlore', 'cendres'];
+            const totals = metrics.reduce((acc, metric) => {
+                const validValues = group.map(r => r[metric]).filter((v): v is number => typeof v === 'number' && isFinite(v));
+                const sum = validValues.reduce((s, v) => s + v, 0);
+                acc[metric] = { sum, count: validValues.length };
                 return acc;
-            }, { pci: 0, h2o: 0, cl: 0, cendres: 0 });
-
+            }, {} as Record<keyof Result, { sum: number, count: number }>);
+        
             return {
-                count,
-                pci: formatNumber(sums.pci / count, 0),
-                h2o: formatNumber(sums.h2o / count, 1),
-                cl: formatNumber(sums.cl / count, 2),
-                cendres: formatNumber(sums.cendres / count, 1),
+                count: group.length,
+                pci: formatNumber(totals.pci_brut.count > 0 ? totals.pci_brut.sum / totals.pci_brut.count : null, 0),
+                h2o: formatNumber(totals.h2o.count > 0 ? totals.h2o.sum / totals.h2o.count : null, 1),
+                cl: formatNumber(totals.chlore.count > 0 ? totals.chlore.sum / totals.chlore.count : null, 2),
+                cendres: formatNumber(totals.cendres.count > 0 ? totals.cendres.sum / totals.cendres.count : null, 1),
             };
         };
         
@@ -1009,3 +1006,4 @@ export default function ResultsTable() {
     
 
     
+
