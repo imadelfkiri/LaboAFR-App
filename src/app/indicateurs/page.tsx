@@ -64,6 +64,11 @@ export default function IndicateursPage() {
         if (!session?.availableFuels) return null;
 
         const getPci = (fuelName: string) => session.availableFuels[fuelName]?.pci_brut || 0;
+        
+        const getPetCokePci = () => {
+             const pci = getPci('Pet-Coke') || getPci('Pet-Coke Preca') || getPci('Pet-Coke Tuyere');
+             return pci;
+        }
 
         // --- Énergie des AFs (Hall + ATS) ---
         let afEnergyWeightedSum = 0;
@@ -75,6 +80,7 @@ export default function IndicateursPage() {
              let installationTotalWeight = 0;
              const fuelWeights: Record<string, number> = {};
 
+             // First, calculate total weight in the installation to find proportions
              for (const [fuel, data] of Object.entries(installation.fuels as Record<string, {buckets: number}>)) {
                  const weight = (data.buckets || 0) * (session.availableFuels[fuel]?.poids_godet || 1.5);
                  installationTotalWeight += weight;
@@ -85,6 +91,7 @@ export default function IndicateursPage() {
 
              afTotalFlow += installation.flowRate;
              
+             // Now, calculate the weighted energy contribution
              for (const [fuel, data] of Object.entries(installation.fuels as Record<string, {buckets: number}>)) {
                 const pci = getPci(fuel);
                 const weight = fuelWeights[fuel] || 0;
@@ -99,7 +106,7 @@ export default function IndicateursPage() {
         processInstallation(session.hallAF);
         processInstallation(session.ats);
         
-        const energyAFs = afEnergyWeightedSum / 1000;
+        const energyAFs = afEnergyWeightedSum / 1000; // to Gcal
         const afPci = afTotalFlow > 0 ? (energyAFs * 1000) / afTotalFlow : 0;
 
         // --- Énergie des Grignons ---
@@ -111,7 +118,7 @@ export default function IndicateursPage() {
         const petCokePrecaFlow = session.directInputs?.['Pet-Coke Preca']?.flowRate || 0;
         const petCokeTuyereFlow = session.directInputs?.['Pet-Coke Tuyere']?.flowRate || 0;
         const petCokeFlow = petCokePrecaFlow + petCokeTuyereFlow;
-        const pciPetCoke = getPci('Pet-Coke');
+        const pciPetCoke = getPetCokePci();
         const energyPetCoke = petCokeFlow * pciPetCoke / 1000;
 
         const energyTotal = energyAFs + energyGrignons + energyPetCoke;
@@ -227,3 +234,4 @@ export default function IndicateursPage() {
     </div>
   );
 }
+
