@@ -342,7 +342,7 @@ function ResultsPagePro({
                     <tr><td colSpan={11} className="p-6 text-center text-muted-foreground">Aucun résultat.</td></tr>
                   )}
                 </tbody>
-                <tfoot>
+                <tfoot className="sticky bottom-0 bg-background/95 backdrop-blur-sm">
                     <AverageRow label="Moyenne Pet Coke" data={averages.petCoke} count={averages.petCoke.count} />
                     <AverageRow label="Moyenne Grignons" data={averages.grignons} count={averages.grignons.count} />
                     <AverageRow label="Moyenne AFs" data={averages.afs} count={averages.afs.count} />
