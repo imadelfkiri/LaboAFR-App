@@ -794,6 +794,11 @@ export async function addManyResults(results: ResultToSave[]): Promise<void> {
     await batch.commit();
 }
 
+export async function updateResult(id: string, data: Partial<ResultToSave>): Promise<void> {
+    const resultRef = doc(db, 'resultats', id);
+    await updateDoc(resultRef, data);
+}
+
 // --- Raw Meal Presets ---
 
 export async function getRawMealPresets(): Promise<RawMealPreset[]> {

@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
@@ -13,7 +12,8 @@ import {
   Timestamp,
   where,
   getDocs,
-  writeBatch
+  writeBatch,
+  updateDoc
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
@@ -41,8 +41,9 @@ import {
   CheckCircle2,
   ChevronDown,
   ArrowUpDown,
+  Edit,
 } from "lucide-react";
-import { getSpecifications, SPEC_MAP, getFuelSupplierMap, deleteAllResults, getFuelData, type FuelData, addManyResults } from "@/lib/data";
+import { getSpecifications, SPEC_MAP, getFuelSupplierMap, deleteAllResults, getFuelData, type FuelData, addManyResults, updateResult } from "@/lib/data";
 import { calculerPCI } from "@/lib/pci";
 import {
   AlertDialog,
@@ -69,6 +70,27 @@ import { Input } from "@/components/ui/input"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Calendar } from "./ui/calendar";
 import { SidebarTrigger } from "./ui/sidebar";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+  FormLabel,
+} from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { cn } from "@/lib/utils";
+
 
 interface Result {
   id: string;
@@ -93,6 +115,15 @@ declare module "jspdf" {
     autoTable: (options: any) => jsPDF;
   }
 }
+
+const editSchema = z.object({
+  pcs: z.coerce.number().positive(),
+  h2o: z.coerce.number().min(0).max(100),
+  chlore: z.coerce.number().min(0).optional().nullable(),
+  cendres: z.coerce.number().min(0).optional().nullable(),
+  remarques: z.string().optional().nullable(),
+  taux_metal: z.coerce.number().min(0).max(100).optional().nullable(),
+});
 
 const importSchema = z.object({
   date_arrivage: z.date({ required_error: "Date requise." }),
@@ -123,6 +154,7 @@ function ResultsPagePro({
   onImport=()=>{}, 
   onDeleteAll=()=>{}, 
   onDeleteOne=(id:string)=>{},
+  onEditOne=(result: Result)=>{},
   sortConfig = { key: 'date_arrivage', direction: 'descending' },
   onSort = (key: SortableKeys) => {},
 }) {
@@ -332,6 +364,9 @@ function ResultsPagePro({
                       </td>
                       <td className="p-2 text-muted-foreground max-w-[150px] truncate" title={r.remarque}>{r.remarque ?? "-"}</td>
                       <td className="p-2 text-center">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEditOne(r.original)}>
+                          <Edit className="w-4 h-4 text-muted-foreground" />
+                        </Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDeleteOne(r.id)}>
                           <Trash2 className="w-4 h-4 text-destructive" />
                         </Button>
@@ -376,8 +411,15 @@ export default function ResultsTable() {
   const [fuelSupplierMap, setFuelSupplierMap] = useState<Record<string, string[]>>({});
   const [availableFournisseurs, setAvailableFournisseurs] = useState<string[]>([]);
   const [fuelDataMap, setFuelDataMap] = useState<Map<string, FuelData>>(new Map());
+  
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingResult, setEditingResult] = useState<Result | null>(null);
 
   const { toast } = useToast();
+
+  const form = useForm<z.infer<typeof editSchema>>({
+    resolver: zodResolver(editSchema),
+  });
 
   const fetchInitialData = useCallback(async () => {
     setLoading(true);
@@ -556,6 +598,54 @@ export default function ResultsTable() {
       setIsDeleteAllConfirmOpen(false);
     }
   };
+
+  const handleEditOpen = (result: Result) => {
+    setEditingResult(result);
+    form.reset({
+        pcs: result.pcs ?? undefined,
+        h2o: result.h2o,
+        chlore: result.chlore,
+        cendres: result.cendres,
+        remarques: result.remarques,
+        taux_metal: result.taux_metal,
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const onEditSubmit = async (values: z.infer<typeof editSchema>) => {
+    if (!editingResult) return;
+
+    try {
+        const hValue = fuelDataMap.get(editingResult.type_combustible)?.teneur_hydrogene;
+        if (hValue === undefined || hValue === null) {
+            throw new Error(`Teneur en hydrogène non définie pour ${editingResult.type_combustible}.`);
+        }
+        
+        let pcsToUse = values.pcs;
+        if (values.taux_metal) {
+            const taux = Number(values.taux_metal);
+            if (taux > 0 && taux < 100) {
+              pcsToUse = pcsToUse * (1 - taux / 100);
+            }
+        }
+        const pci_brut = calculerPCI(pcsToUse, values.h2o, hValue);
+
+        const dataToUpdate = {
+            ...values,
+            pci_brut,
+        };
+
+        await updateResult(editingResult.id, dataToUpdate);
+        toast({ title: "Succès", description: "Résultat mis à jour."});
+        setIsEditModalOpen(false);
+        setEditingResult(null);
+
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
+        toast({ variant: "destructive", title: "Erreur de mise à jour", description: errorMessage });
+    }
+  };
+
 
   const formatNumber = (num: number | null | undefined, fractionDigits: number = 0) => {
     if (num === null || num === undefined || Number.isNaN(num)) return "-";
@@ -754,7 +844,7 @@ export default function ResultsTable() {
         reader.readAsArrayBuffer(file);
     };
 
-    const { tableRows, averages } = useMemo(() => {
+  const { tableRows, averages } = useMemo(() => {
         const rows = sortedAndFilteredResults.map(result => {
             const alerte = generateAlerts(result);
             return {
@@ -774,7 +864,7 @@ export default function ResultsTable() {
                 cendresAlert: alerte.details.cendres,
                 alerte,
                 remarque: result.remarques,
-                original: result, // Keep original for sorting
+                original: result, // Keep original for editing and sorting
             };
         });
 
@@ -789,10 +879,10 @@ export default function ResultsTable() {
         
             return {
                 count: group.length,
-                pci: formatNumber(totals.pci_brut.count > 0 ? totals.pci_brut.sum / totals.pci_brut.count : null, 0),
-                h2o: formatNumber(totals.h2o.count > 0 ? totals.h2o.sum / totals.h2o.count : null, 1),
-                cl: formatNumber(totals.chlore.count > 0 ? totals.chlore.sum / totals.chlore.count : null, 2),
-                cendres: formatNumber(totals.cendres.count > 0 ? totals.cendres.sum / totals.cendres.count : null, 1),
+                pci: totals.pci_brut.count > 0 ? formatNumber(totals.pci_brut.sum / totals.pci_brut.count, 0) : '-',
+                h2o: totals.h2o.count > 0 ? formatNumber(totals.h2o.sum / totals.h2o.count, 1) : '-',
+                cl: totals.chlore.count > 0 ? formatNumber(totals.chlore.sum / totals.chlore.count, 2) : '-',
+                cendres: totals.cendres.count > 0 ? formatNumber(totals.cendres.sum / totals.cendres.count, 1) : '-',
             };
         };
         
@@ -958,6 +1048,7 @@ export default function ResultsTable() {
             onExport={exportData}
             onDeleteAll={() => setIsDeleteAllConfirmOpen(true)}
             onDeleteOne={(id) => setResultToDelete(id)}
+            onEditOne={handleEditOpen}
             sortConfig={sortConfig}
             onSort={requestSort}
         />
@@ -999,11 +1090,34 @@ export default function ResultsTable() {
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
+
+        <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Modifier le Résultat</DialogTitle>
+                    <DialogDescription>
+                        Combustible: {editingResult?.type_combustible} | Fournisseur: {editingResult?.fournisseur}
+                    </DialogDescription>
+                </DialogHeader>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onEditSubmit)} className="space-y-4 py-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField control={form.control} name="pcs" render={({ field }) => (<FormItem><FormLabel>PCS</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                            <FormField control={form.control} name="h2o" render={({ field }) => (<FormItem><FormLabel>% H2O</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                            <FormField control={form.control} name="chlore" render={({ field }) => (<FormItem><FormLabel>% Cl-</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                            <FormField control={form.control} name="cendres" render={({ field }) => (<FormItem><FormLabel>% Cendres</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                            <FormField control={form.control} name="taux_metal" render={({ field }) => (<FormItem><FormLabel>Taux du Métal (%)</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                        </div>
+                        <FormField control={form.control} name="remarques" render={({ field }) => (<FormItem><FormLabel>Remarques</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                        
+                        <DialogFooter>
+                            <DialogClose asChild><Button type="button" variant="secondary">Annuler</Button></DialogClose>
+                            <Button type="submit">Enregistrer</Button>
+                        </DialogFooter>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
       </>
   );
 }
-
-    
-
-    
-
