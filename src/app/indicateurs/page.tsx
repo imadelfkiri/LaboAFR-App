@@ -66,7 +66,7 @@ export default function IndicateursPage() {
         const getPci = (fuelName: string) => session.availableFuels[fuelName]?.pci_brut || 0;
         
         const getPetCokePci = () => {
-             const pci = getPci('Pet-Coke') || getPci('Pet-Coke Preca') || getPci('Pet-Coke Tuyere');
+             const pci = getPci('Pet Coke') || getPci('Pet-Coke Preca') || getPci('Pet-Coke Tuyere');
              return pci;
         }
 
@@ -93,6 +93,8 @@ export default function IndicateursPage() {
              
              // Now, calculate the weighted energy contribution
              for (const [fuel, data] of Object.entries(installation.fuels as Record<string, {buckets: number}>)) {
+                if (fuel.toLowerCase().includes('grignons') || fuel.toLowerCase().includes('pet coke')) continue;
+                
                 const pci = getPci(fuel);
                 const weight = fuelWeights[fuel] || 0;
                 
@@ -234,4 +236,3 @@ export default function IndicateursPage() {
     </div>
   );
 }
-
