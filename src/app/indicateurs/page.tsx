@@ -69,7 +69,6 @@ export default function IndicateursPage() {
         const afFlow = (session.hallAF?.flowRate || 0) + (session.ats?.flowRate || 0);
 
         let afEnergyWeightedSum = 0;
-        let afWeightSum = 0;
 
         const processInstallation = (installation: any) => {
              if (!installation?.fuels || !installation.flowRate) return;
@@ -87,9 +86,9 @@ export default function IndicateursPage() {
                 const weight = (data.buckets || 0) * (session.availableFuels[fuel]?.poids_godet || 1.5);
                 
                 const proportion = weight / installationWeight;
-                const weightedPci = pci * proportion * installation.flowRate;
+                const weightedEnergy = pci * proportion * installation.flowRate;
                 
-                afEnergyWeightedSum += weightedPci;
+                afEnergyWeightedSum += weightedEnergy;
              }
         }
         
