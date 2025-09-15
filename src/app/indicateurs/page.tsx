@@ -66,32 +66,30 @@ export default function IndicateursPage() {
         const getPci = (fuelName: string) => session.availableFuels[fuelName]?.pci_brut || 0;
 
         // --- Énergie des AFs (Hall + ATS) ---
-        const afFlow = (session.hallAF?.flowRate || 0) + (session.ats?.flowRate || 0);
-
         let afEnergyWeightedSum = 0;
-        let totalAfWeight = 0;
+        let afTotalFlow = 0;
 
         const processInstallation = (installation: any) => {
-             if (!installation?.fuels || !installation.flowRate) return;
+             if (!installation?.fuels || !installation.flowRate || installation.flowRate === 0) return;
              
-             let installationWeight = 0;
+             let installationTotalWeight = 0;
              const fuelWeights: Record<string, number> = {};
 
              for (const [fuel, data] of Object.entries(installation.fuels as Record<string, {buckets: number}>)) {
                  const weight = (data.buckets || 0) * (session.availableFuels[fuel]?.poids_godet || 1.5);
-                 installationWeight += weight;
+                 installationTotalWeight += weight;
                  fuelWeights[fuel] = weight;
              }
              
-             totalAfWeight += installation.flowRate;
-             
-             if(installationWeight === 0) return;
+             if(installationTotalWeight === 0) return;
 
+             afTotalFlow += installation.flowRate;
+             
              for (const [fuel, data] of Object.entries(installation.fuels as Record<string, {buckets: number}>)) {
                 const pci = getPci(fuel);
                 const weight = fuelWeights[fuel] || 0;
                 
-                const proportion = weight / installationWeight;
+                const proportion = weight / installationTotalWeight;
                 const weightedEnergy = pci * proportion * installation.flowRate;
                 
                 afEnergyWeightedSum += weightedEnergy;
@@ -102,7 +100,7 @@ export default function IndicateursPage() {
         processInstallation(session.ats);
         
         const energyAFs = afEnergyWeightedSum / 1000;
-        const afPci = totalAfWeight > 0 ? (energyAFs * 1000) / totalAfWeight : 0;
+        const afPci = afTotalFlow > 0 ? (energyAFs * 1000) / afTotalFlow : 0;
 
         // --- Énergie des Grignons ---
         const grignonsFlow = (session.directInputs?.['Grignons GO1']?.flowRate || 0) + (session.directInputs?.['Grignons GO2']?.flowRate || 0);
@@ -113,7 +111,7 @@ export default function IndicateursPage() {
         const petCokePrecaFlow = session.directInputs?.['Pet-Coke Preca']?.flowRate || 0;
         const petCokeTuyereFlow = session.directInputs?.['Pet-Coke Tuyere']?.flowRate || 0;
         const petCokeFlow = petCokePrecaFlow + petCokeTuyereFlow;
-        const pciPetCoke = getPci('Pet-Coke Preca') || getPci('Pet-Coke Tuyere') || getPci('Pet-Coke') || 0;
+        const pciPetCoke = getPci('Pet-Coke');
         const energyPetCoke = petCokeFlow * pciPetCoke / 1000;
 
         const energyTotal = energyAFs + energyGrignons + energyPetCoke;
@@ -127,7 +125,7 @@ export default function IndicateursPage() {
             energyGrignons,
             energyPetCoke,
             energyTotal,
-            afFlow,
+            afFlow: afTotalFlow,
             grignonsFlow,
             petCokeFlow,
             afPci,
