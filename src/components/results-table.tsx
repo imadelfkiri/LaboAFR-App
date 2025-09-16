@@ -428,24 +428,22 @@ export default function ResultsTable() {
         getFuelData(),
       ]);
       setFuelDataMap(new Map(fuelData.map(fd => [fd.nom_combustible, fd])));
-      
-      const unsubscribe = onSnapshot(query(collection(db, "resultats"), orderBy("date_arrivage", "desc")), (snapshot) => {
-        const resultsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Result));
-        setResults(resultsData);
-        setLoading(false);
-      }, (error) => {
-        console.error("Error fetching results with snapshot:", error);
-        toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les résultats en temps réel."});
-        setLoading(false);
-      });
-
-      return unsubscribe;
-
     } catch (error) {
-      console.error("Error fetching initial data:", error);
-      toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données de base."});
-      setLoading(false);
+       console.error("Error fetching initial data:", error);
+       toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données de base."});
     }
+
+    const unsubscribe = onSnapshot(query(collection(db, "resultats"), orderBy("date_arrivage", "desc")), (snapshot) => {
+      const resultsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Result));
+      setResults(resultsData);
+      setLoading(false);
+    }, (error) => {
+      console.error("Error fetching results with snapshot:", error);
+      toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les résultats en temps réel."});
+      setLoading(false);
+    });
+
+    return unsubscribe;
   }, [toast]);
   
 
@@ -470,55 +468,6 @@ export default function ResultsTable() {
     }
     return null;
   };
-  
-  const filteredResults = useMemo(() => {
-    let items = [...results];
-
-    if (fuelTypeFilter !== '__ALL__') {
-      items = items.filter(result => result.type_combustible === fuelTypeFilter);
-    }
-    if (fournisseurFilter !== '__ALL__') {
-      items = items.filter(result => result.fournisseur === fournisseurFilter);
-    }
-    if (analysisTypeFilter !== '__ALL__') {
-      items = items.filter(result => (result.type_analyse || 'Arrivage') === analysisTypeFilter);
-    }
-
-    if (dateFromFilter || dateToFilter) {
-      const dateFrom = dateFromFilter ? startOfDay(parseISO(dateFromFilter)) : null;
-      const dateTo = dateToFilter ? endOfDay(parseISO(dateToFilter)) : null;
-      items = items.filter(result => {
-        const dateArrivage = normalizeDate(result.date_arrivage);
-        if (!dateArrivage) return false;
-        if (dateFrom && dateArrivage < dateFrom) return false;
-        if (dateTo && dateArrivage > dateTo) return false;
-        return true;
-      });
-    }
-
-    return items;
-  }, [results, fuelTypeFilter, fournisseurFilter, analysisTypeFilter, dateFromFilter, dateToFilter]);
-
-  const { uniqueFuelTypes, uniqueAnalysisTypes, availableSuppliers } = useMemo(() => {
-    const allFuels = [...new Set(results.map(r => r.type_combustible))].sort();
-    const allAnalysisTypes = [...new Set(results.map(r => r.type_analyse || 'Arrivage'))].sort();
-    
-    // Suppliers available in the currently filtered results
-    const suppliersInFiltered = [...new Set(filteredResults.map(r => r.fournisseur))].sort();
-
-    return {
-      uniqueFuelTypes: allFuels,
-      uniqueAnalysisTypes: allAnalysisTypes,
-      availableSuppliers: suppliersInFiltered
-    };
-  }, [results, filteredResults]);
-
-  // Reset supplier filter if it becomes invalid after changing fuel type
-  useEffect(() => {
-      if (fournisseurFilter !== '__ALL__' && !availableSuppliers.includes(fournisseurFilter)) {
-          setFournisseurFilter('__ALL__');
-      }
-  }, [fuelTypeFilter, fournisseurFilter, availableSuppliers]);
 
   const getSortableValue = (item: Result, key: SortableKeys) => {
     if (key === 'date_arrivage') {
@@ -547,23 +496,73 @@ export default function ResultsTable() {
   };
   
   const sortedAndFilteredResults = useMemo(() => {
-    let sortableItems = [...filteredResults];
-    if (sortConfig !== null) {
-        sortableItems.sort((a, b) => {
-            const aValue = getSortableValue(a, sortConfig.key);
-            const bValue = getSortableValue(b, sortConfig.key);
+    let filtered = [...results];
 
-            if (aValue < bValue) {
-                return sortConfig.direction === 'ascending' ? -1 : 1;
-            }
-            if (aValue > bValue) {
-                return sortConfig.direction === 'ascending' ? 1 : -1;
-            }
-            return 0;
-        });
+    // Apply filters
+    if (fuelTypeFilter !== '__ALL__') {
+      filtered = filtered.filter(result => result.type_combustible === fuelTypeFilter);
     }
-    return sortableItems;
-  }, [filteredResults, sortConfig]);
+    if (fournisseurFilter !== '__ALL__') {
+      filtered = filtered.filter(result => result.fournisseur === fournisseurFilter);
+    }
+    if (analysisTypeFilter !== '__ALL__') {
+      filtered = filtered.filter(result => (result.type_analyse || 'Arrivage') === analysisTypeFilter);
+    }
+    if (dateFromFilter || dateToFilter) {
+      const dateFrom = dateFromFilter ? startOfDay(parseISO(dateFromFilter)) : null;
+      const dateTo = dateToFilter ? endOfDay(parseISO(dateToFilter)) : null;
+      filtered = filtered.filter(result => {
+        const dateArrivage = normalizeDate(result.date_arrivage);
+        if (!dateArrivage) return false;
+        if (dateFrom && dateArrivage < dateFrom) return false;
+        if (dateTo && dateArrivage > dateTo) return false;
+        return true;
+      });
+    }
+
+    // Apply sorting
+    if (sortConfig !== null) {
+      filtered.sort((a, b) => {
+        const aValue = getSortableValue(a, sortConfig.key);
+        const bValue = getSortableValue(b, sortConfig.key);
+        if (aValue < bValue) {
+          return sortConfig.direction === 'ascending' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'ascending' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+
+    return filtered;
+  }, [results, fuelTypeFilter, fournisseurFilter, analysisTypeFilter, dateFromFilter, dateToFilter, sortConfig]);
+
+  const { uniqueFuelTypes, uniqueAnalysisTypes, availableSuppliers } = useMemo(() => {
+    const allFuels = [...new Set(results.map(r => r.type_combustible))].sort();
+    const allAnalysisTypes = [...new Set(results.map(r => r.type_analyse || 'Arrivage'))].sort();
+    
+    // Suppliers available in the currently filtered-by-fuel results
+    let fuelFilteredResults = results;
+    if (fuelTypeFilter !== '__ALL__') {
+        fuelFilteredResults = results.filter(r => r.type_combustible === fuelTypeFilter);
+    }
+    const suppliersInFiltered = [...new Set(fuelFilteredResults.map(r => r.fournisseur))].sort();
+
+    return {
+      uniqueFuelTypes: allFuels,
+      uniqueAnalysisTypes: allAnalysisTypes,
+      availableSuppliers: suppliersInFiltered
+    };
+  }, [results, fuelTypeFilter]);
+
+  // Reset supplier filter if it becomes invalid after changing fuel type
+  useEffect(() => {
+      if (fournisseurFilter !== '__ALL__' && !availableSuppliers.includes(fournisseurFilter)) {
+          setFournisseurFilter('__ALL__');
+      }
+  }, [fuelTypeFilter, fournisseurFilter, availableSuppliers]);
+
 
   const handleDelete = async () => {
     if (!resultToDelete) return;
@@ -1126,5 +1125,6 @@ export default function ResultsTable() {
       </>
   );
 }
+
 
 
