@@ -422,62 +422,50 @@ export default function ResultsTable() {
     resolver: zodResolver(editSchema),
   });
 
-  const fetchResultsData = useCallback(async () => {
-    const q = query(collection(db, "resultats"), orderBy("date_arrivage", "desc"));
-    
-    // Using onSnapshot to listen for real-time updates
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        const resultsData: Result[] = [];
-        querySnapshot.forEach((doc) => {
-            resultsData.push({ id: doc.id, ...doc.data() } as Result);
-        });
-        setResults(resultsData);
-        if (loading) setLoading(false); // Set loading to false after first fetch
-    }, (error) => {
-        console.error("Error fetching results: ", error);
-        toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les résultats en temps réel." });
-        setLoading(false);
-    });
-
-    return unsubscribe; // Return the unsubscribe function for cleanup
-  }, [toast, loading]);
-
-
   const fetchInitialData = useCallback(async () => {
-    setLoading(true);
-    try {
-        await Promise.all([
-            getSpecifications(),
-            getFuelSupplierMap().then(setFuelSupplierMap),
-            getFuelData().then(data => setFuelDataMap(new Map(data.map(fd => [fd.nom_combustible, fd])))),
-        ]);
-        // The onSnapshot listener will be set up separately
-    } catch (error) {
-        console.error("Erreur lors de la récupération des données de base :", error);
-        toast({
-            variant: "destructive",
-            title: "Erreur de données",
-            description: "Impossible de charger les données de configuration.",
+      setLoading(true);
+      try {
+        const unsubscribe = onSnapshot(query(collection(db, "resultats"), orderBy("date_arrivage", "desc")), (snapshot) => {
+          const resultsData: Result[] = [];
+          snapshot.forEach((doc) => {
+            resultsData.push({ id: doc.id, ...doc.data() } as Result);
+          });
+          setResults(resultsData);
+          setLoading(false);
         });
-    }
-    // setLoading is handled by the onSnapshot listener
-  }, [toast]);
 
+        const [specs, supplierMap, fuelData] = await Promise.all([
+          getSpecifications(),
+          getFuelSupplierMap(),
+          getFuelData()
+        ]);
+        setFuelSupplierMap(supplierMap);
+        setFuelDataMap(new Map(fuelData.map(fd => [fd.nom_combustible, fd])));
+        
+        return unsubscribe;
+      } catch (error) {
+        console.error("Error fetching initial data:", error);
+        toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données de base."});
+        setLoading(false);
+      }
+  }, [toast]);
+  
 
   useEffect(() => {
-    fetchInitialData();
-    const unsubscribe = fetchResultsData();
+    let unsubscribe: (() => void) | undefined;
+    
+    const fetchData = async () => {
+        unsubscribe = await fetchInitialData();
+    }
 
-    // Cleanup subscription on component unmount
+    fetchData();
+
     return () => {
-        // Since `unsubscribe` is a promise, we need to resolve it first
-        Promise.resolve(unsubscribe).then(unsub => {
-            if (typeof unsub === 'function') {
-                unsub();
-            }
-        });
+        if (unsubscribe) {
+            unsubscribe();
+        }
     };
-  }, [fetchInitialData, fetchResultsData]);
+  }, [fetchInitialData]);
 
 
   const { uniqueFuelTypes, allUniqueFournisseurs, uniqueAnalysisTypes } = useMemo(() => {
@@ -579,7 +567,7 @@ export default function ResultsTable() {
     try {
       await deleteDoc(doc(db, "resultats", resultToDelete));
       toast({ title: "Succès", description: "L'enregistrement a été supprimé." });
-      // Data will refetch via onSnapshot listener
+      fetchInitialData();
     } catch (error) {
       console.error("Erreur lors de la suppression:", error);
       toast({
@@ -596,7 +584,7 @@ export default function ResultsTable() {
     try {
       await deleteAllResults();
       toast({ title: "Succès", description: "Tous les résultats ont été supprimés." });
-      // Data will refetch via onSnapshot listener
+      fetchInitialData();
     } catch (error) {
       console.error("Erreur lors de la suppression de tous les résultats :", error);
       toast({
@@ -649,7 +637,7 @@ export default function ResultsTable() {
         toast({ title: "Succès", description: "Résultat mis à jour."});
         setIsEditModalOpen(false);
         setEditingResult(null);
-        // Data will refetch via onSnapshot listener
+        fetchInitialData();
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
         toast({ variant: "destructive", title: "Erreur de mise à jour", description: errorMessage });
@@ -840,7 +828,7 @@ export default function ResultsTable() {
 
                 await addManyResults(results as any);
                 toast({ title: "Succès", description: `${parsedResults.length} résultats ont été importés.` });
-                // Data refetches via snapshot listener
+                fetchInitialData();
 
             } catch (error) {
                 console.error("Error importing file:", error);
@@ -1139,3 +1127,4 @@ export default function ResultsTable() {
       </>
   );
 }
+
