@@ -424,13 +424,24 @@ export default function ResultsTable() {
 
   const fetchResultsData = useCallback(async () => {
     const q = query(collection(db, "resultats"), orderBy("date_arrivage", "desc"));
-    const querySnapshot = await getDocs(q);
-    const resultsData: Result[] = [];
-    querySnapshot.forEach((doc) => {
-        resultsData.push({ id: doc.id, ...doc.data() } as Result);
+    
+    // Using onSnapshot to listen for real-time updates
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const resultsData: Result[] = [];
+        querySnapshot.forEach((doc) => {
+            resultsData.push({ id: doc.id, ...doc.data() } as Result);
+        });
+        setResults(resultsData);
+        if (loading) setLoading(false); // Set loading to false after first fetch
+    }, (error) => {
+        console.error("Error fetching results: ", error);
+        toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les résultats en temps réel." });
+        setLoading(false);
     });
-    setResults(resultsData);
-  }, []);
+
+    return unsubscribe; // Return the unsubscribe function for cleanup
+  }, [toast, loading]);
+
 
   const fetchInitialData = useCallback(async () => {
     setLoading(true);
@@ -439,8 +450,8 @@ export default function ResultsTable() {
             getSpecifications(),
             getFuelSupplierMap().then(setFuelSupplierMap),
             getFuelData().then(data => setFuelDataMap(new Map(data.map(fd => [fd.nom_combustible, fd])))),
-            fetchResultsData()
         ]);
+        // The onSnapshot listener will be set up separately
     } catch (error) {
         console.error("Erreur lors de la récupération des données de base :", error);
         toast({
@@ -448,15 +459,26 @@ export default function ResultsTable() {
             title: "Erreur de données",
             description: "Impossible de charger les données de configuration.",
         });
-    } finally {
-        setLoading(false);
     }
-  }, [toast, fetchResultsData]);
+    // setLoading is handled by the onSnapshot listener
+  }, [toast]);
 
 
   useEffect(() => {
     fetchInitialData();
-  }, [fetchInitialData]);
+    const unsubscribe = fetchResultsData();
+
+    // Cleanup subscription on component unmount
+    return () => {
+        // Since `unsubscribe` is a promise, we need to resolve it first
+        Promise.resolve(unsubscribe).then(unsub => {
+            if (typeof unsub === 'function') {
+                unsub();
+            }
+        });
+    };
+  }, [fetchInitialData, fetchResultsData]);
+
 
   const { uniqueFuelTypes, allUniqueFournisseurs, uniqueAnalysisTypes } = useMemo(() => {
     const allResults = results; // Use all results to populate filters
@@ -557,7 +579,7 @@ export default function ResultsTable() {
     try {
       await deleteDoc(doc(db, "resultats", resultToDelete));
       toast({ title: "Succès", description: "L'enregistrement a été supprimé." });
-      fetchResultsData(); // Refetch data
+      // Data will refetch via onSnapshot listener
     } catch (error) {
       console.error("Erreur lors de la suppression:", error);
       toast({
@@ -574,7 +596,7 @@ export default function ResultsTable() {
     try {
       await deleteAllResults();
       toast({ title: "Succès", description: "Tous les résultats ont été supprimés." });
-      fetchResultsData(); // Refetch data
+      // Data will refetch via onSnapshot listener
     } catch (error) {
       console.error("Erreur lors de la suppression de tous les résultats :", error);
       toast({
@@ -627,7 +649,7 @@ export default function ResultsTable() {
         toast({ title: "Succès", description: "Résultat mis à jour."});
         setIsEditModalOpen(false);
         setEditingResult(null);
-        fetchResultsData(); // Refetch data
+        // Data will refetch via onSnapshot listener
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
         toast({ variant: "destructive", title: "Erreur de mise à jour", description: errorMessage });
@@ -818,7 +840,7 @@ export default function ResultsTable() {
 
                 await addManyResults(results as any);
                 toast({ title: "Succès", description: `${parsedResults.length} résultats ont été importés.` });
-                fetchResultsData();
+                // Data refetches via snapshot listener
 
             } catch (error) {
                 console.error("Error importing file:", error);
@@ -858,13 +880,17 @@ export default function ResultsTable() {
         });
 
         const processGroup = (group: Result[]) => {
-            const metrics: (keyof Result)[] = ['pci_brut', 'h2o', 'chlore', 'cendres'];
+            if (group.length === 0) {
+                return { count: 0, pci: '-', h2o: '-', cl: '-', cendres: '-' };
+            }
+
+            const metrics: ('pci_brut' | 'h2o' | 'chlore' | 'cendres')[] = ['pci_brut', 'h2o', 'chlore', 'cendres'];
             const totals = metrics.reduce((acc, metric) => {
                 const validValues = group.map(r => r[metric]).filter((v): v is number => typeof v === 'number' && isFinite(v));
                 const sum = validValues.reduce((s, v) => s + v, 0);
                 acc[metric] = { sum, count: validValues.length };
                 return acc;
-            }, {} as Record<keyof Result, { sum: number, count: number }>);
+            }, {} as Record<typeof metrics[number], { sum: number, count: number }>);
         
             return {
                 count: group.length,
