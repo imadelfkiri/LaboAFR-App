@@ -425,46 +425,30 @@ export default function ResultsTable() {
   const fetchInitialData = useCallback(async () => {
       setLoading(true);
       try {
-        const unsubscribe = onSnapshot(query(collection(db, "resultats"), orderBy("date_arrivage", "desc")), (snapshot) => {
-          const resultsData: Result[] = [];
-          snapshot.forEach((doc) => {
-            resultsData.push({ id: doc.id, ...doc.data() } as Result);
-          });
-          setResults(resultsData);
-          setLoading(false);
-        });
-
-        const [specs, supplierMap, fuelData] = await Promise.all([
+        const [specs, supplierMap, fuelData, resultsData] = await Promise.all([
           getSpecifications(),
           getFuelSupplierMap(),
-          getFuelData()
+          getFuelData(),
+          getDocs(query(collection(db, "resultats"), orderBy("date_arrivage", "desc")))
         ]);
+
+        const results = resultsData.docs.map(doc => ({ id: doc.id, ...doc.data() } as Result));
+        
+        setResults(results);
         setFuelSupplierMap(supplierMap);
         setFuelDataMap(new Map(fuelData.map(fd => [fd.nom_combustible, fd])));
         
-        return unsubscribe;
       } catch (error) {
         console.error("Error fetching initial data:", error);
         toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données de base."});
+      } finally {
         setLoading(false);
       }
   }, [toast]);
   
 
   useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
-    
-    const fetchData = async () => {
-        unsubscribe = await fetchInitialData();
-    }
-
-    fetchData();
-
-    return () => {
-        if (unsubscribe) {
-            unsubscribe();
-        }
-    };
+    fetchInitialData();
   }, [fetchInitialData]);
 
 
@@ -1127,4 +1111,5 @@ export default function ResultsTable() {
       </>
   );
 }
+
 
