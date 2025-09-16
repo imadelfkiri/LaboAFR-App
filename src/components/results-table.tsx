@@ -409,8 +409,6 @@ export default function ResultsTable() {
   const [isDeleteAllConfirmOpen, setIsDeleteAllConfirmOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [fuelSupplierMap, setFuelSupplierMap] = useState<Record<string, string[]>>({});
-  const [availableFournisseurs, setAvailableFournisseurs] = useState<string[]>([]);
   const [fuelDataMap, setFuelDataMap] = useState<Map<string, FuelData>>(new Map());
   
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -423,54 +421,52 @@ export default function ResultsTable() {
   });
 
   const fetchInitialData = useCallback(async () => {
-      setLoading(true);
-      try {
-        const [specs, supplierMap, fuelData, resultsData] = await Promise.all([
-          getSpecifications(),
-          getFuelSupplierMap(),
-          getFuelData(),
-          getDocs(query(collection(db, "resultats"), orderBy("date_arrivage", "desc")))
-        ]);
-
-        const results = resultsData.docs.map(doc => ({ id: doc.id, ...doc.data() } as Result));
-        
-        setResults(results);
-        setFuelSupplierMap(supplierMap);
-        setFuelDataMap(new Map(fuelData.map(fd => [fd.nom_combustible, fd])));
-        
-      } catch (error) {
-        console.error("Error fetching initial data:", error);
-        toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données de base."});
-      } finally {
+    setLoading(true);
+    try {
+      const [specs, fuelData] = await Promise.all([
+        getSpecifications(),
+        getFuelData(),
+      ]);
+      setFuelDataMap(new Map(fuelData.map(fd => [fd.nom_combustible, fd])));
+      
+      const unsubscribe = onSnapshot(query(collection(db, "resultats"), orderBy("date_arrivage", "desc")), (snapshot) => {
+        const resultsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Result));
+        setResults(resultsData);
         setLoading(false);
-      }
+      }, (error) => {
+        console.error("Error fetching results with snapshot:", error);
+        toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les résultats en temps réel."});
+        setLoading(false);
+      });
+
+      return unsubscribe;
+
+    } catch (error) {
+      console.error("Error fetching initial data:", error);
+      toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données de base."});
+      setLoading(false);
+    }
   }, [toast]);
   
 
   useEffect(() => {
-    fetchInitialData();
+    let unsubscribe: (() => void) | undefined;
+    fetchInitialData().then(unsub => unsubscribe = unsub);
+    return () => {
+        if (unsubscribe) {
+            unsubscribe();
+        }
+    };
   }, [fetchInitialData]);
 
 
-  const { uniqueFuelTypes, allUniqueFournisseurs, uniqueAnalysisTypes } = useMemo(() => {
-    const allResults = results; // Use all results to populate filters
-    const fuelTypes = [...new Set(allResults.map((r) => r.type_combustible))].sort();
-    const fournisseurs = [...new Set(allResults.map((r) => r.fournisseur))].sort();
-    const analysisTypes = [...new Set(allResults.map((r) => r.type_analyse || 'Arrivage'))].sort();
-    return { uniqueFuelTypes: fuelTypes, allUniqueFournisseurs: fournisseurs, uniqueAnalysisTypes: analysisTypes };
+  const { uniqueFuelTypes, uniqueFournisseurs, uniqueAnalysisTypes } = useMemo(() => {
+    const fuelTypes = [...new Set(results.map((r) => r.type_combustible))].sort();
+    const fournisseurs = [...new Set(results.map((r) => r.fournisseur))].sort();
+    const analysisTypes = [...new Set(results.map((r) => r.type_analyse || 'Arrivage'))].sort();
+    return { uniqueFuelTypes: fuelTypes, uniqueFournisseurs: fournisseurs, uniqueAnalysisTypes: analysisTypes };
   }, [results]);
 
-  useEffect(() => {
-    if (fuelTypeFilter !== '__ALL__') {
-      const newAvailable = fuelSupplierMap[fuelTypeFilter] || [];
-      setAvailableFournisseurs([...new Set(newAvailable)].sort());
-      if (!newAvailable.includes(fournisseurFilter)) {
-          setFournisseurFilter('__ALL__');
-      }
-    } else {
-      setAvailableFournisseurs(allUniqueFournisseurs);
-    }
-  }, [fuelTypeFilter, fuelSupplierMap, allUniqueFournisseurs, fournisseurFilter]);
 
   const normalizeDate = (date: { seconds: number; nanoseconds: number } | string): Date | null => {
     if (typeof date === "string") {
@@ -509,24 +505,42 @@ export default function ResultsTable() {
       setSortConfig({ key, direction });
   };
   
-  const sortedAndFilteredResults = useMemo(() => {
-    let sortableItems = [...results].filter((result) => {
-      if (!result.date_arrivage) return false;
-      const dateArrivage = normalizeDate(result.date_arrivage);
-      if (!dateArrivage || !isValid(dateArrivage)) return false;
+  const filteredResults = useMemo(() => {
+    return results.filter((result) => {
+        const dateArrivage = normalizeDate(result.date_arrivage);
+        if (!dateArrivage || !isValid(dateArrivage)) return false;
 
-      const typeMatch = fuelTypeFilter === '__ALL__' || result.type_combustible === fuelTypeFilter;
-      const fournisseurMatch = fournisseurFilter === '__ALL__' || result.fournisseur === fournisseurFilter;
-      const analysisTypeMatch = analysisTypeFilter === '__ALL__' || (result.type_analyse || 'Arrivage') === analysisTypeFilter;
-      
-      const dateFrom = dateFromFilter ? startOfDay(parseISO(dateFromFilter)) : null;
-      const dateTo = dateToFilter ? endOfDay(parseISO(dateToFilter)) : null;
+        const typeMatch = fuelTypeFilter === '__ALL__' || result.type_combustible === fuelTypeFilter;
+        const fournisseurMatch = fournisseurFilter === '__ALL__' || result.fournisseur === fournisseurFilter;
+        const analysisTypeMatch = analysisTypeFilter === '__ALL__' || (result.type_analyse || 'Arrivage') === analysisTypeFilter;
+        
+        const dateFrom = dateFromFilter ? startOfDay(parseISO(dateFromFilter)) : null;
+        const dateTo = dateToFilter ? endOfDay(parseISO(dateToFilter)) : null;
 
-      const dateMatch = (!dateFrom || dateArrivage >= dateFrom) && (!dateTo || dateArrivage <= dateTo);
-      
-      return typeMatch && fournisseurMatch && analysisTypeMatch && dateMatch;
+        const dateMatch = (!dateFrom || dateArrivage >= dateFrom) && (!dateTo || dateArrivage <= dateTo);
+        
+        return typeMatch && fournisseurMatch && analysisTypeMatch && dateMatch;
     });
-    
+  }, [results, fuelTypeFilter, fournisseurFilter, analysisTypeFilter, dateFromFilter, dateToFilter]);
+  
+  const availableFournisseurs = useMemo(() => {
+    if (fuelTypeFilter === '__ALL__') {
+      return uniqueFournisseurs;
+    }
+    const suppliersForFuel = results
+      .filter(r => r.type_combustible === fuelTypeFilter)
+      .map(r => r.fournisseur);
+    return [...new Set(suppliersForFuel)].sort();
+  }, [fuelTypeFilter, results, uniqueFournisseurs]);
+  
+  useEffect(() => {
+    if (fournisseurFilter !== '__ALL__' && !availableFournisseurs.includes(fournisseurFilter)) {
+        setFournisseurFilter('__ALL__');
+    }
+  }, [availableFournisseurs, fournisseurFilter]);
+
+  const sortedAndFilteredResults = useMemo(() => {
+    let sortableItems = [...filteredResults];
     if (sortConfig !== null) {
         sortableItems.sort((a, b) => {
             const aValue = getSortableValue(a, sortConfig.key);
@@ -541,17 +555,14 @@ export default function ResultsTable() {
             return 0;
         });
     }
-    
     return sortableItems;
-    
-  }, [results, fuelTypeFilter, fournisseurFilter, analysisTypeFilter, dateFromFilter, dateToFilter, sortConfig]);
+  }, [filteredResults, sortConfig]);
 
   const handleDelete = async () => {
     if (!resultToDelete) return;
     try {
       await deleteDoc(doc(db, "resultats", resultToDelete));
       toast({ title: "Succès", description: "L'enregistrement a été supprimé." });
-      fetchInitialData();
     } catch (error) {
       console.error("Erreur lors de la suppression:", error);
       toast({
@@ -568,7 +579,6 @@ export default function ResultsTable() {
     try {
       await deleteAllResults();
       toast({ title: "Succès", description: "Tous les résultats ont été supprimés." });
-      fetchInitialData();
     } catch (error) {
       console.error("Erreur lors de la suppression de tous les résultats :", error);
       toast({
@@ -621,7 +631,6 @@ export default function ResultsTable() {
         toast({ title: "Succès", description: "Résultat mis à jour."});
         setIsEditModalOpen(false);
         setEditingResult(null);
-        fetchInitialData();
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
         toast({ variant: "destructive", title: "Erreur de mise à jour", description: errorMessage });
@@ -812,7 +821,6 @@ export default function ResultsTable() {
 
                 await addManyResults(results as any);
                 toast({ title: "Succès", description: `${parsedResults.length} résultats ont été importés.` });
-                fetchInitialData();
 
             } catch (error) {
                 console.error("Error importing file:", error);
@@ -1111,5 +1119,4 @@ export default function ResultsTable() {
       </>
   );
 }
-
 
