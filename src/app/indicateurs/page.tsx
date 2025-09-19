@@ -7,7 +7,7 @@ import { getLatestMixtureSession, type MixtureSession } from '@/lib/data';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard } from '@/components/cards/StatCard';
-import { Flame, Recycle, Leaf, TrendingUp } from 'lucide-react';
+import { Flame, Recycle, Leaf, TrendingUp, Zap } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import {
   Table,
@@ -28,10 +28,36 @@ const formatNumber = (num: number | null | undefined, digits: number = 2) => {
     });
 };
 
+// Hook to read from localStorage without causing hydration issues
+function usePersistentValue<T>(key: string, defaultValue: T): T {
+    const [state, setState] = useState<T>(defaultValue);
+
+    useEffect(() => {
+        try {
+            const storedValue = localStorage.getItem(key);
+            if (storedValue !== null) {
+                setState(JSON.parse(storedValue));
+            }
+        } catch {
+            // If parsing fails, stick with the default value
+            setState(defaultValue);
+        }
+    }, [key]);
+    
+    return state;
+}
+
 export default function IndicateursPage() {
     const [loading, setLoading] = useState(true);
     const [session, setSession] = useState<MixtureSession | null>(null);
     const { toast } = useToast();
+
+    // Read clinker production data from localStorage
+    const rawMealFlow = usePersistentValue<number>('calculImpact_rawMealFlow', 180);
+    const clinkerFactor = usePersistentValue<number>('calculImpact_clinkerFactor', 0.6);
+    
+    const debitClinker = useMemo(() => rawMealFlow * clinkerFactor, [rawMealFlow, clinkerFactor]);
+
 
     useEffect(() => {
         const fetchSession = async () => {
@@ -60,13 +86,13 @@ export default function IndicateursPage() {
         fetchSession();
     }, [toast]);
 
-    const substitutionData = useMemo(() => {
-        if (!session?.availableFuels) return null;
+    const { substitutionData, calorificConsumption } = useMemo(() => {
+        if (!session?.availableFuels) return { substitutionData: null, calorificConsumption: 0 };
 
         const getPci = (fuelName: string) => session.availableFuels[fuelName]?.pci_brut || 0;
         
         const getPetCokePci = () => {
-             const pci = getPci('Pet Coke') || getPci('Pet-Coke Preca') || getPci('Pet-Coke Tuyere');
+             const pci = getPci('Pet Coke') || getPci('Pet-Coke') || getPci('Pet-Coke Preca') || getPci('Pet-Coke Tuyere');
              return pci;
         }
 
@@ -128,7 +154,7 @@ export default function IndicateursPage() {
 
         const substitutionRate = energyTotal > 0 ? (energyAlternatives / energyTotal) * 100 : 0;
         
-        return {
+        const subData = {
             substitutionRate,
             energyAFs,
             energyGrignons,
@@ -141,7 +167,16 @@ export default function IndicateursPage() {
             pciGrignons,
             pciPetCoke,
         };
-    }, [session]);
+
+        // --- Consommation Calorifique ---
+        // energyTotal is in Gcal/h. Convert to kcal/h: * 1,000,000
+        // debitClinker is in t/h. Convert to kg/h: * 1,000
+        const consumption = debitClinker > 0 
+            ? (energyTotal * 1000000) / (debitClinker * 1000)
+            : 0;
+
+        return { substitutionData: subData, calorificConsumption: consumption };
+    }, [session, debitClinker]);
 
     if (loading) {
         return (
@@ -169,7 +204,7 @@ export default function IndicateursPage() {
   return (
     <div className="container mx-auto p-4 md:p-8 space-y-6">
         <div className="flex flex-col md:flex-row justify-between md:items-center gap-2">
-            <h1 className="text-3xl font-bold tracking-tight">Taux de Substitution Énergétique</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Indicateurs de Performance</h1>
             {session.timestamp && (
                 <p className="text-sm text-muted-foreground">
                     Basé sur la session du {format(session.timestamp.toDate(), "d MMMM yyyy 'à' HH:mm", { locale: fr })}
@@ -177,14 +212,27 @@ export default function IndicateursPage() {
             )}
         </div>
 
-        <Card className="bg-primary/5 border-primary/20">
-            <CardContent className="p-6 flex flex-col items-center justify-center text-center">
-                 <p className="text-lg font-medium text-primary">Taux de Substitution Actuel</p>
-                 <p className="text-7xl font-bold tracking-tighter text-white">
-                    {formatNumber(substitutionData.substitutionRate, 2)}<span className="text-5xl text-primary/80">%</span>
-                 </p>
-            </CardContent>
-        </Card>
+        <div className="grid grid-cols-2 md:grid-cols-2 gap-6">
+            <Card className="bg-primary/5 border-primary/20">
+                <CardContent className="p-6 flex flex-col items-center justify-center text-center h-full">
+                    <p className="text-lg font-medium text-primary">Taux de Substitution Énergétique</p>
+                    <p className="text-7xl font-bold tracking-tighter text-white">
+                        {formatNumber(substitutionData.substitutionRate, 2)}<span className="text-5xl text-primary/80">%</span>
+                    </p>
+                </CardContent>
+            </Card>
+             <Card className="bg-amber-500/5 border-amber-500/20">
+                <CardContent className="p-6 flex flex-col items-center justify-center text-center h-full">
+                    <p className="text-lg font-medium text-amber-400">Consommation Calorifique</p>
+                    <p className="text-7xl font-bold tracking-tighter text-white">
+                        {formatNumber(calorificConsumption, 0)}<span className="text-3xl text-amber-400/80"> kcal/kg clinker</span>
+                    </p>
+                     <p className="text-sm text-muted-foreground mt-2">
+                        Basé sur un débit clinker de {formatNumber(debitClinker, 2)} t/h
+                    </p>
+                </CardContent>
+            </Card>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <StatCard label="Énergie des Combustibles Alternatifs (AFs)" value={`${formatNumber(substitutionData.energyAFs)} Gcal/h`} icon={<Recycle className="text-green-400"/>} hint={`${formatNumber(substitutionData.afFlow)} t/h @ ${formatNumber(substitutionData.afPci, 0)} kcal/kg`}/>
@@ -236,3 +284,5 @@ export default function IndicateursPage() {
     </div>
   );
 }
+
+  

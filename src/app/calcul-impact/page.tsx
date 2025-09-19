@@ -308,7 +308,14 @@ export default function CalculImpactPage() {
     const modulesReel = useMemo(() => calculateModules(realClinkerAnalysis), [realClinkerAnalysis]);
     const c3sReel = useMemo(() => calculateC3S(realClinkerAnalysis, realFreeLime, realClinkerAnalysis.so3), [realClinkerAnalysis, realFreeLime]);
 
-    const debitClinker = useMemo(() => (rawMealFlow * clinkerFactor), [rawMealFlow, clinkerFactor]);
+    const debitClinker = useMemo(() => {
+        const debit = rawMealFlow * clinkerFactor;
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('debitClinker', JSON.stringify(debit));
+        }
+        return debit;
+    }, [rawMealFlow, clinkerFactor]);
+
 
     const handleSave = async () => {
         setIsSaving(true);
@@ -672,3 +679,5 @@ export default function CalculImpactPage() {
     </div>
   )
 }
+
+  
