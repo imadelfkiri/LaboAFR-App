@@ -79,11 +79,15 @@ const calculateC3S = (analysis: OxideAnalysis, freeLime: number, targetSo3?: num
   const a = analysis.al2o3 || 0;
   const f = analysis.fe2o3 || 0;
   const c = analysis.cao || 0;
+  const pf = analysis.pf || 0;
   const so3 = targetSo3 ?? (analysis.so3 || 0);
 
-  // Formule de Bogue corrigée
-  const c3s = (4.07 * (c - 0.7 * so3)) - (7.60 * s) - (6.72 * a) - (1.43 * f) - (2.85 * freeLime);
-
+  // Formule de Bogue corrigée selon la capture d'écran
+  // (4,07*(%CaO-(0,7*%SO3)-(1,27*%PF/2)-%CaO libre))-((7,6*%SiO2)+(6,72*%Al2O3)+(1,43*%Fe2o3))
+  const term1 = 4.07 * (c - (0.7 * so3) - (1.27 * pf / 2) - freeLime);
+  const term2 = (7.6 * s) + (6.72 * a) + (1.43 * f);
+  const c3s = term1 - term2;
+  
   return Math.max(0, c3s);
 };
 
