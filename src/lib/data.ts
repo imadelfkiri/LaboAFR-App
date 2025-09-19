@@ -327,7 +327,9 @@ export async function getAverageAnalysisForFuels(
 
   snapshot.forEach(doc => {
       const data = doc.data();
-      resultsByType[data.type_combustible].push(data);
+      if(resultsByType[data.type_combustible]) {
+        resultsByType[data.type_combustible].push(data);
+      }
   });
   
   for (const fuelName of fuelNames) {

@@ -68,10 +68,10 @@ const formSchema = z.object({
   fournisseur: z.string().nonempty({ message: "Veuillez sélectionner un fournisseur." }),
   pcs: z.coerce.number({required_error: "Veuillez renseigner une valeur valide pour le PCS.", invalid_type_error: "Veuillez entrer un nombre."}).positive({ message: "Le PCS doit être un nombre positif." }),
   h2o: z.coerce.number({required_error: "Le taux d'humidité est requis.", invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "L'humidité ne peut être négative." }).max(100, { message: "L'humidité ne peut dépasser 100%." }),
-  chlore: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le chlore ne peut être négatif." }).optional().or(z.literal('')),
-  cendres: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le % de cendres ne peut être négatif." }).optional().or(z.literal('')),
+  chlore: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le chlore ne peut être négatif." }).optional().nullable(),
+  cendres: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le % de cendres ne peut être négatif." }).optional().nullable(),
   remarques: z.string().optional(),
-  taux_metal: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, "Le taux doit être positif.").max(100, "Le taux ne peut dépasser 100%").optional().or(z.literal('')),
+  taux_metal: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, "Le taux doit être positif.").max(100, "Le taux ne peut dépasser 100%").optional().nullable(),
 });
 
 const newFuelTypeSchema = z.object({
@@ -133,10 +133,10 @@ export function PciCalculator() {
       fournisseur: "",
       pcs: undefined,
       h2o: undefined,
-      chlore: '',
-      cendres: '',
+      chlore: undefined,
+      cendres: undefined,
       remarques: "",
-      taux_metal: '',
+      taux_metal: undefined,
     },
   });
 
@@ -205,23 +205,16 @@ export function PciCalculator() {
   const watchedFournisseur = watch("fournisseur");
   const watchedChlore = watch("chlore");
   const watchedCendres = watch("cendres");
-  const watchedTauxMetal = watch("taux_metal");
 
   useEffect(() => {
     if (watchedPcs !== undefined && watchedH2o !== undefined && hValue !== null) {
       let pcsToUse = Number(watchedPcs);
-      if (watchedTauxMetal) {
-          const taux = Number(watchedTauxMetal);
-          if (taux > 0 && taux < 100) {
-            pcsToUse = pcsToUse * (1 - taux / 100);
-          }
-      }
       const result = calculerPCI(pcsToUse, Number(watchedH2o), hValue);
       setPciResult(result);
     } else {
       setPciResult(null);
     }
-  }, [watchedPcs, watchedH2o, hValue, watchedTauxMetal]);
+  }, [watchedPcs, watchedH2o, hValue]);
 
   useEffect(() => {
     if (watchedTypeCombustible) {
@@ -264,15 +257,15 @@ export function PciCalculator() {
             newStatus.pci = pciResult < spec.PCI_min ? 'non-conform' : 'conform';
         }
         // H2O
-        if (spec.H2O_max !== null && spec.H2O_max !== undefined && watchedH2o !== undefined && watchedH2o !== '') {
+        if (spec.H2O_max !== null && spec.H2O_max !== undefined && watchedH2o !== undefined && watchedH2o !== null) {
             newStatus.h2o = Number(watchedH2o) > spec.H2O_max ? 'non-conform' : 'conform';
         }
         // Chlore
-        if (spec.Cl_max !== null && spec.Cl_max !== undefined && watchedChlore !== undefined && watchedChlore !== '') {
+        if (spec.Cl_max !== null && spec.Cl_max !== undefined && watchedChlore !== undefined && watchedChlore !== null) {
             newStatus.chlore = Number(watchedChlore) > spec.Cl_max ? 'non-conform' : 'conform';
         }
         // Cendres
-        if (spec.Cendres_max !== null && spec.Cendres_max !== undefined && watchedCendres !== undefined && watchedCendres !== '') {
+        if (spec.Cendres_max !== null && spec.Cendres_max !== undefined && watchedCendres !== undefined && watchedCendres !== null) {
             newStatus.cendres = Number(watchedCendres) > spec.Cendres_max ? 'non-conform' : 'conform';
         }
     }
@@ -341,12 +334,6 @@ export function PciCalculator() {
       }
       
       let pcsToUse = values.pcs;
-      if (values.taux_metal) {
-          const taux = Number(values.taux_metal);
-          if (taux > 0 && taux < 100) {
-            pcsToUse = pcsToUse * (1 - taux / 100);
-          }
-      }
       const pci_brut = calculerPCI(pcsToUse, values.h2o, hValue);
 
       if (pci_brut === null) {

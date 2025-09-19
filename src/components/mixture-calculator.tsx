@@ -153,10 +153,6 @@ function useMixtureCalculations(
             }
 
             let correctedPciBrut = analysisData.pci_brut;
-            if (analysisData.taux_metal && analysisData.taux_metal > 0 && analysisData.taux_metal < 100) {
-                const correctionFactor = 1 - (analysisData.taux_metal / 100);
-                correctedPciBrut = analysisData.pci_brut * correctionFactor;
-            }
             
             const fuelCost = fuelCosts[fuelName]?.cost || 0;
 
@@ -360,7 +356,7 @@ export function MixtureCalculator() {
         ]);
         
         let finalDateRange = dateRangeToUse;
-        if (latestSession?.analysisDateRange?.from && latestSession.analysisDateRange.to) {
+        if (!newDateRange && latestSession?.analysisDateRange?.from && latestSession.analysisDateRange.to) {
             const fromDate = latestSession.analysisDateRange.from.toDate();
             const toDate = latestSession.analysisDateRange.to.toDate();
             if (isValid(fromDate) && isValid(toDate)) {
@@ -414,7 +410,7 @@ export function MixtureCalculator() {
         let initialAtsState = { flowRate: 0, fuels: { ...initialFuelState } };
         let initialDirectInputs = { ...directInputs };
         
-        if (latestSession) {
+        if (latestSession && !newDateRange) {
             initialHallState = {
                 flowRate: latestSession.hallAF?.flowRate || 0,
                 fuels: { ...initialHallState.fuels, ...(latestSession.hallAF?.fuels || {}) }
@@ -424,12 +420,11 @@ export function MixtureCalculator() {
                 fuels: { ...initialAtsState.fuels, ...(latestSession.ats?.fuels || {}) }
             };
             
-            // Handle direct inputs from old and new format
             if (latestSession.directInputs) {
               initialDirectInputs = { ...initialDirectInputs, ...latestSession.directInputs };
             }
 
-            if(!newDateRange){ // Only show toast on initial load, not on date change
+            if(!newDateRange){ 
                 setTimeout(() => {
                     toast({ title: "Dernière session chargée", description: "La dernière configuration a été chargée." });
                 }, 100);
@@ -454,7 +449,7 @@ export function MixtureCalculator() {
   }, []);
 
   const handleDateRangeChange = (newRange: DateRange | undefined) => {
-      if(newRange){
+      if(newRange?.from && newRange.to){
           setAnalysisDateRange(newRange);
           fetchData(newRange);
       }
