@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
@@ -24,12 +23,6 @@ import {
   isValid,
   parseISO,
   parse,
-  subDays,
-  startOfWeek,
-  endOfWeek,
-  startOfMonth,
-  endOfMonth,
-  subMonths,
 } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
@@ -44,7 +37,7 @@ import {
   ArrowUpDown,
   Edit,
 } from "lucide-react";
-import { getSpecifications, SPEC_MAP, getFuelSupplierMap, deleteAllResults, getFuelData, type FuelData, addManyResults, updateResult } from "@/lib/data";
+import { getSpecifications, SPEC_MAP, deleteAllResults, getFuelData, type FuelData, addManyResults, updateResult } from "@/lib/data";
 import { calculerPCI } from "@/lib/pci";
 import {
   AlertDialog,
@@ -62,15 +55,12 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 import * as z from "zod";
 import { Skeleton } from "./ui/skeleton";
-import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
+import { Popover, PopoverTrigger, PopoverContent, PopoverClose } from "@/components/ui/popover"
 import { Input } from "@/components/ui/input"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Calendar } from "./ui/calendar";
-import { SidebarTrigger } from "./ui/sidebar";
 import {
   Dialog,
   DialogContent,
@@ -78,7 +68,6 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-  DialogClose,
 } from "@/components/ui/dialog"
 import {
   Form,
@@ -91,7 +80,6 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { cn } from "@/lib/utils";
-
 
 interface Result {
   id: string;
@@ -140,342 +128,7 @@ const importSchema = z.object({
   taux_metal: z.coerce.number().min(0).max(100).optional().nullable(),
 });
 
-function ResultsPagePro({
-  rows = [],
-  fuels = [],
-  suppliers = [],
-  analysisTypes = [],
-  averages,
-  fuel="__ALL__", setFuel=()=>{},
-  supplier="__ALL__", setSupplier=()=>{},
-  analysisType="__ALL__", setAnalysisType=()=>{},
-  from="", setFrom=()=>{},
-  to="", setTo=()=>{},
-  onExport=(type: 'excel' | 'pdf', scope: 'current' | 'daily' | 'weekly' | 'monthly' | 'last_month')=>{}, 
-  onImport=()=>{}, 
-  onDeleteAll=()=>{}, 
-  onDeleteOne=(id:string)=>{},
-  onEditOne=(result: Result)=>{},
-  sortConfig = { key: 'date_arrivage', direction: 'descending' },
-  onSort = (key: SortableKeys) => {},
-}) {
-
-  const formatNumber = (num: number | null | undefined, fractionDigits: number = 0) => {
-    if (num === null || num === undefined || Number.isNaN(num)) return "-";
-    return num
-      .toLocaleString("fr-FR", {
-        minimumFractionDigits: fractionDigits,
-        maximumFractionDigits: fractionDigits,
-      })
-  };
-
-  const normalizeDate = (date: { seconds: number; nanoseconds: number } | string): Date | null => {
-    if (typeof date === "string") {
-      const parsed = parseISO(date);
-      return isValid(parsed) ? parsed : null;
-    }
-    if (date && typeof date.seconds === "number") {
-      return new Timestamp(date.seconds, date.nanoseconds).toDate();
-    }
-    return null;
-  };
-
-   const generateAlerts = (result: Result) => {
-    const spec = SPEC_MAP.get(`${result.type_combustible}|${result.fournisseur}`);
-    if (!spec) {
-      return {
-        text: "Conforme",
-        isConform: true,
-        details: { pci: false, h2o: false, chlore: false, cendres: false },
-      };
-    }
-
-    const alerts: string[] = [];
-    const alertDetails = { pci: false, h2o: false, chlore: false, cendres: false };
-
-    if (spec.PCI_min != null && result.pci_brut != null && result.pci_brut < spec.PCI_min) {
-      alerts.push("PCI bas");
-      alertDetails.pci = true;
-    }
-    if (spec.H2O_max != null && result.h2o != null && result.h2o > spec.H2O_max) {
-      alerts.push("H₂O élevé");
-      alertDetails.h2o = true;
-    }
-    if (result.chlore != null && spec.Cl_max != null && result.chlore > spec.Cl_max) {
-      alerts.push("Cl- élevé");
-      alertDetails.chlore = true;
-    }
-    if (result.cendres != null && spec.Cendres_max != null && result.cendres > spec.Cendres_max) {
-      alerts.push("Cendres élevées");
-      alertDetails.cendres = true;
-    }
-
-    if (alerts.length === 0) {
-      return { text: "Conforme", isConform: true, details: alertDetails };
-    }
-
-    return { text: alerts.join(" / "), isConform: false, details: alertDetails };
-  };
-
-  const tableRows = useMemo(() => rows.map((result: Result) => {
-      const alerte = generateAlerts(result);
-      return {
-          id: result.id,
-          dateArrivage: normalizeDate(result.date_arrivage) ? format(normalizeDate(result.date_arrivage)!, 'dd/MM/yyyy') : 'Date invalide',
-          typeAnalyse: result.type_analyse || 'Arrivage',
-          typeCombustible: result.type_combustible,
-          fournisseur: result.fournisseur,
-          pci: formatNumber(result.pci_brut, 0),
-          h2o: formatNumber(result.h2o, 1),
-          cl: formatNumber(result.chlore, 2),
-          cendres: formatNumber(result.cendres, 1),
-          pcs: formatNumber(result.pcs, 0),
-          pciAlert: alerte.details.pci,
-          h2oAlert: alerte.details.h2o,
-          chloreAlert: alerte.details.chlore,
-          cendresAlert: alerte.details.cendres,
-          alerte,
-          remarque: result.remarques,
-          original: result,
-      };
-  }), [rows]);
-
-  const stats = React.useMemo(() => {
-    const total = tableRows.length
-    const conformes = tableRows.filter((r:any)=> r.alerte.isConform).length
-    return { total, conformes, non: total - conformes }
-  }, [tableRows])
-
-  const periodLabel = React.useMemo(() => {
-    try {
-        if (from && to) return `${format(parseISO(from), "dd/MM/yy")} → ${format(parseISO(to), "dd/MM/yy")}`
-        if (from) return `Depuis le ${format(parseISO(from), "dd/MM/yy")}`
-        if (to) return `Jusqu'au ${format(parseISO(to), "dd/MM/yy")}`
-    } catch (e) {
-        return "Période";
-    }
-    return "Période"
-  }, [from, to])
-
-
-  const Badge = ({tone, children}:{tone:"ok"|"warn"|"muted", children:React.ReactNode}) => {
-    const base = "inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium"
-    const map:any = {
-      ok:   "bg-green-100 text-green-700",
-      warn: "bg-red-100 text-red-700",
-      muted:"bg-muted text-muted-foreground",
-    }
-    return <span className={`${base} ${map[tone]}`}>{children}</span>
-  }
-  
-  const SortableHeader = ({ label, sortKey }: { label: string; sortKey: SortableKeys }) => {
-    const isSorted = sortConfig?.key === sortKey;
-    return (
-      <th
-        onClick={() => onSort(sortKey)}
-        className="sticky top-0 z-20 bg-primary text-primary-foreground p-2 text-left font-semibold border-b cursor-pointer hover:bg-primary/90"
-      >
-        <div className="flex items-center gap-2">
-            <span>{label}</span>
-            {isSorted && (
-                <ArrowUpDown className="h-4 w-4" />
-            )}
-        </div>
-      </th>
-    );
-  };
-  
-  const headers: { label: string; key: SortableKeys; }[] = [
-    { label: "Date Arrivage", key: "date_arrivage" },
-    { label: "Type Analyse", key: "type_analyse" },
-    { label: "Type Combustible", key: "type_combustible" },
-    { label: "Fournisseur", key: "fournisseur" },
-    { label: "PCI sur Brut", key: "pci" },
-    { label: "% H2O", key: "h2o" },
-    { label: "% Cl-", key: "chlore" },
-    { label: "% Cendres", key: "cendres" },
-    { label: "Alertes", key: "id" }, // Not sortable
-    { label: "Remarques", key: "remarques" },
-  ];
-  
-  const AverageRow = ({ label, data, count }: { label: string, data: any, count: number }) => {
-      if (count === 0) return null;
-      return (
-          <tr className="border-b border-border last:border-0 bg-secondary/30 hover:bg-secondary/40 font-semibold">
-              <td colSpan={4} className="p-2 text-secondary-foreground whitespace-nowrap">{label} ({count} analyses)</td>
-              <td className="p-2 text-right tabular-nums">{data.pci}</td>
-              <td className="p-2 text-right tabular-nums">{data.h2o}</td>
-              <td className="p-2 text-right tabular-nums">{data.cl}</td>
-              <td className="p-2 text-right tabular-nums">{data.cendres}</td>
-              <td colSpan={3}></td>
-          </tr>
-      )
-  };
-
-
-  return (
-    <div className="flex flex-col h-full">
-        <div className="p-3 md:p-5">
-            <Card className="rounded-2xl shadow-sm border">
-                <CardContent className="p-2">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-center">
-                    <div className="lg:col-span-3 flex items-center gap-2 text-[12px]">
-                        <SidebarTrigger className="mr-2" />
-                        <Badge tone="muted">Total: {stats.total}</Badge>
-                        <Badge tone="ok"><CheckCircle2 className="w-3 h-3 mr-1" /> {stats.conformes} conformes</Badge>
-                        <Badge tone="warn"><AlertTriangle className="w-3 h-3 mr-1" /> {stats.non} non conf.</Badge>
-                    </div>
-                    
-                    <div className="lg:col-span-2">
-                    <Select value={analysisType} onValueChange={setAnalysisType}>
-                        <SelectTrigger className="h-9 rounded-xl text-[13px]">
-                        <SelectValue placeholder="Type d'analyse" />
-                        </SelectTrigger>
-                        <SelectContent>
-                        <SelectItem value="__ALL__">Toutes les analyses</SelectItem>
-                        {analysisTypes.map((a:string)=><SelectItem key={a} value={a}>{a}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                    </div>
-
-                    <div className="lg:col-span-2">
-                    <Select value={fuel} onValueChange={setFuel}>
-                        <SelectTrigger className="h-9 rounded-xl text-[13px]">
-                        <SelectValue placeholder="Type combustible" />
-                        </SelectTrigger>
-                        <SelectContent>
-                        <SelectItem value="__ALL__">Tous les combustibles</SelectItem>
-                        {fuels.map((f:string)=><SelectItem key={f} value={f}>{f}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                    </div>
-                    <div className="lg:col-span-2">
-                    <Select value={supplier} onValueChange={setSupplier}>
-                        <SelectTrigger className="h-9 rounded-xl text-[13px]">
-                        <SelectValue placeholder="Fournisseur" />
-                        </SelectTrigger>
-                        <SelectContent>
-                        <SelectItem value="__ALL__">Tous les fournisseurs</SelectItem>
-                        {suppliers.map((s:string)=><SelectItem key={s} value={s}>{s}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                    </div>
-
-                    <div className="lg:col-span-1">
-                    <Popover>
-                        <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full h-9 rounded-xl justify-start text-[13px]">
-                            <CalendarIcon className="w-4 h-4 mr-2" />
-                            {periodLabel}
-                        </Button>
-                        </PopoverTrigger>
-                        <PopoverContent align="start" className="w-auto p-0">
-                        <Calendar
-                            initialFocus
-                            mode="range"
-                            defaultMonth={from ? parseISO(from) : new Date()}
-                            selected={{from: from ? parseISO(from) : undefined, to: to ? parseISO(to) : undefined}}
-                            onSelect={(range) => {
-                                setFrom(range?.from ? format(range.from, 'yyyy-MM-dd') : '');
-                                setTo(range?.to ? format(range.to, 'yyyy-MM-dd') : '');
-                            }}
-                            numberOfMonths={1}
-                            locale={fr}
-                            />
-                        </PopoverContent>
-                    </Popover>
-                    </div>
-                    <div className="lg:col-span-2 flex items-center justify-end gap-2">
-                         <Button variant="outline" className="h-9 rounded-xl" onClick={onImport}>
-                            <Upload className="w-4 h-4 mr-1" /> Importer
-                        </Button>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" className="h-9 rounded-xl"><Download className="w-4 h-4 mr-1"/>Exporter</Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => onExport('excel', 'current')}>Exporter la vue (Excel)</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => onExport('pdf', 'current')}>Exporter la vue (PDF)</DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => onExport('pdf', 'daily')}>Rapport Journalier (PDF)</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => onExport('pdf', 'weekly')}>Rapport Hebdomadaire (PDF)</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => onExport('pdf', 'monthly')}>Rapport Mensuel (Mois actuel) (PDF)</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => onExport('pdf', 'last_month')}>Rapport Mensuel (Mois dernier) (PDF)</DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                         <Button variant="destructive" className="h-9 rounded-xl" onClick={onDeleteAll}>
-                            <Trash2 className="w-4 h-4" />
-                        </Button>
-                    </div>
-                </div>
-                </CardContent>
-            </Card>
-        </div>
-      <div className="flex-grow px-3 md:px-5 pb-3 md:pb-5">
-        <Card className="rounded-2xl shadow-md h-full">
-          <CardContent className="p-0 h-full">
-              <div className="max-h-[70vh] overflow-auto rounded-2xl border-t bg-background h-full">
-              <table className="w-full text-[13px] border-separate border-spacing-0">
-                <thead className="text-primary-foreground">
-                  <tr>
-                    {headers.map((h) => <SortableHeader key={h.key} label={h.label} sortKey={h.key} />)}
-                    <th className="sticky top-0 z-20 bg-primary text-primary-foreground p-2 text-left font-semibold border-b">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tableRows.map((r:any, i:number)=>(
-                    <tr key={r.id ?? i} className="border-b last:border-0 even:bg-muted/30 hover:bg-muted/50 transition-colors">
-                      <td className="p-2 text-muted-foreground whitespace-nowrap">{r.dateArrivage}</td>
-                      <td className="p-2">{r.typeAnalyse}</td>
-                      <td className="p-2 font-medium">{r.typeCombustible}</td>
-                      <td className="p-2">{r.fournisseur}</td>
-                      <td className={`p-2 text-right font-semibold tabular-nums ${r.pciAlert ? "text-red-600" : ""}`}>{r.pci}</td>
-                      <td className={`p-2 text-right tabular-nums ${r.h2oAlert ? "text-red-600" : ""}`}>{r.h2o}</td>
-                      <td className={`p-2 text-right tabular-nums ${r.chloreAlert ? "text-red-600" : ""}`}>{r.cl}</td>
-                      <td className={`p-2 text-right tabular-nums ${r.cendresAlert ? "text-red-600" : ""}`}>{r.cendres}</td>
-                      <td className="p-2">
-                        {r.alerte.isConform ? (
-                          <span className="inline-flex items-center gap-1 text-green-600 font-medium">
-                            <CheckCircle2 className="w-4 h-4" /> Conforme
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-red-600 font-medium">
-                            <AlertTriangle className="w-4 h-4" /> {r.alerte.text || "Non conforme"}
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-2 text-muted-foreground max-w-[150px] truncate" title={r.remarque}>{r.remarque ?? "-"}</td>
-                      <td className="p-2 text-center">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEditOne(r.original)}>
-                          <Edit className="w-4 h-4 text-muted-foreground" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDeleteOne(r.id)}>
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                  {tableRows.length===0 && (
-                    <tr><td colSpan={11} className="p-6 text-center text-muted-foreground">Aucun résultat.</td></tr>
-                  )}
-                </tbody>
-                <tfoot className="sticky bottom-0 bg-background/95 backdrop-blur-sm">
-                    <AverageRow label="Moyenne Pet Coke" data={averages.petCoke} count={averages.petCoke.count} />
-                    <AverageRow label="Moyenne Grignons" data={averages.grignons} count={averages.grignons.count} />
-                    <AverageRow label="Moyenne AFs" data={averages.afs} count={averages.afs.count} />
-                </tfoot>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  )
-}
-
-// Le composant conteneur (Logique)
 export default function ResultsTable() {
-  "use client";
   const [results, setResults] = useState<Result[]>([]);
   const [loading, setLoading] = useState(true);
   const [fuelTypeFilter, setFuelTypeFilter] = useState('__ALL__');
@@ -484,7 +137,7 @@ export default function ResultsTable() {
   const [dateFromFilter, setDateFromFilter] = useState('');
   const [dateToFilter, setDateToFilter] = useState('');
   
-  const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' } | null>({ key: 'date_arrivage', direction: 'descending' });
+  const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' }>({ key: 'date_arrivage', direction: 'descending' });
 
   const [resultToDelete, setResultToDelete] = useState<string | null>(null);
   const [isDeleteAllConfirmOpen, setIsDeleteAllConfirmOpen] = useState(false);
@@ -504,10 +157,8 @@ export default function ResultsTable() {
   const fetchInitialData = useCallback(async () => {
     setLoading(true);
     try {
-      const [specs, fuelData] = await Promise.all([
-        getSpecifications(),
-        getFuelData(),
-      ]);
+      await getSpecifications(); // This populates SPEC_MAP
+      const fuelData = await getFuelData();
       setFuelDataMap(new Map(fuelData.map(fd => [fd.nom_combustible, fd])));
     } catch (error) {
        console.error("Error fetching initial data:", error);
@@ -527,7 +178,6 @@ export default function ResultsTable() {
     return unsubscribe;
   }, [toast]);
   
-
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
     fetchInitialData().then(unsub => unsubscribe = unsub);
@@ -537,7 +187,6 @@ export default function ResultsTable() {
         }
     };
   }, [fetchInitialData]);
-
 
   const normalizeDate = (date: { seconds: number; nanoseconds: number } | string): Date | null => {
     if (typeof date === "string") {
@@ -579,7 +228,6 @@ export default function ResultsTable() {
   const sortedAndFilteredResults = useMemo(() => {
     let filtered = [...results];
 
-    // Apply filters
     if (fuelTypeFilter !== '__ALL__') {
       filtered = filtered.filter(result => result.type_combustible === fuelTypeFilter);
     }
@@ -596,12 +244,11 @@ export default function ResultsTable() {
         const dateArrivage = normalizeDate(result.date_arrivage);
         if (!dateArrivage) return false;
         if (dateFrom && dateArrivage < dateFrom) return false;
-        if (dateTo && dateArrivage > dateTo) return false;
+        if (dateTo && dateArrivage <= dateTo) return false;
         return true;
       });
     }
 
-    // Apply sorting
     if (sortConfig !== null) {
       filtered.sort((a, b) => {
         const aValue = getSortableValue(a, sortConfig.key);
@@ -623,7 +270,6 @@ export default function ResultsTable() {
     const allFuels = [...new Set(results.map(r => r.type_combustible))].sort();
     const allAnalysisTypes = [...new Set(results.map(r => r.type_analyse || 'Arrivage'))].sort();
     
-    // Suppliers available in the currently filtered-by-fuel results
     let fuelFilteredResults = results;
     if (fuelTypeFilter !== '__ALL__') {
         fuelFilteredResults = results.filter(r => r.type_combustible === fuelTypeFilter);
@@ -637,13 +283,11 @@ export default function ResultsTable() {
     };
   }, [results, fuelTypeFilter]);
 
-  // Reset supplier filter if it becomes invalid after changing fuel type
   useEffect(() => {
       if (fournisseurFilter !== '__ALL__' && !availableSuppliers.includes(fournisseurFilter)) {
           setFournisseurFilter('__ALL__');
       }
   }, [fuelTypeFilter, fournisseurFilter, availableSuppliers]);
-
 
   const handleDelete = async () => {
     if (!resultToDelete) return;
@@ -652,11 +296,7 @@ export default function ResultsTable() {
       toast({ title: "Succès", description: "L'enregistrement a été supprimé." });
     } catch (error) {
       console.error("Erreur lors de la suppression:", error);
-      toast({
-        variant: "destructive",
-        title: "Erreur",
-        description: "La suppression a échoué. Veuillez réessayer.",
-      });
+      toast({ variant: "destructive", title: "Erreur", description: "La suppression a échoué." });
     } finally {
       setResultToDelete(null);
     }
@@ -668,11 +308,7 @@ export default function ResultsTable() {
       toast({ title: "Succès", description: "Tous les résultats ont été supprimés." });
     } catch (error) {
       console.error("Erreur lors de la suppression de tous les résultats :", error);
-      toast({
-        variant: "destructive",
-        title: "Erreur",
-        description: "La suppression de l'historique a échoué.",
-      });
+      toast({ variant: "destructive", title: "Erreur", description: "La suppression a échoué." });
     } finally {
       setIsDeleteAllConfirmOpen(false);
     }
@@ -693,7 +329,6 @@ export default function ResultsTable() {
 
   const onEditSubmit = async (values: z.infer<typeof editSchema>) => {
     if (!editingResult) return;
-
     try {
         const hValue = fuelDataMap.get(editingResult.type_combustible)?.teneur_hydrogene;
         if (hValue === undefined || hValue === null) {
@@ -709,12 +344,7 @@ export default function ResultsTable() {
         }
         const pci_brut = calculerPCI(pcsToUse, values.h2o, hValue);
 
-        const dataToUpdate = {
-            ...values,
-            pci_brut,
-        };
-
-        await updateResult(editingResult.id, dataToUpdate);
+        await updateResult(editingResult.id, { ...values, pci_brut });
         toast({ title: "Succès", description: "Résultat mis à jour."});
         setIsEditModalOpen(false);
         setEditingResult(null);
@@ -723,17 +353,7 @@ export default function ResultsTable() {
         toast({ variant: "destructive", title: "Erreur de mise à jour", description: errorMessage });
     }
   };
-
-
-  const formatNumber = (num: number | null | undefined, fractionDigits: number = 0) => {
-    if (num === null || num === undefined || Number.isNaN(num)) return "-";
-    return num
-      .toLocaleString("fr-FR", {
-        minimumFractionDigits: fractionDigits,
-        maximumFractionDigits: fractionDigits,
-      })
-  };
-  
+    
     const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
@@ -747,9 +367,7 @@ export default function ResultsTable() {
                 const worksheet = workbook.Sheets[sheetName];
                 const json = XLSX.utils.sheet_to_json<any>(worksheet);
 
-                if (!json || json.length === 0) {
-                    throw new Error("Le fichier Excel est vide ou mal formaté.");
-                }
+                if (!json || json.length === 0) throw new Error("Le fichier Excel est vide ou mal formaté.");
 
                 const excelDateToJSDate = (serial: number) => {
                     const utc_days = Math.floor(serial - 25569);
@@ -775,33 +393,17 @@ export default function ResultsTable() {
                 };
 
                 const headerMapping: { [key: string]: keyof z.infer<typeof importSchema> } = {
-                    'date': 'date_arrivage',
-                    'date arrivage': 'date_arrivage',
-                    'date_arrivage': 'date_arrivage',
-                    'type analyse': 'type_analyse',
-                    'type_analyse': 'type_analyse',
-                    'combustible': 'type_combustible',
-                    'type combustible': 'type_combustible',
-                    'type_combustible': 'type_combustible',
+                    'date': 'date_arrivage', 'date arrivage': 'date_arrivage', 'date_arrivage': 'date_arrivage',
+                    'type analyse': 'type_analyse', 'type_analyse': 'type_analyse',
+                    'combustible': 'type_combustible', 'type combustible': 'type_combustible', 'type_combustible': 'type_combustible',
                     'fournisseur': 'fournisseur',
-                    'pcs': 'pcs',
-                    'pcs (kcal/kg)': 'pcs',
-                    'pci': 'pci_brut',
-                    'pci brut': 'pci_brut',
-                    'pci sur brut': 'pci_brut',
-                    'pci sur brut (kcal/kg)': 'pci_brut',
-                    'pci_brut': 'pci_brut',
-                    'h2o': 'h2o',
-                    '% h2o': 'h2o',
-                    'cl-': 'chlore',
-                    'chlore': 'chlore',
-                    '% cl-': 'chlore',
-                    'cendres': 'cendres',
-                    '% cendres': 'cendres',
+                    'pcs': 'pcs', 'pcs (kcal/kg)': 'pcs',
+                    'pci': 'pci_brut', 'pci brut': 'pci_brut', 'pci sur brut': 'pci_brut', 'pci sur brut (kcal/kg)': 'pci_brut', 'pci_brut': 'pci_brut',
+                    'h2o': 'h2o', '% h2o': 'h2o',
+                    'cl-': 'chlore', 'chlore': 'chlore', '% cl-': 'chlore',
+                    'cendres': 'cendres', '% cendres': 'cendres',
                     'remarques': 'remarques',
-                    'taux metal': 'taux_metal',
-                    'taux du metal': 'taux_metal',
-                    'taux du métal (%)': 'taux_metal',
+                    'taux metal': 'taux_metal', 'taux du metal': 'taux_metal', 'taux du métal (%)': 'taux_metal',
                 };
 
                 const parsedResults = json.map((row, index) => {
@@ -823,13 +425,9 @@ export default function ResultsTable() {
                     try {
                         const parsedDate = parseDate(mappedRow.date_arrivage, rowNum);
                         
-                        const validatedData = importSchema.partial().parse({
-                            ...mappedRow,
-                            date_arrivage: parsedDate,
-                        });
+                        const validatedData = importSchema.partial().parse({ ...mappedRow, date_arrivage: parsedDate });
                         
                         let finalPci: number | null = null;
-                        
                         if (validatedData.pci_brut !== undefined && validatedData.pci_brut !== null) {
                             finalPci = validatedData.pci_brut;
                         } else if (validatedData.pcs && validatedData.type_combustible && validatedData.h2o !== undefined) {
@@ -840,9 +438,7 @@ export default function ResultsTable() {
                                 let pcsToUse = validatedData.pcs;
                                 if (validatedData.taux_metal) {
                                     const taux = Number(validatedData.taux_metal);
-                                    if (taux > 0 && taux < 100) {
-                                       pcsToUse = pcsToUse * (1 - taux / 100);
-                                    }
+                                    if (taux > 0 && taux < 100) pcsToUse = pcsToUse * (1 - taux / 100);
                                 }
                                 finalPci = calculerPCI(pcsToUse, validatedData.h2o, hValue);
                             }
@@ -860,7 +456,6 @@ export default function ResultsTable() {
                             date_creation: Timestamp.now(),
                             date_arrivage: Timestamp.fromDate(validatedData.date_arrivage as Date)
                         };
-
                     } catch (error) {
                          const errorMessage = error instanceof z.ZodError ? 
                             error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ') :
@@ -871,15 +466,12 @@ export default function ResultsTable() {
 
                 await addManyResults(results as any);
                 toast({ title: "Succès", description: `${parsedResults.length} résultats ont été importés.` });
-
             } catch (error) {
                 console.error("Error importing file:", error);
                 const errorMessage = error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
                 toast({ variant: "destructive", title: "Erreur d'importation", description: errorMessage, duration: 9000 });
             } finally {
-                 if(fileInputRef.current) {
-                    fileInputRef.current.value = "";
-                }
+                 if(fileInputRef.current) fileInputRef.current.value = "";
             }
         };
         reader.readAsArrayBuffer(file);
@@ -887,9 +479,7 @@ export default function ResultsTable() {
 
     const averages = useMemo(() => {
         const group = (items: Result[]) => {
-            if (items.length === 0) {
-                return { count: 0, pci: '-', h2o: '-', cl: '-', cendres: '-' };
-            }
+            if (items.length === 0) return { count: 0, pci: '-', h2o: '-', cl: '-', cendres: '-' };
 
             const metrics: ('pci_brut' | 'h2o' | 'chlore' | 'cendres')[] = ['pci_brut', 'h2o', 'chlore', 'cendres'];
             const totals = metrics.reduce((acc, metric) => {
@@ -910,90 +500,40 @@ export default function ResultsTable() {
         
         const petCokeAnalyses = sortedAndFilteredResults.filter(r => r.type_combustible?.toLowerCase().includes('pet coke'));
         const grignonsAnalyses = sortedAndFilteredResults.filter(r => r.type_combustible?.toLowerCase().includes('grignons'));
-        const afsAnalyses = sortedAndFilteredResults.filter(r => 
-            !r.type_combustible?.toLowerCase().includes('pet coke') && 
-            !r.type_combustible?.toLowerCase().includes('grignons')
-        );
+        const afsAnalyses = sortedAndFilteredResults.filter(r => !r.type_combustible?.toLowerCase().includes('pet coke') && !r.type_combustible?.toLowerCase().includes('grignons'));
 
-        return {
-            petCoke: group(petCokeAnalyses),
-            grignons: group(grignonsAnalyses),
-            afs: group(afsAnalyses),
-        };
+        return { petCoke: group(petCokeAnalyses), grignons: group(grignonsAnalyses), afs: group(afsAnalyses) };
     }, [sortedAndFilteredResults]);
   
-  const exportData = (type: 'excel' | 'pdf', scope: 'current' | 'daily' | 'weekly' | 'monthly' | 'last_month') => {
-    let dataToExport: Result[] = [];
-    let reportTitle = "Rapport des Résultats d'Analyses";
-    const now = new Date();
-
-    if (scope === 'current') {
-        dataToExport = sortedAndFilteredResults;
-        reportTitle = "Export de la vue actuelle";
-    } else {
-        let startDate: Date;
-        let endDate: Date = endOfDay(now);
-
-        switch (scope) {
-            case 'daily':
-                startDate = startOfDay(now);
-                reportTitle = `Rapport Journalier du ${format(now, "dd/MM/yyyy")}`;
-                break;
-            case 'weekly':
-                startDate = startOfWeek(now, { weekStartsOn: 1 });
-                endDate = endOfWeek(now, { weekStartsOn: 1 });
-                reportTitle = `Rapport Hebdomadaire (Semaine du ${format(startDate, "dd/MM")})`;
-                break;
-            case 'monthly':
-                startDate = startOfMonth(now);
-                endDate = endOfMonth(now);
-                reportTitle = `Rapport Mensuel (${format(now, "MMMM yyyy", { locale: fr })})`;
-                break;
-            case 'last_month':
-                const lastMonth = subMonths(now, 1);
-                startDate = startOfMonth(lastMonth);
-                endDate = endOfMonth(lastMonth);
-                reportTitle = `Rapport Mensuel (${format(lastMonth, "MMMM yyyy", { locale: fr })})`;
-                break;
-        }
-
-        dataToExport = results.filter(row => {
-            const dateArrivage = normalizeDate(row.date_arrivage);
-            if (!dateArrivage) return false;
-            return dateArrivage >= startDate && dateArrivage <= endDate;
-        }).sort((a, b) => {
-          const dateA = normalizeDate(a.date_arrivage)?.getTime() || 0;
-          const dateB = normalizeDate(b.date_arrivage)?.getTime() || 0;
-          return dateB - dateA;
-        });
-    }
-
+  const exportData = (type: 'excel' | 'pdf') => {
+    let dataToExport = sortedAndFilteredResults;
     if (dataToExport.length === 0) {
-        toast({
-            variant: "destructive",
-            title: "Aucune donnée",
-            description: "Il n'y a aucune donnée à exporter pour la période sélectionnée.",
-        });
+        toast({ variant: "destructive", title: "Aucune donnée", description: "Il n'y a aucune donnée à exporter." });
         return;
     }
+    
+    const generateAlerts = (result: Result) => {
+        const spec = SPEC_MAP.get(`${result.type_combustible}|${result.fournisseur}`);
+        if (!spec) return { text: "Conforme", isConform: true };
+
+        const alerts: string[] = [];
+        if (spec.PCI_min != null && result.pci_brut != null && result.pci_brut < spec.PCI_min) alerts.push("PCI bas");
+        if (spec.H2O_max != null && result.h2o != null && result.h2o > spec.H2O_max) alerts.push("H₂O élevé");
+        if (result.chlore != null && spec.Cl_max != null && result.chlore > spec.Cl_max) alerts.push("Cl- élevé");
+        if (result.cendres != null && spec.Cendres_max != null && result.cendres > spec.Cendres_max) alerts.push("Cendres élevées");
+
+        if (alerts.length === 0) return { text: "Conforme", isConform: true };
+        return { text: alerts.join(" / "), isConform: false };
+    };
 
     if (type === 'excel') {
         const filename = `Export_Resultats_${format(new Date(), "yyyy-MM-dd")}.xlsx`;
         const excelData = dataToExport.map(row => {
              const date = normalizeDate(row.date_arrivage);
-             const alerte = generateAlerts(row);
              return {
-                "Date Arrivage": date ? format(date, "dd/MM/yyyy") : "Date invalide",
-                "Type Analyse": row.type_analyse || 'Arrivage',
-                "Type Combustible": row.type_combustible,
-                "Fournisseur": row.fournisseur,
-                "PCS (kcal/kg)": row.pcs,
-                "PCI sur Brut (kcal/kg)": row.pci_brut,
-                "% H2O": row.h2o,
-                "% Cl-": row.chlore,
-                "% Cendres": row.cendres,
-                "Alertes": alerte.isConform ? 'Conforme' : alerte.text,
-                "Remarques": row.remarques || ""
+                "Date Arrivage": date ? format(date, "dd/MM/yyyy") : "Date invalide", "Type Analyse": row.type_analyse || 'Arrivage', "Type Combustible": row.type_combustible,
+                "Fournisseur": row.fournisseur, "PCS (kcal/kg)": row.pcs, "PCI sur Brut (kcal/kg)": row.pci_brut, "% H2O": row.h2o, "% Cl-": row.chlore,
+                "% Cendres": row.cendres, "Alertes": generateAlerts(row).text, "Remarques": row.remarques || ""
             }
         });
         const ws = XLSX.utils.json_to_sheet(excelData);
@@ -1002,125 +542,199 @@ export default function ResultsTable() {
         XLSX.writeFile(wb, filename);
     } else {
         const doc = new jsPDF({ orientation: 'landscape' });
-        doc.text(reportTitle, 14, 15);
+        doc.text("Rapport des Résultats d'Analyses", 14, 15);
         const head = [["Date", "Analyse", "Combustible", "Fournisseur", "PCS", "PCI Brut", "H2O", "Cl-", "Cendres", "Alertes", "Remarques"]];
         const body = dataToExport.map(row => {
           const date = normalizeDate(row.date_arrivage);
-          const alerte = generateAlerts(row);
           return [
-            date ? format(date, "dd/MM/yy") : "Date invalide",
-            row.type_analyse || 'Arrivage',
-            row.type_combustible,
-            row.fournisseur,
-            formatNumber(row.pcs, 0),
-            formatNumber(row.pci_brut, 0),
-            formatNumber(row.h2o, 1),
-            formatNumber(row.chlore, 2),
-            formatNumber(row.cendres, 1),
-            alerte.text,
-            row.remarques || "-",
+            date ? format(date, "dd/MM/yy") : "Invalide", row.type_analyse || 'Arrivage', row.type_combustible, row.fournisseur,
+            formatNumber(row.pcs, 0), formatNumber(row.pci_brut, 0), formatNumber(row.h2o, 1), formatNumber(row.chlore, 2), formatNumber(row.cendres, 1),
+            generateAlerts(row).text, row.remarques || "-",
         ]});
 
-        doc.autoTable({
-            head: head,
-            body: body,
-            startY: 20,
-            theme: 'grid',
-            styles: { fontSize: 7, cellPadding: 1.5 },
-            headStyles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: 'bold' }
-        });
+        doc.autoTable({ head, body, startY: 20, theme: 'grid', styles: { fontSize: 7, cellPadding: 1.5 }, headStyles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: 'bold' }});
         doc.save(`Rapport_Resultats_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
     }
- };
+  };
+
+  const periodLabel = useMemo(() => {
+    try {
+        if (dateFromFilter && dateToFilter) return `${format(parseISO(dateFromFilter), "dd/MM/yy")} → ${format(parseISO(dateToFilter), "dd/MM/yy")}`
+        if (dateFromFilter) return `Depuis ${format(parseISO(dateFromFilter), "dd/MM/yy")}`
+        if (dateToFilter) return `Jusqu'au ${format(parseISO(dateToFilter), "dd/MM/yy")}`
+    } catch (e) { return "Période"; }
+    return "Période"
+  }, [dateFromFilter, dateToFilter])
+
+  const stats = useMemo(() => {
+    const total = sortedAndFilteredResults.length
+    const conformes = sortedAndFilteredResults.filter((r) => {
+        const spec = SPEC_MAP.get(`${r.type_combustible}|${r.fournisseur}`);
+        if (!spec) return true;
+        if (spec.PCI_min != null && r.pci_brut != null && r.pci_brut < spec.PCI_min) return false;
+        if (spec.H2O_max != null && r.h2o != null && r.h2o > spec.H2O_max) return false;
+        if (r.chlore != null && spec.Cl_max != null && r.chlore > spec.Cl_max) return false;
+        if (r.cendres != null && spec.Cendres_max != null && r.cendres > spec.Cendres_max) return false;
+        return true;
+    }).length
+    return { total, conformes, non: total - conformes }
+  }, [sortedAndFilteredResults])
+  
+  const formatNumber = (num: number | null | undefined, fractionDigits: number = 0) => {
+    if (num === null || num === undefined || Number.isNaN(num)) return "-";
+    return num.toLocaleString("fr-FR", { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits })
+  };
+
+  const generateAlerts = (result: Result) => {
+    const spec = SPEC_MAP.get(`${result.type_combustible}|${result.fournisseur}`);
+    if (!spec) return { text: "Conforme", isConform: true, details: { pci: false, h2o: false, chlore: false, cendres: false }};
+
+    const alerts: string[] = [];
+    const alertDetails = { pci: false, h2o: false, chlore: false, cendres: false };
+
+    if (spec.PCI_min != null && result.pci_brut != null && result.pci_brut < spec.PCI_min) { alerts.push("PCI bas"); alertDetails.pci = true; }
+    if (spec.H2O_max != null && result.h2o != null && result.h2o > spec.H2O_max) { alerts.push("H₂O élevé"); alertDetails.h2o = true; }
+    if (result.chlore != null && spec.Cl_max != null && result.chlore > spec.Cl_max) { alerts.push("Cl- élevé"); alertDetails.chlore = true; }
+    if (result.cendres != null && spec.Cendres_max != null && result.cendres > spec.Cendres_max) { alerts.push("Cendres élevées"); alertDetails.cendres = true; }
+
+    if (alerts.length === 0) return { text: "Conforme", isConform: true, details: alertDetails };
+    return { text: alerts.join(" / "), isConform: false, details: alertDetails };
+  };
 
   if (loading) {
-    return (
-      <div className="space-y-2 p-4 lg:p-6">
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-96 w-full" />
-      </div>
-    );
+    return ( <div className="space-y-2 p-4 lg:p-6"><Skeleton className="h-10 w-full" /><Skeleton className="h-96 w-full" /></div> );
   }
 
   return (
       <>
-        <input
-            type="file"
-            ref={fileInputRef}
-            className="hidden"
-            onChange={handleFileImport}
-            accept=".xlsx, .xls"
-        />
-        <ResultsPagePro 
-            rows={sortedAndFilteredResults}
-            fuels={uniqueFuelTypes}
-            suppliers={availableSuppliers}
-            analysisTypes={uniqueAnalysisTypes}
-            averages={averages}
-            fuel={fuelTypeFilter}
-            setFuel={setFuelTypeFilter}
-            supplier={fournisseurFilter}
-            setSupplier={setFournisseurFilter}
-            analysisType={analysisTypeFilter}
-            setAnalysisType={setAnalysisTypeFilter}
-            from={dateFromFilter}
-            setFrom={setDateFromFilter}
-            to={dateToFilter}
-            setTo={setDateToFilter}
-            onImport={() => fileInputRef.current?.click()}
-            onExport={exportData}
-            onDeleteAll={() => setIsDeleteAllConfirmOpen(true)}
-            onDeleteOne={(id) => setResultToDelete(id)}
-            onEditOne={handleEditOpen}
-            sortConfig={sortConfig}
-            onSort={requestSort}
-        />
+        <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileImport} accept=".xlsx, .xls" />
         
+        <div className="flex flex-col h-screen bg-muted/20">
+          <header className="p-3 md:p-5">
+              <Card className="rounded-2xl shadow-sm border">
+                  <CardContent className="p-2">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 xl:grid-cols-8 gap-2 items-center">
+                          <div className="col-span-1 md:col-span-2 lg:col-span-2 xl:col-span-3 flex items-center gap-2 text-[12px]">
+                            <span className="font-semibold text-foreground/80">Statistiques:</span>
+                            <span className="inline-flex items-center rounded-md px-2 py-0.5 bg-muted text-muted-foreground">Total: {stats.total}</span>
+                            <span className="inline-flex items-center rounded-md px-2 py-0.5 bg-green-100 text-green-700"><CheckCircle2 className="w-3 h-3 mr-1" /> {stats.conformes}</span>
+                            <span className="inline-flex items-center rounded-md px-2 py-0.5 bg-red-100 text-red-700"><AlertTriangle className="w-3 h-3 mr-1" /> {stats.non}</span>
+                          </div>
+                          
+                          <div className="col-span-1">
+                            <Select value={analysisTypeFilter} onValueChange={setAnalysisTypeFilter}>
+                                <SelectTrigger className="h-9 rounded-xl text-[13px]"><SelectValue placeholder="Type d'analyse" /></SelectTrigger>
+                                <SelectContent><SelectItem value="__ALL__">Toutes les analyses</SelectItem>{uniqueAnalysisTypes.map((a:string)=><SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                          <div className="col-span-1">
+                            <Select value={fuelTypeFilter} onValueChange={setFuelTypeFilter}>
+                                <SelectTrigger className="h-9 rounded-xl text-[13px]"><SelectValue placeholder="Type combustible" /></SelectTrigger>
+                                <SelectContent><SelectItem value="__ALL__">Tous les combustibles</SelectItem>{uniqueFuelTypes.map((f:string)=><SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                          <div className="col-span-1">
+                            <Select value={fournisseurFilter} onValueChange={setFournisseurFilter}>
+                                <SelectTrigger className="h-9 rounded-xl text-[13px]"><SelectValue placeholder="Fournisseur" /></SelectTrigger>
+                                <SelectContent><SelectItem value="__ALL__">Tous les fournisseurs</SelectItem>{availableSuppliers.map((s:string)=><SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="col-span-1">
+                            <Popover>
+                                <PopoverTrigger asChild><Button variant="outline" className="w-full h-9 rounded-xl justify-start text-[13px]"><CalendarIcon className="w-4 h-4 mr-2" />{periodLabel}</Button></PopoverTrigger>
+                                <PopoverContent align="start" className="w-auto p-0"><Calendar initialFocus mode="range" defaultMonth={dateFromFilter ? parseISO(dateFromFilter) : new Date()} selected={{from: dateFromFilter ? parseISO(dateFromFilter) : undefined, to: dateToFilter ? parseISO(dateToFilter) : undefined}} onSelect={(range) => { setDateFromFilter(range?.from ? format(range.from, 'yyyy-MM-dd') : ''); setToFilter(range?.to ? format(range.to, 'yyyy-MM-dd') : ''); }} numberOfMonths={1} locale={fr} /></PopoverContent>
+                            </Popover>
+                          </div>
+
+                          <div className="col-span-1 md:col-span-2 lg:col-span-2 xl:col-span-2 flex items-center justify-end gap-2">
+                              <Button variant="outline" className="h-9 rounded-xl" onClick={() => fileInputRef.current?.click()}><Upload className="w-4 h-4 mr-1" /> Importer</Button>
+                              <DropdownMenu>
+                                  <DropdownMenuTrigger asChild><Button variant="outline" className="h-9 rounded-xl"><Download className="w-4 h-4 mr-1"/>Exporter</Button></DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end"><DropdownMenuItem onClick={() => exportData('excel')}>Exporter en Excel</DropdownMenuItem><DropdownMenuItem onClick={() => exportData('pdf')}>Exporter en PDF</DropdownMenuItem></DropdownMenuContent>
+                              </DropdownMenu>
+                              <Button variant="destructive" className="h-9 rounded-xl" onClick={() => setIsDeleteAllConfirmOpen(true)}><Trash2 className="w-4 h-4" /></Button>
+                          </div>
+                      </div>
+                  </CardContent>
+              </Card>
+          </header>
+
+          <main className="flex-grow px-3 md:px-5 pb-3 md:pb-5">
+            <Card className="rounded-2xl shadow-md h-full">
+              <CardContent className="p-0 h-full">
+                  <div className="max-h-[calc(100vh-160px)] overflow-auto rounded-2xl border-t bg-background h-full">
+                  <table className="w-full text-[13px] border-separate border-spacing-0">
+                    <thead className="text-primary-foreground">
+                      <tr>
+                        {(['Date', 'Analyse', 'Combustible', 'Fournisseur', 'PCI Brut', 'H2O', 'Cl-', 'Cendres', 'Alertes', 'Remarques'] as const).map(label => {
+                          const keyMap: Record<string, SortableKeys> = { 'Date': 'date_arrivage', 'Analyse': 'type_analyse', 'Combustible': 'type_combustible', 'Fournisseur': 'fournisseur', 'PCI Brut': 'pci', 'H2O': 'h2o', 'Cl-': 'chlore', 'Cendres': 'cendres', 'Alertes': 'id', 'Remarques': 'remarques' };
+                          const sortKey = keyMap[label];
+                          const isSorted = sortConfig?.key === sortKey;
+                          return (
+                            <th key={label} onClick={() => requestSort(sortKey)} className="sticky top-0 z-20 bg-primary text-primary-foreground p-2 text-left font-semibold border-b cursor-pointer hover:bg-primary/90">
+                              <div className="flex items-center gap-2"><span>{label}</span>{isSorted && (<ArrowUpDown className="h-4 w-4" />)}</div>
+                            </th>
+                          );
+                        })}
+                        <th className="sticky top-0 z-20 bg-primary text-primary-foreground p-2 text-left font-semibold border-b">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sortedAndFilteredResults.map((r, i) => {
+                        const alerte = generateAlerts(r);
+                        return (
+                          <tr key={r.id ?? i} className="border-b last:border-0 even:bg-muted/30 hover:bg-muted/50 transition-colors">
+                            <td className="p-2 text-muted-foreground whitespace-nowrap">{normalizeDate(r.date_arrivage) ? format(normalizeDate(r.date_arrivage)!, 'dd/MM/yyyy') : 'Date invalide'}</td>
+                            <td className="p-2">{r.type_analyse || 'Arrivage'}</td>
+                            <td className="p-2 font-medium">{r.type_combustible}</td>
+                            <td className="p-2">{r.fournisseur}</td>
+                            <td className={`p-2 text-right font-semibold tabular-nums ${alerte.details.pci ? "text-red-600" : ""}`}>{formatNumber(r.pci_brut, 0)}</td>
+                            <td className={`p-2 text-right tabular-nums ${alerte.details.h2o ? "text-red-600" : ""}`}>{formatNumber(r.h2o, 1)}</td>
+                            <td className={`p-2 text-right tabular-nums ${alerte.details.chlore ? "text-red-600" : ""}`}>{formatNumber(r.chlore, 2)}</td>
+                            <td className={`p-2 text-right tabular-nums ${alerte.details.cendres ? "text-red-600" : ""}`}>{formatNumber(r.cendres, 1)}</td>
+                            <td className="p-2">
+                              {alerte.isConform ? (
+                                <span className="inline-flex items-center gap-1 text-green-600 font-medium"><CheckCircle2 className="w-4 h-4" /> Conforme</span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-red-600 font-medium"><AlertTriangle className="w-4 h-4" /> {alerte.text || "Non conforme"}</span>
+                              )}
+                            </td>
+                            <td className="p-2 text-muted-foreground max-w-[150px] truncate" title={r.remarques}>{r.remarques ?? "-"}</td>
+                            <td className="p-2 text-center">
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditOpen(r)}><Edit className="w-4 h-4 text-muted-foreground" /></Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setResultToDelete(r.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {sortedAndFilteredResults.length===0 && ( <tr><td colSpan={11} className="p-6 text-center text-muted-foreground">Aucun résultat.</td></tr> )}
+                    </tbody>
+                     <tfoot className="sticky bottom-0 bg-background/95 backdrop-blur-sm">
+                        <tr className="border-b border-border last:border-0 bg-secondary/30 hover:bg-secondary/40 font-semibold"><td colSpan={4} className="p-2 text-secondary-foreground whitespace-nowrap">Moyenne Pet Coke ({averages.petCoke.count})</td><td className="p-2 text-right tabular-nums">{averages.petCoke.pci}</td><td className="p-2 text-right tabular-nums">{averages.petCoke.h2o}</td><td className="p-2 text-right tabular-nums">{averages.petCoke.cl}</td><td className="p-2 text-right tabular-nums">{averages.petCoke.cendres}</td><td colSpan={3}></td></tr>
+                        <tr className="border-b border-border last:border-0 bg-secondary/30 hover:bg-secondary/40 font-semibold"><td colSpan={4} className="p-2 text-secondary-foreground whitespace-nowrap">Moyenne Grignons ({averages.grignons.count})</td><td className="p-2 text-right tabular-nums">{averages.grignons.pci}</td><td className="p-2 text-right tabular-nums">{averages.grignons.h2o}</td><td className="p-2 text-right tabular-nums">{averages.grignons.cl}</td><td className="p-2 text-right tabular-nums">{averages.grignons.cendres}</td><td colSpan={3}></td></tr>
+                        <tr className="border-b border-border last:border-0 bg-secondary/30 hover:bg-secondary/40 font-semibold"><td colSpan={4} className="p-2 text-secondary-foreground whitespace-nowrap">Moyenne AFs ({averages.afs.count})</td><td className="p-2 text-right tabular-nums">{averages.afs.pci}</td><td className="p-2 text-right tabular-nums">{averages.afs.h2o}</td><td className="p-2 text-right tabular-nums">{averages.afs.cl}</td><td className="p-2 text-right tabular-nums">{averages.afs.cendres}</td><td colSpan={3}></td></tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </main>
+        </div>
+
         <AlertDialog onOpenChange={(open) => !open && setResultToDelete(null)} open={!!resultToDelete}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                <AlertDialogTitle>Êtes-vous absolument sûr ?</AlertDialogTitle>
-                <AlertDialogDescription>
-                    Cette action est irréversible. Le résultat sera définitivement supprimé de la base de données.
-                </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                <AlertDialogCancel>Annuler</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
-                    Supprimer
-                </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
+            <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Êtes-vous absolument sûr ?</AlertDialogTitle><AlertDialogDescription>Cette action est irréversible. Le résultat sera définitivement supprimé de la base de données.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Annuler</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Supprimer</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
         </AlertDialog>
 
         <AlertDialog onOpenChange={setIsDeleteAllConfirmOpen} open={isDeleteAllConfirmOpen}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                <AlertDialogTitle>Êtes-vous absolument sûr ?</AlertDialogTitle>
-                <AlertDialogDescription>
-                    Cette action est irréversible et supprimera définitivement
-                    TOUT l'historique des résultats.
-                </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                <AlertDialogCancel>Annuler</AlertDialogCancel>
-                <AlertDialogAction
-                    onClick={handleDeleteAll}
-                    className="bg-destructive hover:bg-destructive/90"
-                >
-                    Oui, tout supprimer
-                </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
+            <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Êtes-vous absolument sûr ?</AlertDialogTitle><AlertDialogDescription>Cette action est irréversible et supprimera définitivement TOUT l'historique des résultats.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Annuler</AlertDialogCancel><AlertDialogAction onClick={handleDeleteAll} className="bg-destructive hover:bg-destructive/90">Oui, tout supprimer</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
         </AlertDialog>
 
         <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Modifier le Résultat</DialogTitle>
-                    <DialogDescription>
-                        Combustible: {editingResult?.type_combustible} | Fournisseur: {editingResult?.fournisseur}
-                    </DialogDescription>
+                    <DialogDescription>Combustible: {editingResult?.type_combustible} | Fournisseur: {editingResult?.fournisseur}</DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onEditSubmit)} className="space-y-4 py-4">
@@ -1132,11 +746,7 @@ export default function ResultsTable() {
                             <FormField control={form.control} name="taux_metal" render={({ field }) => (<FormItem><FormLabel>Taux du Métal (%)</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                         </div>
                         <FormField control={form.control} name="remarques" render={({ field }) => (<FormItem><FormLabel>Remarques</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                        
-                        <DialogFooter>
-                            <DialogClose asChild><Button type="button" variant="secondary">Annuler</Button></DialogClose>
-                            <Button type="submit">Enregistrer</Button>
-                        </DialogFooter>
+                        <DialogFooter><DialogClose asChild><Button type="button" variant="secondary">Annuler</Button></DialogClose><Button type="submit">Enregistrer</Button></DialogFooter>
                     </form>
                 </Form>
             </DialogContent>
@@ -1144,9 +754,3 @@ export default function ResultsTable() {
       </>
   );
 }
-
-
-
-
-
-
