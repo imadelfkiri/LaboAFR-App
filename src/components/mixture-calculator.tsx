@@ -450,11 +450,12 @@ export function MixtureCalculator() {
   }, []);
 
   const handleDateRangeChange = (newRange: DateRange | undefined) => {
-      if(newRange?.from && newRange.to){
-          setAnalysisDateRange(newRange);
-          fetchData(newRange);
-      }
-  }
+    setAnalysisDateRange(newRange);
+    // Only fetch data if the range is complete
+    if (newRange?.from && newRange?.to) {
+        fetchData(newRange);
+    }
+  };
 
 
   const fetchHistoryData = useCallback(async () => {
