@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -94,9 +95,9 @@ type FieldValidationStatus = {
 const fuelOrder = [
     "Pneus",
     "CSR",
+    "CSR DD",
     "DMB",
     "Plastiques",
-    "CSR DD",
     "Bois",
     "Mélange"
 ];

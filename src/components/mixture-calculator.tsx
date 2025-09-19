@@ -297,9 +297,9 @@ function useMixtureCalculations(
 const fuelOrder = [
     "Pneus",
     "CSR",
+    "CSR DD",
     "DMB",
     "Plastiques",
-    "CSR DD",
     "Bois",
     "Mélange"
 ];
