@@ -69,6 +69,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogClose,
 } from "@/components/ui/dialog"
 import {
   Form,
@@ -136,7 +137,7 @@ export default function ResultsTable() {
   const [fournisseurFilter, setFournisseurFilter] = useState('__ALL__');
   const [analysisTypeFilter, setAnalysisTypeFilter] = useState('__ALL__');
   const [dateFromFilter, setDateFromFilter] = useState('');
-  const [dateToFilter, setDateToFilter] = useState('');
+  const [dateToFilter, setToFilter] = useState('');
   
   const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' }>({ key: 'date_arrivage', direction: 'descending' });
 
@@ -250,7 +251,7 @@ export default function ResultsTable() {
         const dateArrivage = normalizeDate(result.date_arrivage);
         if (!dateArrivage) return false;
         if (dateFrom && dateArrivage < dateFrom) return false;
-        if (dateTo && dateArrivage <= dateTo) return false;
+        if (dateTo && dateArrivage > dateTo) return false;
         return true;
       });
     }
@@ -644,7 +645,7 @@ export default function ResultsTable() {
                           <div className="col-span-1">
                             <Popover>
                                 <PopoverTrigger asChild><Button variant="outline" className="w-full h-9 rounded-xl justify-start text-[13px]"><CalendarIcon className="w-4 h-4 mr-2" />{periodLabel}</Button></PopoverTrigger>
-                                <PopoverContent align="start" className="w-auto p-0"><Calendar initialFocus mode="range" defaultMonth={dateFromFilter ? parseISO(dateFromFilter) : new Date()} selected={{from: dateFromFilter ? parseISO(dateFromFilter) : undefined, to: dateToFilter ? parseISO(dateToFilter) : undefined}} onSelect={(range) => { setDateFromFilter(range?.from ? format(range.from, 'yyyy-MM-dd') : ''); setDateToFilter(range?.to ? format(range.to, 'yyyy-MM-dd') : ''); }} numberOfMonths={1} locale={fr} /></PopoverContent>
+                                <PopoverContent align="start" className="w-auto p-0"><Calendar initialFocus mode="range" defaultMonth={dateFromFilter ? parseISO(dateFromFilter) : new Date()} selected={{from: dateFromFilter ? parseISO(dateFromFilter) : undefined, to: dateToFilter ? parseISO(dateToFilter) : undefined}} onSelect={(range) => { setDateFromFilter(range?.from ? format(range.from, 'yyyy-MM-dd') : ''); setToFilter(range?.to ? format(range.to, 'yyyy-MM-dd') : ''); }} numberOfMonths={1} locale={fr} /></PopoverContent>
                             </Popover>
                           </div>
 
@@ -755,5 +756,3 @@ export default function ResultsTable() {
       </>
   );
 }
-
-    
