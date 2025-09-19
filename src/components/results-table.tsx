@@ -841,7 +841,7 @@ export default function ResultsTable() {
         reader.readAsArrayBuffer(file);
     };
 
-    const { tableRows, averages } = useMemo(() => {
+    const { sortedAndFilteredRows, averages } = useMemo(() => {
         const rows = sortedAndFilteredResults.map(result => {
             const alerte = generateAlerts(result);
             return {
@@ -900,7 +900,7 @@ export default function ResultsTable() {
             afs: processGroup(afsAnalyses),
         };
 
-        return { tableRows: rows, averages: calculatedAverages };
+        return { sortedAndFilteredRows: rows, averages: calculatedAverages };
     }, [sortedAndFilteredResults]);
   
   const exportData = (type: 'excel' | 'pdf', scope: 'current' | 'daily' | 'weekly' | 'monthly' | 'last_month') => {
@@ -1033,7 +1033,7 @@ export default function ResultsTable() {
             accept=".xlsx, .xls"
         />
         <ResultsPagePro 
-            rows={tableRows}
+            rows={sortedAndFilteredRows}
             fuels={uniqueFuelTypes}
             suppliers={availableSuppliers}
             analysisTypes={uniqueAnalysisTypes}
@@ -1125,6 +1125,7 @@ export default function ResultsTable() {
       </>
   );
 }
+
 
 
 
