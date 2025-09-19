@@ -154,6 +154,11 @@ export default function ResultsTable() {
     resolver: zodResolver(editSchema),
   });
 
+  const formatNumber = (num: number | null | undefined, fractionDigits: number = 0) => {
+    if (num === null || num === undefined || Number.isNaN(num)) return "-";
+    return num.toLocaleString("fr-FR", { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits })
+  };
+
   const fetchInitialData = useCallback(async () => {
     setLoading(true);
     try {
@@ -503,7 +508,7 @@ export default function ResultsTable() {
         const afsAnalyses = sortedAndFilteredResults.filter(r => !r.type_combustible?.toLowerCase().includes('pet coke') && !r.type_combustible?.toLowerCase().includes('grignons'));
 
         return { petCoke: group(petCokeAnalyses), grignons: group(grignonsAnalyses), afs: group(afsAnalyses) };
-    }, [sortedAndFilteredResults]);
+    }, [sortedAndFilteredResults, formatNumber]);
   
   const exportData = (type: 'excel' | 'pdf') => {
     let dataToExport = sortedAndFilteredResults;
@@ -580,11 +585,6 @@ export default function ResultsTable() {
     return { total, conformes, non: total - conformes }
   }, [sortedAndFilteredResults])
   
-  const formatNumber = (num: number | null | undefined, fractionDigits: number = 0) => {
-    if (num === null || num === undefined || Number.isNaN(num)) return "-";
-    return num.toLocaleString("fr-FR", { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits })
-  };
-
   const generateAlerts = (result: Result) => {
     const spec = SPEC_MAP.get(`${result.type_combustible}|${result.fournisseur}`);
     if (!spec) return { text: "Conforme", isConform: true, details: { pci: false, h2o: false, chlore: false, cendres: false }};
