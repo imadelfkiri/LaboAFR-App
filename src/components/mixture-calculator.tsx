@@ -342,42 +342,25 @@ export function MixtureCalculator() {
     }
   }
 
- const fetchData = useCallback(async (newDateRange?: DateRange) => {
-    const dateRangeToUse = newDateRange ?? analysisDateRange;
+ const fetchData = useCallback(async (dateRangeToUse: DateRange) => {
     if (!dateRangeToUse?.from || !dateRangeToUse?.to) return;
 
     setLoading(true);
     try {
-        const [allFuelData, costs, allStocks, globalSpec, latestSession] = await Promise.all([
+        const [allFuelData, costs, allStocks, globalSpec] = await Promise.all([
             getFuelData(),
             getFuelCosts(),
             getStocks(),
             getGlobalMixtureSpecification(),
-            getLatestMixtureSession(),
         ]);
-        
-        let finalDateRange = dateRangeToUse;
-        if (!newDateRange && latestSession?.analysisDateRange?.from && latestSession.analysisDateRange.to) {
-            const fromDate = latestSession.analysisDateRange.from.toDate();
-            const toDate = latestSession.analysisDateRange.to.toDate();
-            if (isValid(fromDate) && isValid(toDate)) {
-                finalDateRange = { from: fromDate, to: toDate };
-                setAnalysisDateRange(finalDateRange);
-            }
-        }
         
         const directInputFuelNames = ['Grignons GO1', 'Grignons GO2', 'Pet-Coke Preca', 'Pet-Coke Tuyere'];
         const directInputBaseNames = ['Grignons', 'Pet-Coke'];
         const allPossibleFuelNames = new Set(allStocks.map(s => s.nom_combustible));
-        if (latestSession) {
-            Object.keys(latestSession.hallAF?.fuels || {}).forEach(name => allPossibleFuelNames.add(name));
-            Object.keys(latestSession.ats?.fuels || {}).forEach(name => allPossibleFuelNames.add(name));
-        }
         directInputBaseNames.forEach(name => allPossibleFuelNames.add(name));
 
-
         const fuelNamesArray = Array.from(allPossibleFuelNames);
-        const fuelsAnalysis = await getAverageAnalysisForFuels(fuelNamesArray, finalDateRange);
+        const fuelsAnalysis = await getAverageAnalysisForFuels(fuelNamesArray, dateRangeToUse);
         
         const extendedAnalyses = {...fuelsAnalysis};
         extendedAnalyses['Grignons GO1'] = fuelsAnalysis['Grignons'];
@@ -400,62 +383,90 @@ export function MixtureCalculator() {
         setFuelData(fuelDataMap);
         setFuelCosts(costs);
 
-        const initialFuelState = fuelNamesArray
-            .filter(name => !directInputBaseNames.includes(name))
-            .reduce((acc, name) => {
-                acc[name] = { buckets: 0 };
-                return acc;
-            }, {} as InstallationState['fuels']);
-        
-        let initialHallState = { flowRate: 0, fuels: { ...initialFuelState } };
-        let initialAtsState = { flowRate: 0, fuels: { ...initialFuelState } };
-        let initialDirectInputs = { ...directInputs };
-        
-        if (latestSession && !newDateRange) {
-            initialHallState = {
-                flowRate: latestSession.hallAF?.flowRate || 0,
-                fuels: { ...initialHallState.fuels, ...(latestSession.hallAF?.fuels || {}) }
-            };
-            initialAtsState = {
-                flowRate: latestSession.ats?.flowRate || 0,
-                fuels: { ...initialAtsState.fuels, ...(latestSession.ats?.fuels || {}) }
-            };
-            
-            if (latestSession.directInputs) {
-              initialDirectInputs = { ...initialDirectInputs, ...latestSession.directInputs };
-            }
-
-            if(!newDateRange){ 
-                setTimeout(() => {
-                    toast({ title: "Dernière session chargée", description: "La dernière configuration a été chargée." });
-                }, 100);
-            }
-        }
-        
-        setHallAF(initialHallState);
-        setAts(initialAtsState);
-        setDirectInputs(initialDirectInputs);
-
     } catch (error) {
         console.error("Error fetching fuel data:", error);
         toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données des combustibles." });
     } finally {
         setLoading(false);
     }
-  }, [analysisDateRange, toast]);
+  }, [toast]);
 
-
+  // Initial data load effect
   useEffect(() => {
-    fetchData();
-  }, []);
+    const loadInitialData = async () => {
+        setLoading(true);
+        try {
+            const latestSession = await getLatestMixtureSession();
+            let dateRangeToUse = analysisDateRange;
+            if (latestSession?.analysisDateRange?.from && latestSession.analysisDateRange.to) {
+                const fromDate = latestSession.analysisDateRange.from.toDate();
+                const toDate = latestSession.analysisDateRange.to.toDate();
+                if (isValid(fromDate) && isValid(toDate)) {
+                    dateRangeToUse = { from: fromDate, to: toDate };
+                    setAnalysisDateRange(dateRangeToUse);
+                }
+            }
 
-  const handleDateRangeChange = (newRange: DateRange | undefined) => {
-    setAnalysisDateRange(newRange);
-    // Only fetch data if the range is complete
-    if (newRange?.from && newRange?.to) {
-        fetchData(newRange);
-    }
-  };
+            if (dateRangeToUse) {
+                await fetchData(dateRangeToUse);
+            }
+            
+            const [allFuelData, allStocks] = await Promise.all([getFuelData(), getStocks()]);
+            const allPossibleFuelNames = new Set(allStocks.map(s => s.nom_combustible));
+             if (latestSession) {
+                Object.keys(latestSession.hallAF?.fuels || {}).forEach(name => allPossibleFuelNames.add(name));
+                Object.keys(latestSession.ats?.fuels || {}).forEach(name => allPossibleFuelNames.add(name));
+            }
+            const fuelNamesArray = Array.from(allPossibleFuelNames);
+            const directInputBaseNames = ['Grignons', 'Pet-Coke'];
+            const initialFuelState = fuelNamesArray
+            .filter(name => !directInputBaseNames.includes(name))
+            .reduce((acc, name) => {
+                acc[name] = { buckets: 0 };
+                return acc;
+            }, {} as InstallationState['fuels']);
+        
+            let initialHallState = { flowRate: 0, fuels: { ...initialFuelState } };
+            let initialAtsState = { flowRate: 0, fuels: { ...initialFuelState } };
+            let initialDirectInputs = { ...directInputs };
+
+            if (latestSession) {
+                initialHallState = {
+                    flowRate: latestSession.hallAF?.flowRate || 0,
+                    fuels: { ...initialHallState.fuels, ...(latestSession.hallAF?.fuels || {}) }
+                };
+                initialAtsState = {
+                    flowRate: latestSession.ats?.flowRate || 0,
+                    fuels: { ...initialAtsState.fuels, ...(latestSession.ats?.fuels || {}) }
+                };
+                if (latestSession.directInputs) {
+                  initialDirectInputs = { ...initialDirectInputs, ...latestSession.directInputs };
+                }
+                setTimeout(() => {
+                    toast({ title: "Dernière session chargée", description: "La dernière configuration a été chargée." });
+                }, 100);
+            }
+            
+            setHallAF(initialHallState);
+            setAts(initialAtsState);
+            setDirectInputs(initialDirectInputs);
+            
+        } catch (error) {
+             console.error("Error on initial load:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    loadInitialData();
+  }, []); // Run only once on mount
+
+  // Effect to refetch data when date range changes
+  useEffect(() => {
+      if (analysisDateRange?.from && analysisDateRange.to) {
+          fetchData(analysisDateRange);
+      }
+  }, [analysisDateRange, fetchData]);
 
 
   const fetchHistoryData = useCallback(async () => {
@@ -882,7 +893,7 @@ export function MixtureCalculator() {
                           mode="range"
                           defaultMonth={analysisDateRange?.from}
                           selected={analysisDateRange}
-                          onSelect={handleDateRangeChange}
+                          onSelect={setAnalysisDateRange}
                           numberOfMonths={2}
                           locale={fr}
                       />
