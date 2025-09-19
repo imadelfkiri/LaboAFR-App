@@ -226,9 +226,9 @@ function useMixtureCalculations(
     const cost = weightedAvg('cost');
 
     const totalAfFlow = (hallAF.flowRate || 0) + (ats.flowRate || 0);
-    const tireRate = useMemo(() => {
-        if (totalAfFlow === 0) return 0;
-        
+    
+    let tireRate = 0;
+    if (totalAfFlow > 0) {
         const hallWeightProportion = hallAF.flowRate / totalAfFlow;
         const atsWeightProportion = ats.flowRate / totalAfFlow;
 
@@ -237,9 +237,12 @@ function useMixtureCalculations(
 
         const totalTireWeight = (hallTireWeight * hallWeightProportion) + (atsTireWeight * atsWeightProportion);
         const totalAfWeight = (hallIndicators.weight * hallWeightProportion) + (atsIndicators.weight * atsWeightProportion);
+        
+        if (totalAfWeight > 0) {
+            tireRate = (totalTireWeight / totalAfWeight) * 100;
+        }
+    }
 
-        return totalAfWeight > 0 ? (totalTireWeight / totalAfWeight) * 100 : 0;
-    }, [hallAF, ats, hallIndicators, atsIndicators, totalAfFlow]);
 
     const getStatus = (value: number, min: number | undefined, max: number | undefined): IndicatorStatus => {
         if (min === undefined && max === undefined) return 'neutral';
