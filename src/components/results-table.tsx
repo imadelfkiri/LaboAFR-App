@@ -58,7 +58,8 @@ import { Skeleton } from "./ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
-import { Popover, PopoverTrigger, PopoverContent, PopoverClose } from "@/components/ui/popover"
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
@@ -643,7 +644,7 @@ export default function ResultsTable() {
                           <div className="col-span-1">
                             <Popover>
                                 <PopoverTrigger asChild><Button variant="outline" className="w-full h-9 rounded-xl justify-start text-[13px]"><CalendarIcon className="w-4 h-4 mr-2" />{periodLabel}</Button></PopoverTrigger>
-                                <PopoverContent align="start" className="w-auto p-0"><Calendar initialFocus mode="range" defaultMonth={dateFromFilter ? parseISO(dateFromFilter) : new Date()} selected={{from: dateFromFilter ? parseISO(dateFromFilter) : undefined, to: dateToFilter ? parseISO(dateToFilter) : undefined}} onSelect={(range) => { setDateFromFilter(range?.from ? format(range.from, 'yyyy-MM-dd') : ''); setToFilter(range?.to ? format(range.to, 'yyyy-MM-dd') : ''); }} numberOfMonths={1} locale={fr} /></PopoverContent>
+                                <PopoverContent align="start" className="w-auto p-0"><Calendar initialFocus mode="range" defaultMonth={dateFromFilter ? parseISO(dateFromFilter) : new Date()} selected={{from: dateFromFilter ? parseISO(dateFromFilter) : undefined, to: dateToFilter ? parseISO(dateToFilter) : undefined}} onSelect={(range) => { setDateFromFilter(range?.from ? format(range.from, 'yyyy-MM-dd') : ''); setDateToFilter(range?.to ? format(range.to, 'yyyy-MM-dd') : ''); }} numberOfMonths={1} locale={fr} /></PopoverContent>
                             </Popover>
                           </div>
 
@@ -754,3 +755,5 @@ export default function ResultsTable() {
       </>
   );
 }
+
+    
