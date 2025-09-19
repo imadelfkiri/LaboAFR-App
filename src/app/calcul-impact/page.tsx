@@ -75,10 +75,14 @@ const calculateModules = (analysis: OxideAnalysis) => {
 };
 
 const calculateC3S = (analysis: OxideAnalysis, freeLime: number, targetSo3?: number) => {
-  const s = analysis.sio2 || 0, a = analysis.al2o3 || 0, f = analysis.fe2o3 || 0, c = analysis.cao  || 0, pf = analysis.pf || 0;
-  
-  const effectiveCao = c - freeLime - (0.7 * (targetSo3 ?? (analysis.so3 || 0)));
-  const c3s = (4.07 * effectiveCao) - (7.60 * s) - (6.72 * a) - (1.43 * f);
+  const s = analysis.sio2 || 0;
+  const a = analysis.al2o3 || 0;
+  const f = analysis.fe2o3 || 0;
+  const c = analysis.cao || 0;
+  const so3 = targetSo3 ?? (analysis.so3 || 0);
+
+  // Formule de Bogue corrigée
+  const c3s = (4.07 * (c - 0.7 * so3)) - (7.60 * s) - (6.72 * a) - (1.43 * f) - (2.85 * freeLime);
 
   return Math.max(0, c3s);
 };
@@ -176,7 +180,7 @@ const useClinkerCalculations = (
         const modulesSans = calculateModules(clinkerWithoutAsh);
         const c3sSans = calculateC3S(clinkerWithoutAsh, freeLime, clinkerWithoutAsh.so3);
         const modulesAvec = calculateModules(clinkerWithAsh);
-        const c3sAvec = calculateC3S(clinkerWithAsh, freeLime, clinkerWithAsh.so3);
+        const c3sAvec = calculateC3S(clinkerWithAsh, freeLime, so3Target);
         const modulesCendres = calculateModules(averageAshAnalysis);
 
 
