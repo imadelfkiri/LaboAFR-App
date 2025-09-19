@@ -166,12 +166,12 @@ function useMixtureCalculations(
 
         return { 
             weight: totalWeight, 
+            tireWeight: tempTotalTireWeight,
             cost: totalWeight > 0 ? tempTotalCost / totalWeight : 0,
             pci: totalWeight > 0 ? tempTotalPci / totalWeight : 0,
             humidity: totalWeight > 0 ? tempTotalHumidity / totalWeight : 0,
             ash: totalWeight > 0 ? tempTotalAsh / totalWeight : 0,
             chlorine: totalWeight > 0 ? tempTotalChlorine / totalWeight : 0,
-            tireRate: totalWeight > 0 ? (tempTotalTireWeight / totalWeight) * 100 : 0,
             fuelWeights
         };
     };
@@ -198,7 +198,8 @@ function useMixtureCalculations(
                     ash: analysis.cendres,
                     chlorine: analysis.chlore,
                     cost: fuelCosts[fuelName]?.cost || 0,
-                    tireRate: fuelName.toLowerCase().includes('pneu') ? 100 : 0,
+                    tireWeight: 0,
+                    weight: 0,
                 }
             });
         }
@@ -206,7 +207,7 @@ function useMixtureCalculations(
 
     const totalFlow = allFlows.reduce((sum, item) => sum + item.flow, 0);
 
-    const weightedAvg = (valueKey: keyof typeof hallIndicators) => {
+    const weightedAvg = (valueKey: 'pci' | 'humidity' | 'ash' | 'chlorine' | 'cost') => {
         if (totalFlow === 0) return 0;
         const totalValue = allFlows.reduce((sum, item) => {
             const indicatorValue = item.indicators[valueKey as keyof typeof item.indicators];
@@ -223,8 +224,22 @@ function useMixtureCalculations(
     const humidity = weightedAvg('humidity');
     const ash = weightedAvg('ash');
     const cost = weightedAvg('cost');
-    const tireRate = weightedAvg('tireRate');
 
+    const totalAfFlow = (hallAF.flowRate || 0) + (ats.flowRate || 0);
+    const tireRate = useMemo(() => {
+        if (totalAfFlow === 0) return 0;
+        
+        const hallWeightProportion = hallAF.flowRate / totalAfFlow;
+        const atsWeightProportion = ats.flowRate / totalAfFlow;
+
+        const hallTireWeight = hallIndicators.tireWeight;
+        const atsTireWeight = atsIndicators.tireWeight;
+
+        const totalTireWeight = (hallTireWeight * hallWeightProportion) + (atsTireWeight * atsWeightProportion);
+        const totalAfWeight = (hallIndicators.weight * hallWeightProportion) + (atsIndicators.weight * atsWeightProportion);
+
+        return totalAfWeight > 0 ? (totalTireWeight / totalAfWeight) * 100 : 0;
+    }, [hallAF, ats, hallIndicators, atsIndicators, totalAfFlow]);
 
     const getStatus = (value: number, min: number | undefined, max: number | undefined): IndicatorStatus => {
         if (min === undefined && max === undefined) return 'neutral';
