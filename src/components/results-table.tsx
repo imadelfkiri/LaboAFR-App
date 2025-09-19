@@ -159,11 +159,92 @@ function ResultsPagePro({
   sortConfig = { key: 'date_arrivage', direction: 'descending' },
   onSort = (key: SortableKeys) => {},
 }) {
+
+  const formatNumber = (num: number | null | undefined, fractionDigits: number = 0) => {
+    if (num === null || num === undefined || Number.isNaN(num)) return "-";
+    return num
+      .toLocaleString("fr-FR", {
+        minimumFractionDigits: fractionDigits,
+        maximumFractionDigits: fractionDigits,
+      })
+  };
+
+  const normalizeDate = (date: { seconds: number; nanoseconds: number } | string): Date | null => {
+    if (typeof date === "string") {
+      const parsed = parseISO(date);
+      return isValid(parsed) ? parsed : null;
+    }
+    if (date && typeof date.seconds === "number") {
+      return new Timestamp(date.seconds, date.nanoseconds).toDate();
+    }
+    return null;
+  };
+
+   const generateAlerts = (result: Result) => {
+    const spec = SPEC_MAP.get(`${result.type_combustible}|${result.fournisseur}`);
+    if (!spec) {
+      return {
+        text: "Conforme",
+        isConform: true,
+        details: { pci: false, h2o: false, chlore: false, cendres: false },
+      };
+    }
+
+    const alerts: string[] = [];
+    const alertDetails = { pci: false, h2o: false, chlore: false, cendres: false };
+
+    if (spec.PCI_min != null && result.pci_brut != null && result.pci_brut < spec.PCI_min) {
+      alerts.push("PCI bas");
+      alertDetails.pci = true;
+    }
+    if (spec.H2O_max != null && result.h2o != null && result.h2o > spec.H2O_max) {
+      alerts.push("H₂O élevé");
+      alertDetails.h2o = true;
+    }
+    if (result.chlore != null && spec.Cl_max != null && result.chlore > spec.Cl_max) {
+      alerts.push("Cl- élevé");
+      alertDetails.chlore = true;
+    }
+    if (result.cendres != null && spec.Cendres_max != null && result.cendres > spec.Cendres_max) {
+      alerts.push("Cendres élevées");
+      alertDetails.cendres = true;
+    }
+
+    if (alerts.length === 0) {
+      return { text: "Conforme", isConform: true, details: alertDetails };
+    }
+
+    return { text: alerts.join(" / "), isConform: false, details: alertDetails };
+  };
+
+  const tableRows = useMemo(() => rows.map((result: Result) => {
+      const alerte = generateAlerts(result);
+      return {
+          id: result.id,
+          dateArrivage: normalizeDate(result.date_arrivage) ? format(normalizeDate(result.date_arrivage)!, 'dd/MM/yyyy') : 'Date invalide',
+          typeAnalyse: result.type_analyse || 'Arrivage',
+          typeCombustible: result.type_combustible,
+          fournisseur: result.fournisseur,
+          pci: formatNumber(result.pci_brut, 0),
+          h2o: formatNumber(result.h2o, 1),
+          cl: formatNumber(result.chlore, 2),
+          cendres: formatNumber(result.cendres, 1),
+          pcs: formatNumber(result.pcs, 0),
+          pciAlert: alerte.details.pci,
+          h2oAlert: alerte.details.h2o,
+          chloreAlert: alerte.details.chlore,
+          cendresAlert: alerte.details.cendres,
+          alerte,
+          remarque: result.remarques,
+          original: result,
+      };
+  }), [rows]);
+
   const stats = React.useMemo(() => {
-    const total = rows.length
-    const conformes = rows.filter((r:any)=> r.alerte.isConform).length
+    const total = tableRows.length
+    const conformes = tableRows.filter((r:any)=> r.alerte.isConform).length
     return { total, conformes, non: total - conformes }
-  }, [rows])
+  }, [tableRows])
 
   const periodLabel = React.useMemo(() => {
     try {
@@ -342,7 +423,7 @@ function ResultsPagePro({
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r:any, i:number)=>(
+                  {tableRows.map((r:any, i:number)=>(
                     <tr key={r.id ?? i} className="border-b last:border-0 even:bg-muted/30 hover:bg-muted/50 transition-colors">
                       <td className="p-2 text-muted-foreground whitespace-nowrap">{r.dateArrivage}</td>
                       <td className="p-2">{r.typeAnalyse}</td>
@@ -374,7 +455,7 @@ function ResultsPagePro({
                       </td>
                     </tr>
                   ))}
-                  {rows.length===0 && (
+                  {tableRows.length===0 && (
                     <tr><td colSpan={11} className="p-6 text-center text-muted-foreground">Aucun résultat.</td></tr>
                   )}
                 </tbody>
@@ -652,43 +733,6 @@ export default function ResultsTable() {
         maximumFractionDigits: fractionDigits,
       })
   };
-
-  const generateAlerts = (result: Result) => {
-    const spec = SPEC_MAP.get(`${result.type_combustible}|${result.fournisseur}`);
-    if (!spec) {
-      return {
-        text: "Conforme",
-        isConform: true,
-        details: { pci: false, h2o: false, chlore: false, cendres: false },
-      };
-    }
-
-    const alerts: string[] = [];
-    const alertDetails = { pci: false, h2o: false, chlore: false, cendres: false };
-
-    if (spec.PCI_min != null && result.pci_brut != null && result.pci_brut < spec.PCI_min) {
-      alerts.push("PCI bas");
-      alertDetails.pci = true;
-    }
-    if (spec.H2O_max != null && result.h2o != null && result.h2o > spec.H2O_max) {
-      alerts.push("H₂O élevé");
-      alertDetails.h2o = true;
-    }
-    if (result.chlore != null && spec.Cl_max != null && result.chlore > spec.Cl_max) {
-      alerts.push("Cl- élevé");
-      alertDetails.chlore = true;
-    }
-    if (result.cendres != null && spec.Cendres_max != null && result.cendres > spec.Cendres_max) {
-      alerts.push("Cendres élevées");
-      alertDetails.cendres = true;
-    }
-
-    if (alerts.length === 0) {
-      return { text: "Conforme", isConform: true, details: alertDetails };
-    }
-
-    return { text: alerts.join(" / "), isConform: false, details: alertDetails };
-  };
   
     const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -841,45 +885,22 @@ export default function ResultsTable() {
         reader.readAsArrayBuffer(file);
     };
 
-    const { sortedAndFilteredRows, averages } = useMemo(() => {
-        const rows = sortedAndFilteredResults.map(result => {
-            const alerte = generateAlerts(result);
-            return {
-                id: result.id,
-                dateArrivage: normalizeDate(result.date_arrivage) ? format(normalizeDate(result.date_arrivage)!, 'dd/MM/yyyy') : 'Date invalide',
-                typeAnalyse: result.type_analyse || 'Arrivage',
-                typeCombustible: result.type_combustible,
-                fournisseur: result.fournisseur,
-                pci: formatNumber(result.pci_brut, 0),
-                h2o: formatNumber(result.h2o, 1),
-                cl: formatNumber(result.chlore, 2),
-                cendres: formatNumber(result.cendres, 1),
-                pcs: formatNumber(result.pcs, 0),
-                pciAlert: alerte.details.pci,
-                h2oAlert: alerte.details.h2o,
-                chloreAlert: alerte.details.chlore,
-                cendresAlert: alerte.details.cendres,
-                alerte,
-                remarque: result.remarques,
-                original: result,
-            };
-        });
-
-        const processGroup = (group: Result[]) => {
-            if (group.length === 0) {
+    const averages = useMemo(() => {
+        const group = (items: Result[]) => {
+            if (items.length === 0) {
                 return { count: 0, pci: '-', h2o: '-', cl: '-', cendres: '-' };
             }
 
             const metrics: ('pci_brut' | 'h2o' | 'chlore' | 'cendres')[] = ['pci_brut', 'h2o', 'chlore', 'cendres'];
             const totals = metrics.reduce((acc, metric) => {
-                const validValues = group.map(r => r[metric]).filter((v): v is number => typeof v === 'number' && isFinite(v));
+                const validValues = items.map(r => r[metric]).filter((v): v is number => typeof v === 'number' && isFinite(v));
                 const sum = validValues.reduce((s, v) => s + v, 0);
                 acc[metric] = { sum, count: validValues.length };
                 return acc;
             }, {} as Record<typeof metrics[number], { sum: number, count: number }>);
         
             return {
-                count: group.length,
+                count: items.length,
                 pci: totals.pci_brut.count > 0 ? formatNumber(totals.pci_brut.sum / totals.pci_brut.count, 0) : '-',
                 h2o: totals.h2o.count > 0 ? formatNumber(totals.h2o.sum / totals.h2o.count, 1) : '-',
                 cl: totals.chlore.count > 0 ? formatNumber(totals.chlore.sum / totals.chlore.count, 2) : '-',
@@ -894,13 +915,11 @@ export default function ResultsTable() {
             !r.type_combustible?.toLowerCase().includes('grignons')
         );
 
-        const calculatedAverages = {
-            petCoke: processGroup(petCokeAnalyses),
-            grignons: processGroup(grignonsAnalyses),
-            afs: processGroup(afsAnalyses),
+        return {
+            petCoke: group(petCokeAnalyses),
+            grignons: group(grignonsAnalyses),
+            afs: group(afsAnalyses),
         };
-
-        return { sortedAndFilteredRows: rows, averages: calculatedAverages };
     }, [sortedAndFilteredResults]);
   
   const exportData = (type: 'excel' | 'pdf', scope: 'current' | 'daily' | 'weekly' | 'monthly' | 'last_month') => {
@@ -1033,7 +1052,7 @@ export default function ResultsTable() {
             accept=".xlsx, .xls"
         />
         <ResultsPagePro 
-            rows={sortedAndFilteredRows}
+            rows={sortedAndFilteredResults}
             fuels={uniqueFuelTypes}
             suppliers={availableSuppliers}
             analysisTypes={uniqueAnalysisTypes}
@@ -1125,6 +1144,7 @@ export default function ResultsTable() {
       </>
   );
 }
+
 
 
 
