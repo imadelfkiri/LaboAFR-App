@@ -374,59 +374,33 @@ export default function ResultsTable() {
                 throw new Error("Impossible de trouver une feuille de calcul dans le fichier.");
             }
 
-            const json = XLSX.utils.sheet_to_json<any>(worksheet, {
-                header: 1, // Treat first row as headers
-                defval: null,
-            });
+            const json = XLSX.utils.sheet_to_json<any>(worksheet);
             
-            if (json.length < 1) {
+            if (json.length === 0) {
                 throw new Error("Le fichier est vide ou mal formaté.");
             }
 
-            const headers: string[] = json[0];
-            const headerMap = {
-              'Date Arrivage': 'date_arrivage',
-              'Type Combustible': 'type_combustible',
-              'Fournisseur': 'fournisseur',
-              'Tonnage (t)': 'tonnage',
-              'PCS sur sec': 'pcs',
-              'PCI sur Brut': 'pci_brut',
-              '% H2O': 'h2o',
-              '% Cl-': 'chlore',
-              '% Cendres': 'cendres',
-              'Alertes': 'remarques', // Map 'Alertes' to 'remarques'
-              'Remarques': 'remarques',
-              '% Taux metal': 'taux_metal'
-            };
-
-            const mappedHeaders = headers.map(h => (headerMap as any)[h] || h.toLowerCase().replace(/ /g, '_'));
-            const dataRows = json.slice(1);
-
-            const parsedResults = dataRows.map((rowArray: any[], index) => {
-                const rowNum = index + 2; // Data starts from line 2
-                const row: Record<string, any> = {};
-                mappedHeaders.forEach((header, i) => {
-                    row[header] = rowArray[i];
-                });
-
+            const parsedResults = json.map((row: any, index) => {
+                const rowNum = index + 2; // Data starts from line 2 (1-based index + 1 for header)
+                
                 try {
-                    const jsDate = row['date_arrivage'];
+                    const jsDate = row['Date Arrivage'];
                     if (!jsDate || !isValid(jsDate)) {
                        throw new Error(`La date est requise ou invalide.`);
                     }
 
                     const validatedData = importSchema.partial().parse({
                         date_arrivage: jsDate,
-                        type_combustible: row['type_combustible'] ?? null,
-                        fournisseur: row['fournisseur'] ?? null,
-                        tonnage: row['tonnage'] ?? null,
-                        pcs: row['pcs'] ?? null,
-                        pci_brut: row['pci_brut'] ?? null,
-                        h2o: row['h2o'] ?? null,
-                        chlore: row['chlore'] ?? null,
-                        cendres: row['cendres'] ?? null,
-                        remarques: row['remarques'] ?? null,
-                        taux_metal: row['taux_metal'] ?? null,
+                        type_combustible: row['Type Combustible'],
+                        fournisseur: row['Fournisseur'],
+                        tonnage: row['Tonnage (t)'],
+                        pcs: row['PCS sur sec'],
+                        pci_brut: row['PCI sur Brut'],
+                        h2o: row['% H2O'],
+                        chlore: row['% Cl-'],
+                        cendres: row['% Cendres'],
+                        remarques: row['Remarques'] ?? row['Alertes'], // Also check for 'Alertes' column
+                        taux_metal: row['% Taux metal']
                     });
 
                     if (!validatedData.type_combustible || !validatedData.fournisseur || validatedData.h2o === null || validatedData.h2o === undefined) {
