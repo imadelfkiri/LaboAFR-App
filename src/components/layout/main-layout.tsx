@@ -17,6 +17,7 @@ import { Fuel, Plus, PlusCircle } from 'lucide-react';
 import { SidebarNav } from './sidebar-nav';
 
 const pageTitles: { [key: string]: string } = {
+  '/': 'Tableau de Bord',
   '/calculateur': 'Calculateur PCI',
   '/resultats': 'Historique des Résultats',
   '/statistiques': 'Tableau de Bord des Statistiques',
@@ -29,13 +30,14 @@ const pageTitles: { [key: string]: string } = {
   '/gestion-stock': 'Gestion du Stock',
   '/indicateurs': 'Indicateurs',
   '/calcul-impact': "Calcul d'Impact Clinker",
+  '/historique-impact': "Historique des Calculs d'Impact",
 };
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const title = pageTitles[pathname] || 'FuelTrack AFR';
   
-  const showHeader = !['/resultats', '/analyses-cendres'].includes(pathname);
+  const showHeader = !['/resultats'].includes(pathname);
 
   return (
     <SidebarProvider>
@@ -61,7 +63,6 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         {showHeader && (
             <header className="flex h-16 items-center justify-between gap-4 border-b bg-background/95 backdrop-blur-sm px-4 lg:px-6 sticky top-0 z-30">
             <div className="flex items-center gap-2">
-                <SidebarTrigger />
                 <h1 className="text-xl font-bold tracking-tight">{title}</h1>
             </div>
             <div className="flex items-center justify-end" style={{ minWidth: '180px' }}>

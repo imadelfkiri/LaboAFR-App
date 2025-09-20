@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -55,7 +56,7 @@ import {
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator";
 import { calculerPCI } from '@/lib/pci';
-import { getFuelTypes, type FuelType, getFuelSupplierMap, addSupplierToFuel, SPEC_MAP, getSpecifications, addFuelType, getFuelData, FuelData } from '@/lib/data';
+import { getFuelTypes, type FuelType, getFuelSupplierMap, addSupplierToFuel, SPEC_MAP, getSpecifications, addFuelType, getFuelData, FuelData, getUniqueFuelTypes } from '@/lib/data';
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from './ui/skeleton';
 
@@ -63,14 +64,16 @@ const formSchema = z.object({
   date_arrivage: z.date({
     required_error: "Une date d'arrivée est requise.",
   }),
+  type_analyse: z.string().nonempty({ message: "Veuillez sélectionner un type d'analyse." }),
   type_combustible: z.string().nonempty({ message: "Veuillez sélectionner un type de combustible." }),
   fournisseur: z.string().nonempty({ message: "Veuillez sélectionner un fournisseur." }),
+  tonnage: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le tonnage ne peut être négatif." }).optional().nullable(),
   pcs: z.coerce.number({required_error: "Veuillez renseigner une valeur valide pour le PCS.", invalid_type_error: "Veuillez entrer un nombre."}).positive({ message: "Le PCS doit être un nombre positif." }),
   h2o: z.coerce.number({required_error: "Le taux d'humidité est requis.", invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "L'humidité ne peut être négative." }).max(100, { message: "L'humidité ne peut dépasser 100%." }),
-  chlore: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le chlore ne peut être négatif." }).optional().or(z.literal('')),
-  cendres: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le % de cendres ne peut être négatif." }).optional().or(z.literal('')),
+  chlore: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le chlore ne peut être négatif." }).optional().nullable(),
+  cendres: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le % de cendres ne peut être négatif." }).optional().nullable(),
   remarques: z.string().optional(),
-  taux_fils_metalliques: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, "Le taux doit être positif.").max(100, "Le taux ne peut dépasser 100%").optional().or(z.literal('')),
+  taux_metal: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, "Le taux doit être positif.").max(100, "Le taux ne peut dépasser 100%").optional().nullable(),
 });
 
 const newFuelTypeSchema = z.object({
@@ -90,12 +93,23 @@ type FieldValidationStatus = {
     cendres: ValidationStatus;
 };
 
+const fuelOrder = [
+    "Pneus",
+    "CSR",
+    "CSR DD",
+    "DMB",
+    "Plastiques",
+    "Bois",
+    "Mélange"
+];
+
+
 export function PciCalculator() {
   const [pciResult, setPciResult] = useState<number | null>(null);
   const [hValue, setHValue] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [allFuelTypes, setAllFuelTypes] = useState<FuelType[]>([]);
+  const [allFuelTypes, setAllFuelTypes] = useState<string[]>([]);
   const [fuelSupplierMap, setFuelSupplierMap] = useState<Record<string, string[]>>({});
   const [fuelDataMap, setFuelDataMap] = useState<Map<string, FuelData>>(new Map());
   
@@ -116,21 +130,22 @@ export function PciCalculator() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      type_analyse: "Arrivage",
       type_combustible: "",
       fournisseur: "",
+      tonnage: undefined,
       pcs: undefined,
       h2o: undefined,
-      chlore: '',
-      cendres: '',
+      chlore: undefined,
+      cendres: undefined,
       remarques: "",
-      taux_fils_metalliques: '',
+      taux_metal: undefined,
     },
   });
 
   const { watch, reset, getValues, setValue } = form;
 
   const watchedTypeCombustible = watch("type_combustible");
-  const showTauxFilsMetalliques = watchedTypeCombustible && watchedTypeCombustible.toLowerCase().includes('pneu');
 
   useEffect(() => {
     // Set the default date only on the client side to avoid hydration errors
@@ -140,14 +155,16 @@ export function PciCalculator() {
   const resetForm = () => {
     reset({
         date_arrivage: subDays(new Date(), 1),
+        type_analyse: "Arrivage",
         type_combustible: "",
         fournisseur: "",
+        tonnage: '' as any,
         pcs: '' as any,
         h2o: '' as any,
         chlore: '' as any,
         cendres: '' as any,
         remarques: "",
-        taux_fils_metalliques: '' as any,
+        taux_metal: '' as any,
     });
     setPciResult(null);
   };
@@ -156,13 +173,22 @@ export function PciCalculator() {
       setLoading(true);
       try {
         const [fetchedFuelTypes, map, _specs, fuelData] = await Promise.all([
-          getFuelTypes(),
+          getUniqueFuelTypes(),
           getFuelSupplierMap(),
           getSpecifications(),
           getFuelData()
         ]);
         
-        setAllFuelTypes(fetchedFuelTypes);
+        const sortedFuelTypes = [...fetchedFuelTypes].sort((a, b) => {
+            const indexA = fuelOrder.indexOf(a);
+            const indexB = fuelOrder.indexOf(b);
+            if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+            if (indexA !== -1) return -1;
+            if (indexB !== -1) return 1;
+            return a.localeCompare(b);
+        });
+
+        setAllFuelTypes(sortedFuelTypes);
         setFuelSupplierMap(map);
         setFuelDataMap(new Map(fuelData.map(fd => [fd.nom_combustible, fd])));
       } catch (e) {
@@ -179,29 +205,25 @@ export function PciCalculator() {
 
   const watchedPcs = watch("pcs");
   const watchedH2o = watch("h2o");
+  const watchedTauxMetal = watch("taux_metal");
   
   const watchedFournisseur = watch("fournisseur");
   const watchedChlore = watch("chlore");
   const watchedCendres = watch("cendres");
-  const watchedTauxFilsMetalliques = watch("taux_fils_metalliques");
 
   useEffect(() => {
     if (watchedPcs !== undefined && watchedH2o !== undefined && hValue !== null) {
       let pcsToUse = Number(watchedPcs);
-      // If taux_fils_metalliques is provided, it reduces the overall PCS of the sample.
-      if (showTauxFilsMetalliques && watchedTauxFilsMetalliques) {
-          const taux = Number(watchedTauxFilsMetalliques);
-          if (taux > 0 && taux < 100) {
-            // The metal part has no caloric value, so we reduce the PCS by that percentage.
-            pcsToUse = pcsToUse * (1 - taux / 100);
-          }
+      const metalRate = Number(watchedTauxMetal);
+      if (!isNaN(metalRate) && metalRate > 0) {
+        pcsToUse = pcsToUse * (1 - metalRate / 100);
       }
       const result = calculerPCI(pcsToUse, Number(watchedH2o), hValue);
       setPciResult(result);
     } else {
       setPciResult(null);
     }
-  }, [watchedPcs, watchedH2o, hValue, showTauxFilsMetalliques, watchedTauxFilsMetalliques]);
+  }, [watchedPcs, watchedH2o, watchedTauxMetal, hValue]);
 
   useEffect(() => {
     if (watchedTypeCombustible) {
@@ -244,15 +266,15 @@ export function PciCalculator() {
             newStatus.pci = pciResult < spec.PCI_min ? 'non-conform' : 'conform';
         }
         // H2O
-        if (spec.H2O_max !== null && spec.H2O_max !== undefined && watchedH2o !== undefined && watchedH2o !== '') {
+        if (spec.H2O_max !== null && spec.H2O_max !== undefined && watchedH2o !== undefined && watchedH2o !== null) {
             newStatus.h2o = Number(watchedH2o) > spec.H2O_max ? 'non-conform' : 'conform';
         }
         // Chlore
-        if (spec.Cl_max !== null && spec.Cl_max !== undefined && watchedChlore !== undefined && watchedChlore !== '') {
+        if (spec.Cl_max !== null && spec.Cl_max !== undefined && watchedChlore !== undefined && watchedChlore !== null) {
             newStatus.chlore = Number(watchedChlore) > spec.Cl_max ? 'non-conform' : 'conform';
         }
         // Cendres
-        if (spec.Cendres_max !== null && spec.Cendres_max !== undefined && watchedCendres !== undefined && watchedCendres !== '') {
+        if (spec.Cendres_max !== null && spec.Cendres_max !== undefined && watchedCendres !== undefined && watchedCendres !== null) {
             newStatus.cendres = Number(watchedCendres) > spec.Cendres_max ? 'non-conform' : 'conform';
         }
     }
@@ -321,11 +343,9 @@ export function PciCalculator() {
       }
       
       let pcsToUse = values.pcs;
-      if (showTauxFilsMetalliques && values.taux_fils_metalliques) {
-          const taux = Number(values.taux_fils_metalliques);
-          if (taux > 0 && taux < 100) {
-            pcsToUse = pcsToUse * (1 - taux / 100);
-          }
+      const metalRate = values.taux_metal;
+      if (metalRate !== null && metalRate !== undefined && metalRate > 0) {
+        pcsToUse = pcsToUse * (1 - metalRate / 100);
       }
       const pci_brut = calculerPCI(pcsToUse, values.h2o, hValue);
 
@@ -341,10 +361,11 @@ export function PciCalculator() {
       
       const dataToSave = {
         ...values,
+        tonnage: values.tonnage ? Number(values.tonnage) : null,
         pci_brut,
         chlore: values.chlore ? Number(values.chlore) : null,
         cendres: values.cendres ? Number(values.cendres) : null,
-        taux_fils_metalliques: values.taux_fils_metalliques ? Number(values.taux_fils_metalliques) : null,
+        taux_metal: values.taux_metal ? Number(values.taux_metal) : null,
         remarques: values.remarques || "",
         date_creation: serverTimestamp(),
       };
@@ -385,14 +406,14 @@ export function PciCalculator() {
   }
 
   return (
-    <div className="w-full max-w-4xl space-y-4 pb-24">
+    <div className="w-full max-w-5xl space-y-4 pb-24">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card className="p-6 rounded-xl shadow-md">
+                <Card className="p-6 rounded-2xl">
                     <CardHeader className="p-0 pb-6">
                        <CardTitle>
-                          <div className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                          <div className="text-xl font-bold flex items-center gap-2">
                             <ClipboardList className="h-5 w-5" />
                             <span>Informations Générales</span>
                           </div>
@@ -400,48 +421,69 @@ export function PciCalculator() {
                     </CardHeader>
                     <CardContent className="p-0">
                         <div className="space-y-6">
-                            <FormField
-                                control={form.control}
-                                name="date_arrivage"
-                                render={({ field }) => (
-                                    <FormItem>
-                                    <FormLabel>Date d'arrivage</FormLabel>
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                        <FormControl>
-                                            <Button
-                                            variant={"outline"}
-                                            className={cn(
-                                                "w-full justify-start text-left font-normal rounded-lg h-11 px-4 text-sm",
-                                                !field.value && "text-muted-foreground"
-                                            )}
-                                            >
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {field.value ? (
-                                                format(field.value, "PPP", { locale: fr })
-                                            ) : (
-                                                <span>Choisir une date</span>
-                                            )}
-                                            </Button>
-                                        </FormControl>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar
-                                            mode="single"
-                                            selected={field.value}
-                                            onSelect={field.onChange}
-                                            disabled={(date) =>
-                                            date > new Date() || date < new Date("1900-01-01")
-                                            }
-                                            initialFocus
-                                            locale={fr}
-                                        />
-                                        </PopoverContent>
-                                    </Popover>
-                                    <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <FormField
+                                    control={form.control}
+                                    name="date_arrivage"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                        <FormLabel>Date</FormLabel>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button
+                                                variant={"outline"}
+                                                className={cn(
+                                                    "w-full justify-start text-left font-normal rounded-lg h-11 px-4 text-sm",
+                                                    !field.value && "text-muted-foreground"
+                                                )}
+                                                >
+                                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                                {field.value ? (
+                                                    format(field.value, "PPP", { locale: fr })
+                                                ) : (
+                                                    <span>Choisir une date</span>
+                                                )}
+                                                </Button>
+                                            </FormControl>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar
+                                                mode="single"
+                                                selected={field.value}
+                                                onSelect={field.onChange}
+                                                initialFocus
+                                                locale={fr}
+                                            />
+                                            </PopoverContent>
+                                        </Popover>
+                                        <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="type_analyse"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Type d'analyse</FormLabel>
+                                            <Select onValueChange={field.onChange} value={field.value}>
+                                                <FormControl>
+                                                <SelectTrigger className="rounded-lg h-11 px-4 text-sm">
+                                                    <SelectValue placeholder="Sélectionner..." />
+                                                </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent side="bottom" avoidCollisions={false} className="z-50">
+                                                    <SelectItem value="Arrivage">Arrivage</SelectItem>
+                                                    <SelectItem value="Prospections">Prospections</SelectItem>
+                                                    <SelectItem value="Consommation">Consommation</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <FormField
                                 control={form.control}
@@ -457,8 +499,8 @@ export function PciCalculator() {
                                             </FormControl>
                                             <SelectContent side="bottom" avoidCollisions={false} className="z-50">
                                                 {allFuelTypes.map((fuel) => (
-                                                    <SelectItem key={fuel.id} value={fuel.name}>
-                                                        {fuel.name}
+                                                    <SelectItem key={fuel} value={fuel}>
+                                                        {fuel}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
@@ -509,13 +551,26 @@ export function PciCalculator() {
                                 )}
                                 />
                             </div>
+                             <FormField
+                                control={form.control}
+                                name="tonnage"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Tonnage (t)</FormLabel>
+                                    <FormControl>
+                                    <Input type="number" step="any" placeholder="Ex: 25.5" {...field} value={field.value ?? ''} className="rounded-lg h-11 px-4 text-sm" />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
                             <FormField
                                 control={form.control}
                                 name="remarques"
                                 render={({ field }) => (
                                 <FormItem>
                                      <FormLabel>
-                                        <div className="flex items-center gap-2 text-gray-700">
+                                        <div className="flex items-center gap-2">
                                         <MessageSquareText className="h-4 w-4" />
                                         <span>Remarques</span>
                                         </div>
@@ -536,9 +591,9 @@ export function PciCalculator() {
                     </CardContent>
                 </Card>
 
-                <Card className="p-6 rounded-xl shadow-md">
+                <Card className="p-6 rounded-2xl">
                     <CardHeader className="p-0 pb-6">
-                        <CardTitle className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                        <CardTitle className="text-xl font-bold flex items-center gap-2">
                             <FlaskConical className="w-5 h-5 text-green-600" /> 
                             <span>Données Analytiques</span>
                         </CardTitle>
@@ -579,7 +634,7 @@ export function PciCalculator() {
                                     readOnly 
                                     disabled 
                                     value={hValue !== null ? hValue.toFixed(2) : ''} 
-                                    className="rounded-lg h-11 px-4 text-sm bg-gray-100" 
+                                    className="rounded-lg h-11 px-4 text-sm bg-muted text-muted-foreground" 
                                     placeholder={watchedTypeCombustible ? (hValue === null ? 'Non défini' : '') : '-'}
                                 />
                                 </FormControl>
@@ -610,36 +665,34 @@ export function PciCalculator() {
                                 </FormItem>
                                 )}
                             />
-                            {showTauxFilsMetalliques ? (
-                                <FormField
-                                    control={form.control}
-                                    name="taux_fils_metalliques"
-                                    render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Taux Fils Métalliques (%)</FormLabel>
-                                        <FormControl>
-                                        <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className="rounded-lg h-11 px-4 text-sm"/>
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                    )}
-                                />
-                            ) : <div />}
+                            <FormField
+                                control={form.control}
+                                name="taux_metal"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Taux du Métal (%)</FormLabel>
+                                    <FormControl>
+                                    <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className="rounded-lg h-11 px-4 text-sm"/>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
                             <div className={cn("p-4 rounded-lg border text-center md:col-span-2", 
-                                validationStatus.pci === 'conform' && 'bg-green-50 border-green-200',
-                                validationStatus.pci === 'non-conform' && 'bg-red-50 border-red-200',
-                                validationStatus.pci === 'neutral' && 'bg-gray-100 border-gray-200'
+                                validationStatus.pci === 'conform' && 'bg-green-500/10 border-green-500/20',
+                                validationStatus.pci === 'non-conform' && 'bg-red-500/10 border-red-500/20',
+                                validationStatus.pci === 'neutral' && 'bg-muted'
                             )}>
                                  <p className={cn("text-sm font-medium",
-                                    validationStatus.pci === 'conform' && 'text-green-800',
-                                    validationStatus.pci === 'non-conform' && 'text-red-800',
-                                    validationStatus.pci === 'neutral' && 'text-gray-700'
+                                    validationStatus.pci === 'conform' && 'text-green-400',
+                                    validationStatus.pci === 'non-conform' && 'text-red-400',
+                                    validationStatus.pci === 'neutral' && 'text-muted-foreground'
                                  )}>PCI sur Brut (kcal/kg)</p>
                                 <p className={cn(
                                     "text-3xl font-bold tracking-tight transition-opacity duration-300",
-                                    validationStatus.pci === 'conform' && 'text-green-600',
-                                    validationStatus.pci === 'non-conform' && 'text-red-600',
-                                     pciResult !== null ? "opacity-100" : "text-gray-400 opacity-50"
+                                    validationStatus.pci === 'conform' && 'text-green-400',
+                                    validationStatus.pci === 'non-conform' && 'text-red-400',
+                                     pciResult !== null ? "opacity-100" : "text-muted-foreground opacity-50"
                                 )}>
                                     {pciResult !== null ? pciResult.toLocaleString('fr-FR') : '-'}
                                 </p>
@@ -652,7 +705,7 @@ export function PciCalculator() {
             <Button 
                 type="submit" 
                 disabled={isSaving || pciResult === null} 
-                className="fixed bottom-6 right-6 bg-primary hover:bg-primary/90 text-white rounded-full h-12 px-6 shadow-lg text-base"
+                className="fixed bottom-6 right-6 rounded-full h-12 px-6 shadow-lg text-base"
             >
                 {isSaving ? "Enregistrement..." : "Enregistrer"}
             </Button>
@@ -684,5 +737,3 @@ export function PciCalculator() {
     </div>
   );
 }
-
-    

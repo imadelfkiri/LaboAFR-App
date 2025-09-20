@@ -76,7 +76,7 @@ const createInitialGrignonsState = (): GrignonsAnalysis => ({
 
 function IndicatorCard({ title, value, unit, tooltipText }: { title: string; value: string | number; unit?: string; tooltipText?: string }) {
   const cardContent = (
-     <Card className="text-center transition-colors bg-white shadow-md rounded-xl">
+     <Card className="text-center transition-colors rounded-xl border-brand-line/60 bg-brand-surface/60">
       <CardHeader className="p-2 pb-1">
         <CardTitle className="text-xs font-medium text-muted-foreground">
           <div className="flex items-center justify-center gap-1.5">
@@ -85,7 +85,7 @@ function IndicatorCard({ title, value, unit, tooltipText }: { title: string; val
         </CardTitle>
       </CardHeader>
       <CardContent className="p-2 pt-0">
-        <p className="text-xl font-bold text-foreground">
+        <p className="text-xl font-bold text-white">
           {value} <span className="text-base opacity-70">{unit}</span>
         </p>
       </CardContent>
@@ -639,11 +639,11 @@ export function MixtureSimulator() {
 
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 space-y-6 bg-gray-50">
-      <div className="sticky top-0 z-10 bg-gray-50 py-4">
+    <div className="p-4 md:p-6 lg:p-8 space-y-6">
+      <div className="sticky top-0 z-10 bg-brand-bg py-4">
         <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-4">
-              <h1 className="text-2xl font-bold text-gray-800">Indicateurs Globaux (Simulation)</h1>
+              <h1 className="text-2xl font-bold text-white">Indicateurs Globaux (Simulation)</h1>
             </div>
             <div className="flex items-center gap-2">
               <LoadScenarioDialog />
@@ -665,11 +665,11 @@ export function MixtureSimulator() {
       </div>
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="shadow-md rounded-xl bg-white lg:col-span-1">
+        <Card className="shadow-md rounded-xl lg:col-span-1">
           <CardHeader className="flex flex-row items-center justify-between p-6">
-            <CardTitle className='text-gray-800'>Hall des AF</CardTitle>
+            <CardTitle>Hall des AF</CardTitle>
             <div className="flex items-center gap-2">
-                <Label htmlFor="flow-hall" className="text-sm text-gray-600">Débit (t/h)</Label>
+                <Label htmlFor="flow-hall" className="text-sm">Débit (t/h)</Label>
                 <Input id="flow-hall" type="number" className="w-32 h-9" value={hallAF.flowRate || ''} onChange={(e) => handleFlowRateChange(setHallAF, e.target.value, 'flowRate')} />
             </div>
           </CardHeader>
@@ -684,11 +684,11 @@ export function MixtureSimulator() {
           </CardContent>
         </Card>
         
-        <Card className="shadow-md rounded-xl bg-white lg:col-span-1">
+        <Card className="shadow-md rounded-xl lg:col-span-1">
           <CardHeader className="flex flex-row items-center justify-between p-6">
-            <CardTitle className='text-gray-800'>ATS</CardTitle>
+            <CardTitle>ATS</CardTitle>
             <div className="flex items-center gap-2">
-                <Label htmlFor="flow-ats" className="text-sm text-gray-600">Débit (t/h)</Label>
+                <Label htmlFor="flow-ats" className="text-sm">Débit (t/h)</Label>
                 <Input id="flow-ats" type="number" className="w-32 h-9" value={ats.flowRate || ''} onChange={(e) => handleFlowRateChange(setAts, e.target.value, 'flowRate')} />
             </div>
           </CardHeader>
@@ -703,11 +703,11 @@ export function MixtureSimulator() {
           </CardContent>
         </Card>
 
-         <Card className="shadow-md rounded-xl bg-white lg:col-span-1">
+         <Card className="shadow-md rounded-xl lg:col-span-1">
             <CardHeader className="flex flex-row items-center justify-between p-6">
-                <CardTitle className='text-gray-800'>Grignons</CardTitle>
+                <CardTitle>Grignons</CardTitle>
                 <div className="flex items-center gap-2">
-                    <Label htmlFor="flow-grignons" className="text-sm text-gray-600">Débit (t/h)</Label>
+                    <Label htmlFor="flow-grignons" className="text-sm">Débit (t/h)</Label>
                     <Input id="flow-grignons" type="number" className="w-32 h-9" value={grignons.flowRate || ''} onChange={(e) => handleFlowRateChange(setGrignons, e.target.value, 'flowRate')} />
                 </div>
             </CardHeader>

@@ -1,8 +1,9 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { BrainCircuit, Calendar as CalendarIcon, Save, Settings, ChevronDown, CheckCircle, AlertTriangle, Copy, Mail } from 'lucide-react';
+import { BrainCircuit, Calendar as CalendarIcon, Save, Settings, ChevronDown, CheckCircle, AlertTriangle, Copy, Mail, Flame } from 'lucide-react';
 import { DateRange } from "react-day-picker";
 import { format, subDays, startOfDay, endOfDay, parseISO, isValid } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -39,7 +40,7 @@ interface InstallationState {
   fuels: Record<string, { buckets: number }>;
 }
 
-interface GrignonsState {
+interface DirectInputState {
     flowRate: number;
 }
 
@@ -76,10 +77,10 @@ type IndicatorStatus = 'alert' | 'conform' | 'neutral';
 function IndicatorCard({ title, value, unit, tooltipText, status = 'neutral' }: { title: string; value: string | number; unit?: string; tooltipText?: string, status?: IndicatorStatus }) {
   const cardContent = (
      <Card className={cn(
-        "text-center transition-colors",
-        "bg-white shadow-md rounded-xl",
-        status === 'alert' && "border-red-500 bg-red-50 text-red-900",
-        status === 'conform' && "border-green-500 bg-green-50 text-green-900",
+        "text-center transition-colors rounded-xl",
+        status === 'alert' && "border-red-500/30 bg-red-500/10 text-red-300",
+        status === 'conform' && "border-green-500/30 bg-green-500/10 text-green-300",
+        status === 'neutral' && "border-brand-line/60 bg-brand-surface/60"
         )}>
       <CardHeader className="p-2 pb-1">
         <CardTitle className={cn("text-xs font-medium", status === 'neutral' ? 'text-muted-foreground' : 'text-inherit')}>
@@ -91,7 +92,7 @@ function IndicatorCard({ title, value, unit, tooltipText, status = 'neutral' }: 
         </CardTitle>
       </CardHeader>
       <CardContent className="p-2 pt-0">
-        <p className={cn("text-xl font-bold", status === 'neutral' ? 'text-foreground' : 'text-inherit')}>
+        <p className={cn("text-xl font-bold", status === 'neutral' ? 'text-white' : 'text-inherit')}>
           {value} <span className="text-base opacity-70">{unit}</span>
         </p>
       </CardContent>
@@ -113,7 +114,7 @@ function IndicatorCard({ title, value, unit, tooltipText, status = 'neutral' }: 
 function useMixtureCalculations(
     hallAF: InstallationState, 
     ats: InstallationState, 
-    grignons: GrignonsState,
+    directInputs: Record<string, DirectInputState>,
     availableFuels: Record<string, AverageAnalysis>, 
     fuelData: Record<string, FuelData>, 
     fuelCosts: Record<string, FuelCost>, 
@@ -153,10 +154,6 @@ function useMixtureCalculations(
             }
 
             let correctedPciBrut = analysisData.pci_brut;
-            if (fuelName.toLowerCase().includes('pneu') && analysisData.taux_fils_metalliques && analysisData.taux_fils_metalliques > 0 && analysisData.taux_fils_metalliques < 100) {
-                const correctionFactor = 1 - (analysisData.taux_fils_metalliques / 100);
-                correctedPciBrut = analysisData.pci_brut * correctionFactor;
-            }
             
             const fuelCost = fuelCosts[fuelName]?.cost || 0;
 
@@ -169,12 +166,12 @@ function useMixtureCalculations(
 
         return { 
             weight: totalWeight, 
+            tireWeight: tempTotalTireWeight,
             cost: totalWeight > 0 ? tempTotalCost / totalWeight : 0,
             pci: totalWeight > 0 ? tempTotalPci / totalWeight : 0,
             humidity: totalWeight > 0 ? tempTotalHumidity / totalWeight : 0,
             ash: totalWeight > 0 ? tempTotalAsh / totalWeight : 0,
             chlorine: totalWeight > 0 ? tempTotalChlorine / totalWeight : 0,
-            tireRate: totalWeight > 0 ? (tempTotalTireWeight / totalWeight) * 100 : 0,
             fuelWeights
         };
     };
@@ -182,31 +179,35 @@ function useMixtureCalculations(
     const hallIndicators = processInstallation(hallAF);
     const atsIndicators = processInstallation(ats);
 
-    const grignonsAnalysis = availableFuels['Grignons'];
-    const grignonsFlow = grignons.flowRate || 0;
-
     let allFlows = [
       { flow: hallAF.flowRate || 0, indicators: hallIndicators },
       { flow: ats.flowRate || 0, indicators: atsIndicators },
     ];
     
-    if (grignonsFlow > 0 && grignonsAnalysis && grignonsAnalysis.count > 0) {
-      allFlows.push({
-        flow: grignonsFlow,
-        indicators: {
-          pci: grignonsAnalysis.pci_brut,
-          humidity: grignonsAnalysis.h2o,
-          ash: grignonsAnalysis.cendres,
-          chlorine: grignonsAnalysis.chlore,
-          cost: fuelCosts['Grignons']?.cost || 0,
-          tireRate: 0, // Grignons are not tires
+    // Add direct inputs to flows
+    for (const fuelName in directInputs) {
+        const inputState = directInputs[fuelName];
+        const flow = inputState.flowRate || 0;
+        const analysis = availableFuels[fuelName];
+        if (flow > 0 && analysis && analysis.count > 0) {
+            allFlows.push({
+                flow,
+                indicators: {
+                    pci: analysis.pci_brut,
+                    humidity: analysis.h2o,
+                    ash: analysis.cendres,
+                    chlorine: analysis.chlore,
+                    cost: fuelCosts[fuelName]?.cost || 0,
+                    tireWeight: 0,
+                    weight: 0,
+                }
+            });
         }
-      });
     }
 
     const totalFlow = allFlows.reduce((sum, item) => sum + item.flow, 0);
 
-    const weightedAvg = (valueKey: keyof typeof hallIndicators) => {
+    const weightedAvg = (valueKey: 'pci' | 'humidity' | 'ash' | 'chlorine' | 'cost') => {
         if (totalFlow === 0) return 0;
         const totalValue = allFlows.reduce((sum, item) => {
             const indicatorValue = item.indicators[valueKey as keyof typeof item.indicators];
@@ -223,7 +224,24 @@ function useMixtureCalculations(
     const humidity = weightedAvg('humidity');
     const ash = weightedAvg('ash');
     const cost = weightedAvg('cost');
-    const tireRate = weightedAvg('tireRate');
+
+    const totalAfFlow = (hallAF.flowRate || 0) + (ats.flowRate || 0);
+    
+    let tireRate = 0;
+    if (totalAfFlow > 0) {
+        const hallWeightProportion = hallAF.flowRate / totalAfFlow;
+        const atsWeightProportion = ats.flowRate / totalAfFlow;
+
+        const hallTireWeight = hallIndicators.tireWeight;
+        const atsTireWeight = atsIndicators.tireWeight;
+
+        const totalTireWeight = (hallTireWeight * hallWeightProportion) + (atsTireWeight * atsWeightProportion);
+        const totalAfWeight = (hallIndicators.weight * hallWeightProportion) + (atsIndicators.weight * atsWeightProportion);
+        
+        if (totalAfWeight > 0) {
+            tireRate = (totalTireWeight / totalAfWeight) * 100;
+        }
+    }
 
 
     const getStatus = (value: number, min: number | undefined, max: number | undefined): IndicatorStatus => {
@@ -249,10 +267,13 @@ function useMixtureCalculations(
     Object.entries(atsIndicators.fuelWeights).forEach(([fuel, weight]) => {
         globalFuelWeights[fuel] = (globalFuelWeights[fuel] || 0) + weight;
     });
-    // Add grignons weight
-    if (grignonsFlow > 0) {
-      // Weight is flow rate for grignons as it's a direct input
-      globalFuelWeights['Grignons'] = (globalFuelWeights['Grignons'] || 0) + grignonsFlow;
+    
+    // Add direct inputs weight
+    for (const fuelName in directInputs) {
+        const flow = directInputs[fuelName].flowRate || 0;
+        if(flow > 0) {
+            globalFuelWeights[fuelName] = (globalFuelWeights[fuelName] || 0) + flow;
+        }
     }
 
 
@@ -269,9 +290,19 @@ function useMixtureCalculations(
       },
       globalFuelWeights
     };
-  }, [hallAF, ats, grignons, availableFuels, fuelData, fuelCosts, thresholds]);
+  }, [hallAF, ats, directInputs, availableFuels, fuelData, fuelCosts, thresholds]);
 }
 
+
+const fuelOrder = [
+    "Pneus",
+    "CSR",
+    "CSR DD",
+    "DMB",
+    "Plastiques",
+    "Bois",
+    "Mélange"
+];
 
 export function MixtureCalculator() {
   const [loading, setLoading] = useState(true);
@@ -281,7 +312,12 @@ export function MixtureCalculator() {
   
   const [hallAF, setHallAF] = useState<InstallationState>({ flowRate: 0, fuels: {} });
   const [ats, setAts] = useState<InstallationState>({ flowRate: 0, fuels: {} });
-  const [grignons, setGrignons] = useState<GrignonsState>({ flowRate: 0 });
+  const [directInputs, setDirectInputs] = useState<Record<string, DirectInputState>>({
+    'Grignons GO1': { flowRate: 0 },
+    'Grignons GO2': { flowRate: 0 },
+    'Pet-Coke Preca': { flowRate: 0 },
+    'Pet-Coke Tuyere': { flowRate: 0 },
+  });
   
   // History state
   const [historySessions, setHistorySessions] = useState<MixtureSession[]>([]);
@@ -324,43 +360,33 @@ export function MixtureCalculator() {
     }
   }
 
- const fetchData = useCallback(async (newDateRange?: DateRange) => {
-    const dateRangeToUse = newDateRange ?? analysisDateRange;
+ const fetchData = useCallback(async (dateRangeToUse: DateRange) => {
     if (!dateRangeToUse?.from || !dateRangeToUse?.to) return;
 
     setLoading(true);
     try {
-        const [allFuelData, costs, allStocks, globalSpec, latestSession] = await Promise.all([
+        const [allFuelData, costs, allStocks, globalSpec] = await Promise.all([
             getFuelData(),
             getFuelCosts(),
             getStocks(),
             getGlobalMixtureSpecification(),
-            getLatestMixtureSession(),
         ]);
         
-        let finalDateRange = dateRangeToUse;
-        if (latestSession?.analysisDateRange?.from && latestSession.analysisDateRange.to) {
-            const fromDate = latestSession.analysisDateRange.from.toDate();
-            const toDate = latestSession.analysisDateRange.to.toDate();
-            if (isValid(fromDate) && isValid(toDate)) {
-                finalDateRange = { from: fromDate, to: toDate };
-                setAnalysisDateRange(finalDateRange);
-            }
-        }
-
+        const directInputFuelNames = ['Grignons GO1', 'Grignons GO2', 'Pet-Coke Preca', 'Pet-Coke Tuyere'];
+        const directInputBaseNames = ['Grignons', 'Pet-Coke'];
         const allPossibleFuelNames = new Set(allStocks.map(s => s.nom_combustible));
-        if (latestSession) {
-            Object.keys(latestSession.hallAF?.fuels || {}).forEach(name => allPossibleFuelNames.add(name));
-            Object.keys(latestSession.ats?.fuels || {}).forEach(name => allPossibleFuelNames.add(name));
-            if(latestSession.grignons) allPossibleFuelNames.add('Grignons');
-        } else {
-            allPossibleFuelNames.add('Grignons');
-        }
+        directInputBaseNames.forEach(name => allPossibleFuelNames.add(name));
 
         const fuelNamesArray = Array.from(allPossibleFuelNames);
-        const fuelsAnalysis = await getAverageAnalysisForFuels(fuelNamesArray, finalDateRange);
+        const fuelsAnalysis = await getAverageAnalysisForFuels(fuelNamesArray, dateRangeToUse);
         
-        setAvailableFuels(fuelsAnalysis);
+        const extendedAnalyses = {...fuelsAnalysis};
+        extendedAnalyses['Grignons GO1'] = fuelsAnalysis['Grignons'];
+        extendedAnalyses['Grignons GO2'] = fuelsAnalysis['Grignons'];
+        extendedAnalyses['Pet-Coke Preca'] = fuelsAnalysis['Pet-Coke'];
+        extendedAnalyses['Pet-Coke Tuyere'] = fuelsAnalysis['Pet-Coke'];
+
+        setAvailableFuels(extendedAnalyses);
 
         if (globalSpec) {
              setThresholds({
@@ -375,59 +401,91 @@ export function MixtureCalculator() {
         setFuelData(fuelDataMap);
         setFuelCosts(costs);
 
-        const initialFuelState = fuelNamesArray
-            .filter(name => name.toLowerCase() !== 'grignons')
+    } catch (error) {
+        console.error("Error fetching fuel data:", error);
+        const errorMessage = error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
+        toast({ variant: "destructive", title: "Erreur", description: `Impossible de charger les données des combustibles: ${errorMessage}` });
+    } finally {
+        setLoading(false);
+    }
+  }, [toast]);
+
+  // Initial data load effect
+  useEffect(() => {
+    const loadInitialData = async () => {
+        setLoading(true);
+        try {
+            const latestSession = await getLatestMixtureSession();
+            let dateRangeToUse = analysisDateRange;
+            if (latestSession?.analysisDateRange?.from && latestSession.analysisDateRange.to) {
+                const fromDate = latestSession.analysisDateRange.from.toDate();
+                const toDate = latestSession.analysisDateRange.to.toDate();
+                if (isValid(fromDate) && isValid(toDate)) {
+                    dateRangeToUse = { from: fromDate, to: toDate };
+                    setAnalysisDateRange(dateRangeToUse);
+                }
+            }
+
+            if (dateRangeToUse) {
+                await fetchData(dateRangeToUse);
+            }
+            
+            const [allFuelData, allStocks] = await Promise.all([getFuelData(), getStocks()]);
+            const allPossibleFuelNames = new Set(allStocks.map(s => s.nom_combustible));
+             if (latestSession) {
+                Object.keys(latestSession.hallAF?.fuels || {}).forEach(name => allPossibleFuelNames.add(name));
+                Object.keys(latestSession.ats?.fuels || {}).forEach(name => allPossibleFuelNames.add(name));
+            }
+            const fuelNamesArray = Array.from(allPossibleFuelNames);
+            const directInputBaseNames = ['Grignons', 'Pet-Coke'];
+            const initialFuelState = fuelNamesArray
+            .filter(name => !directInputBaseNames.includes(name))
             .reduce((acc, name) => {
                 acc[name] = { buckets: 0 };
                 return acc;
             }, {} as InstallationState['fuels']);
         
-        let initialHallState = { flowRate: 0, fuels: { ...initialFuelState } };
-        let initialAtsState = { flowRate: 0, fuels: { ...initialFuelState } };
-        let initialGrignonsState = { flowRate: 0 };
-        
-        if (latestSession) {
-            initialHallState = {
-                flowRate: latestSession.hallAF?.flowRate || 0,
-                fuels: { ...initialHallState.fuels, ...(latestSession.hallAF?.fuels || {}) }
-            };
-            initialAtsState = {
-                flowRate: latestSession.ats?.flowRate || 0,
-                fuels: { ...initialAtsState.fuels, ...(latestSession.ats?.fuels || {}) }
-            };
-            initialGrignonsState = {
-                flowRate: latestSession.grignons?.flowRate || 0
-            };
-            if(!newDateRange){ // Only show toast on initial load, not on date change
+            let initialHallState = { flowRate: 0, fuels: { ...initialFuelState } };
+            let initialAtsState = { flowRate: 0, fuels: { ...initialFuelState } };
+            let initialDirectInputs = { ...directInputs };
+
+            if (latestSession) {
+                initialHallState = {
+                    flowRate: latestSession.hallAF?.flowRate || 0,
+                    fuels: { ...initialHallState.fuels, ...(latestSession.hallAF?.fuels || {}) }
+                };
+                initialAtsState = {
+                    flowRate: latestSession.ats?.flowRate || 0,
+                    fuels: { ...initialAtsState.fuels, ...(latestSession.ats?.fuels || {}) }
+                };
+                if (latestSession.directInputs) {
+                  initialDirectInputs = { ...initialDirectInputs, ...latestSession.directInputs };
+                }
                 setTimeout(() => {
                     toast({ title: "Dernière session chargée", description: "La dernière configuration a été chargée." });
                 }, 100);
             }
+            
+            setHallAF(initialHallState);
+            setAts(initialAtsState);
+            setDirectInputs(initialDirectInputs);
+            
+        } catch (error) {
+             console.error("Error on initial load:", error);
+        } finally {
+            setLoading(false);
         }
-        
-        setHallAF(initialHallState);
-        setAts(initialAtsState);
-        setGrignons(initialGrignonsState);
+    };
 
-    } catch (error) {
-        console.error("Error fetching fuel data:", error);
-        toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données des combustibles." });
-    } finally {
-        setLoading(false);
-    }
-  }, [analysisDateRange, toast]);
+    loadInitialData();
+  }, []); // Run only once on mount
 
-
+  // Effect to refetch data when date range changes
   useEffect(() => {
-    fetchData();
-  }, []);
-
-  const handleDateRangeChange = (newRange: DateRange | undefined) => {
-      if(newRange){
-          setAnalysisDateRange(newRange);
-          fetchData(newRange);
+      if (analysisDateRange?.from && analysisDateRange.to) {
+          fetchData(analysisDateRange);
       }
-  }
+  }, [analysisDateRange, fetchData]);
 
 
   const fetchHistoryData = useCallback(async () => {
@@ -448,7 +506,7 @@ export function MixtureCalculator() {
     fetchHistoryData();
   }, [fetchHistoryData]);
 
-  const { globalIndicators, globalFuelWeights } = useMixtureCalculations(hallAF, ats, grignons, availableFuels, fuelData, fuelCosts, thresholds);
+  const { globalIndicators, globalFuelWeights } = useMixtureCalculations(hallAF, ats, directInputs, availableFuels, fuelData, fuelCosts, thresholds);
 
   const historyChartData = useMemo(() => {
     if (!historySessions || historySessions.length === 0) return [];
@@ -478,6 +536,14 @@ export function MixtureCalculator() {
     setter(prev => ({ ...prev, flowRate: isNaN(flowRate) ? 0 : flowRate }));
   };
 
+  const handleDirectInputChange = (fuelName: string, value: string) => {
+      const flowRate = parseFloat(value);
+      setDirectInputs(prev => ({
+          ...prev,
+          [fuelName]: { flowRate: isNaN(flowRate) ? 0 : flowRate }
+      }));
+  }
+
   const handlePrepareSave = () => {
     const totalWeight = Object.values(globalFuelWeights).reduce((sum, weight) => sum + weight, 0);
 
@@ -485,7 +551,7 @@ export function MixtureCalculator() {
       .filter(([, weight]) => weight > 0)
       .map(([name, weight]) => {
           let totalBuckets = 0;
-          if (name !== 'Grignons') {
+          if (!directInputs[name]) {
               totalBuckets = (hallAF.fuels[name]?.buckets || 0) + (ats.fuels[name]?.buckets || 0);
           }
         return {
@@ -515,7 +581,7 @@ export function MixtureCalculator() {
         const sessionData: Omit<MixtureSession, 'id' | 'timestamp'> = {
             hallAF,
             ats,
-            grignons,
+            directInputs,
             globalIndicators,
             availableFuels,
             analysisDateRange: {
@@ -540,7 +606,6 @@ export function MixtureCalculator() {
         return <Skeleton className="h-48 w-full" />;
     }
      const sortedFuelNames = Object.keys(installationState.fuels)
-        .filter(name => name.toLowerCase() !== 'grignons')
         .sort((a, b) => {
             const indexA = fuelOrder.indexOf(a);
             const indexB = fuelOrder.indexOf(b);
@@ -570,16 +635,6 @@ export function MixtureCalculator() {
     );
   };
   
-  // Define the custom order for fuels
-const fuelOrder = [
-    "Pneus",
-    "CSR",
-    "DMB",
-    "Plastiques",
-    "CSR DD",
-    "Bois",
-    "Mélange"
-];
 
   const ThresholdSettingsModal = () => {
     const [currentThresholds, setCurrentThresholds] = useState(thresholds);
@@ -654,7 +709,7 @@ const fuelOrder = [
         const headers = ["Combustible", "Nb Godets", "% Poids", "Poids (t)"];
         const colWidths = {
             col1: Math.max(headers[0].length, ...composition.map(item => item.name.length)),
-            col2: Math.max(headers[1].length, ...composition.map(item => item.name === 'Grignons' ? '-' : item.totalBuckets.toString().length)),
+            col2: Math.max(headers[1].length, ...composition.map(item => item.totalBuckets === 0 ? '-' : item.totalBuckets.toString().length)),
             col3: Math.max(headers[2].length, ...composition.map(item => `${item.percentage.toFixed(2)} %`.length)),
             col4: Math.max(headers[3].length, ...composition.map(item => item.totalWeight.toFixed(2).length))
         };
@@ -687,7 +742,7 @@ const fuelOrder = [
         composition.forEach(item => {
             const row = [
                 item.name.padEnd(colWidths.col1),
-                (item.name === 'Grignons' ? '-' : item.totalBuckets.toString()).padStart(colWidths.col2),
+                (item.totalBuckets === 0 ? '-' : item.totalBuckets.toString()).padStart(colWidths.col2),
                 `${item.percentage.toFixed(2)} %`.padStart(colWidths.col3),
                 `${item.totalWeight.toFixed(2)}`.padStart(colWidths.col4)
             ];
@@ -762,7 +817,7 @@ const fuelOrder = [
                                 {composition.map(item => (
                                     <TableRow key={item.name}>
                                         <TableCell className="font-medium">{item.name}</TableCell>
-                                        <TableCell className="text-center">{item.name === 'Grignons' ? '-' : item.totalBuckets}</TableCell>
+                                        <TableCell className="text-center">{item.totalBuckets === 0 ? '-' : item.totalBuckets}</TableCell>
                                         <TableCell className="text-right">{item.percentage.toFixed(2)} %</TableCell>
                                         <TableCell className="text-right">{item.totalWeight.toFixed(2)}</TableCell>
                                     </TableRow>
@@ -776,19 +831,23 @@ const fuelOrder = [
             </div>
 
           </div>
-          <DialogFooter className="gap-2 sm:justify-end flex-wrap">
-            <Button type="button" variant="secondary" onClick={() => setIsSaveModalOpen(false)}>Annuler</Button>
-            <Button type="button" variant="outline" onClick={handleCopySummary}>
-                <Copy className="mr-2 h-4 w-4" />
-                Copier le résumé
-            </Button>
-             <Button type="button" variant="outline" onClick={handleEmailSummary}>
-                <Mail className="mr-2 h-4 w-4" />
-                Envoyer par Email
-            </Button>
-            <Button type="button" onClick={handleConfirmSave} disabled={isSaving}>
-              {isSaving ? "Enregistrement..." : "Confirmer et Enregistrer"}
-            </Button>
+          <DialogFooter className="gap-2 sm:justify-between flex-wrap">
+            <div>
+              <Button type="button" variant="outline" onClick={handleCopySummary}>
+                  <Copy className="mr-2 h-4 w-4" />
+                  Copier
+              </Button>
+               <Button type="button" variant="outline" onClick={handleEmailSummary} className="ml-2">
+                  <Mail className="mr-2 h-4 w-4" />
+                  Email
+              </Button>
+            </div>
+            <div>
+              <Button type="button" variant="secondary" onClick={() => setIsSaveModalOpen(false)}>Annuler</Button>
+              <Button type="button" onClick={handleConfirmSave} disabled={isSaving} className="ml-2">
+                {isSaving ? "Enregistrement..." : "Confirmer et Enregistrer"}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -814,12 +873,12 @@ const fuelOrder = [
 
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 space-y-6 bg-gray-50">
-      <div className="sticky top-0 z-10 bg-gray-50/95 backdrop-blur-sm py-4 space-y-4">
+    <div className="p-4 md:p-6 lg:p-8 space-y-6">
+      <div className="sticky top-0 z-10 bg-brand-bg/95 backdrop-blur-sm py-4 space-y-4 -mx-4 -mt-4 px-4 pt-4">
         <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className='flex items-center gap-2'>
-                <h1 className="text-2xl font-bold text-gray-800">Indicateurs Globaux</h1>
+                <h1 className="text-2xl font-bold text-white">Indicateurs Globaux</h1>
                 <ThresholdSettingsModal />
               </div>
                <Popover>
@@ -828,7 +887,7 @@ const fuelOrder = [
                           id="date"
                           variant={"outline"}
                           className={cn(
-                              "w-[300px] justify-start text-left font-normal bg-white",
+                              "w-[300px] justify-start text-left font-normal",
                               !analysisDateRange && "text-muted-foreground"
                           )}
                       >
@@ -853,7 +912,7 @@ const fuelOrder = [
                           mode="range"
                           defaultMonth={analysisDateRange?.from}
                           selected={analysisDateRange}
-                          onSelect={handleDateRangeChange}
+                          onSelect={setAnalysisDateRange}
                           numberOfMonths={2}
                           locale={fr}
                       />
@@ -861,10 +920,11 @@ const fuelOrder = [
               </Popover>
             </div>
             <div className="flex items-center gap-2">
-              <Button onClick={handlePrepareSave} disabled={isSaving}>
-                  <Save className="mr-2 h-4 w-4" />
-                  {isSaving ? "Enregistrement..." : "Enregistrer la Session"}
-              </Button>
+                <Button disabled={isSaving} onClick={handlePrepareSave}>
+                    <Save className="mr-2 h-4 w-4" />
+                    {isSaving ? "Enregistrement..." : "Enregistrer la Session"}
+                </Button>
+                <SaveConfirmationModal />
             </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
@@ -879,9 +939,9 @@ const fuelOrder = [
       </div>
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="shadow-md rounded-xl bg-white lg:col-span-1">
+        <Card className="shadow-md rounded-xl lg:col-span-1">
           <CardHeader className="flex flex-row items-center justify-between p-6">
-            <CardTitle className='text-gray-800'>Hall des AF</CardTitle>
+            <CardTitle>Hall des AF</CardTitle>
             <div className="flex items-center gap-2">
                 <Label htmlFor="flow-hall" className="text-sm text-gray-600">Débit (t/h)</Label>
                 <Input id="flow-hall" type="number" className="w-32 h-9" value={hallAF.flowRate || ''} onChange={(e) => handleFlowRateChange(setHallAF, e.target.value)} />
@@ -892,9 +952,9 @@ const fuelOrder = [
           </CardContent>
         </Card>
         
-        <Card className="shadow-md rounded-xl bg-white lg:col-span-1">
+        <Card className="shadow-md rounded-xl lg:col-span-1">
           <CardHeader className="flex flex-row items-center justify-between p-6">
-            <CardTitle className='text-gray-800'>ATS</CardTitle>
+            <CardTitle>ATS</CardTitle>
             <div className="flex items-center gap-2">
                 <Label htmlFor="flow-ats" className="text-sm text-gray-600">Débit (t/h)</Label>
                 <Input id="flow-ats" type="number" className="w-32 h-9" value={ats.flowRate || ''} onChange={(e) => handleFlowRateChange(setAts, e.target.value)} />
@@ -905,28 +965,40 @@ const fuelOrder = [
           </CardContent>
         </Card>
         
-        <Card className="shadow-md rounded-xl bg-white lg:col-span-1">
-          <CardHeader className="flex flex-row items-center justify-between p-6">
-            <CardTitle className='text-gray-800'>Grignons</CardTitle>
-            <div className="flex items-center gap-2">
-                <Label htmlFor="flow-grignons" className="text-sm text-gray-600">Débit (t/h)</Label>
-                <Input id="flow-grignons" type="number" className="w-32 h-9" value={grignons.flowRate || ''} onChange={(e) => handleFlowRateChange(setGrignons, e.target.value)} />
-            </div>
+        <Card className="shadow-md rounded-xl lg:col-span-1">
+          <CardHeader className="p-6">
+            <CardTitle className="flex items-center gap-2">
+                <Flame className="h-5 w-5 text-orange-500" />
+                Autres Combustibles
+            </CardTitle>
+            <CardDescription>Entrées directes pour les combustibles non-mélangés.</CardDescription>
           </CardHeader>
-           <CardContent className="p-6">
-             <p className="text-sm text-muted-foreground text-center">
-                Le débit des grignons est directement pris en compte dans le calcul des indicateurs globaux.
-             </p>
+           <CardContent className="space-y-4 p-6">
+             {Object.keys(directInputs).map(fuelName => (
+                <div key={fuelName} className="flex items-center gap-4 justify-between">
+                    <Label htmlFor={`flow-${fuelName}`} className="text-sm font-medium">{fuelName}</Label>
+                    <div className="flex items-center gap-2">
+                        <Input 
+                            id={`flow-${fuelName}`} 
+                            type="number" 
+                            className="w-32 h-9" 
+                            value={directInputs[fuelName].flowRate || ''} 
+                            onChange={(e) => handleDirectInputChange(fuelName, e.target.value)}
+                        />
+                        <span className="text-sm text-muted-foreground w-8">t/h</span>
+                    </div>
+                </div>
+             ))}
           </CardContent>
         </Card>
       </section>
 
-      <Collapsible defaultOpen={false} className="rounded-xl border bg-white text-card-foreground shadow-md">
+      <Collapsible defaultOpen={false} className="rounded-xl border bg-card text-card-foreground shadow-md">
         <Card>
             <CardHeader className="p-6">
                 <div className="flex items-center justify-between">
                     <div>
-                        <CardTitle className='text-gray-800'>Historique Global des Indicateurs</CardTitle>
+                        <CardTitle>Historique Global des Indicateurs</CardTitle>
                         <CardDescription>Évolution des indicateurs basée sur les sessions enregistrées.</CardDescription>
                     </div>
                     <CollapsibleTrigger asChild>
@@ -1002,8 +1074,6 @@ const fuelOrder = [
             </CollapsibleContent>
         </Card>
       </Collapsible>
-      
-      <SaveConfirmationModal />
     </div>
   );
 }

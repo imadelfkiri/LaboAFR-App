@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -10,7 +11,7 @@ import {
     addAshAnalysis,
     updateAshAnalysis,
     deleteAshAnalysis,
-    getUniqueFuelTypesFromResultats,
+    getUniqueFuelTypes,
     getFournisseurs,
     type AshAnalysis,
     addManyAshAnalyses,
@@ -88,7 +89,7 @@ const analysisSchema = z.object({
   type_combustible: z.string().nonempty({ message: "Requis." }),
   fournisseur: z.string().nonempty({ message: "Requis." }),
   pourcentage_cendres: z.coerce.number().optional().nullable(),
-  paf: z.coerce.number().optional().nullable(),
+  pf: z.coerce.number().optional().nullable(),
   sio2: z.coerce.number().optional().nullable(),
   al2o3: z.coerce.number().optional().nullable(),
   fe2o3: z.coerce.number().optional().nullable(),
@@ -103,7 +104,8 @@ const analysisSchema = z.object({
 
 type FormValues = z.infer<typeof analysisSchema>;
 type SortableKeys = keyof AshAnalysis | 'ms' | 'af' | 'lsf';
-
+type Oxides = Omit<AshAnalysis, 'id' | 'date_arrivage' | 'type_combustible' | 'fournisseur'>;
+type OxideKeys = keyof Oxides;
 
 const calculateModules = (sio2?: number | null, al2o3?: number | null, fe2o3?: number | null, cao?: number | null) => {
     const s = sio2 || 0;
@@ -170,7 +172,7 @@ const AnalysisForm = ({
         </div>
         <Card><CardContent className="pt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
             <FormField control={form.control} name="pourcentage_cendres" render={({ field }) => (<FormItem><FormLabel>% Cendres</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
-            <FormField control={form.control} name="paf" render={({ field }) => (<FormItem><FormLabel>PAF</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="pf" render={({ field }) => (<FormItem><FormLabel>PF</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
             <FormField control={form.control} name="sio2" render={({ field }) => (<FormItem><FormLabel>SiO2</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
             <FormField control={form.control} name="al2o3" render={({ field }) => (<FormItem><FormLabel>Al2O3</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
             <FormField control={form.control} name="fe2o3" render={({ field }) => (<FormItem><FormLabel>Fe2O3</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
@@ -194,6 +196,7 @@ function AnalysesCendresView({
   rows = [],
   fuels = [],
   suppliers = [],
+  averages,
   onAdd = () => {},
   onEdit = () => {},
   onDelete = () => {},
@@ -216,9 +219,9 @@ function AnalysesCendresView({
     const n = typeof v === "number" && isFinite(v) ? v : undefined
     const base = "inline-flex items-center justify-center rounded-md px-1.5 py-0.5 text-[11px] font-medium tabular-nums"
     if (n === undefined) return <span className={`${base} bg-muted text-muted-foreground`}>-</span>
-    if (t === "MS") return <span className={`${base} ${n<1.5?"bg-red-100 text-red-700":n<2.0?"bg-yellow-100 text-yellow-800":"bg-green-100 text-green-800"}`}>{n.toFixed(2)}</span>
-    if (t === "AF") return <span className={`${base} ${n<0.5?"bg-red-100 text-red-700":n<1.5?"bg-yellow-100 text-yellow-800":"bg-green-100 text-green-800"}`}>{n.toFixed(2)}</span>
-    return <span className={`${base} ${n<0.80?"bg-red-100 text-red-700":n<=1.00?"bg-yellow-100 text-yellow-800":"bg-green-100 text-green-800"}`}>{n.toFixed(2)}</span>
+    if (t === "MS") return <span className={`${base} ${n<1.5?"bg-red-500/20 text-red-300":n<2.0?"bg-yellow-500/20 text-yellow-300":"bg-green-500/20 text-green-300"}`}>{n.toFixed(2)}</span>
+    if (t === "AF") return <span className={`${base} ${n<0.5?"bg-red-500/20 text-red-300":n<1.5?"bg-yellow-500/20 text-yellow-300":"bg-green-500/20 text-green-300"}`}>{n.toFixed(2)}</span>
+    return <span className={`${base} ${n<0.80?"bg-red-500/20 text-red-300":n<=1.00?"bg-yellow-500/20 text-yellow-300":"bg-green-500/20 text-green-300"}`}>{n.toFixed(2)}</span>
   }
 
   const SortableHeader = ({ label, sortKey }: { label: string; sortKey: SortableKeys }) => {
@@ -226,12 +229,12 @@ function AnalysesCendresView({
     return (
       <th
         onClick={() => onSort(sortKey)}
-        className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-left font-semibold border-b cursor-pointer hover:bg-muted/50"
+        className="sticky top-0 z-20 bg-brand-surface/95 backdrop-blur p-2 text-left font-semibold border-b border-brand-line/60 cursor-pointer hover:bg-brand-muted/50"
       >
         <div className="flex items-center gap-2">
             <span>{label}</span>
             {isSorted && (
-                <ArrowUpDown className="h-4 w-4 text-foreground" />
+                <ArrowUpDown className="h-4 w-4" />
             )}
         </div>
       </th>
@@ -243,7 +246,7 @@ function AnalysesCendresView({
     { label: "Combustible", key: "type_combustible" },
     { label: "Fournisseur", key: "fournisseur" },
     { label: "% Cendres", key: "pourcentage_cendres", align: "right" },
-    { label: "PAF", key: "paf", align: "right" },
+    { label: "PF", key: "pf", align: "right" },
     { label: "SiO2", key: "sio2", align: "right" },
     { label: "Al2O3", key: "al2o3", align: "right" },
     { label: "Fe2O3", key: "fe2o3", align: "right" },
@@ -259,6 +262,31 @@ function AnalysesCendresView({
     { label: "LSF", key: "lsf", align: "center" },
   ];
 
+  const AverageRow = ({ label, data }: { label: string; data: any; }) => {
+    if (!data || data.count === 0) return null;
+    return (
+        <tr className="border-b border-brand-line/40 last:border-0 bg-brand-muted/50 hover:bg-brand-muted font-semibold">
+            <td className="p-2 text-muted-foreground whitespace-nowrap" colSpan={3}>{label} ({data.count})</td>
+            <td className="p-2 text-right tabular-nums">{data.oxides?.['%Cendres']}</td>
+            <td className="p-2 text-right tabular-nums">{data.oxides?.PF}</td>
+            <td className="p-2 text-right tabular-nums">{data.oxides?.SiO2}</td>
+            <td className="p-2 text-right tabular-nums">{data.oxides?.Al2O3}</td>
+            <td className="p-2 text-right tabular-nums">{data.oxides?.Fe2O3}</td>
+            <td className="p-2 text-right tabular-nums">{data.oxides?.CaO}</td>
+            <td className="p-2 text-right tabular-nums">{data.oxides?.MgO}</td>
+            <td className="p-2 text-right tabular-nums">{data.oxides?.SO3}</td>
+            <td className="p-2 text-right tabular-nums">{data.oxides?.K2O}</td>
+            <td className="p-2 text-right tabular-nums">{data.oxides?.TiO2}</td>
+            <td className="p-2 text-right tabular-nums">{data.oxides?.MnO}</td>
+            <td className="p-2 text-right tabular-nums">{data.oxides?.P2O5}</td>
+            <td className="p-2 text-center">{chip(data.modules?.MS, "MS")}</td>
+            <td className="p-2 text-center">{chip(data.modules?.AF, "AF")}</td>
+            <td className="p-2 text-center">{chip(data.modules?.LSF, "LSF")}</td>
+            <td className="p-2"></td>
+        </tr>
+    );
+  };
+
   return (
     <div className="flex flex-col h-full">
       <ToolbarAnalysesCendres
@@ -272,24 +300,24 @@ function AnalysesCendresView({
       />
 
       <div className="flex-grow px-3 md:px-5 pb-3 md:pb-5">
-        <Card className="rounded-2xl shadow-md h-full">
+        <Card className="rounded-2xl shadow-md h-full bg-transparent">
           <CardContent className="p-0 h-full">
-            <div className="max-h-[70vh] overflow-auto rounded-2xl border-t bg-background h-full">
+            <div className="max-h-[70vh] overflow-auto rounded-2xl border-t border-brand-line/60 bg-brand-surface h-full">
               <table className="w-full text-[13px] border-separate border-spacing-0">
-                <thead className="text-muted-foreground">
+                <thead className="text-neutral-300">
                   <tr>
                     {headers.map(h => <SortableHeader key={h.key} label={h.label} sortKey={h.key} />)}
-                    <th className="sticky top-0 z-20 bg-background/95 backdrop-blur p-2 text-center font-semibold border-b">Actions</th>
+                    <th className="sticky top-0 z-20 bg-brand-surface/95 backdrop-blur p-2 text-center font-semibold border-b border-brand-line/60">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(rows ?? []).map((r: any, i: number) => (
-                    <tr key={r.id ?? i} className="border-b last:border-0 even:bg-muted/30 hover:bg-muted/50 transition-colors">
+                    <tr key={r.id ?? i} className="border-b border-brand-line/40 last:border-0 even:bg-brand-muted/30 hover:bg-brand-muted/50 transition-colors">
                       <td className="p-2 text-muted-foreground whitespace-nowrap">{r.dateArrivage}</td>
                       <td className="p-2 font-medium">{r.combustible}</td>
                       <td className="p-2">{r.fournisseur}</td>
                       <td className="p-2 text-right tabular-nums">{r.oxides?.['%Cendres']}</td>
-                      <td className="p-2 text-right tabular-nums">{r.oxides?.PAF}</td>
+                      <td className="p-2 text-right tabular-nums">{r.oxides?.PF}</td>
                       <td className="p-2 text-right tabular-nums">{r.oxides?.SiO2}</td>
                       <td className="p-2 text-right tabular-nums">{r.oxides?.Al2O3}</td>
                       <td className="p-2 text-right tabular-nums">{r.oxides?.Fe2O3}</td>
@@ -319,6 +347,11 @@ function AnalysesCendresView({
                     <tr><td colSpan={19} className="p-6 text-center text-muted-foreground">Aucune donnée.</td></tr>
                   )}
                 </tbody>
+                 <tfoot className="sticky bottom-0 bg-brand-surface/95 backdrop-blur-sm">
+                    <AverageRow label="Moyenne Pet coke" data={averages.petCoke} />
+                    <AverageRow label="Moyenne Grignons" data={averages.grignons} />
+                    <AverageRow label="Moyenne AFs" data={averages.afs} />
+                </tfoot>
               </table>
             </div>
           </CardContent>
@@ -327,6 +360,16 @@ function AnalysesCendresView({
     </div>
   )
 }
+
+const fuelOrder = [
+    "Pneus",
+    "CSR",
+    "DMB",
+    "Plastiques",
+    "CSR DD",
+    "Bois",
+    "Mélange"
+];
 
 export function AshAnalysisManager() {
     const [analyses, setAnalyses] = useState<AshAnalysis[]>([]);
@@ -361,12 +404,20 @@ export function AshAnalysisManager() {
         try {
             const [analysesData, fTypes, founisseursList] = await Promise.all([
                 getAshAnalyses(),
-                getUniqueFuelTypesFromResultats(),
+                getUniqueFuelTypes(),
                 getFournisseurs()
             ]);
             
             setAnalyses(analysesData);
-            setFuelTypes(fTypes.sort());
+            const sortedFuelTypes = [...fTypes].sort((a, b) => {
+                const indexA = fuelOrder.indexOf(a);
+                const indexB = fuelOrder.indexOf(b);
+                if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                if (indexA !== -1) return -1;
+                if (indexB !== -1) return 1;
+                return a.localeCompare(b);
+            });
+            setFuelTypes(sortedFuelTypes);
             setFournisseurs(founisseursList.sort());
 
         } catch (error) {
@@ -390,7 +441,7 @@ export function AshAnalysisManager() {
                 date_arrivage: new Date(),
                 type_combustible: '',
                 fournisseur: '',
-                pourcentage_cendres: null, paf: null, sio2: null, al2o3: null, fe2o3: null,
+                pourcentage_cendres: null, pf: null, sio2: null, al2o3: null, fe2o3: null,
                 cao: null, mgo: null, so3: null, k2o: null, tio2: null, mno: null, p2o5: null,
             });
         }
@@ -478,7 +529,8 @@ export function AshAnalysisManager() {
         'cendres': 'pourcentage_cendres',
         '% cendre': 'pourcentage_cendres',
         'cendre': 'pourcentage_cendres',
-        'paf': 'paf',
+        'pf': 'pf',
+        'perte au feu': 'pf',
         'sio2': 'sio2',
         'al2o3': 'al2o3',
         'fe2o3': 'fe2o3',
@@ -637,7 +689,7 @@ export function AshAnalysisManager() {
                 "Combustible": a.type_combustible,
                 "Fournisseur": a.fournisseur,
                 "% Cendres": a.pourcentage_cendres,
-                "PAF": a.paf,
+                "PF": a.pf,
                 "SiO2": a.sio2,
                 "Al2O3": a.al2o3,
                 "Fe2O3": a.fe2o3,
@@ -673,7 +725,7 @@ export function AshAnalysisManager() {
         doc.text(`Généré le: ${generationDate}`, doc.internal.pageSize.getWidth() / 2, 22, { align: 'center' });
 
         const head = [[
-            "Date", "Combustible", "Fourn.", "% Cendres", "PAF",
+            "Date", "Combustible", "Fourn.", "% Cendres", "PF",
             "SiO2", "Al2O3", "Fe2O3", "CaO", "MgO", "SO3", "K2O", "TiO2", "MnO", "P2O5",
             "MS", "A/F", "LSF"
         ]];
@@ -685,7 +737,7 @@ export function AshAnalysisManager() {
                 a.type_combustible,
                 a.fournisseur,
                 a.pourcentage_cendres?.toFixed(1) ?? '-',
-                a.paf?.toFixed(1) ?? '-',
+                a.pf?.toFixed(1) ?? '-',
                 a.sio2?.toFixed(1) ?? '-',
                 a.al2o3?.toFixed(1) ?? '-',
                 a.fe2o3?.toFixed(1) ?? '-',
@@ -713,6 +765,68 @@ export function AshAnalysisManager() {
 
         doc.save(`Rapport_Analyses_Cendres_AFs_${format(new Date(), "yyyy-MM-dd")}.pdf`);
     };
+
+    const processAnalysisGroup = (analyses: AshAnalysis[]) => {
+        if (analyses.length === 0) {
+            return { count: 0, oxides: {}, modules: {} };
+        }
+
+        const avg = (key: OxideKeys) => {
+            const values = analyses.map(a => a[key]).filter((v): v is number => typeof v === 'number' && isFinite(v));
+            return values.length > 0 ? values.reduce((s, v) => s + v, 0) / values.length : null;
+        };
+
+        const averageOxides = {
+            pourcentage_cendres: avg('pourcentage_cendres'),
+            pf: avg('pf'),
+            sio2: avg('sio2'),
+            al2o3: avg('al2o3'),
+            fe2o3: avg('fe2o3'),
+            cao: avg('cao'),
+            mgo: avg('mgo'),
+            so3: avg('so3'),
+            k2o: avg('k2o'),
+            tio2: avg('tio2'),
+            mno: avg('mno'),
+            p2o5: avg('p2o5'),
+        };
+
+        const { ms, af, lsf } = calculateModules(averageOxides.sio2, averageOxides.al2o3, averageOxides.fe2o3, averageOxides.cao);
+        
+        const formattedOxides = {
+            '%Cendres': formatNumberForTable(averageOxides.pourcentage_cendres, 1),
+            PF: formatNumberForTable(averageOxides.pf, 1),
+            SiO2: formatNumberForTable(averageOxides.sio2, 1),
+            Al2O3: formatNumberForTable(averageOxides.al2o3, 1),
+            Fe2O3: formatNumberForTable(averageOxides.fe2o3, 1),
+            CaO: formatNumberForTable(averageOxides.cao, 1),
+            MgO: formatNumberForTable(averageOxides.mgo, 1),
+            SO3: formatNumberForTable(averageOxides.so3, 1),
+            K2O: formatNumberForTable(averageOxides.k2o, 1),
+            TiO2: formatNumberForTable(averageOxides.tio2, 1),
+            MnO: formatNumberForTable(averageOxides.mno, 1),
+            P2O5: formatNumberForTable(averageOxides.p2o5, 1),
+        };
+        
+        return {
+            count: analyses.length,
+            oxides: formattedOxides,
+            modules: { MS: ms, AF: af, LSF: lsf },
+        };
+    };
+
+    const averages = useMemo(() => {
+        const petCokeAnalyses = sortedAndFilteredAnalyses.filter(a => a.type_combustible?.toLowerCase().includes('pet coke'));
+        const grignonsAnalyses = sortedAndFilteredAnalyses.filter(a => a.type_combustible?.toLowerCase().includes('grignons'));
+        const afsAnalyses = sortedAndFilteredAnalyses.filter(a => !a.type_combustible?.toLowerCase().includes('pet coke') && !a.type_combustible?.toLowerCase().includes('grignons'));
+
+        return {
+            petCoke: processAnalysisGroup(petCokeAnalyses),
+            grignons: processAnalysisGroup(grignonsAnalyses),
+            afs: processAnalysisGroup(afsAnalyses),
+        };
+
+    }, [sortedAndFilteredAnalyses]);
     
     const tableRows = useMemo(() => {
         return sortedAndFilteredAnalyses.map(analysis => {
@@ -724,7 +838,7 @@ export function AshAnalysisManager() {
                 fournisseur: analysis.fournisseur,
                 oxides: {
                     '%Cendres': formatNumberForTable(analysis.pourcentage_cendres, 1),
-                    PAF: formatNumberForTable(analysis.paf, 1),
+                    PF: formatNumberForTable(analysis.pf, 1),
                     SiO2: formatNumberForTable(analysis.sio2, 1),
                     Al2O3: formatNumberForTable(analysis.al2o3, 1),
                     Fe2O3: formatNumberForTable(analysis.fe2o3, 1),
@@ -763,6 +877,7 @@ export function AshAnalysisManager() {
           rows={tableRows}
           fuels={fuelTypes}
           suppliers={fournisseurs}
+          averages={averages}
           onAdd={() => handleModalOpen(null)}
           onEdit={(analysis) => handleModalOpen(analysis)}
           onDelete={(id) => setDeletingRowId(id)}

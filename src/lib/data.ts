@@ -1,4 +1,3 @@
-
 // src/lib/data.ts
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, arrayUnion, orderBy, Timestamp, setDoc,getCountFromServer, limit } from 'firebase/firestore';
 import { db } from './firebase';
@@ -32,7 +31,7 @@ export interface AverageAnalysis {
     h2o: number;
     chlore: number;
     cendres: number;
-    taux_fils_metalliques?: number;
+    taux_metal?: number;
     count: number;
 }
 
@@ -41,7 +40,7 @@ export interface MixtureSession {
     timestamp: Timestamp;
     hallAF: any;
     ats: any;
-    grignons: any; // Add grignons to the session
+    directInputs: any;
     globalIndicators: any;
     availableFuels: Record<string, AverageAnalysis>;
     analysisDateRange?: { from: Timestamp; to: Timestamp };
@@ -72,6 +71,7 @@ export interface FuelData {
     nom_combustible: string;
     poids_godet: number;
     teneur_hydrogene: number;
+    taux_cendres?: number;
 }
 
 export interface MixtureScenario {
@@ -89,7 +89,7 @@ export interface AshAnalysis {
     type_combustible?: string;
     fournisseur?: string;
     pourcentage_cendres?: number | null;
-    paf?: number | null;
+    pf?: number | null;
     sio2?: number | null;
     al2o3?: number | null;
     fe2o3?: number | null;
@@ -104,6 +104,7 @@ export interface AshAnalysis {
 
 interface ResultToSave {
     date_arrivage: Timestamp;
+    type_analyse: string;
     type_combustible: string;
     fournisseur: string;
     pcs: number;
@@ -111,9 +112,59 @@ interface ResultToSave {
     chlore: number | null;
     cendres: number | null;
     remarques: string | null;
-    taux_fils_metalliques: number | null;
+    taux_metal: number | null;
     pci_brut: number;
 }
+
+export type RawMealAnalysis = {
+    [key: string]: number | undefined | null;
+    pf?: number | null; sio2?: number | null; al2o3?: number | null; fe2o3?: number | null;
+    cao?: number | null; mgo?: number | null; so3?: number | null; k2o?: number | null;
+    tio2?: number | null; mno?: number | null; p2o5?: number | null;
+};
+
+export interface RawMealPreset {
+    id: string;
+    name: string;
+    analysis: RawMealAnalysis;
+    createdAt: Timestamp;
+}
+
+// Nouvelle interface pour l'historique des calculs d'impact
+export interface ImpactAnalysis {
+    id?: string;
+    createdAt: Timestamp;
+    parameters: {
+        rawMealFlow: number;
+        clinkerFactor: number;
+        freeLime: number;
+        so3Target: number;
+        pfClinkerTarget: number;
+        realFreeLime: number;
+        afFlow: number;
+        grignonsFlow: number;
+        petCokePrecaFlow: number;
+        petCokeTuyereFlow: number;
+    };
+    inputs: {
+        rawMealAnalysis: RawMealAnalysis;
+        realClinkerAnalysis: RawMealAnalysis;
+        averageAshAnalysis: AshAnalysis;
+    };
+    results: {
+        clinkerWithoutAsh: RawMealAnalysis;
+        clinkerWithAsh: RawMealAnalysis;
+        modulesFarine: any;
+        modulesCendres: any;
+        modulesSans: any;
+        modulesAvec: any;
+        modulesReel: any;
+        c3sSans: number;
+        c3sAvec: number;
+        c3sReel: number;
+    };
+}
+
 
 
 export const SPEC_MAP = new Map<string, Specification>();
@@ -251,66 +302,68 @@ export async function deleteSpecification(id: string) {
 
 export async function getAverageAnalysisForFuels(
   fuelNames: string[],
-  dateRange: { from: Date, to: Date }
+  dateRange: { from: Date; to: Date }
 ): Promise<Record<string, AverageAnalysis>> {
-  
-  if (fuelNames.length === 0) {
-    return {};
-  }
-  
-  const q = query(
-    collection(db, 'resultats'),
-    where('date_arrivage', '>=', Timestamp.fromDate(dateRange.from)),
-    where('date_arrivage', '<=', Timestamp.fromDate(dateRange.to)),
-    where('type_combustible', 'in', fuelNames)
-  );
+  if (!fuelNames || fuelNames.length === 0) return {};
 
-  const snapshot = await getDocs(q);
-  const dbResults = snapshot.docs.map(doc => doc.data());
+  const start = Timestamp.fromDate(startOfDay(dateRange.from));
+  const end = Timestamp.fromDate(endOfDay(dateRange.to));
 
-  const analysis: Record<string, {
-    pci_brut: number[];
-    h2o: number[];
-    chlore: number[];
-    cendres: number[];
-    taux_fils_metalliques: number[];
-  }> = {};
+  const allResultsQuery = query(collection(db, "resultats"));
+  const allResultsSnapshot = await getDocs(allResultsQuery);
+  const allResults = allResultsSnapshot.docs.map(d => d.data());
 
-  // Initialize analysis object for all requested fuel names
-  fuelNames.forEach(name => {
-    analysis[name] = { pci_brut: [], h2o: [], chlore: [], cendres: [], taux_fils_metalliques: [] };
-  });
+  const analyses: Record<string, AverageAnalysis> = {};
 
-  // Populate with data from the database
-  dbResults.forEach(res => {
-    const fuelName = res.type_combustible;
-    if (analysis[fuelName]) {
-      const target = analysis[fuelName];
-      if (typeof res.pci_brut === 'number') target.pci_brut.push(res.pci_brut);
-      if (typeof res.h2o === 'number') target.h2o.push(res.h2o);
-      if (typeof res.chlore === 'number') target.chlore.push(res.chlore);
-      if (typeof res.cendres === 'number') target.cendres.push(res.cendres);
-      if (typeof res.taux_fils_metalliques === 'number') target.taux_fils_metalliques.push(res.taux_fils_metalliques);
+  for (const fuelName of fuelNames) {
+    const fuelResults = allResults.filter(r => r.type_combustible === fuelName);
+
+    let resultsInDateRange = fuelResults.filter(r => {
+      const date = r.date_arrivage.toDate();
+      return date >= start.toDate() && date <= end.toDate();
+    });
+
+    let finalResultsToAverage = resultsInDateRange;
+    if (resultsInDateRange.length === 0 && fuelResults.length > 0) {
+      fuelResults.sort((a, b) => b.date_arrivage.seconds - a.date_arrivage.seconds);
+      finalResultsToAverage = [fuelResults[0]];
     }
-  });
 
-  const finalAverages: Record<string, AverageAnalysis> = {};
-  const avg = (arr: number[]) => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+    if (finalResultsToAverage.length > 0) {
+      const getAverage = (key: 'pci_brut' | 'h2o' | 'chlore' | 'cendres' | 'taux_metal') => {
+        const values = finalResultsToAverage
+          .map(r => r[key])
+          .filter((v): v is number => typeof v === 'number' && isFinite(v));
+        
+        if (values.length === 0) return { average: 0, count: 0 };
+        
+        const sum = values.reduce((acc, curr) => acc + curr, 0);
+        return { average: sum / values.length, count: values.length };
+      };
 
-  for (const name of fuelNames) {
-    const data = analysis[name];
-    finalAverages[name] = {
-      pci_brut: avg(data.pci_brut),
-      h2o: avg(data.h2o),
-      chlore: avg(data.chlore),
-      cendres: avg(data.cendres),
-      taux_fils_metalliques: avg(data.taux_fils_metalliques),
-      count: data.pci_brut.length
-    };
+      const pciAvg = getAverage('pci_brut');
+      const h2oAvg = getAverage('h2o');
+      const chloreAvg = getAverage('chlore');
+      const cendresAvg = getAverage('cendres');
+      const metalAvg = getAverage('taux_metal');
+
+      analyses[fuelName] = {
+        pci_brut: pciAvg.average,
+        h2o: h2oAvg.average,
+        chlore: chloreAvg.average,
+        cendres: cendresAvg.average,
+        taux_metal: metalAvg.average,
+        count: finalResultsToAverage.length,
+      };
+
+    } else {
+      analyses[fuelName] = { pci_brut: 0, h2o: 0, chlore: 0, cendres: 0, count: 0, taux_metal: 0 };
+    }
   }
 
-  return finalAverages;
+  return analyses;
 }
+
 
 export async function saveMixtureSession(sessionData: Omit<MixtureSession, 'id' | 'timestamp'>): Promise<void> {
     const dataToSave = {
@@ -637,7 +690,7 @@ export async function getAverageAshAnalysisForFuels(
   });
 
   const averageByFuel: Record<string, AshAnalysis> = {};
-  const keysToAverage: (keyof AshAnalysis)[] = ['paf', 'pourcentage_cendres', 'sio2', 'al2o3', 'fe2o3', 'cao', 'mgo', 'so3', 'k2o', 'tio2', 'mno', 'p2o5'];
+  const keysToAverage: (keyof AshAnalysis)[] = ['pf', 'pourcentage_cendres', 'sio2', 'al2o3', 'fe2o3', 'cao', 'mgo', 'so3', 'k2o', 'tio2', 'mno', 'p2o5'];
 
   for (const fuelName of fuelNames) {
     const fuelAnalyses = analysesByFuel[fuelName];
@@ -743,4 +796,56 @@ export async function addManyResults(results: ResultToSave[]): Promise<void> {
     });
 
     await batch.commit();
+}
+
+export async function updateResult(id: string, data: Partial<ResultToSave>): Promise<void> {
+    const resultRef = doc(db, 'resultats', id);
+    await updateDoc(resultRef, data);
+}
+
+// --- Raw Meal Presets ---
+
+export async function getRawMealPresets(): Promise<RawMealPreset[]> {
+    const presetsCollection = collection(db, 'raw_meal_presets');
+    const q = query(presetsCollection, orderBy("createdAt", "desc"));
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return [];
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RawMealPreset));
+}
+
+export async function saveRawMealPreset(name: string, analysis: RawMealAnalysis): Promise<void> {
+    const preset: Omit<RawMealPreset, 'id'> = {
+        name,
+        analysis,
+        createdAt: Timestamp.now(),
+    };
+    await addDoc(collection(db, 'raw_meal_presets'), preset);
+}
+
+export async function deleteRawMealPreset(id: string): Promise<void> {
+    await deleteDoc(doc(db, 'raw_meal_presets', id));
+}
+
+// --- Impact Analysis History ---
+
+export async function saveImpactAnalysis(analysis: Omit<ImpactAnalysis, 'id' | 'createdAt'>): Promise<string> {
+    const dataToSave = {
+        ...analysis,
+        createdAt: Timestamp.now(),
+    };
+    const docRef = await addDoc(collection(db, 'impact_analyses'), dataToSave);
+    return docRef.id;
+}
+
+export async function getImpactAnalyses(): Promise<ImpactAnalysis[]> {
+    const analysesCollection = collection(db, 'impact_analyses');
+    const q = query(analysesCollection, orderBy("createdAt", "desc"));
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return [];
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ImpactAnalysis));
+}
+
+export async function deleteImpactAnalysis(id: string): Promise<void> {
+    const analysisRef = doc(db, 'impact_analyses', id);
+    await deleteDoc(analysisRef);
 }

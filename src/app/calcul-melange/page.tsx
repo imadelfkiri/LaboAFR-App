@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function CalculMelangePage() {
   return (
-     <div className="flex-1">
+     <div className="flex-1 bg-brand-bg">
         <MixtureCalculator />
     </div>
   );
