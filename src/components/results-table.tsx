@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
@@ -369,6 +370,7 @@ export default function ResultsTable() {
                 const data = new Uint8Array(e.target?.result as ArrayBuffer);
                 const workbook = XLSX.read(data, { type: 'array', cellDates: true });
                 const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
                 const json = XLSX.utils.sheet_to_json<any>(worksheet, { header: 3 });
 
                 if (!json || json.length === 0) throw new Error("Le fichier Excel est vide ou les en-têtes ne sont pas à la ligne 4.");
