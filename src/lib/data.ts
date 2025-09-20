@@ -304,83 +304,83 @@ export async function getAverageAnalysisForFuels(
   fuelNames: string[],
   dateRange: { from: Date; to: Date }
 ): Promise<Record<string, AverageAnalysis>> {
-  const analyses: Record<string, AverageAnalysis> = {};
-  if (!fuelNames || fuelNames.length === 0) return analyses;
+    const analyses: Record<string, AverageAnalysis> = {};
+    if (!fuelNames || fuelNames.length === 0) return analyses;
 
-  const start = Timestamp.fromDate(startOfDay(dateRange.from));
-  const end = Timestamp.fromDate(endOfDay(dateRange.to));
+    const start = Timestamp.fromDate(startOfDay(dateRange.from));
+    const end = Timestamp.fromDate(endOfDay(dateRange.to));
 
-  // Step 1: Fetch all results within the date range, without filtering by fuel type yet.
-  const q = query(
-    collection(db, 'resultats'),
-    where('date_arrivage', '>=', start),
-    where('date_arrivage', '<=', end)
-  );
-  const snapshot = await getDocs(q);
-  const resultsInDateRange = snapshot.docs.map(doc => doc.data());
+    // Step 1: Fetch all results within the date range.
+    const q = query(
+        collection(db, 'resultats'),
+        where('date_arrivage', '>=', start),
+        where('date_arrivage', '<=', end)
+    );
+    const snapshot = await getDocs(q);
+    const resultsInDateRange = snapshot.docs.map(doc => doc.data());
 
-  // Step 2: Group results by fuel type in memory.
-  const resultsByType: Record<string, any[]> = {};
-  fuelNames.forEach(name => {
-    resultsByType[name] = [];
-  });
-  
-  resultsInDateRange.forEach(data => {
-    // Only consider fuels we are interested in.
-    if (resultsByType[data.type_combustible]) {
-      resultsByType[data.type_combustible].push(data);
-    }
-  });
-
-  // Step 3: Identify fuels for which no analysis was found in the date range.
-  const fuelsWithoutAnalysis = fuelNames.filter(name => resultsByType[name].length === 0);
-
-  // Step 4: For those fuels, fetch the single most recent analysis, regardless of date.
-  if (fuelsWithoutAnalysis.length > 0) {
-    await Promise.all(fuelsWithoutAnalysis.map(async (fuelName) => {
-        const latestQuery = query(
-            collection(db, 'resultats'),
-            where('type_combustible', '==', fuelName),
-            orderBy('date_arrivage', 'desc'),
-            limit(1)
-        );
-        const latestSnapshot = await getDocs(latestQuery);
-        if (!latestSnapshot.empty) {
-            // Add the latest result to be processed.
-            resultsByType[fuelName] = latestSnapshot.docs.map(d => d.data());
+    // Step 2: Group results by fuel type.
+    const resultsByType: Record<string, any[]> = {};
+    fuelNames.forEach(name => {
+        resultsByType[name] = [];
+    });
+    
+    resultsInDateRange.forEach(data => {
+        if (resultsByType[data.type_combustible]) {
+            resultsByType[data.type_combustible].push(data);
         }
-    }));
-  }
-  
-  // Step 5: Calculate averages for all fuels.
-  for (const fuelName of fuelNames) {
-      let fuelResults = resultsByType[fuelName];
-      const count = fuelResults.length;
+    });
+    
+    // Step 3: For fuels without analysis in the date range, fetch the latest one.
+    const fuelsWithoutAnalysis = fuelNames.filter(name => resultsByType[name].length === 0);
 
-      if (count === 0) {
-          analyses[fuelName] = { pci_brut: 0, h2o: 0, chlore: 0, cendres: 0, count: 0, taux_metal: 0 };
-          continue;
-      }
-      
-      const sum = fuelResults.reduce((acc, curr) => {
-          acc.pci_brut += curr.pci_brut || 0;
-          acc.h2o += curr.h2o || 0;
-          acc.chlore += curr.chlore || 0;
-          acc.cendres += curr.cendres || 0;
-          acc.taux_metal += curr.taux_metal || 0;
-          return acc;
-      }, { pci_brut: 0, h2o: 0, chlore: 0, cendres: 0, taux_metal: 0 });
+    if (fuelsWithoutAnalysis.length > 0) {
+        await Promise.all(fuelsWithoutAnalysis.map(async (fuelName) => {
+            const latestQuery = query(
+                collection(db, 'resultats'),
+                where('type_combustible', '==', fuelName),
+                orderBy('date_arrivage', 'desc'),
+                limit(1)
+            );
+            const latestSnapshot = await getDocs(latestQuery);
+            if (!latestSnapshot.empty) {
+                // Use this latest result for the fuel.
+                resultsByType[fuelName] = latestSnapshot.docs.map(d => d.data());
+            }
+        }));
+    }
 
-      analyses[fuelName] = {
-          pci_brut: sum.pci_brut / count,
-          h2o: sum.h2o / count,
-          chlore: sum.chlore / count,
-          cendres: sum.cendres / count,
-          taux_metal: sum.taux_metal / count,
-          count: count,
-      };
-  }
-  return analyses;
+    // Step 4: Calculate averages for all fuels.
+    for (const fuelName of fuelNames) {
+        const fuelResults = resultsByType[fuelName];
+        const count = fuelResults.length;
+
+        if (count === 0) {
+            // If still no analysis found, provide a default empty object.
+            analyses[fuelName] = { pci_brut: 0, h2o: 0, chlore: 0, cendres: 0, count: 0, taux_metal: 0 };
+            continue;
+        }
+
+        const sum = fuelResults.reduce((acc, curr) => {
+            acc.pci_brut += curr.pci_brut || 0;
+            acc.h2o += curr.h2o || 0;
+            acc.chlore += curr.chlore || 0;
+            acc.cendres += curr.cendres || 0;
+            acc.taux_metal += curr.taux_metal || 0;
+            return acc;
+        }, { pci_brut: 0, h2o: 0, chlore: 0, cendres: 0, taux_metal: 0 });
+
+        analyses[fuelName] = {
+            pci_brut: sum.pci_brut / count,
+            h2o: sum.h2o / count,
+            chlore: sum.chlore / count,
+            cendres: sum.cendres / count,
+            taux_metal: sum.taux_metal / count,
+            count: count,
+        };
+    }
+
+    return analyses;
 }
 
 
