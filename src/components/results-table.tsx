@@ -348,11 +348,21 @@ export default function ResultsTable() {
         let pcsToUse = values.pcs;
         const pci_brut = calculerPCI(pcsToUse, values.h2o, hValue);
 
-        const dataToUpdate = {
-          ...values,
-          remarques: values.remarques || "",
-          pci_brut,
+        const dataToUpdate: {[key: string]: any} = {
+            ...values,
+            pci_brut,
         };
+
+        // Convert NaN values from empty optional number fields to null
+        for (const key in dataToUpdate) {
+            if (typeof dataToUpdate[key] === 'number' && isNaN(dataToUpdate[key])) {
+                dataToUpdate[key] = null;
+            } else if (dataToUpdate[key] === undefined) {
+                 dataToUpdate[key] = null;
+            }
+        }
+        dataToUpdate.remarques = dataToUpdate.remarques || "";
+
 
         await updateResult(editingResult.id, dataToUpdate);
         toast({ title: "Succès", description: "Résultat mis à jour."});
@@ -530,8 +540,8 @@ export default function ResultsTable() {
                 "Type Combustible": row.type_combustible,
                 "Fournisseur": row.fournisseur,
                 "Tonnage (t)": row.tonnage,
-                "PCS sur sec": row.pcs,
-                "PCI sur Brut": row.pci_brut,
+                "PCS sur sec (kcal/kg)": row.pcs,
+                "PCI sur Brut (kcal/kg)": row.pci_brut,
                 "% H2O": row.h2o,
                 "% Cl-": row.chlore,
                 "% Cendres": row.cendres,
