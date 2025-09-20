@@ -348,12 +348,6 @@ export default function ResultsTable() {
         }
         
         let pcsToUse = values.pcs;
-        if (values.taux_metal) {
-            const taux = Number(values.taux_metal);
-            if (taux > 0 && taux < 100) {
-              pcsToUse = pcsToUse * (1 - taux / 100);
-            }
-        }
         const pci_brut = calculerPCI(pcsToUse, values.h2o, hValue);
 
         await updateResult(editingResult.id, { ...values, pci_brut });
@@ -377,9 +371,9 @@ export default function ResultsTable() {
                 const workbook = XLSX.read(data, { type: 'array' });
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
-                const json = XLSX.utils.sheet_to_json<any>(worksheet, { header: 2, range: `A4:K${worksheet['!ref']?.split(':')[1].replace(/\D/g, '') || 1000}` });
+                const json = XLSX.utils.sheet_to_json<any>(worksheet, { header: 3 });
 
-                if (!json || json.length === 0) throw new Error("Le fichier Excel est vide ou les données ne commencent pas à la ligne 4.");
+                if (!json || json.length === 0) throw new Error("Le fichier Excel est vide ou les données ne commencent pas à la ligne 5.");
                 
                 const excelDateToJSDate = (serial: number) => {
                     const utc_days = Math.floor(serial - 25569);
@@ -389,7 +383,7 @@ export default function ResultsTable() {
                 };
 
                 const parseDate = (value: any, rowNum: number): Date => {
-                    if (!value) throw new Error(`Ligne ${rowNum}: La date est requise.`);
+                    if (value === null || value === undefined) throw new Error(`Ligne ${rowNum}: La date est requise.`);
                     if (typeof value === 'number') {
                         const date = excelDateToJSDate(value);
                         if (isValid(date)) return date;
@@ -405,7 +399,7 @@ export default function ResultsTable() {
                 };
 
                 const parsedResults = json.map((row, index) => {
-                    const rowNum = index + 4;
+                    const rowNum = index + 5;
                     
                     try {
                         const parsedDate = parseDate(row['Date Arrivage'], rowNum);
@@ -767,6 +761,7 @@ export default function ResultsTable() {
       </>
   );
 }
+
 
 
 
