@@ -67,6 +67,7 @@ const formSchema = z.object({
   type_analyse: z.string().nonempty({ message: "Veuillez sélectionner un type d'analyse." }),
   type_combustible: z.string().nonempty({ message: "Veuillez sélectionner un type de combustible." }),
   fournisseur: z.string().nonempty({ message: "Veuillez sélectionner un fournisseur." }),
+  tonnage: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le tonnage ne peut être négatif." }).optional().nullable(),
   pcs: z.coerce.number({required_error: "Veuillez renseigner une valeur valide pour le PCS.", invalid_type_error: "Veuillez entrer un nombre."}).positive({ message: "Le PCS doit être un nombre positif." }),
   h2o: z.coerce.number({required_error: "Le taux d'humidité est requis.", invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "L'humidité ne peut être négative." }).max(100, { message: "L'humidité ne peut dépasser 100%." }),
   chlore: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le chlore ne peut être négatif." }).optional().nullable(),
@@ -132,6 +133,7 @@ export function PciCalculator() {
       type_analyse: "Arrivage",
       type_combustible: "",
       fournisseur: "",
+      tonnage: undefined,
       pcs: undefined,
       h2o: undefined,
       chlore: undefined,
@@ -156,6 +158,7 @@ export function PciCalculator() {
         type_analyse: "Arrivage",
         type_combustible: "",
         fournisseur: "",
+        tonnage: '' as any,
         pcs: '' as any,
         h2o: '' as any,
         chlore: '' as any,
@@ -349,6 +352,7 @@ export function PciCalculator() {
       
       const dataToSave = {
         ...values,
+        tonnage: values.tonnage ? Number(values.tonnage) : null,
         pci_brut,
         chlore: values.chlore ? Number(values.chlore) : null,
         cendres: values.cendres ? Number(values.cendres) : null,
@@ -393,7 +397,7 @@ export function PciCalculator() {
   }
 
   return (
-    <div className="w-full max-w-4xl space-y-4 pb-24">
+    <div className="w-full max-w-5xl space-y-4 pb-24">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -538,6 +542,19 @@ export function PciCalculator() {
                                 )}
                                 />
                             </div>
+                             <FormField
+                                control={form.control}
+                                name="tonnage"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Tonnage (t)</FormLabel>
+                                    <FormControl>
+                                    <Input type="number" step="any" placeholder="Ex: 25.5" {...field} value={field.value ?? ''} className="rounded-lg h-11 px-4 text-sm" />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
                             <FormField
                                 control={form.control}
                                 name="remarques"
