@@ -348,7 +348,13 @@ export default function ResultsTable() {
         let pcsToUse = values.pcs;
         const pci_brut = calculerPCI(pcsToUse, values.h2o, hValue);
 
-        await updateResult(editingResult.id, { ...values, pci_brut });
+        const dataToUpdate = {
+          ...values,
+          remarques: values.remarques || "",
+          pci_brut,
+        };
+
+        await updateResult(editingResult.id, dataToUpdate);
         toast({ title: "Succès", description: "Résultat mis à jour."});
         setIsEditModalOpen(false);
         setEditingResult(null);
@@ -368,29 +374,20 @@ export default function ResultsTable() {
                 const data = new Uint8Array(e.target?.result as ArrayBuffer);
                 const workbook = XLSX.read(data, { type: 'array', cellDates: true });
                 
-                const sheetName = "Suivi arrivages des AFs";
+                const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
                 if (!worksheet) {
-                    throw new Error(`Impossible de trouver la feuille de calcul nommée "${sheetName}".`);
+                    throw new Error(`Impossible de trouver la première feuille de calcul.`);
                 }
-
-                // Read headers from line 4 (index 3)
-                const headerRange = XLSX.utils.decode_range(worksheet['!ref']!);
-                headerRange.s.r = 3; // Start from row 4
-                headerRange.e.r = 3; // End at row 4
-                const headerAoA = XLSX.utils.sheet_to_json(worksheet, { header: 1, range: XLSX.utils.encode_range(headerRange) });
-                const headers = headerAoA[0] as string[];
                 
-                // Read data from line 5 onwards
-                const dataRange = XLSX.utils.decode_range(worksheet['!ref']!);
-                dataRange.s.r = 4; // Start from row 5
-                const json = XLSX.utils.sheet_to_json<any>(worksheet, { header: headers, range: dataRange.s.r, blankrows: false });
-                
-                if (json.length === 0) {
-                    throw new Error("Le fichier est vide ou mal formaté.");
+                const json = XLSX.utils.sheet_to_json<any>(worksheet, { header: 1, raw: false });
+                if (json.length < 2) {
+                     throw new Error("Le fichier Excel est vide ou n'a pas d'en-tête.");
                 }
-
-                const headerMapping: { [key: string]: keyof z.infer<typeof importSchema> } = {
+                const headers: string[] = json[0];
+                const rows = json.slice(1);
+                
+                const headerMapping: { [key: string]: string } = {
                     'date arrivage': 'date_arrivage',
                     'type combustible': 'type_combustible',
                     'fournisseur': 'fournisseur',
@@ -403,27 +400,23 @@ export default function ResultsTable() {
                     'remarques': 'remarques',
                 };
                 
-                const parsedResults = json.map((row, rowIndex) => {
-                    const rowNum = rowIndex + 5; // Data starts at line 5
+                const mappedHeaders = headers.map(h => {
+                    const normalized = h.trim().toLowerCase();
+                    return headerMapping[normalized] || h;
+                });
+                
+                const parsedResults = rows.map((row, rowIndex) => {
+                    const rowNum = rowIndex + 2; 
                     try {
-                        const mappedRow: { [key: string]: any } = {};
-                        for (const key in row) {
-                            const normalizedHeader = key.trim().toLowerCase();
-                            const targetKey = headerMapping[normalizedHeader];
-                            if (targetKey) {
-                                mappedRow[targetKey] = row[key];
-                            }
-                        }
+                        const rowData: { [key: string]: any } = {};
+                        mappedHeaders.forEach((key, index) => {
+                            rowData[key] = row[index];
+                        });
 
-                        const jsDate = mappedRow.date_arrivage;
-                        if (!jsDate || !isValid(new Date(jsDate))) {
-                           throw new Error(`La date est requise ou invalide.`);
-                        }
+                        const validatedData = importSchema.partial().parse(rowData);
 
-                        const validatedData = importSchema.partial().parse({ ...mappedRow, date_arrivage: new Date(jsDate) });
-
-                        if (!validatedData.type_combustible || !validatedData.fournisseur || validatedData.h2o === null || validatedData.h2o === undefined) {
-                            throw new Error("Les colonnes 'Type Combustible', 'Fournisseur' et '% H2O' sont obligatoires.");
+                        if (!validatedData.type_combustible || !validatedData.fournisseur || validatedData.h2o === null || validatedData.h2o === undefined || !validatedData.date_arrivage) {
+                            throw new Error("Les colonnes 'Date Arrivage', 'Type Combustible', 'Fournisseur' et '% H2O' sont obligatoires.");
                         }
 
                         const hValue = fuelDataMap.get(validatedData.type_combustible)?.teneur_hydrogene;
@@ -441,7 +434,7 @@ export default function ResultsTable() {
                             finalPcs = validatedData.pcs;
                             finalPci = calculerPCI(finalPcs, validatedData.h2o, hValue);
                         } else {
-                            throw new Error(`Ni "PCS" ni "PCI sur Brut" n'est fourni.`);
+                            throw new Error(`Ni "PCS" ni "PCI Brut" n'est fourni.`);
                         }
 
                         if (finalPci === null || finalPcs === null) {
@@ -454,7 +447,7 @@ export default function ResultsTable() {
                             pcs: finalPcs,
                             pci_brut: finalPci,
                             date_creation: Timestamp.now(),
-                            date_arrivage: Timestamp.fromDate(new Date(jsDate))
+                            date_arrivage: Timestamp.fromDate(validatedData.date_arrivage)
                         };
 
                     } catch (error) {
