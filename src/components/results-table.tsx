@@ -366,54 +366,67 @@ export default function ResultsTable() {
     reader.onload = async (e) => {
         try {
             const data = new Uint8Array(e.target?.result as ArrayBuffer);
-            const workbook = XLSX.read(data, { type: 'array' });
+            const workbook = XLSX.read(data, { type: 'array', cellDates: true });
 
-            const sheetName = "Suivi arrivages des AFs";
+            const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             if (!worksheet) {
-                throw new Error(`La feuille de calcul nommée "${sheetName}" est introuvable dans le fichier.`);
+                throw new Error("Impossible de trouver une feuille de calcul dans le fichier.");
             }
 
             const json = XLSX.utils.sheet_to_json<any>(worksheet, {
-                header: 3, // Headers are on line 4 (0-indexed)
+                header: 1, // Treat first row as headers
                 defval: null,
             });
-
-            if (!json || json.length === 0) {
-                throw new Error("Aucune donnée trouvée à partir de la ligne 5.");
-            }
             
-            const parsedResults = json.map((row, index) => {
-                const rowNum = index + 5; // Data starts from line 5
-                try {
-                    const dateValue = row['Date Arrivage'];
-                    if (dateValue === null || dateValue === undefined) {
-                        throw new Error("La date est requise ou invalide.");
-                    }
+            if (json.length < 1) {
+                throw new Error("Le fichier est vide ou mal formaté.");
+            }
 
-                    // Use cellDates:true approach by re-reading with the option just for the date column logic
-                    const dateWorkbook = XLSX.read(data, { type: 'array', cellDates: true });
-                    const dateWorksheet = dateWorkbook.Sheets[sheetName];
-                    const jsonDataWithDates = XLSX.utils.sheet_to_json<any>(dateWorksheet, { header: 3 });
-                    const dateRow = jsonDataWithDates[index];
-                    const jsDate = dateRow ? dateRow['Date Arrivage'] : null;
-                    
+            const headers: string[] = json[0];
+            const headerMap = {
+              'Date Arrivage': 'date_arrivage',
+              'Type Combustible': 'type_combustible',
+              'Fournisseur': 'fournisseur',
+              'Tonnage (t)': 'tonnage',
+              'PCS sur sec': 'pcs',
+              'PCI sur Brut': 'pci_brut',
+              '% H2O': 'h2o',
+              '% Cl-': 'chlore',
+              '% Cendres': 'cendres',
+              'Alertes': 'remarques', // Map 'Alertes' to 'remarques'
+              'Remarques': 'remarques',
+              '% Taux metal': 'taux_metal'
+            };
+
+            const mappedHeaders = headers.map(h => (headerMap as any)[h] || h.toLowerCase().replace(/ /g, '_'));
+            const dataRows = json.slice(1);
+
+            const parsedResults = dataRows.map((rowArray: any[], index) => {
+                const rowNum = index + 2; // Data starts from line 2
+                const row: Record<string, any> = {};
+                mappedHeaders.forEach((header, i) => {
+                    row[header] = rowArray[i];
+                });
+
+                try {
+                    const jsDate = row['date_arrivage'];
                     if (!jsDate || !isValid(jsDate)) {
                        throw new Error(`La date est requise ou invalide.`);
                     }
 
                     const validatedData = importSchema.partial().parse({
                         date_arrivage: jsDate,
-                        type_combustible: row['Type Combustible'] ?? null,
-                        fournisseur: row['Fournisseur'] ?? null,
-                        tonnage: row['Tonnage (t)'] ?? null,
-                        pcs: row['PCS sur sec'] ?? null,
-                        pci_brut: row['PCI sur Brut'] ?? null,
-                        h2o: row['% H2O'] ?? null,
-                        chlore: row['% Cl-'] ?? null,
-                        cendres: row['% Cendres'] ?? null,
-                        remarques: row['Remarques'] ?? row['Alertes'] ?? null,
-                        taux_metal: row['% Taux metal'] ?? null,
+                        type_combustible: row['type_combustible'] ?? null,
+                        fournisseur: row['fournisseur'] ?? null,
+                        tonnage: row['tonnage'] ?? null,
+                        pcs: row['pcs'] ?? null,
+                        pci_brut: row['pci_brut'] ?? null,
+                        h2o: row['h2o'] ?? null,
+                        chlore: row['chlore'] ?? null,
+                        cendres: row['cendres'] ?? null,
+                        remarques: row['remarques'] ?? null,
+                        taux_metal: row['taux_metal'] ?? null,
                     });
 
                     if (!validatedData.type_combustible || !validatedData.fournisseur || validatedData.h2o === null || validatedData.h2o === undefined) {
