@@ -358,107 +358,135 @@ export default function ResultsTable() {
     }
   };
 
-  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-        try {
-            const data = new Uint8Array(e.target?.result as ArrayBuffer);
-            const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const data = new Uint8Array(e.target?.result as ArrayBuffer);
+                const workbook = XLSX.read(data, { type: 'array', cellDates: true });
 
-            const sheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[sheetName];
-            if (!worksheet) {
-                throw new Error("Impossible de trouver une feuille de calcul dans le fichier.");
-            }
-
-            const json = XLSX.utils.sheet_to_json<any>(worksheet);
-            
-            if (json.length === 0) {
-                throw new Error("Le fichier est vide ou mal formaté.");
-            }
-
-            const parsedResults = json.map((row: any, index) => {
-                const rowNum = index + 2; // Data starts from line 2 (1-based index + 1 for header)
-                
-                try {
-                    const jsDate = row['Date Arrivage'];
-                    if (!jsDate || !isValid(jsDate)) {
-                       throw new Error(`La date est requise ou invalide.`);
-                    }
-
-                    const validatedData = importSchema.partial().parse({
-                        date_arrivage: jsDate,
-                        type_combustible: row['Type Combustible'],
-                        fournisseur: row['Fournisseur'],
-                        tonnage: row['Tonnage (t)'],
-                        pcs: row['PCS sur sec'],
-                        pci_brut: row['PCI sur Brut'],
-                        h2o: row['% H2O'],
-                        chlore: row['% Cl-'],
-                        cendres: row['% Cendres'],
-                        remarques: row['Remarques'] ?? row['Alertes'], // Also check for 'Alertes' column
-                        taux_metal: row['% Taux metal']
-                    });
-
-                    if (!validatedData.type_combustible || !validatedData.fournisseur || validatedData.h2o === null || validatedData.h2o === undefined) {
-                        throw new Error("Les colonnes 'Type Combustible', 'Fournisseur' et '% H2O' sont obligatoires.");
-                    }
-
-                    const hValue = fuelDataMap.get(validatedData.type_combustible)?.teneur_hydrogene;
-                    if (hValue === undefined || hValue === null) {
-                        throw new Error(`Teneur en hydrogène non définie pour "${validatedData.type_combustible}".`);
-                    }
-
-                    let finalPci: number | null = null;
-                    let finalPcs: number | null = null;
-
-                    if (validatedData.pci_brut !== null && validatedData.pci_brut !== undefined) {
-                        finalPci = validatedData.pci_brut;
-                        finalPcs = calculerPCS(finalPci, validatedData.h2o, hValue);
-                    } else if (validatedData.pcs !== null && validatedData.pcs !== undefined) {
-                        finalPcs = validatedData.pcs;
-                        finalPci = calculerPCI(finalPcs, validatedData.h2o, hValue);
-                    } else {
-                        throw new Error(`Ni "PCS" ni "PCI Brut" n'est fourni.`);
-                    }
-
-                    if (finalPci === null || finalPcs === null) {
-                        throw new Error(`Calcul de PCI/PCS impossible. Vérifiez les valeurs.`);
-                    }
-                    
-                    return {
-                        ...validatedData,
-                        type_analyse: 'Arrivage',
-                        pcs: finalPcs,
-                        pci_brut: finalPci,
-                        date_creation: Timestamp.now(),
-                        date_arrivage: Timestamp.fromDate(jsDate as Date)
-                    };
-
-                } catch (error) {
-                    const errorMessage = error instanceof z.ZodError 
-                        ? error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ') 
-                        : error instanceof Error ? error.message : "Erreur inconnue.";
-                    throw new Error(`Ligne ${rowNum}: ${errorMessage}`);
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                 if (!worksheet) {
+                    throw new Error("Impossible de trouver une feuille de calcul dans le fichier.");
                 }
-            }).filter((r): r is NonNullable<typeof r> => !!r);
 
-            await addManyResults(parsedResults as any);
-            toast({ title: "Succès", description: `${parsedResults.length} résultats ont été importés.` });
+                const json = XLSX.utils.sheet_to_json<any>(worksheet, {
+                    header: 1, // Get arrays of arrays
+                    defval: null // Use null for blank cells
+                });
+                
+                if (json.length < 2) { // Must have header + at least one data row
+                    throw new Error("Le fichier est vide ou mal formaté.");
+                }
+                
+                const fileHeaders = (json[0] as any[]).map(h => String(h || '').trim().toLowerCase());
+                const dataRows = json.slice(1);
+                
+                const headerMapping: { [key: string]: keyof z.infer<typeof importSchema> } = {
+                    'date arrivage': 'date_arrivage',
+                    'date': 'date_arrivage',
+                    'type combustible': 'type_combustible',
+                    'combustible': 'type_combustible',
+                    'fournisseur': 'fournisseur',
+                    'tonnage (t)': 'tonnage',
+                    'tonnage': 'tonnage',
+                    'pcs sur sec': 'pcs',
+                    'pcs': 'pcs',
+                    'pci sur brut': 'pci_brut',
+                    'pci': 'pci_brut',
+                    '% h2o': 'h2o',
+                    'h2o': 'h2o',
+                    '% cl-': 'chlore',
+                    'cl-': 'chlore',
+                    'chlore': 'chlore',
+                    '% cendres': 'cendres',
+                    'cendres': 'cendres',
+                    'alertes': 'remarques',
+                    'remarques': 'remarques',
+                    '% taux metal': 'taux_metal',
+                };
+                
+                const mappedData = dataRows.map((rowArray: any[], rowIndex) => {
+                    const rowObject: { [key: string]: any } = {};
+                    fileHeaders.forEach((header, colIndex) => {
+                        const targetKey = headerMapping[header];
+                        if(targetKey) {
+                            rowObject[targetKey] = rowArray[colIndex];
+                        }
+                    });
+                    return { rowObject, rowIndex: rowIndex + 2 }; // rowIndex + 2 for 1-based Excel row number
+                });
+                
 
-        } catch (error) {
-            console.error("Error importing file:", error);
-            const errorMessage = error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
-            toast({ variant: "destructive", title: "Erreur d'importation", description: errorMessage, duration: 9000 });
-        } finally {
-            if (fileInputRef.current) fileInputRef.current.value = "";
-        }
+                const parsedResults = mappedData.map(({rowObject, rowIndex}) => {
+                    try {
+                        const jsDate = rowObject.date_arrivage;
+                        if (!jsDate || !isValid(new Date(jsDate))) {
+                           throw new Error(`La date est requise ou invalide.`);
+                        }
+
+                        const validatedData = importSchema.partial().parse({ ...rowObject, date_arrivage: new Date(jsDate) });
+
+                        if (!validatedData.type_combustible || !validatedData.fournisseur || validatedData.h2o === null || validatedData.h2o === undefined) {
+                            throw new Error("Les colonnes 'Type Combustible', 'Fournisseur' et '% H2O' sont obligatoires.");
+                        }
+
+                        const hValue = fuelDataMap.get(validatedData.type_combustible)?.teneur_hydrogene;
+                        if (hValue === undefined || hValue === null) {
+                            throw new Error(`Teneur en hydrogène non définie pour "${validatedData.type_combustible}".`);
+                        }
+
+                        let finalPci: number | null = null;
+                        let finalPcs: number | null = null;
+
+                        if (validatedData.pci_brut !== null && validatedData.pci_brut !== undefined) {
+                            finalPci = validatedData.pci_brut;
+                            finalPcs = calculerPCS(finalPci, validatedData.h2o, hValue);
+                        } else if (validatedData.pcs !== null && validatedData.pcs !== undefined) {
+                            finalPcs = validatedData.pcs;
+                            finalPci = calculerPCI(finalPcs, validatedData.h2o, hValue);
+                        } else {
+                            throw new Error(`Ni "PCS" ni "PCI Brut" n'est fourni.`);
+                        }
+
+                        if (finalPci === null || finalPcs === null) {
+                            throw new Error(`Calcul de PCI/PCS impossible. Vérifiez les valeurs.`);
+                        }
+                        
+                        return {
+                            ...validatedData,
+                            type_analyse: 'Arrivage',
+                            pcs: finalPcs,
+                            pci_brut: finalPci,
+                            date_creation: Timestamp.now(),
+                            date_arrivage: Timestamp.fromDate(new Date(jsDate))
+                        };
+
+                    } catch (error) {
+                        const errorMessage = error instanceof z.ZodError 
+                            ? error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ') 
+                            : error instanceof Error ? error.message : "Erreur inconnue.";
+                        throw new Error(`Ligne ${rowIndex}: ${errorMessage}`);
+                    }
+                }).filter((r): r is NonNullable<typeof r> => !!r);
+
+                await addManyResults(parsedResults as any);
+                toast({ title: "Succès", description: `${parsedResults.length} résultats ont été importés.` });
+
+            } catch (error) {
+                console.error("Error importing file:", error);
+                const errorMessage = error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
+                toast({ variant: "destructive", title: "Erreur d'importation", description: errorMessage, duration: 9000 });
+            } finally {
+                if (fileInputRef.current) fileInputRef.current.value = "";
+            }
+        };
+        reader.readAsArrayBuffer(file);
     };
-    reader.readAsArrayBuffer(file);
-};
     
   const averages = useMemo(() => {
         const group = (items: Result[]) => {
