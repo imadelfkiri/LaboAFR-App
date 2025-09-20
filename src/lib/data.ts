@@ -310,40 +310,32 @@ export async function getAverageAnalysisForFuels(
   const start = Timestamp.fromDate(startOfDay(dateRange.from));
   const end = Timestamp.fromDate(endOfDay(dateRange.to));
 
-  // Firestore 'in' query has a limit of 30 items. We need to chunk the query.
-  const CHUNK_SIZE = 30;
-  const fuelNameChunks: string[][] = [];
-  for (let i = 0; i < fuelNames.length; i += CHUNK_SIZE) {
-    fuelNameChunks.push(fuelNames.slice(i, i + CHUNK_SIZE));
-  }
-  
-  const allResults: any[] = [];
-  for (const chunk of fuelNameChunks) {
-    const q = query(
-      collection(db, 'resultats'),
-      where('date_arrivage', '>=', start),
-      where('date_arrivage', '<=', end),
-      where('type_combustible', 'in', chunk)
-    );
-    const snapshot = await getDocs(q);
-    snapshot.forEach(doc => {
-      allResults.push(doc.data());
-    });
-  }
+  // Step 1: Fetch all results within the date range, without filtering by fuel type yet.
+  const q = query(
+    collection(db, 'resultats'),
+    where('date_arrivage', '>=', start),
+    where('date_arrivage', '<=', end)
+  );
+  const snapshot = await getDocs(q);
+  const resultsInDateRange = snapshot.docs.map(doc => doc.data());
 
+  // Step 2: Group results by fuel type in memory.
   const resultsByType: Record<string, any[]> = {};
   fuelNames.forEach(name => {
     resultsByType[name] = [];
   });
-
-  allResults.forEach(data => {
+  
+  resultsInDateRange.forEach(data => {
+    // Only consider fuels we are interested in.
     if (resultsByType[data.type_combustible]) {
       resultsByType[data.type_combustible].push(data);
     }
   });
 
+  // Step 3: Identify fuels for which no analysis was found in the date range.
   const fuelsWithoutAnalysis = fuelNames.filter(name => resultsByType[name].length === 0);
 
+  // Step 4: For those fuels, fetch the single most recent analysis, regardless of date.
   if (fuelsWithoutAnalysis.length > 0) {
     await Promise.all(fuelsWithoutAnalysis.map(async (fuelName) => {
         const latestQuery = query(
@@ -354,11 +346,13 @@ export async function getAverageAnalysisForFuels(
         );
         const latestSnapshot = await getDocs(latestQuery);
         if (!latestSnapshot.empty) {
+            // Add the latest result to be processed.
             resultsByType[fuelName] = latestSnapshot.docs.map(d => d.data());
         }
     }));
   }
   
+  // Step 5: Calculate averages for all fuels.
   for (const fuelName of fuelNames) {
       let fuelResults = resultsByType[fuelName];
       const count = fuelResults.length;
