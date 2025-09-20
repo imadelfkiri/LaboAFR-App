@@ -109,6 +109,11 @@ declare module "jspdf" {
   }
 }
 
+const formatNumber = (num: number | null | undefined, fractionDigits: number = 0) => {
+    if (num === null || num === undefined || Number.isNaN(num)) return "-";
+    return num.toLocaleString("fr-FR", { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits })
+};
+
 const editSchema = z.object({
   pcs: z.coerce.number().positive(),
   h2o: z.coerce.number().min(0).max(100),
@@ -159,11 +164,6 @@ export default function ResultsTable() {
   const form = useForm<z.infer<typeof editSchema>>({
     resolver: zodResolver(editSchema),
   });
-
-  const formatNumber = (num: number | null | undefined, fractionDigits: number = 0) => {
-    if (num === null || num === undefined || Number.isNaN(num)) return "-";
-    return num.toLocaleString("fr-FR", { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits })
-  };
 
   const fetchInitialData = useCallback(async () => {
     setLoading(true);
@@ -377,10 +377,14 @@ export default function ResultsTable() {
                 const workbook = XLSX.read(data, { type: 'array' });
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
-                const json = XLSX.utils.sheet_to_json<any>(worksheet);
+                const json = XLSX.utils.sheet_to_json<any>(worksheet, { range: 2 });
 
-                if (!json || json.length === 0) throw new Error("Le fichier Excel est vide ou mal formaté.");
 
+                if (!json || json.length === 0) throw new Error("Le fichier Excel est vide ou les données ne commencent pas à la ligne 4.");
+
+                const headers:string[] = Object.keys(json[0]);
+                const dataRows = json;
+                
                 const excelDateToJSDate = (serial: number) => {
                     const utc_days = Math.floor(serial - 25569);
                     const utc_value = utc_days * 86400;
@@ -395,7 +399,7 @@ export default function ResultsTable() {
                         if (isValid(date)) return date;
                     }
                     if (typeof value === 'string') {
-                        const formats = ['dd/MM/yyyy', 'd/M/yyyy', 'yyyy-MM-dd', 'MM/dd/yyyy'];
+                        const formats = ['dd/MM/yyyy', 'd/M/yyyy', 'yyyy-MM-dd', 'MM/dd/yyyy', 'dd/MM/yy'];
                         for (const fmt of formats) {
                             const date = parse(value, fmt, new Date());
                             if (isValid(date)) return date;
@@ -404,44 +408,33 @@ export default function ResultsTable() {
                     throw new Error(`Ligne ${rowNum}: Format de date non reconnu pour la valeur "${value}".`);
                 };
 
-                const headerMapping: { [key: string]: keyof z.infer<typeof importSchema> } = {
-                    'date': 'date_arrivage', 'date arrivage': 'date_arrivage', 'date_arrivage': 'date_arrivage',
-                    'type analyse': 'type_analyse', 'type_analyse': 'type_analyse',
-                    'combustible': 'type_combustible', 'type combustible': 'type_combustible', 'type_combustible': 'type_combustible',
-                    'fournisseur': 'fournisseur',
-                    'tonnage (t)': 'tonnage', 'tonnage': 'tonnage',
-                    'pcs': 'pcs', 'pcs (kcal/kg)': 'pcs', 'pcs sur sec': 'pcs',
-                    'pci': 'pci_brut', 'pci brut': 'pci_brut', 'pci sur brut': 'pci_brut', 'pci sur brut (kcal/kg)': 'pci_brut', 'pci_brut': 'pci_brut',
-                    'h2o': 'h2o', '% h2o': 'h2o',
-                    'cl-': 'chlore', 'chlore': 'chlore', '% cl-': 'chlore',
-                    'cendres': 'cendres', '% cendres': 'cendres',
-                    'remarques': 'remarques',
-                    'taux metal': 'taux_metal', 'taux du metal': 'taux_metal', 'taux du métal (%)': 'taux_metal',
-                };
-
-                const parsedResults = json.map((row, index) => {
-                    const rowNum = index + 2;
+                const parsedResults = dataRows.map((row, index) => {
+                    const rowNum = index + 4; // Data starts at A4
+                    
                     const mappedRow: { [key: string]: any } = {};
-
-                    for (const header in row) {
-                        const normalizedHeader = header.trim().toLowerCase().replace(/\s+/g, ' ');
-                        const targetKey = headerMapping[normalizedHeader];
-                        if (targetKey) {
-                             let value = row[header];
-                            if(typeof value === 'string' && !['date_arrivage', 'type_combustible', 'fournisseur', 'remarques', 'type_analyse'].includes(targetKey)) {
-                                value = value.replace(',', '.');
-                            }
-                            mappedRow[targetKey] = value;
-                        }
-                    }
+                    Object.keys(row).forEach(header => {
+                        const normalizedHeader = header.trim().toLowerCase();
+                        mappedRow[normalizedHeader] = row[header];
+                    });
 
                     try {
-                        const parsedDate = parseDate(mappedRow.date_arrivage, rowNum);
+                        const parsedDate = parseDate(mappedRow['date arrivage'], rowNum);
                         
-                        const validatedData = importSchema.partial().parse({ ...mappedRow, date_arrivage: parsedDate });
+                        const validatedData = importSchema.partial().parse({
+                            date_arrivage: parsedDate,
+                            type_combustible: mappedRow['type combustible'],
+                            fournisseur: mappedRow['fournisseur'],
+                            tonnage: mappedRow['tonnage (t)'],
+                            pcs: mappedRow['pcs sur sec (kcal/kg)'],
+                            pci_brut: mappedRow['pci sur brut (kcal/kg)'],
+                            h2o: mappedRow['% h2o'],
+                            chlore: mappedRow['% cl-'],
+                            cendres: mappedRow['% cendres'],
+                            remarques: mappedRow['remarques'] || mappedRow['alertes'],
+                        });
                         
                         if (!validatedData.type_combustible || !validatedData.fournisseur || validatedData.h2o === undefined) {
-                            throw new Error("Les colonnes 'type_combustible', 'fournisseur' et 'h2o' sont obligatoires.")
+                            throw new Error("Les colonnes 'Type Combustible', 'Fournisseur' et '% H2O' sont obligatoires.")
                         }
 
                         let finalPci: number | null = null;
@@ -468,7 +461,7 @@ export default function ResultsTable() {
 
                         return { 
                             ...validatedData,
-                            type_analyse: validatedData.type_analyse || 'Arrivage',
+                            type_analyse: 'Arrivage', // Default to Arrivage as it's not in the file
                             pcs: finalPcs,
                             pci_brut: finalPci,
                             date_creation: Timestamp.now(),
@@ -480,9 +473,9 @@ export default function ResultsTable() {
                             error instanceof Error ? error.message : "Erreur inconnue.";
                         throw new Error(`Ligne ${rowNum}: ${errorMessage}`);
                     }
-                });
+                }).filter(Boolean); // Filter out any null/undefined results from errors
 
-                await addManyResults(results as any);
+                await addManyResults(parsedResults as any);
                 toast({ title: "Succès", description: `${parsedResults.length} résultats ont été importés.` });
             } catch (error) {
                 console.error("Error importing file:", error);
@@ -521,7 +514,7 @@ export default function ResultsTable() {
         const afsAnalyses = sortedAndFilteredResults.filter(r => !r.type_combustible?.toLowerCase().includes('pet coke') && !r.type_combustible?.toLowerCase().includes('grignons'));
 
         return { petCoke: group(petCokeAnalyses), grignons: group(grignonsAnalyses), afs: group(afsAnalyses) };
-    }, [sortedAndFilteredResults, formatNumber]);
+    }, [sortedAndFilteredResults]);
   
   const exportData = (type: 'excel' | 'pdf') => {
     let dataToExport = sortedAndFilteredResults;
@@ -569,7 +562,7 @@ export default function ResultsTable() {
     } else {
         const doc = new jsPDF({ orientation: 'landscape' });
         doc.text("Rapport des Résultats d'Analyses", 14, 15);
-        const head = [["Date", "Combustible", "Fournisseur", "Tonnage", "PCS", "PCI Brut", "H2O", "Cl-", "Cendres", "Alertes", "Remarques"]];
+        const head = [["Date", "Combustible", "Fournisseur", "Tonnage (t)", "PCS", "PCI Brut", "H2O", "Cl-", "Cendres", "Alertes", "Remarques"]];
         const body = dataToExport.map(row => {
           const date = normalizeDate(row.date_arrivage);
           return [
@@ -657,12 +650,6 @@ export default function ResultsTable() {
                             <span className="inline-flex items-center rounded-md px-2 py-0.5 bg-red-100 text-red-700"><AlertTriangle className="w-3 h-3 mr-1" /> {stats.non}</span>
                           </div>
                           
-                          <div className="col-span-1">
-                            <Select value={analysisTypeFilter} onValueChange={setAnalysisTypeFilter}>
-                                <SelectTrigger className="h-9 rounded-xl text-[13px]"><SelectValue placeholder="Type d'analyse" /></SelectTrigger>
-                                <SelectContent><SelectItem value="__ALL__">Toutes les analyses</SelectItem>{uniqueAnalysisTypes.map((a:string)=><SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
-                            </Select>
-                          </div>
                           <div className="col-span-1">
                             <Select value={fuelTypeFilter} onValueChange={setFuelTypeFilter}>
                                 <SelectTrigger className="h-9 rounded-xl text-[13px]"><SelectValue placeholder="Type combustible" /></SelectTrigger>
@@ -790,3 +777,5 @@ export default function ResultsTable() {
       </>
   );
 }
+
+
