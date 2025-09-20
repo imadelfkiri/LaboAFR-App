@@ -370,58 +370,52 @@ export default function ResultsTable() {
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
                 
-                // Read headers from line 4 (index 3)
-                const header = XLSX.utils.sheet_to_json<any>(worksheet, { header: 1, range: 3 })[0];
-                const headerMap = header.reduce((acc: any, h: string, i: number) => {
-                  if(h) acc[h.trim()] = i;
-                  return acc;
-                }, {});
-
-
-                // Read data from line 5 onwards
-                const jsonData = XLSX.utils.sheet_to_json<any>(worksheet, { header: 1, range: 4 });
-
-                if (!jsonData || jsonData.length === 0) throw new Error("Aucune donnée trouvée à partir de la ligne 5.");
-
-                const parseDate = (dateValue: any) => {
-                  if (typeof dateValue === 'number') {
-                    // It's an Excel serial date
-                    return XLSX.SSF.parse_date_code(dateValue);
-                  }
-                  if (typeof dateValue === 'string') {
-                    const parsed = parse(dateValue, 'dd/MM/yyyy', new Date());
-                    if(isValid(parsed)) return { y: parsed.getFullYear(), m: parsed.getMonth() + 1, d: parsed.getDate()};
-                  }
-                  return null; // Invalid date
-                }
+                const json = XLSX.utils.sheet_to_json(worksheet, {
+                    header: 3, // Headers are on line 4 (0-indexed)
+                    defval: null // Use null for empty cells
+                }) as any[];
                 
-                const parsedResults = jsonData.map((row: any[], index) => {
+                if (!json || json.length === 0) throw new Error("Aucune donnée trouvée à partir de la ligne 5.");
+
+                const parsedResults = json.map((row, index) => {
                     const rowNum = index + 5;
                     
                     try {
-                        const dateCell = row[headerMap['Date Arrivage']];
-                        const dateObj = parseDate(dateCell);
-
-                        if (!dateObj) {
-                           throw new Error(`La date est requise ou invalide.`);
+                        const dateValue = row['Date Arrivage'];
+                        if (dateValue === null || dateValue === undefined) {
+                            throw new Error(`La date est requise ou invalide.`);
                         }
-                        const jsDate = new Date(dateObj.y, dateObj.m - 1, dateObj.d);
+
+                        // Robust date parsing
+                        let jsDate: Date;
+                        if (typeof dateValue === 'number') {
+                            jsDate = XLSX.SSF.parse_date_code(dateValue);
+                        } else {
+                            jsDate = new Date(dateValue);
+                        }
+
+                        if (!isValid(jsDate)) {
+                            // Try another common format
+                            const parsed = parse(dateValue, 'dd/MM/yyyy', new Date());
+                            if(isValid(parsed)) jsDate = parsed;
+                            else throw new Error(`Format de date non reconnu: "${dateValue}"`);
+                        }
                         
                         const validatedData = importSchema.partial().parse({
                             date_arrivage: jsDate,
-                            type_combustible: row[headerMap['Type Combustible']],
-                            fournisseur: row[headerMap['Fournisseur']],
-                            tonnage: row[headerMap['Tonnage (t)']] ?? null,
-                            pcs: row[headerMap['PCS sur sec']] ?? null,
-                            pci_brut: row[headerMap['PCI sur Brut']] ?? null,
-                            h2o: row[headerMap['% H2O']],
-                            chlore: row[headerMap['% Cl-']] ?? null,
-                            cendres: row[headerMap['% Cendres']] ?? null,
-                            remarques: row[headerMap['Remarques']] ?? row[headerMap['Alertes']] ?? null,
-                            taux_metal: row[headerMap['% Taux metal']] ?? null,
+                            type_combustible: row['Type Combustible'] ?? null,
+                            fournisseur: row['Fournisseur'] ?? null,
+                            tonnage: row['Tonnage (t)'] ?? null,
+                            pcs: row['PCS sur sec'] ?? null,
+                            pci_brut: row['PCI sur Brut'] ?? null,
+                            h2o: row['% H2O'] ?? null,
+                            chlore: row['% Cl-'] ?? null,
+                            cendres: row['% Cendres'] ?? null,
+                            remarques: row['Remarques'] ?? row['Alertes'] ?? null,
+                            taux_metal: row['% Taux metal'] ?? null,
                         });
                         
-                        if (!validatedData.type_combustible || !validatedData.fournisseur || validatedData.h2o === undefined) {
+                        if (!validatedData.type_combustible || !validatedData.fournisseur || validatedData.h2o === null) {
                             throw new Error("Les colonnes 'Type Combustible', 'Fournisseur' et '% H2O' sont obligatoires.")
                         }
 
@@ -433,28 +427,23 @@ export default function ResultsTable() {
                             throw new Error(`Teneur en hydrogène non définie pour "${validatedData.type_combustible}". Impossible de calculer PCS/PCI.`);
                         }
 
-                        if (validatedData.pci_brut !== undefined && validatedData.pci_brut !== null) {
+                        if (validatedData.pci_brut !== null) {
                             finalPci = validatedData.pci_brut;
                             finalPcs = calculerPCS(finalPci, validatedData.h2o, hValue);
-                        } else if (validatedData.pcs !== undefined && validatedData.pcs !== null) {
+                        } else if (validatedData.pcs !== null) {
                             finalPcs = validatedData.pcs;
                             finalPci = calculerPCI(finalPcs, validatedData.h2o, hValue);
                         } else {
-                            throw new Error(`Ni "PCS" ni "PCI Brut" n'est fourni pour la ligne ${rowNum}.`);
+                            throw new Error(`Ni "PCS" ni "PCI Brut" n'est fourni.`);
                         }
                         
                         if (finalPci === null || finalPcs === null) {
-                            throw new Error(`Calcul de PCI/PCS impossible pour la ligne ${rowNum}. Vérifiez les valeurs.`);
+                            throw new Error(`Calcul de PCI/PCS impossible. Vérifiez les valeurs.`);
                         }
 
                         return { 
                             ...validatedData,
                             type_analyse: 'Arrivage',
-                            tonnage: validatedData.tonnage ?? null,
-                            chlore: validatedData.chlore ?? null,
-                            cendres: validatedData.cendres ?? null,
-                            remarques: validatedData.remarques ?? null,
-                            taux_metal: validatedData.taux_metal ?? null,
                             pcs: finalPcs,
                             pci_brut: finalPci,
                             date_creation: Timestamp.now(),
@@ -466,7 +455,7 @@ export default function ResultsTable() {
                             error instanceof Error ? error.message : "Erreur inconnue.";
                         throw new Error(`Ligne ${rowNum}: ${errorMessage}`);
                     }
-                }).filter(Boolean);
+                }).filter((r): r is NonNullable<typeof r> => r !== null && r !== undefined);
 
                 await addManyResults(parsedResults as any);
                 toast({ title: "Succès", description: `${parsedResults.length} résultats ont été importés.` });
