@@ -367,8 +367,12 @@ export default function ResultsTable() {
         try {
             const data = new Uint8Array(e.target?.result as ArrayBuffer);
             const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-            const sheetName = workbook.SheetNames[0];
+            
+            const sheetName = "Suivi arrivages des AFs";
             const worksheet = workbook.Sheets[sheetName];
+            if (!worksheet) {
+                throw new Error(`La feuille de calcul nommée "${sheetName}" est introuvable dans le fichier.`);
+            }
             
             const json = XLSX.utils.sheet_to_json<any>(worksheet, {
                 header: 3, // Headers are on line 4 (0-indexed)
@@ -748,3 +752,4 @@ export default function ResultsTable() {
       </>
   );
 }
+
