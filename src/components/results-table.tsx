@@ -370,66 +370,48 @@ export default function ResultsTable() {
 
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
-                 if (!worksheet) {
+                if (!worksheet) {
                     throw new Error("Impossible de trouver une feuille de calcul dans le fichier.");
                 }
 
-                const json = XLSX.utils.sheet_to_json<any>(worksheet, {
-                    header: 1, // Get arrays of arrays
-                    defval: null // Use null for blank cells
-                });
+                const json = XLSX.utils.sheet_to_json<any>(worksheet);
                 
-                if (json.length < 2) { // Must have header + at least one data row
+                if (json.length === 0) {
                     throw new Error("Le fichier est vide ou mal formaté.");
                 }
-                
-                const fileHeaders = (json[0] as any[]).map(h => String(h || '').trim().toLowerCase());
-                const dataRows = json.slice(1);
-                
+
                 const headerMapping: { [key: string]: keyof z.infer<typeof importSchema> } = {
                     'date arrivage': 'date_arrivage',
-                    'date': 'date_arrivage',
-                    'type combustible': 'type_combustible',
                     'combustible': 'type_combustible',
                     'fournisseur': 'fournisseur',
-                    'tonnage (t)': 'tonnage',
                     'tonnage': 'tonnage',
-                    'pcs sur sec': 'pcs',
-                    'pcs': 'pcs',
-                    'pci sur brut': 'pci_brut',
-                    'pci': 'pci_brut',
+                    'pcs sur sec (kcal/kg)': 'pcs',
+                    'pci sur brut (kcal/kg)': 'pci_brut',
                     '% h2o': 'h2o',
-                    'h2o': 'h2o',
                     '% cl-': 'chlore',
-                    'cl-': 'chlore',
-                    'chlore': 'chlore',
                     '% cendres': 'cendres',
-                    'cendres': 'cendres',
-                    'alertes': 'remarques',
                     'remarques': 'remarques',
-                    '% taux metal': 'taux_metal',
+                    'taux metal': 'taux_metal',
                 };
                 
-                const mappedData = dataRows.map((rowArray: any[], rowIndex) => {
-                    const rowObject: { [key: string]: any } = {};
-                    fileHeaders.forEach((header, colIndex) => {
-                        const targetKey = headerMapping[header];
-                        if(targetKey) {
-                            rowObject[targetKey] = rowArray[colIndex];
-                        }
-                    });
-                    return { rowObject, rowIndex: rowIndex + 2 }; // rowIndex + 2 for 1-based Excel row number
-                });
-                
-
-                const parsedResults = mappedData.map(({rowObject, rowIndex}) => {
+                const parsedResults = json.map((row, rowIndex) => {
+                    const rowNum = rowIndex + 2;
                     try {
-                        const jsDate = rowObject.date_arrivage;
+                        const mappedRow: { [key: string]: any } = {};
+                        for (const key in row) {
+                            const normalizedHeader = key.trim().toLowerCase();
+                            const targetKey = headerMapping[normalizedHeader];
+                            if (targetKey) {
+                                mappedRow[targetKey] = row[key];
+                            }
+                        }
+
+                        const jsDate = mappedRow.date_arrivage;
                         if (!jsDate || !isValid(new Date(jsDate))) {
                            throw new Error(`La date est requise ou invalide.`);
                         }
 
-                        const validatedData = importSchema.partial().parse({ ...rowObject, date_arrivage: new Date(jsDate) });
+                        const validatedData = importSchema.partial().parse({ ...mappedRow, date_arrivage: new Date(jsDate) });
 
                         if (!validatedData.type_combustible || !validatedData.fournisseur || validatedData.h2o === null || validatedData.h2o === undefined) {
                             throw new Error("Les colonnes 'Type Combustible', 'Fournisseur' et '% H2O' sont obligatoires.");
@@ -470,7 +452,7 @@ export default function ResultsTable() {
                         const errorMessage = error instanceof z.ZodError 
                             ? error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ') 
                             : error instanceof Error ? error.message : "Erreur inconnue.";
-                        throw new Error(`Ligne ${rowIndex}: ${errorMessage}`);
+                        throw new Error(`Ligne ${rowNum}: ${errorMessage}`);
                     }
                 }).filter((r): r is NonNullable<typeof r> => !!r);
 
