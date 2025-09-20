@@ -333,7 +333,22 @@ export async function getAverageAnalysisForFuels(
   });
   
   for (const fuelName of fuelNames) {
-      const fuelResults = resultsByType[fuelName];
+      let fuelResults = resultsByType[fuelName];
+
+      // If no results in date range, find the most recent one
+      if (fuelResults.length === 0) {
+          const latestQuery = query(
+              collection(db, 'resultats'),
+              where('type_combustible', '==', fuelName),
+              orderBy('date_arrivage', 'desc'),
+              limit(1)
+          );
+          const latestSnapshot = await getDocs(latestQuery);
+          if (!latestSnapshot.empty) {
+              fuelResults = latestSnapshot.docs.map(d => d.data());
+          }
+      }
+
       const count = fuelResults.length;
 
       if (count === 0) {
