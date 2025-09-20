@@ -377,13 +377,9 @@ export default function ResultsTable() {
                 const workbook = XLSX.read(data, { type: 'array' });
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
-                const json = XLSX.utils.sheet_to_json<any>(worksheet, { range: 2 });
-
+                const json = XLSX.utils.sheet_to_json<any>(worksheet, { header: 2, range: `A4:K${worksheet['!ref']?.split(':')[1].replace(/\D/g, '') || 1000}` });
 
                 if (!json || json.length === 0) throw new Error("Le fichier Excel est vide ou les données ne commencent pas à la ligne 4.");
-
-                const headers:string[] = Object.keys(json[0]);
-                const dataRows = json;
                 
                 const excelDateToJSDate = (serial: number) => {
                     const utc_days = Math.floor(serial - 25569);
@@ -408,29 +404,23 @@ export default function ResultsTable() {
                     throw new Error(`Ligne ${rowNum}: Format de date non reconnu pour la valeur "${value}".`);
                 };
 
-                const parsedResults = dataRows.map((row, index) => {
-                    const rowNum = index + 4; // Data starts at A4
+                const parsedResults = json.map((row, index) => {
+                    const rowNum = index + 4;
                     
-                    const mappedRow: { [key: string]: any } = {};
-                    Object.keys(row).forEach(header => {
-                        const normalizedHeader = header.trim().toLowerCase();
-                        mappedRow[normalizedHeader] = row[header];
-                    });
-
                     try {
-                        const parsedDate = parseDate(mappedRow['date arrivage'], rowNum);
+                        const parsedDate = parseDate(row['Date Arrivage'], rowNum);
                         
                         const validatedData = importSchema.partial().parse({
                             date_arrivage: parsedDate,
-                            type_combustible: mappedRow['type combustible'],
-                            fournisseur: mappedRow['fournisseur'],
-                            tonnage: mappedRow['tonnage (t)'],
-                            pcs: mappedRow['pcs sur sec (kcal/kg)'],
-                            pci_brut: mappedRow['pci sur brut (kcal/kg)'],
-                            h2o: mappedRow['% h2o'],
-                            chlore: mappedRow['% cl-'],
-                            cendres: mappedRow['% cendres'],
-                            remarques: mappedRow['remarques'] || mappedRow['alertes'],
+                            type_combustible: row['Type Combustible'],
+                            fournisseur: row['Fournisseur'],
+                            tonnage: row['Tonnage (t)'] ?? null,
+                            pcs: row['PCS sur sec'] ?? null,
+                            pci_brut: row['PCI sur Brut'] ?? null,
+                            h2o: row['% H2O'],
+                            chlore: row['% Cl-'] ?? null,
+                            cendres: row['% Cendres'] ?? null,
+                            remarques: row['Remarques'] ?? row['Alertes'] ?? null,
                         });
                         
                         if (!validatedData.type_combustible || !validatedData.fournisseur || validatedData.h2o === undefined) {
@@ -461,7 +451,7 @@ export default function ResultsTable() {
 
                         return { 
                             ...validatedData,
-                            type_analyse: 'Arrivage', // Default to Arrivage as it's not in the file
+                            type_analyse: 'Arrivage',
                             pcs: finalPcs,
                             pci_brut: finalPci,
                             date_creation: Timestamp.now(),
@@ -473,7 +463,7 @@ export default function ResultsTable() {
                             error instanceof Error ? error.message : "Erreur inconnue.";
                         throw new Error(`Ligne ${rowNum}: ${errorMessage}`);
                     }
-                }).filter(Boolean); // Filter out any null/undefined results from errors
+                }).filter(Boolean);
 
                 await addManyResults(parsedResults as any);
                 toast({ title: "Succès", description: `${parsedResults.length} résultats ont été importés.` });
@@ -546,8 +536,8 @@ export default function ResultsTable() {
                 "Type Combustible": row.type_combustible,
                 "Fournisseur": row.fournisseur,
                 "Tonnage (t)": row.tonnage,
-                "PCS sur sec (kcal/kg)": row.pcs,
-                "PCI sur Brut (kcal/kg)": row.pci_brut,
+                "PCS sur sec": row.pcs,
+                "PCI sur Brut": row.pci_brut,
                 "% H2O": row.h2o,
                 "% Cl-": row.chlore,
                 "% Cendres": row.cendres,
@@ -777,5 +767,6 @@ export default function ResultsTable() {
       </>
   );
 }
+
 
 
