@@ -382,16 +382,15 @@ export default function ResultsTable() {
 
                 const headerMapping: { [key: string]: keyof z.infer<typeof importSchema> } = {
                     'date arrivage': 'date_arrivage',
-                    'combustible': 'type_combustible',
+                    'type combustible': 'type_combustible',
                     'fournisseur': 'fournisseur',
-                    'tonnage': 'tonnage',
+                    'tonnage (t)': 'tonnage',
                     'pcs sur sec (kcal/kg)': 'pcs',
                     'pci sur brut (kcal/kg)': 'pci_brut',
                     '% h2o': 'h2o',
                     '% cl-': 'chlore',
                     '% cendres': 'cendres',
                     'remarques': 'remarques',
-                    'taux metal': 'taux_metal',
                 };
                 
                 const parsedResults = json.map((row, rowIndex) => {
@@ -432,7 +431,7 @@ export default function ResultsTable() {
                             finalPcs = validatedData.pcs;
                             finalPci = calculerPCI(finalPcs, validatedData.h2o, hValue);
                         } else {
-                            throw new Error(`Ni "PCS" ni "PCI Brut" n'est fourni.`);
+                            throw new Error(`Ni "PCS sur sec (kcal/kg)" ni "PCI sur Brut (kcal/kg)" n'est fourni.`);
                         }
 
                         if (finalPci === null || finalPcs === null) {
@@ -763,4 +762,3 @@ export default function ResultsTable() {
       </>
   );
 }
-
