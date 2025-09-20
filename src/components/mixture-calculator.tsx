@@ -403,7 +403,8 @@ export function MixtureCalculator() {
 
     } catch (error) {
         console.error("Error fetching fuel data:", error);
-        toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données des combustibles." });
+        const errorMessage = error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
+        toast({ variant: "destructive", title: "Erreur", description: `Impossible de charger les données des combustibles: ${errorMessage}` });
     } finally {
         setLoading(false);
     }
