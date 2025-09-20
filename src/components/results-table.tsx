@@ -367,14 +367,24 @@ export default function ResultsTable() {
             try {
                 const data = new Uint8Array(e.target?.result as ArrayBuffer);
                 const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-
-                const sheetName = workbook.SheetNames[0];
+                
+                const sheetName = "Suivi arrivages des AFs";
                 const worksheet = workbook.Sheets[sheetName];
                 if (!worksheet) {
-                    throw new Error("Impossible de trouver une feuille de calcul dans le fichier.");
+                    throw new Error(`Impossible de trouver la feuille de calcul nommée "${sheetName}".`);
                 }
 
-                const json = XLSX.utils.sheet_to_json<any>(worksheet);
+                // Read headers from line 4 (index 3)
+                const headerRange = XLSX.utils.decode_range(worksheet['!ref']!);
+                headerRange.s.r = 3; // Start from row 4
+                headerRange.e.r = 3; // End at row 4
+                const headerAoA = XLSX.utils.sheet_to_json(worksheet, { header: 1, range: XLSX.utils.encode_range(headerRange) });
+                const headers = headerAoA[0] as string[];
+                
+                // Read data from line 5 onwards
+                const dataRange = XLSX.utils.decode_range(worksheet['!ref']!);
+                dataRange.s.r = 4; // Start from row 5
+                const json = XLSX.utils.sheet_to_json<any>(worksheet, { header: headers, range: dataRange.s.r, blankrows: false });
                 
                 if (json.length === 0) {
                     throw new Error("Le fichier est vide ou mal formaté.");
@@ -394,7 +404,7 @@ export default function ResultsTable() {
                 };
                 
                 const parsedResults = json.map((row, rowIndex) => {
-                    const rowNum = rowIndex + 2;
+                    const rowNum = rowIndex + 5; // Data starts at line 5
                     try {
                         const mappedRow: { [key: string]: any } = {};
                         for (const key in row) {
@@ -431,7 +441,7 @@ export default function ResultsTable() {
                             finalPcs = validatedData.pcs;
                             finalPci = calculerPCI(finalPcs, validatedData.h2o, hValue);
                         } else {
-                            throw new Error(`Ni "PCS sur sec (kcal/kg)" ni "PCI sur Brut (kcal/kg)" n'est fourni.`);
+                            throw new Error(`Ni "PCS" ni "PCI sur Brut" n'est fourni.`);
                         }
 
                         if (finalPci === null || finalPcs === null) {
@@ -515,7 +525,7 @@ export default function ResultsTable() {
         if (result.cendres != null && spec.Cendres_max != null && result.cendres > spec.Cendres_max) alerts.push("Cendres élevées");
 
         if (alerts.length === 0) return { text: "Conforme", isConform: true };
-        return { text: alerts.join(" / "), isConform: false };
+        return { text: alerts.join(", "), isConform: false };
     };
 
     if (type === 'excel') {
@@ -598,7 +608,7 @@ export default function ResultsTable() {
     if (result.cendres != null && spec.Cendres_max != null && result.cendres > spec.Cendres_max) { alerts.push("Cendres élevées"); alertDetails.cendres = true; }
 
     if (alerts.length === 0) return { text: "Conforme", isConform: true, details: alertDetails };
-    return { text: alerts.join(" / "), isConform: false, details: alertDetails };
+    return { text: alerts.join(", "), isConform: false, details: alertDetails };
   };
 
   const headers = [
