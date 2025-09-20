@@ -747,5 +747,3 @@ export default function ResultsTable() {
       </>
   );
 }
-
-    
