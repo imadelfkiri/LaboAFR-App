@@ -310,45 +310,57 @@ export async function getAverageAnalysisForFuels(
   const start = Timestamp.fromDate(startOfDay(dateRange.from));
   const end = Timestamp.fromDate(endOfDay(dateRange.to));
 
-  const constraints = [
+  // Firestore 'in' query has a limit of 30 items. We need to chunk the query.
+  const CHUNK_SIZE = 30;
+  const fuelNameChunks: string[][] = [];
+  for (let i = 0; i < fuelNames.length; i += CHUNK_SIZE) {
+    fuelNameChunks.push(fuelNames.slice(i, i + CHUNK_SIZE));
+  }
+  
+  const allResults: any[] = [];
+  for (const chunk of fuelNameChunks) {
+    const q = query(
+      collection(db, 'resultats'),
       where('date_arrivage', '>=', start),
       where('date_arrivage', '<=', end),
-      where('type_combustible', 'in', fuelNames)
-  ];
-  
-  const q = query(collection(db, 'resultats'), ...constraints);
+      where('type_combustible', 'in', chunk)
+    );
+    const snapshot = await getDocs(q);
+    snapshot.forEach(doc => {
+      allResults.push(doc.data());
+    });
+  }
 
-  const snapshot = await getDocs(q);
   const resultsByType: Record<string, any[]> = {};
-  
   fuelNames.forEach(name => {
-      resultsByType[name] = [];
+    resultsByType[name] = [];
   });
 
-  snapshot.forEach(doc => {
-      const data = doc.data();
-      if(resultsByType[data.type_combustible]) {
-        resultsByType[data.type_combustible].push(data);
-      }
+  allResults.forEach(data => {
+    if (resultsByType[data.type_combustible]) {
+      resultsByType[data.type_combustible].push(data);
+    }
   });
+
+  const fuelsWithoutAnalysis = fuelNames.filter(name => resultsByType[name].length === 0);
+
+  if (fuelsWithoutAnalysis.length > 0) {
+    await Promise.all(fuelsWithoutAnalysis.map(async (fuelName) => {
+        const latestQuery = query(
+            collection(db, 'resultats'),
+            where('type_combustible', '==', fuelName),
+            orderBy('date_arrivage', 'desc'),
+            limit(1)
+        );
+        const latestSnapshot = await getDocs(latestQuery);
+        if (!latestSnapshot.empty) {
+            resultsByType[fuelName] = latestSnapshot.docs.map(d => d.data());
+        }
+    }));
+  }
   
   for (const fuelName of fuelNames) {
       let fuelResults = resultsByType[fuelName];
-
-      // If no results in date range, find the most recent one
-      if (fuelResults.length === 0) {
-          const latestQuery = query(
-              collection(db, 'resultats'),
-              where('type_combustible', '==', fuelName),
-              orderBy('date_arrivage', 'desc'),
-              limit(1)
-          );
-          const latestSnapshot = await getDocs(latestQuery);
-          if (!latestSnapshot.empty) {
-              fuelResults = latestSnapshot.docs.map(d => d.data());
-          }
-      }
-
       const count = fuelResults.length;
 
       if (count === 0) {
