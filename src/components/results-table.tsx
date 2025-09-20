@@ -52,8 +52,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
 import * as z from "zod";
 import { Skeleton } from "./ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card"
@@ -368,34 +366,59 @@ export default function ResultsTable() {
         reader.onload = async (e) => {
             try {
                 const data = new Uint8Array(e.target?.result as ArrayBuffer);
-                const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                const workbook = XLSX.read(data, { type: 'array' });
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
-                const json = XLSX.utils.sheet_to_json<any>(worksheet, { header: 3 });
-
-                if (!json || json.length === 0) throw new Error("Le fichier Excel est vide ou les en-têtes ne sont pas à la ligne 4.");
                 
-                const parsedResults = json.map((row, index) => {
-                    const rowNum = index + 5; // Headers on line 4, data starts on 5
+                // Read headers from line 4 (index 3)
+                const header = XLSX.utils.sheet_to_json<any>(worksheet, { header: 1, range: 3 })[0];
+                const headerMap = header.reduce((acc: any, h: string, i: number) => {
+                  if(h) acc[h.trim()] = i;
+                  return acc;
+                }, {});
+
+
+                // Read data from line 5 onwards
+                const jsonData = XLSX.utils.sheet_to_json<any>(worksheet, { header: 1, range: 4 });
+
+                if (!jsonData || jsonData.length === 0) throw new Error("Aucune donnée trouvée à partir de la ligne 5.");
+
+                const parseDate = (dateValue: any) => {
+                  if (typeof dateValue === 'number') {
+                    // It's an Excel serial date
+                    return XLSX.SSF.parse_date_code(dateValue);
+                  }
+                  if (typeof dateValue === 'string') {
+                    const parsed = parse(dateValue, 'dd/MM/yyyy', new Date());
+                    if(isValid(parsed)) return { y: parsed.getFullYear(), m: parsed.getMonth() + 1, d: parsed.getDate()};
+                  }
+                  return null; // Invalid date
+                }
+                
+                const parsedResults = jsonData.map((row: any[], index) => {
+                    const rowNum = index + 5;
                     
                     try {
-                        const dateArrivage = row['Date Arrivage'];
-                        if (!dateArrivage || !isValid(new Date(dateArrivage))) {
-                           throw new Error(`Ligne ${rowNum}: La date est requise ou invalide.`);
+                        const dateCell = row[headerMap['Date Arrivage']];
+                        const dateObj = parseDate(dateCell);
+
+                        if (!dateObj) {
+                           throw new Error(`La date est requise ou invalide.`);
                         }
+                        const jsDate = new Date(dateObj.y, dateObj.m - 1, dateObj.d);
                         
                         const validatedData = importSchema.partial().parse({
-                            date_arrivage: new Date(dateArrivage),
-                            type_combustible: row['Type Combustible'],
-                            fournisseur: row['Fournisseur'],
-                            tonnage: row['Tonnage (t)'] ?? null,
-                            pcs: row['PCS sur sec'] ?? null,
-                            pci_brut: row['PCI sur Brut'] ?? null,
-                            h2o: row['% H2O'],
-                            chlore: row['% Cl-'] ?? null,
-                            cendres: row['% Cendres'] ?? null,
-                            remarques: row['Remarques'] ?? row['Alertes'] ?? null,
-                            taux_metal: row['% Taux metal'] ?? null,
+                            date_arrivage: jsDate,
+                            type_combustible: row[headerMap['Type Combustible']],
+                            fournisseur: row[headerMap['Fournisseur']],
+                            tonnage: row[headerMap['Tonnage (t)']] ?? null,
+                            pcs: row[headerMap['PCS sur sec']] ?? null,
+                            pci_brut: row[headerMap['PCI sur Brut']] ?? null,
+                            h2o: row[headerMap['% H2O']],
+                            chlore: row[headerMap['% Cl-']] ?? null,
+                            cendres: row[headerMap['% Cendres']] ?? null,
+                            remarques: row[headerMap['Remarques']] ?? row[headerMap['Alertes']] ?? null,
+                            taux_metal: row[headerMap['% Taux metal']] ?? null,
                         });
                         
                         if (!validatedData.type_combustible || !validatedData.fournisseur || validatedData.h2o === undefined) {
