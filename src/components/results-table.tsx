@@ -550,16 +550,16 @@ export default function ResultsTable() {
     } else {
         const doc = new jsPDF({ orientation: 'landscape' });
         doc.text("Rapport des Résultats d'Analyses", 14, 15);
-        const head = [["Date", "Analyse", "Combustible", "Fournisseur", "PCS", "PCI Brut", "H2O", "Cl-", "Cendres", "Alertes", "Remarques"]];
+        const head = [["Date", "Combustible", "Fournisseur", "PCS", "PCI Brut", "H2O", "Cl-", "Cendres", "Alertes", "Remarques"]];
         const body = dataToExport.map(row => {
           const date = normalizeDate(row.date_arrivage);
           return [
-            date ? format(date, "dd/MM/yy") : "Invalide", row.type_analyse || 'Arrivage', row.type_combustible, row.fournisseur,
+            date ? format(date, "dd/MM/yy") : "Invalide", row.type_combustible, row.fournisseur,
             formatNumber(row.pcs, 0), formatNumber(row.pci_brut, 0), formatNumber(row.h2o, 1), formatNumber(row.chlore, 2), formatNumber(row.cendres, 1),
             generateAlerts(row).text, row.remarques || "-",
         ]});
 
-        doc.autoTable({ head, body, startY: 20, theme: 'grid', styles: { fontSize: 7, cellPadding: 1.5 }, headStyles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: 'bold' }});
+        doc.autoTable({ head, body, startY: 20, theme: 'grid', styles: { fontSize: 8, cellPadding: 1.5 }, headStyles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: 'bold' }});
         doc.save(`Rapport_Resultats_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
     }
   };
@@ -602,6 +602,19 @@ export default function ResultsTable() {
     if (alerts.length === 0) return { text: "Conforme", isConform: true, details: alertDetails };
     return { text: alerts.join(" / "), isConform: false, details: alertDetails };
   };
+
+  const headers = [
+    { label: "Date Arrivage", key: "date_arrivage" },
+    { label: "Type Combustible", key: "type_combustible" },
+    { label: "Fournisseur", key: "fournisseur" },
+    { label: "PCS sur sec", key: "pcs" },
+    { label: "PCI sur Brut", key: "pci" },
+    { label: "% H2O", key: "h2o" },
+    { label: "% Cl-", key: "chlore" },
+    { label: "% Cendres", key: "cendres" },
+    { label: "Alertes", key: "id" },
+    { label: "Remarques", key: "remarques" },
+  ];
 
   if (loading) {
     return ( <div className="space-y-2 p-4 lg:p-6"><Skeleton className="h-10 w-full" /><Skeleton className="h-96 w-full" /></div> );
@@ -669,12 +682,10 @@ export default function ResultsTable() {
                   <table className="w-full text-[13px] border-separate border-spacing-0">
                     <thead className="text-primary-foreground">
                       <tr>
-                        {(['Date', 'Analyse', 'Combustible', 'Fournisseur', 'PCI Brut', 'H2O', 'Cl-', 'Cendres', 'Alertes', 'Remarques'] as const).map(label => {
-                          const keyMap: Record<string, SortableKeys> = { 'Date': 'date_arrivage', 'Analyse': 'type_analyse', 'Combustible': 'type_combustible', 'Fournisseur': 'fournisseur', 'PCI Brut': 'pci', 'H2O': 'h2o', 'Cl-': 'chlore', 'Cendres': 'cendres', 'Alertes': 'id', 'Remarques': 'remarques' };
-                          const sortKey = keyMap[label];
-                          const isSorted = sortConfig?.key === sortKey;
+                        {headers.map(({ label, key }) => {
+                          const isSorted = sortConfig?.key === key;
                           return (
-                            <th key={label} onClick={() => requestSort(sortKey)} className="sticky top-0 z-20 bg-primary text-primary-foreground p-2 text-left font-semibold border-b cursor-pointer hover:bg-primary/90">
+                            <th key={label} onClick={() => requestSort(key as SortableKeys)} className="sticky top-0 z-20 bg-primary text-primary-foreground p-2 text-left font-semibold border-b cursor-pointer hover:bg-primary/90">
                               <div className="flex items-center gap-2"><span>{label}</span>{isSorted && (<ArrowUpDown className="h-4 w-4" />)}</div>
                             </th>
                           );
@@ -688,9 +699,9 @@ export default function ResultsTable() {
                         return (
                           <tr key={r.id ?? i} className="border-b last:border-0 even:bg-muted/30 hover:bg-muted/50 transition-colors">
                             <td className="p-2 text-muted-foreground whitespace-nowrap">{normalizeDate(r.date_arrivage) ? format(normalizeDate(r.date_arrivage)!, 'dd/MM/yyyy') : 'Date invalide'}</td>
-                            <td className="p-2">{r.type_analyse || 'Arrivage'}</td>
                             <td className="p-2 font-medium">{r.type_combustible}</td>
                             <td className="p-2">{r.fournisseur}</td>
+                            <td className={`p-2 text-right tabular-nums`}>{formatNumber(r.pcs, 0)}</td>
                             <td className={`p-2 text-right font-semibold tabular-nums ${alerte.details.pci ? "text-red-600" : ""}`}>{formatNumber(r.pci_brut, 0)}</td>
                             <td className={`p-2 text-right tabular-nums ${alerte.details.h2o ? "text-red-600" : ""}`}>{formatNumber(r.h2o, 1)}</td>
                             <td className={`p-2 text-right tabular-nums ${alerte.details.chlore ? "text-red-600" : ""}`}>{formatNumber(r.chlore, 2)}</td>
@@ -756,3 +767,4 @@ export default function ResultsTable() {
       </>
   );
 }
+
