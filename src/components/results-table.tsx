@@ -357,7 +357,7 @@ export default function ResultsTable() {
         toast({ variant: "destructive", title: "Erreur de mise à jour", description: errorMessage });
     }
   };
-    
+
   const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -367,46 +367,41 @@ export default function ResultsTable() {
         try {
             const data = new Uint8Array(e.target?.result as ArrayBuffer);
             const workbook = XLSX.read(data, { type: 'array' });
-            
+
             const sheetName = "Suivi arrivages des AFs";
             const worksheet = workbook.Sheets[sheetName];
             if (!worksheet) {
                 throw new Error(`La feuille de calcul nommée "${sheetName}" est introuvable dans le fichier.`);
             }
-            
+
             const json = XLSX.utils.sheet_to_json<any>(worksheet, {
                 header: 3, // Headers are on line 4 (0-indexed)
-                defval: null, // Use null for empty cells
+                defval: null,
             });
+
+            if (!json || json.length === 0) {
+                throw new Error("Aucune donnée trouvée à partir de la ligne 5.");
+            }
             
-            if (!json || json.length === 0) throw new Error("Aucune donnée trouvée à partir de la ligne 5.");
-
             const parsedResults = json.map((row, index) => {
-                const rowNum = index + 5;
+                const rowNum = index + 5; // Data starts from line 5
                 try {
-                    // Manually parse date from serial number if it's a number
-                    let jsDate: Date;
                     const dateValue = row['Date Arrivage'];
-                    if (typeof dateValue === 'number') {
-                         // Excel's epoch starts on 1900-01-01, but has a bug treating 1900 as a leap year.
-                         // The formula (dateValue - 25569) * 86400 * 1000 accounts for this and converts to JS timestamp.
-                        jsDate = new Date((dateValue - 25569) * 86400 * 1000);
-                    } else if (typeof dateValue === 'string') {
-                        // Attempt to parse string dates
-                        const parsed = parse(dateValue, 'dd/MM/yyyy', new Date());
-                        if (isValid(parsed)) {
-                            jsDate = parsed;
-                        } else {
-                           throw new Error(`Format de date texte non reconnu: "${dateValue}". Utilisez jj/mm/aaaa.`);
-                        }
-                    } else {
-                         throw new Error("La date est requise ou invalide.");
+                    if (dateValue === null || dateValue === undefined) {
+                        throw new Error("La date est requise ou invalide.");
                     }
 
-                    if (!isValid(jsDate)) {
-                        throw new Error(`La date est requise ou invalide.`);
-                    }
+                    // Use cellDates:true approach by re-reading with the option just for the date column logic
+                    const dateWorkbook = XLSX.read(data, { type: 'array', cellDates: true });
+                    const dateWorksheet = dateWorkbook.Sheets[sheetName];
+                    const jsonDataWithDates = XLSX.utils.sheet_to_json<any>(dateWorksheet, { header: 3 });
+                    const dateRow = jsonDataWithDates[index];
+                    const jsDate = dateRow ? dateRow['Date Arrivage'] : null;
                     
+                    if (!jsDate || !isValid(jsDate)) {
+                       throw new Error(`La date est requise ou invalide.`);
+                    }
+
                     const validatedData = importSchema.partial().parse({
                         date_arrivage: jsDate,
                         type_combustible: row['Type Combustible'] ?? null,
@@ -420,18 +415,18 @@ export default function ResultsTable() {
                         remarques: row['Remarques'] ?? row['Alertes'] ?? null,
                         taux_metal: row['% Taux metal'] ?? null,
                     });
-                    
+
                     if (!validatedData.type_combustible || !validatedData.fournisseur || validatedData.h2o === null || validatedData.h2o === undefined) {
-                        throw new Error("Les colonnes 'Type Combustible', 'Fournisseur' et '% H2O' sont obligatoires.")
+                        throw new Error("Les colonnes 'Type Combustible', 'Fournisseur' et '% H2O' sont obligatoires.");
+                    }
+
+                    const hValue = fuelDataMap.get(validatedData.type_combustible)?.teneur_hydrogene;
+                    if (hValue === undefined || hValue === null) {
+                        throw new Error(`Teneur en hydrogène non définie pour "${validatedData.type_combustible}".`);
                     }
 
                     let finalPci: number | null = null;
                     let finalPcs: number | null = null;
-                    const hValue = fuelDataMap.get(validatedData.type_combustible)?.teneur_hydrogene;
-
-                    if (hValue === undefined || hValue === null) {
-                        throw new Error(`Teneur en hydrogène non définie pour "${validatedData.type_combustible}". Impossible de calculer PCS/PCI.`);
-                    }
 
                     if (validatedData.pci_brut !== null && validatedData.pci_brut !== undefined) {
                         finalPci = validatedData.pci_brut;
@@ -442,41 +437,43 @@ export default function ResultsTable() {
                     } else {
                         throw new Error(`Ni "PCS" ni "PCI Brut" n'est fourni.`);
                     }
-                    
+
                     if (finalPci === null || finalPcs === null) {
                         throw new Error(`Calcul de PCI/PCS impossible. Vérifiez les valeurs.`);
                     }
-
-                    return { 
+                    
+                    return {
                         ...validatedData,
                         type_analyse: 'Arrivage',
                         pcs: finalPcs,
                         pci_brut: finalPci,
                         date_creation: Timestamp.now(),
-                        date_arrivage: Timestamp.fromDate(validatedData.date_arrivage as Date)
+                        date_arrivage: Timestamp.fromDate(jsDate as Date)
                     };
+
                 } catch (error) {
-                     const errorMessage = error instanceof z.ZodError ? 
-                        error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ') :
-                        error instanceof Error ? error.message : "Erreur inconnue.";
+                    const errorMessage = error instanceof z.ZodError 
+                        ? error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ') 
+                        : error instanceof Error ? error.message : "Erreur inconnue.";
                     throw new Error(`Ligne ${rowNum}: ${errorMessage}`);
                 }
-            }).filter((r): r is NonNullable<typeof r> => r !== null && r !== undefined);
+            }).filter((r): r is NonNullable<typeof r> => !!r);
 
             await addManyResults(parsedResults as any);
             toast({ title: "Succès", description: `${parsedResults.length} résultats ont été importés.` });
+
         } catch (error) {
             console.error("Error importing file:", error);
             const errorMessage = error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
             toast({ variant: "destructive", title: "Erreur d'importation", description: errorMessage, duration: 9000 });
         } finally {
-             if(fileInputRef.current) fileInputRef.current.value = "";
+            if (fileInputRef.current) fileInputRef.current.value = "";
         }
     };
     reader.readAsArrayBuffer(file);
-  };
-
-    const averages = useMemo(() => {
+};
+    
+  const averages = useMemo(() => {
         const group = (items: Result[]) => {
             if (items.length === 0) return { count: 0, pci: '-', h2o: '-', cl: '-', cendres: '-' };
 
