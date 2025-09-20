@@ -368,25 +368,16 @@ export default function ResultsTable() {
         reader.onload = async (e) => {
             try {
                 const data = new Uint8Array(e.target?.result as ArrayBuffer);
-                const workbook = XLSX.read(data, { type: 'array' });
+                const workbook = XLSX.read(data, { type: 'array', cellDates: true });
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
                 const json = XLSX.utils.sheet_to_json<any>(worksheet, { header: 3 });
 
-                if (!json || json.length === 0) throw new Error("Le fichier Excel est vide ou les données ne commencent pas à la ligne 5.");
+                if (!json || json.length === 0) throw new Error("Le fichier Excel est vide ou les données ne commencent pas à la ligne 4.");
                 
-                const excelDateToJSDate = (serial: number) => {
-                    const utc_days = Math.floor(serial - 25569);
-                    const utc_value = utc_days * 86400;
-                    const date_info = new Date(utc_value * 1000);
-                    return new Date(date_info.getFullYear(), date_info.getMonth(), date_info.getDate(), date_info.getHours(), date_info.getMinutes(), date_info.getSeconds());
-                };
-
                 const parseDate = (value: any, rowNum: number): Date => {
-                    if (value === null || value === undefined) throw new Error(`Ligne ${rowNum}: La date est requise.`);
-                    if (typeof value === 'number') {
-                        const date = excelDateToJSDate(value);
-                        if (isValid(date)) return date;
+                    if (value instanceof Date && isValid(value)) {
+                        return value;
                     }
                     if (typeof value === 'string') {
                         const formats = ['dd/MM/yyyy', 'd/M/yyyy', 'yyyy-MM-dd', 'MM/dd/yyyy', 'dd/MM/yy'];
@@ -395,13 +386,23 @@ export default function ResultsTable() {
                             if (isValid(date)) return date;
                         }
                     }
+                     if (typeof value === 'number') { // Handle Excel date serial numbers
+                        const excelEpoch = new Date(1899, 11, 30);
+                        const excelDate = new Date(excelEpoch.getTime() + value * 86400000);
+                        if (isValid(excelDate)) {
+                            return excelDate;
+                        }
+                    }
                     throw new Error(`Ligne ${rowNum}: Format de date non reconnu pour la valeur "${value}".`);
                 };
 
                 const parsedResults = json.map((row, index) => {
-                    const rowNum = index + 5;
+                    const rowNum = index + 4; // Data starts at line 4
                     
                     try {
+                        if (!row['Date Arrivage']) {
+                             throw new Error(`Ligne ${rowNum}: La date est requise.`);
+                        }
                         const parsedDate = parseDate(row['Date Arrivage'], rowNum);
                         
                         const validatedData = importSchema.partial().parse({
@@ -415,6 +416,7 @@ export default function ResultsTable() {
                             chlore: row['% Cl-'] ?? null,
                             cendres: row['% Cendres'] ?? null,
                             remarques: row['Remarques'] ?? row['Alertes'] ?? null,
+                            taux_metal: row['% Taux metal'] ?? null,
                         });
                         
                         if (!validatedData.type_combustible || !validatedData.fournisseur || validatedData.h2o === undefined) {
@@ -446,6 +448,11 @@ export default function ResultsTable() {
                         return { 
                             ...validatedData,
                             type_analyse: 'Arrivage',
+                            tonnage: validatedData.tonnage ?? null,
+                            chlore: validatedData.chlore ?? null,
+                            cendres: validatedData.cendres ?? null,
+                            remarques: validatedData.remarques ?? null,
+                            taux_metal: validatedData.taux_metal ?? null,
                             pcs: finalPcs,
                             pci_brut: finalPci,
                             date_creation: Timestamp.now(),
@@ -761,6 +768,7 @@ export default function ResultsTable() {
       </>
   );
 }
+
 
 
 
