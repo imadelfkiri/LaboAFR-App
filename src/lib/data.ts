@@ -1,4 +1,3 @@
-
 // src/lib/data.ts
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, arrayUnion, orderBy, Timestamp, setDoc,getCountFromServer, limit } from 'firebase/firestore';
 import { db } from './firebase';
@@ -321,6 +320,7 @@ export async function getAverageAnalysisForFuels(
 
   const snapshot = await getDocs(q);
   const resultsByType: Record<string, any[]> = {};
+  
   fuelNames.forEach(name => {
       resultsByType[name] = [];
   });
@@ -352,7 +352,7 @@ export async function getAverageAnalysisForFuels(
       const count = fuelResults.length;
 
       if (count === 0) {
-          analyses[fuelName] = { pci_brut: 0, h2o: 0, chlore: 0, cendres: 0, count: 0 };
+          analyses[fuelName] = { pci_brut: 0, h2o: 0, chlore: 0, cendres: 0, count: 0, taux_metal: 0 };
           continue;
       }
       
