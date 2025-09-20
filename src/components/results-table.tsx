@@ -123,7 +123,7 @@ const editSchema = z.object({
 });
 
 const importSchema = z.object({
-  date_arrivage: z.date({ required_error: "Date requise." }),
+  date_arrivage: z.date({ required_error: "Date requise ou invalide." }),
   type_analyse: z.string().optional().nullable(),
   type_combustible: z.string().nonempty({message: "Le type de combustible est requis."}),
   fournisseur: z.string().nonempty({message: "Le fournisseur est requis."}),
@@ -366,7 +366,7 @@ export default function ResultsTable() {
     reader.onload = async (e) => {
         try {
             const data = new Uint8Array(e.target?.result as ArrayBuffer);
-            const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+            const workbook = XLSX.read(data, { type: 'array' });
             
             const sheetName = "Suivi arrivages des AFs";
             const worksheet = workbook.Sheets[sheetName];
@@ -376,17 +376,34 @@ export default function ResultsTable() {
             
             const json = XLSX.utils.sheet_to_json<any>(worksheet, {
                 header: 3, // Headers are on line 4 (0-indexed)
-                defval: null,
+                defval: null, // Use null for empty cells
             });
             
             if (!json || json.length === 0) throw new Error("Aucune donnée trouvée à partir de la ligne 5.");
 
             const parsedResults = json.map((row, index) => {
-                const rowNum = index + 5; 
-                
+                const rowNum = index + 5;
                 try {
-                    const jsDate = row['Date Arrivage'];
-                    if (!jsDate || !isValid(jsDate)) {
+                    // Manually parse date from serial number if it's a number
+                    let jsDate: Date;
+                    const dateValue = row['Date Arrivage'];
+                    if (typeof dateValue === 'number') {
+                         // Excel's epoch starts on 1900-01-01, but has a bug treating 1900 as a leap year.
+                         // The formula (dateValue - 25569) * 86400 * 1000 accounts for this and converts to JS timestamp.
+                        jsDate = new Date((dateValue - 25569) * 86400 * 1000);
+                    } else if (typeof dateValue === 'string') {
+                        // Attempt to parse string dates
+                        const parsed = parse(dateValue, 'dd/MM/yyyy', new Date());
+                        if (isValid(parsed)) {
+                            jsDate = parsed;
+                        } else {
+                           throw new Error(`Format de date texte non reconnu: "${dateValue}". Utilisez jj/mm/aaaa.`);
+                        }
+                    } else {
+                         throw new Error("La date est requise ou invalide.");
+                    }
+
+                    if (!isValid(jsDate)) {
                         throw new Error(`La date est requise ou invalide.`);
                     }
                     
