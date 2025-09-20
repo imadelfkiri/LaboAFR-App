@@ -205,6 +205,7 @@ export function PciCalculator() {
 
   const watchedPcs = watch("pcs");
   const watchedH2o = watch("h2o");
+  const watchedTauxMetal = watch("taux_metal");
   
   const watchedFournisseur = watch("fournisseur");
   const watchedChlore = watch("chlore");
@@ -213,12 +214,16 @@ export function PciCalculator() {
   useEffect(() => {
     if (watchedPcs !== undefined && watchedH2o !== undefined && hValue !== null) {
       let pcsToUse = Number(watchedPcs);
+      const metalRate = Number(watchedTauxMetal);
+      if (!isNaN(metalRate) && metalRate > 0) {
+        pcsToUse = pcsToUse * (1 - metalRate / 100);
+      }
       const result = calculerPCI(pcsToUse, Number(watchedH2o), hValue);
       setPciResult(result);
     } else {
       setPciResult(null);
     }
-  }, [watchedPcs, watchedH2o, hValue]);
+  }, [watchedPcs, watchedH2o, watchedTauxMetal, hValue]);
 
   useEffect(() => {
     if (watchedTypeCombustible) {
@@ -338,6 +343,10 @@ export function PciCalculator() {
       }
       
       let pcsToUse = values.pcs;
+      const metalRate = values.taux_metal;
+      if (metalRate !== null && metalRate !== undefined && metalRate > 0) {
+        pcsToUse = pcsToUse * (1 - metalRate / 100);
+      }
       const pci_brut = calculerPCI(pcsToUse, values.h2o, hValue);
 
       if (pci_brut === null) {

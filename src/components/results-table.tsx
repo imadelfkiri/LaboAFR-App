@@ -346,6 +346,10 @@ export default function ResultsTable() {
         }
         
         let pcsToUse = values.pcs;
+        const metalRate = values.taux_metal;
+        if (metalRate !== null && metalRate !== undefined && metalRate > 0) {
+            pcsToUse = pcsToUse * (1 - metalRate / 100);
+        }
         const pci_brut = calculerPCI(pcsToUse, values.h2o, hValue);
 
         const dataToUpdate: {[key: string]: any} = {
@@ -353,11 +357,9 @@ export default function ResultsTable() {
             pci_brut,
         };
 
-        // Convert NaN values from empty optional number fields to null
+        // Convert empty optional number fields to null instead of NaN
         for (const key in dataToUpdate) {
-            if (typeof dataToUpdate[key] === 'number' && isNaN(dataToUpdate[key])) {
-                dataToUpdate[key] = null;
-            } else if (dataToUpdate[key] === undefined) {
+            if (key !== 'remarques' && (dataToUpdate[key] === undefined || isNaN(dataToUpdate[key]))) {
                  dataToUpdate[key] = null;
             }
         }
@@ -394,7 +396,7 @@ export default function ResultsTable() {
                 if (json.length < 2) {
                      throw new Error("Le fichier Excel est vide ou n'a pas d'en-tête.");
                 }
-                const headers: string[] = json[0];
+                const headers: string[] = json[0].map(h => String(h));
                 const rows = json.slice(1);
                 
                 const headerMapping: { [key: string]: string } = {
