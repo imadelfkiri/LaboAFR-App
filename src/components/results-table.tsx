@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
@@ -38,7 +39,7 @@ import {
   Edit,
 } from "lucide-react";
 import { getSpecifications, SPEC_MAP, deleteAllResults, getFuelData, type FuelData, addManyResults, updateResult } from "@/lib/data";
-import { calculerPCI } from "@/lib/pci";
+import { calculerPCI, calculerPCS } from "@/lib/pci";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -409,7 +410,7 @@ export default function ResultsTable() {
                     'combustible': 'type_combustible', 'type combustible': 'type_combustible', 'type_combustible': 'type_combustible',
                     'fournisseur': 'fournisseur',
                     'tonnage (t)': 'tonnage', 'tonnage': 'tonnage',
-                    'pcs': 'pcs', 'pcs (kcal/kg)': 'pcs',
+                    'pcs': 'pcs', 'pcs (kcal/kg)': 'pcs', 'pcs sur sec': 'pcs',
                     'pci': 'pci_brut', 'pci brut': 'pci_brut', 'pci sur brut': 'pci_brut', 'pci sur brut (kcal/kg)': 'pci_brut', 'pci_brut': 'pci_brut',
                     'h2o': 'h2o', '% h2o': 'h2o',
                     'cl-': 'chlore', 'chlore': 'chlore', '% cl-': 'chlore',
@@ -439,31 +440,36 @@ export default function ResultsTable() {
                         
                         const validatedData = importSchema.partial().parse({ ...mappedRow, date_arrivage: parsedDate });
                         
-                        let finalPci: number | null = null;
-                        if (validatedData.pci_brut !== undefined && validatedData.pci_brut !== null) {
-                            finalPci = validatedData.pci_brut;
-                        } else if (validatedData.pcs && validatedData.type_combustible && validatedData.h2o !== undefined) {
-                            const hValue = fuelDataMap.get(validatedData.type_combustible)?.teneur_hydrogene;
-                            if (hValue === null || hValue === undefined) {
-                                console.warn(`Teneur en hydrogène non définie pour "${validatedData.type_combustible}" (ligne ${rowNum}). Le PCI ne peut être calculé.`);
-                            } else {
-                                let pcsToUse = validatedData.pcs;
-                                if (validatedData.taux_metal) {
-                                    const taux = Number(validatedData.taux_metal);
-                                    if (taux > 0 && taux < 100) pcsToUse = pcsToUse * (1 - taux / 100);
-                                }
-                                finalPci = calculerPCI(pcsToUse, validatedData.h2o, hValue);
-                            }
-                        }
-
                         if (!validatedData.type_combustible || !validatedData.fournisseur || validatedData.h2o === undefined) {
                             throw new Error("Les colonnes 'type_combustible', 'fournisseur' et 'h2o' sont obligatoires.")
+                        }
+
+                        let finalPci: number | null = null;
+                        let finalPcs: number | null = null;
+                        const hValue = fuelDataMap.get(validatedData.type_combustible)?.teneur_hydrogene;
+
+                        if (hValue === undefined || hValue === null) {
+                            throw new Error(`Teneur en hydrogène non définie pour "${validatedData.type_combustible}". Impossible de calculer PCS/PCI.`);
+                        }
+
+                        if (validatedData.pci_brut !== undefined && validatedData.pci_brut !== null) {
+                            finalPci = validatedData.pci_brut;
+                            finalPcs = calculerPCS(finalPci, validatedData.h2o, hValue);
+                        } else if (validatedData.pcs !== undefined && validatedData.pcs !== null) {
+                            finalPcs = validatedData.pcs;
+                            finalPci = calculerPCI(finalPcs, validatedData.h2o, hValue);
+                        } else {
+                            throw new Error(`Ni "PCS" ni "PCI Brut" n'est fourni pour la ligne ${rowNum}.`);
+                        }
+                        
+                        if (finalPci === null || finalPcs === null) {
+                            throw new Error(`Calcul de PCI/PCS impossible pour la ligne ${rowNum}. Vérifiez les valeurs.`);
                         }
 
                         return { 
                             ...validatedData,
                             type_analyse: validatedData.type_analyse || 'Arrivage',
-                            pcs: validatedData.pcs ?? null,
+                            pcs: finalPcs,
                             pci_brut: finalPci,
                             date_creation: Timestamp.now(),
                             date_arrivage: Timestamp.fromDate(validatedData.date_arrivage as Date)
@@ -547,7 +553,7 @@ export default function ResultsTable() {
                 "Type Combustible": row.type_combustible,
                 "Fournisseur": row.fournisseur,
                 "Tonnage (t)": row.tonnage,
-                "PCS (kcal/kg)": row.pcs,
+                "PCS sur sec (kcal/kg)": row.pcs,
                 "PCI sur Brut (kcal/kg)": row.pci_brut,
                 "% H2O": row.h2o,
                 "% Cl-": row.chlore,
@@ -784,4 +790,3 @@ export default function ResultsTable() {
       </>
   );
 }
-

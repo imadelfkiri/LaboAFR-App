@@ -19,3 +19,20 @@ export function calculerPCI(pcs: number, humidite: number, teneurHydrogene: numb
 
   return Math.round(pci_brut);
 }
+
+
+export function calculerPCS(pci_brut: number, humidite: number, teneurHydrogene: number): number | null {
+    if (teneurHydrogene === undefined || teneurHydrogene === null || isNaN(pci_brut) || pci_brut < 0 || isNaN(humidite) || humidite < 0 || humidite >= 100) {
+        return null;
+    }
+    
+    // Ceci est la formule inversée de calculerPCI
+    // pcs = ( (pci_brut + (humidite * 5.832616878)) / (1 - humidite/100) ) + (50.6353308 * teneurHydrogene)
+    const pcs = ((pci_brut + (humidite * 583.2616878 / 100)) / (1 - humidite / 100)) + (50.6353308 * teneurHydrogene);
+
+    if (isNaN(pcs) || !isFinite(pcs)) {
+        return null;
+    }
+
+    return Math.round(pcs);
+}
