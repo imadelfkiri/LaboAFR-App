@@ -309,7 +309,6 @@ export async function getAverageAnalysisForFuels(
   const start = Timestamp.fromDate(startOfDay(dateRange.from));
   const end = Timestamp.fromDate(endOfDay(dateRange.to));
 
-  // Step 1: Fetch ALL results and all latest results in parallel
   const allResultsQuery = query(collection(db, "resultats"));
   const allResultsSnapshot = await getDocs(allResultsQuery);
   const allResults = allResultsSnapshot.docs.map(d => d.data());
@@ -317,44 +316,47 @@ export async function getAverageAnalysisForFuels(
   const analyses: Record<string, AverageAnalysis> = {};
 
   for (const fuelName of fuelNames) {
-    // Step 2: Filter results for the current fuel
     const fuelResults = allResults.filter(r => r.type_combustible === fuelName);
 
-    // Step 3: Filter results within the date range for this fuel
     let resultsInDateRange = fuelResults.filter(r => {
       const date = r.date_arrivage.toDate();
       return date >= start.toDate() && date <= end.toDate();
     });
 
-    // Step 4: If no results in range, find the latest one for this fuel
     let finalResultsToAverage = resultsInDateRange;
-    if (finalResultsToAverage.length === 0 && fuelResults.length > 0) {
+    if (resultsInDateRange.length === 0 && fuelResults.length > 0) {
       fuelResults.sort((a, b) => b.date_arrivage.seconds - a.date_arrivage.seconds);
       finalResultsToAverage = [fuelResults[0]];
     }
 
-    // Step 5: Calculate the average
     if (finalResultsToAverage.length > 0) {
-      const count = finalResultsToAverage.length;
-      const sum = finalResultsToAverage.reduce((acc, curr) => {
-        acc.pci_brut += curr.pci_brut || 0;
-        acc.h2o += curr.h2o || 0;
-        acc.chlore += curr.chlore || 0;
-        acc.cendres += curr.cendres || 0;
-        acc.taux_metal += curr.taux_metal || 0;
-        return acc;
-      }, { pci_brut: 0, h2o: 0, chlore: 0, cendres: 0, taux_metal: 0 });
+      const getAverage = (key: 'pci_brut' | 'h2o' | 'chlore' | 'cendres' | 'taux_metal') => {
+        const values = finalResultsToAverage
+          .map(r => r[key])
+          .filter((v): v is number => typeof v === 'number' && isFinite(v));
+        
+        if (values.length === 0) return { average: 0, count: 0 };
+        
+        const sum = values.reduce((acc, curr) => acc + curr, 0);
+        return { average: sum / values.length, count: values.length };
+      };
+
+      const pciAvg = getAverage('pci_brut');
+      const h2oAvg = getAverage('h2o');
+      const chloreAvg = getAverage('chlore');
+      const cendresAvg = getAverage('cendres');
+      const metalAvg = getAverage('taux_metal');
 
       analyses[fuelName] = {
-        pci_brut: sum.pci_brut / count,
-        h2o: sum.h2o / count,
-        chlore: sum.chlore / count,
-        cendres: sum.cendres / count,
-        taux_metal: sum.taux_metal / count,
-        count: count,
+        pci_brut: pciAvg.average,
+        h2o: h2oAvg.average,
+        chlore: chloreAvg.average,
+        cendres: cendresAvg.average,
+        taux_metal: metalAvg.average,
+        count: finalResultsToAverage.length,
       };
+
     } else {
-      // Step 6: If still no analysis, return a default empty object
       analyses[fuelName] = { pci_brut: 0, h2o: 0, chlore: 0, cendres: 0, count: 0, taux_metal: 0 };
     }
   }
