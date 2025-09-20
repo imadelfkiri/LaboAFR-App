@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
@@ -370,43 +369,21 @@ export default function ResultsTable() {
                 const data = new Uint8Array(e.target?.result as ArrayBuffer);
                 const workbook = XLSX.read(data, { type: 'array', cellDates: true });
                 const sheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[sheetName];
                 const json = XLSX.utils.sheet_to_json<any>(worksheet, { header: 3 });
 
-                if (!json || json.length === 0) throw new Error("Le fichier Excel est vide ou les données ne commencent pas à la ligne 4.");
+                if (!json || json.length === 0) throw new Error("Le fichier Excel est vide ou les en-têtes ne sont pas à la ligne 4.");
                 
-                const parseDate = (value: any, rowNum: number): Date => {
-                    if (value instanceof Date && isValid(value)) {
-                        return value;
-                    }
-                    if (typeof value === 'string') {
-                        const formats = ['dd/MM/yyyy', 'd/M/yyyy', 'yyyy-MM-dd', 'MM/dd/yyyy', 'dd/MM/yy'];
-                        for (const fmt of formats) {
-                            const date = parse(value, fmt, new Date());
-                            if (isValid(date)) return date;
-                        }
-                    }
-                     if (typeof value === 'number') { // Handle Excel date serial numbers
-                        const excelEpoch = new Date(1899, 11, 30);
-                        const excelDate = new Date(excelEpoch.getTime() + value * 86400000);
-                        if (isValid(excelDate)) {
-                            return excelDate;
-                        }
-                    }
-                    throw new Error(`Ligne ${rowNum}: Format de date non reconnu pour la valeur "${value}".`);
-                };
-
                 const parsedResults = json.map((row, index) => {
-                    const rowNum = index + 4; // Data starts at line 4
+                    const rowNum = index + 5; // Headers on line 4, data starts on 5
                     
                     try {
-                        if (!row['Date Arrivage']) {
-                             throw new Error(`Ligne ${rowNum}: La date est requise.`);
+                        const dateArrivage = row['Date Arrivage'];
+                        if (!dateArrivage || !isValid(new Date(dateArrivage))) {
+                           throw new Error(`Ligne ${rowNum}: La date est requise ou invalide.`);
                         }
-                        const parsedDate = parseDate(row['Date Arrivage'], rowNum);
                         
                         const validatedData = importSchema.partial().parse({
-                            date_arrivage: parsedDate,
+                            date_arrivage: new Date(dateArrivage),
                             type_combustible: row['Type Combustible'],
                             fournisseur: row['Fournisseur'],
                             tonnage: row['Tonnage (t)'] ?? null,
@@ -769,7 +746,4 @@ export default function ResultsTable() {
   );
 }
 
-
-
-
-
+    
