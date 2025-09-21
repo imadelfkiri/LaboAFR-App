@@ -121,10 +121,59 @@ export function MainDashboard() {
     }, [latestImpact]);
 
     const calorificConsumption = useMemo(() => {
-        if (!mixtureSession || !debitClinker || debitClinker === 0) return 0;
-        const energyTotal = mixtureSession.globalIndicators.pci * mixtureSession.globalIndicators.flow / 1000;
+        if (!mixtureSession || !debitClinker || debitClinker === 0 || !mixtureSession.availableFuels) return 0;
+        
+        const getPci = (fuelName: string) => mixtureSession.availableFuels[fuelName]?.pci_brut || 0;
+        
+        const getPetCokePci = () => {
+             const pci = getPci('Pet Coke') || getPci('Pet-Coke') || getPci('Pet-Coke Preca') || getPci('Pet-Coke Tuyere');
+             return pci;
+        }
+
+        let afEnergyWeightedSum = 0;
+
+        const processInstallation = (installation: any) => {
+             if (!installation?.fuels || !installation.flowRate || installation.flowRate === 0) return;
+             
+             let installationTotalWeight = 0;
+             const fuelWeights: Record<string, number> = {};
+
+             for (const [fuel, data] of Object.entries(installation.fuels as Record<string, {buckets: number}>)) {
+                 const weight = (data.buckets || 0) * (mixtureSession.availableFuels[fuel]?.poids_godet || 1.5);
+                 installationTotalWeight += weight;
+                 fuelWeights[fuel] = weight;
+             }
+             
+             if(installationTotalWeight === 0) return;
+
+             for (const [fuel, data] of Object.entries(installation.fuels as Record<string, {buckets: number}>)) {
+                if (fuel.toLowerCase().includes('grignons') || fuel.toLowerCase().includes('pet coke')) continue;
+                
+                const pci = getPci(fuel);
+                const weight = fuelWeights[fuel] || 0;
+                
+                const proportion = weight / installationTotalWeight;
+                const weightedEnergy = pci * proportion * installation.flowRate;
+                
+                afEnergyWeightedSum += weightedEnergy;
+             }
+        }
+        
+        processInstallation(mixtureSession.hallAF);
+        processInstallation(mixtureSession.ats);
+        
+        const energyAFs = afEnergyWeightedSum / 1000;
+
+        const grignonsFlow = (mixtureSession.directInputs?.['Grignons GO1']?.flowRate || 0) + (mixtureSession.directInputs?.['Grignons GO2']?.flowRate || 0);
+        const energyGrignons = grignonsFlow * getPci('Grignons') / 1000;
+
+        const petCokeFlow = (mixtureSession.directInputs?.['Pet-Coke Preca']?.flowRate || 0) + (mixtureSession.directInputs?.['Pet-Coke Tuyere']?.flowRate || 0);
+        const energyPetCoke = petCokeFlow * getPetCokePci() / 1000;
+
+        const energyTotalGcal = energyAFs + energyGrignons + energyPetCoke;
+
         return debitClinker > 0 
-            ? (mixtureSession.globalIndicators.flow * mixtureSession.globalIndicators.pci) / debitClinker
+            ? (energyTotalGcal * 1000000) / (debitClinker * 1000)
             : 0;
     }, [mixtureSession, debitClinker]);
 
