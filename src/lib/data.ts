@@ -313,72 +313,61 @@ export async function getAverageAnalysisForFuels(
   fuelNames: string[],
   dateRange: { from: Date; to: Date }
 ): Promise<Record<string, AverageAnalysis>> {
-  if (!fuelNames || fuelNames.length === 0) return {};
+    if (!fuelNames || fuelNames.length === 0) return {};
 
-  const analyses: Record<string, AverageAnalysis> = {};
+    const analyses: Record<string, AverageAnalysis> = {};
 
-  // 1. Fetch all results within the date range
-  const resultsInRangeQuery = query(
-    collection(db, 'resultats'),
-    where('date_arrivage', '>=', Timestamp.fromDate(startOfDay(dateRange.from))),
-    where('date_arrivage', '<=', Timestamp.fromDate(endOfDay(dateRange.to)))
-  );
+    for (const fuelName of fuelNames) {
+        let resultsToAverage: any[] = [];
 
-  const snapshotInRange = await getDocs(resultsInRangeQuery);
-  const resultsInRange = snapshotInRange.docs.map(d => d.data());
+        // 1. Try to get results within the date range
+        const rangeQuery = query(
+            collection(db, 'resultats'),
+            where('type_combustible', '==', fuelName),
+            where('date_arrivage', '>=', Timestamp.fromDate(startOfDay(dateRange.from))),
+            where('date_arrivage', '<=', Timestamp.fromDate(endOfDay(dateRange.to)))
+        );
+        const rangeSnapshot = await getDocs(rangeQuery);
 
-  // 2. Group results by fuel type
-  const resultsByFuel: Record<string, any[]> = {};
-  fuelNames.forEach(name => {
-    resultsByFuel[name] = resultsInRange.filter(r => r.type_combustible === name);
-  });
-  
-  // 3. Process each fuel name
-  for (const fuelName of fuelNames) {
-    let finalResultsToAverage = resultsByFuel[fuelName];
-
-    // 4. If no results in range, find the single most recent result
-    if (!finalResultsToAverage || finalResultsToAverage.length === 0) {
-      const latestResultQuery = query(
-        collection(db, 'resultats'),
-        where('type_combustible', '==', fuelName),
-        orderBy('date_arrivage', 'desc'),
-        limit(1)
-      );
-      const latestSnapshot = await getDocs(latestResultQuery);
-      if (!latestSnapshot.empty) {
-        finalResultsToAverage = latestSnapshot.docs.map(d => d.data());
-      } else {
-        // If still no results, use an empty array
-        finalResultsToAverage = [];
-      }
+        if (!rangeSnapshot.empty) {
+            resultsToAverage = rangeSnapshot.docs.map(d => d.data());
+        } else {
+            // 2. If no results in range, get the single most recent result
+            const latestQuery = query(
+                collection(db, 'resultats'),
+                where('type_combustible', '==', fuelName),
+                orderBy('date_arrivage', 'desc'),
+                limit(1)
+            );
+            const latestSnapshot = await getDocs(latestQuery);
+            if (!latestSnapshot.empty) {
+                resultsToAverage = latestSnapshot.docs.map(d => d.data());
+            }
+        }
+        
+        // 3. Calculate the average, ignoring null/undefined fields
+        const getAverage = (key: 'pci_brut' | 'h2o' | 'chlore' | 'cendres' | 'taux_metal') => {
+            const values = resultsToAverage
+              .map(r => r[key])
+              .filter((v): v is number => typeof v === 'number' && isFinite(v));
+            
+            if (values.length === 0) return 0;
+            
+            const sum = values.reduce((acc, curr) => acc + curr, 0);
+            return sum / values.length;
+        };
+        
+        analyses[fuelName] = {
+            pci_brut: getAverage('pci_brut'),
+            h2o: getAverage('h2o'),
+            chlore: getAverage('chlore'),
+            cendres: getAverage('cendres'),
+            taux_metal: getAverage('taux_metal'),
+            count: resultsToAverage.length,
+        };
     }
-    
-    // 5. Calculate averages, ignoring null/undefined/non-finite values
-    const getAverage = (key: 'pci_brut' | 'h2o' | 'chlore' | 'cendres' | 'taux_metal') => {
-        const values = finalResultsToAverage
-          .map(r => r[key])
-          .filter((v): v is number => typeof v === 'number' && isFinite(v));
-        
-        if (values.length === 0) return 0;
-        
-        const sum = values.reduce((acc, curr) => acc + curr, 0);
-        return sum / values.length;
-    };
-    
-    const count = finalResultsToAverage.length;
 
-    analyses[fuelName] = {
-        pci_brut: getAverage('pci_brut'),
-        h2o: getAverage('h2o'),
-        chlore: getAverage('chlore'),
-        cendres: getAverage('cendres'),
-        taux_metal: getAverage('taux_metal'),
-        count: count,
-    };
-  }
-
-  return analyses;
+    return analyses;
 }
 
 
@@ -952,5 +941,3 @@ export async function deleteChlorineTrackingEntry(id: string): Promise<void> {
     const entryRef = doc(db, 'chlorine_tracking', id);
     await deleteDoc(entryRef);
 }
-
-    
