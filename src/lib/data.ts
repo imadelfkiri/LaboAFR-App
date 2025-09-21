@@ -315,13 +315,15 @@ export async function getAverageAnalysisForFuels(
 ): Promise<Record<string, AverageAnalysis>> {
   if (!fuelNames || fuelNames.length === 0) return {};
 
+  const analyses: Record<string, AverageAnalysis> = {};
+
   // 1. Fetch all results within the date range
   const resultsInRangeQuery = query(
     collection(db, 'resultats'),
     where('date_arrivage', '>=', Timestamp.fromDate(startOfDay(dateRange.from))),
-    where('date_arrivage', '<=', Timestamp.fromDate(endOfDay(dateRange.to))),
-    orderBy('date_arrivage', 'desc')
+    where('date_arrivage', '<=', Timestamp.fromDate(endOfDay(dateRange.to)))
   );
+
   const snapshotInRange = await getDocs(resultsInRangeQuery);
   const resultsInRange = snapshotInRange.docs.map(d => d.data());
 
@@ -330,9 +332,7 @@ export async function getAverageAnalysisForFuels(
   fuelNames.forEach(name => {
     resultsByFuel[name] = resultsInRange.filter(r => r.type_combustible === name);
   });
-
-  const analyses: Record<string, AverageAnalysis> = {};
-
+  
   // 3. Process each fuel name
   for (const fuelName of fuelNames) {
     let finalResultsToAverage = resultsByFuel[fuelName];
@@ -348,34 +348,33 @@ export async function getAverageAnalysisForFuels(
       const latestSnapshot = await getDocs(latestResultQuery);
       if (!latestSnapshot.empty) {
         finalResultsToAverage = latestSnapshot.docs.map(d => d.data());
+      } else {
+        // If still no results, use an empty array
+        finalResultsToAverage = [];
       }
     }
     
-    // 5. Calculate averages, ignoring null/undefined values
+    // 5. Calculate averages, ignoring null/undefined/non-finite values
     const getAverage = (key: 'pci_brut' | 'h2o' | 'chlore' | 'cendres' | 'taux_metal') => {
-        const values = (finalResultsToAverage || [])
+        const values = finalResultsToAverage
           .map(r => r[key])
           .filter((v): v is number => typeof v === 'number' && isFinite(v));
         
-        if (values.length === 0) return { average: 0, count: 0 };
+        if (values.length === 0) return 0;
         
         const sum = values.reduce((acc, curr) => acc + curr, 0);
-        return { average: sum / values.length, count: values.length };
+        return sum / values.length;
     };
-
-    const pciAvg = getAverage('pci_brut');
-    const h2oAvg = getAverage('h2o');
-    const chloreAvg = getAverage('chlore');
-    const cendresAvg = getAverage('cendres');
-    const metalAvg = getAverage('taux_metal');
+    
+    const count = finalResultsToAverage.length;
 
     analyses[fuelName] = {
-        pci_brut: pciAvg.average,
-        h2o: h2oAvg.average,
-        chlore: chloreAvg.average,
-        cendres: cendresAvg.average,
-        taux_metal: metalAvg.average,
-        count: finalResultsToAverage?.length || 0,
+        pci_brut: getAverage('pci_brut'),
+        h2o: getAverage('h2o'),
+        chlore: getAverage('chlore'),
+        cendres: getAverage('cendres'),
+        taux_metal: getAverage('taux_metal'),
+        count: count,
     };
   }
 
