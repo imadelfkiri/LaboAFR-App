@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -9,6 +10,29 @@ import { Card } from "@/components/ui/card";
 import { KeyIndicatorCard } from './cards/KeyIndicatorCard';
 import { FlowRateCard, FlowData } from './cards/FlowRateCard';
 import { ImpactCard, ImpactData } from './cards/ImpactCard';
+
+// Hook to read from localStorage without causing hydration issues
+function usePersistentValue<T>(key: string, defaultValue: T): T {
+    const [state, setState] = useState<T>(defaultValue);
+
+    useEffect(() => {
+        try {
+            // Only run on client
+            if (typeof window === 'undefined') {
+                return;
+            }
+            const storedValue = localStorage.getItem(key);
+            if (storedValue !== null) {
+                setState(JSON.parse(storedValue));
+            }
+        } catch {
+            // If parsing fails, stick with the default value
+            setState(defaultValue);
+        }
+    }, [key]);
+    
+    return state;
+}
 
 // Simplified StatCard for local use
 function StatCard({ label, value, icon: Icon, unit }: { label: string; value: string; icon: React.ElementType, unit?: string }) {
@@ -35,7 +59,9 @@ export function MainDashboard() {
     const [loading, setLoading] = useState(true);
     const [mixtureSession, setMixtureSession] = useState<MixtureSession | null>(null);
     const [latestImpact, setLatestImpact] = useState<ImpactAnalysis | null>(null);
-    const [keyIndicators, setKeyIndicators] = useState<{ tsr: number; consumption: number } | null>(null);
+    const [keyIndicators, setKeyIndicators] = useState<{ tsr: number; } | null>(null);
+    const debitClinker = usePersistentValue<number>('debitClinker', 0);
+
 
     const fetchData = useCallback(async () => {
         try {
@@ -94,6 +120,14 @@ export function MainDashboard() {
         ];
     }, [latestImpact]);
 
+    const calorificConsumption = useMemo(() => {
+        if (!mixtureSession || !debitClinker || debitClinker === 0) return 0;
+        const energyTotal = mixtureSession.globalIndicators.pci * mixtureSession.globalIndicators.flow / 1000;
+        return debitClinker > 0 
+            ? (mixtureSession.globalIndicators.flow * mixtureSession.globalIndicators.pci) / debitClinker
+            : 0;
+    }, [mixtureSession, debitClinker]);
+
 
     if (loading) {
         return (
@@ -125,7 +159,7 @@ export function MainDashboard() {
             
             <section className="grid gap-6 lg:grid-cols-3">
                 <div className="lg:col-span-1 space-y-6">
-                    <KeyIndicatorCard tsr={keyIndicators?.tsr} consumption={keyIndicators?.consumption} />
+                    <KeyIndicatorCard tsr={keyIndicators?.tsr} consumption={calorificConsumption} />
                     <FlowRateCard title="Débits Actuels" flows={flowData} />
                 </div>
 

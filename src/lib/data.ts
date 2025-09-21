@@ -850,12 +850,10 @@ export async function deleteImpactAnalysis(id: string): Promise<void> {
 }
 
 // --- Key Indicators ---
-export async function getLatestIndicatorData(): Promise<{ tsr: number; consumption: number } | null> {
+export async function getLatestIndicatorData(): Promise<{ tsr: number; } | null> {
     const session = await getLatestMixtureSession();
     if (!session) return null;
 
-    // These calculations are duplicated from `indicateurs/page.tsx`.
-    // Consider refactoring into a shared helper if logic becomes more complex.
     const getPci = (fuelName: string) => session.availableFuels[fuelName]?.pci_brut || 0;
     const getPetCokePci = () => getPci('Pet Coke') || getPci('Pet-Coke') || getPci('Pet-Coke Preca') || getPci('Pet-Coke Tuyere');
 
@@ -903,16 +901,7 @@ export async function getLatestIndicatorData(): Promise<{ tsr: number; consumpti
 
     const substitutionRate = energyTotal > 0 ? (energyAlternatives / energyTotal) * 100 : 0;
     
-    // For consumption, we need clinker production rate. This is not stored in the session.
-    // This part of the logic will need to be adapted or clinker rate stored in session.
-    // For now, returning 0 for consumption as it cannot be calculated with current data.
-    // We need to read 'debitClinker' from localStorage or another persistent source.
-    // Since this is a server-side function, we cannot access localStorage.
-    // This is a limitation that needs to be addressed for a complete solution.
-    // Let's assume for now we cannot calculate it here.
-    
     return {
         tsr: substitutionRate,
-        consumption: 0, // Placeholder
     };
 }
