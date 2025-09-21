@@ -165,6 +165,14 @@ export interface ImpactAnalysis {
     };
 }
 
+export interface ChlorineTrackingEntry {
+    id: string;
+    date: Timestamp;
+    calculatedMixtureChlorine: number;
+    hotMealChlorine: number;
+    totalAfGoFlow: number;
+}
+
 
 
 export const SPEC_MAP = new Map<string, Specification>();
@@ -322,13 +330,11 @@ export async function getAverageAnalysisForFuels(
     });
 
     let finalResultsToAverage = resultsInDateRange;
-    // If no results in date range, find the single most recent one
     if (resultsInDateRange.length === 0 && fuelResults.length > 0) {
-      finalResultsToAverage = [fuelResults[0]]; // Already sorted by date desc
+      finalResultsToAverage = [fuelResults[0]];
     }
     
-    if (finalResultsToAverage.length > 0) {
-      const getAverage = (key: 'pci_brut' | 'h2o' | 'chlore' | 'cendres' | 'taux_metal') => {
+    const getAverage = (key: 'pci_brut' | 'h2o' | 'chlore' | 'cendres' | 'taux_metal') => {
         const values = finalResultsToAverage
           .map(r => r[key])
           .filter((v): v is number => typeof v === 'number' && isFinite(v));
@@ -337,27 +343,22 @@ export async function getAverageAnalysisForFuels(
         
         const sum = values.reduce((acc, curr) => acc + curr, 0);
         return { average: sum / values.length, count: values.length };
-      };
+    };
 
-      const pciAvg = getAverage('pci_brut');
-      const h2oAvg = getAverage('h2o');
-      const chloreAvg = getAverage('chlore');
-      const cendresAvg = getAverage('cendres');
-      const metalAvg = getAverage('taux_metal');
+    const pciAvg = getAverage('pci_brut');
+    const h2oAvg = getAverage('h2o');
+    const chloreAvg = getAverage('chlore');
+    const cendresAvg = getAverage('cendres');
+    const metalAvg = getAverage('taux_metal');
 
-      analyses[fuelName] = {
+    analyses[fuelName] = {
         pci_brut: pciAvg.average,
         h2o: h2oAvg.average,
         chlore: chloreAvg.average,
         cendres: cendresAvg.average,
         taux_metal: metalAvg.average,
         count: finalResultsToAverage.length,
-      };
-
-    } else {
-      // If still no results, return a default empty object
-      analyses[fuelName] = { pci_brut: 0, h2o: 0, chlore: 0, cendres: 0, count: 0, taux_metal: 0 };
-    }
+    };
   }
 
   return analyses;
@@ -904,4 +905,33 @@ export async function getLatestIndicatorData(): Promise<{ tsr: number; } | null>
     return {
         tsr: substitutionRate,
     };
+}
+
+// --- Chlorine Tracking ---
+
+export async function addChlorineTrackingEntry(data: Omit<ChlorineTrackingEntry, 'id'>): Promise<string> {
+    const docRef = await addDoc(collection(db, 'chlorine_tracking'), data);
+    return docRef.id;
+}
+
+export async function getChlorineTrackingEntries(dateRange: { from: Date, to: Date }): Promise<ChlorineTrackingEntry[]> {
+    const q = query(
+        collection(db, 'chlorine_tracking'),
+        where('date', '>=', Timestamp.fromDate(dateRange.from)),
+        where('date', '<=', Timestamp.fromDate(dateRange.to)),
+        orderBy('date', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return [];
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ChlorineTrackingEntry));
+}
+
+export async function updateChlorineTrackingEntry(id: string, data: Partial<Omit<ChlorineTrackingEntry, 'id'>>): Promise<void> {
+    const entryRef = doc(db, 'chlorine_tracking', id);
+    await updateDoc(entryRef, data);
+}
+
+export async function deleteChlorineTrackingEntry(id: string): Promise<void> {
+    const entryRef = doc(db, 'chlorine_tracking', id);
+    await deleteDoc(entryRef);
 }

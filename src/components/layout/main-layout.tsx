@@ -31,6 +31,7 @@ const pageTitles: { [key: string]: string } = {
   '/indicateurs': 'Indicateurs',
   '/calcul-impact': "Calcul d'Impact Clinker",
   '/historique-impact': "Historique des Calculs d'Impact",
+  '/suivi-chlore': 'Suivi du Chlore',
 };
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
