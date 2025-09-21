@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -36,7 +37,7 @@ import { Timestamp } from 'firebase/firestore';
 import { ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Line, ComposedChart } from 'recharts';
 import { cn } from "@/lib/utils";
 
-export function ChlorineTrackingManager() {
+function ChlorineTrackingManager() {
   const [entries, setEntries] = useState<ChlorineTrackingEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -309,4 +310,10 @@ export function ChlorineTrackingManager() {
   );
 }
 
-    
+export default function SuiviChlorePage() {
+    return (
+        <div className="flex-1 p-4 md:p-6 lg:p-8">
+            <ChlorineTrackingManager />
+        </div>
+    )
+}
