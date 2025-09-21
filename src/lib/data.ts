@@ -316,36 +316,27 @@ export async function getAverageAnalysisForFuels(
     if (!fuelNames || fuelNames.length === 0) return {};
 
     const analyses: Record<string, AverageAnalysis> = {};
+    const allResultsSnapshot = await getDocs(query(collection(db, 'resultats'), where('type_combustible', 'in', fuelNames)));
+    const allResults = allResultsSnapshot.docs.map(doc => doc.data());
+
 
     for (const fuelName of fuelNames) {
-        let resultsToAverage: any[] = [];
+        let resultsForFuel = allResults.filter(r => r.type_combustible === fuelName);
+        
+        // Filter by date range in the code
+        let resultsToAverage = resultsForFuel.filter(r => {
+            const date = r.date_arrivage.toDate();
+            return date >= startOfDay(dateRange.from) && date <= endOfDay(dateRange.to);
+        });
 
-        // 1. Try to get results within the date range
-        const rangeQuery = query(
-            collection(db, 'resultats'),
-            where('type_combustible', '==', fuelName),
-            where('date_arrivage', '>=', Timestamp.fromDate(startOfDay(dateRange.from))),
-            where('date_arrivage', '<=', Timestamp.fromDate(endOfDay(dateRange.to)))
-        );
-        const rangeSnapshot = await getDocs(rangeQuery);
-
-        if (!rangeSnapshot.empty) {
-            resultsToAverage = rangeSnapshot.docs.map(d => d.data());
-        } else {
-            // 2. If no results in range, get the single most recent result
-            const latestQuery = query(
-                collection(db, 'resultats'),
-                where('type_combustible', '==', fuelName),
-                orderBy('date_arrivage', 'desc'),
-                limit(1)
-            );
-            const latestSnapshot = await getDocs(latestQuery);
-            if (!latestSnapshot.empty) {
-                resultsToAverage = latestSnapshot.docs.map(d => d.data());
+        if (resultsToAverage.length === 0) {
+            // If no results in range, get the single most recent result for that fuel
+            resultsForFuel.sort((a, b) => b.date_arrivage.toMillis() - a.date_arrivage.toMillis());
+            if (resultsForFuel.length > 0) {
+                resultsToAverage = [resultsForFuel[0]];
             }
         }
         
-        // 3. Calculate the average, ignoring null/undefined fields
         const getAverage = (key: 'pci_brut' | 'h2o' | 'chlore' | 'cendres' | 'taux_metal') => {
             const values = resultsToAverage
               .map(r => r[key])
