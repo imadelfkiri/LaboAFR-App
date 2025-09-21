@@ -34,6 +34,7 @@ function usePersistentValue<T>(key: string, defaultValue: T): T {
 
     useEffect(() => {
         try {
+            // Only run on client
             if (typeof window === 'undefined') {
                 return;
             }
@@ -284,3 +285,5 @@ export default function IndicateursPage() {
     </div>
   );
 }
+
+    

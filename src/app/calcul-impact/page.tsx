@@ -310,8 +310,13 @@ export default function CalculImpactPage() {
 
     const debitClinker = useMemo(() => {
         const debit = rawMealFlow * clinkerFactor;
+        // Always save to localStorage on calculation
         if (typeof window !== 'undefined') {
-            localStorage.setItem('debitClinker', JSON.stringify(debit));
+            try {
+                localStorage.setItem('debitClinker', JSON.stringify(debit));
+            } catch (e) {
+                console.error("Failed to save debitClinker to localStorage", e);
+            }
         }
         return debit;
     }, [rawMealFlow, clinkerFactor]);
@@ -681,3 +686,5 @@ export default function CalculImpactPage() {
 }
 
   
+
+    
