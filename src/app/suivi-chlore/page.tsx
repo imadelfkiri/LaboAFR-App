@@ -85,7 +85,23 @@ function ChlorineTrackingManager() {
   useEffect(() => {
     fetchLatestMixtureData();
     fetchEntries();
-  }, [fetchLatestMixtureData, fetchEntries]);
+
+    // Check for imported chlorine value from localStorage
+    if (typeof window !== 'undefined') {
+        const importedValue = localStorage.getItem('importedHotMealChlorine');
+        if (importedValue) {
+            try {
+                const parsedValue = JSON.parse(importedValue);
+                setHotMealChlorine(String(parsedValue));
+                // Optional: remove it after use to prevent re-populating on next visit
+                // localStorage.removeItem('importedHotMealChlorine');
+                toast({ title: "Donnée importée", description: "Le % de chlore de la farine chaude a été pré-rempli." });
+            } catch (e) {
+                console.error("Failed to parse imported chlorine value", e);
+            }
+        }
+    }
+  }, [fetchLatestMixtureData, fetchEntries, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

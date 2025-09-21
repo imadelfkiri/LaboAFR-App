@@ -216,8 +216,7 @@ export default function CalculImpactPage() {
     const [petCokeTuyereAsh, setPetCokeTuyereAsh] = useState<OxideAnalysis>({});
     
     const [presets, setPresets] = useState<RawMealPreset[]>([]);
-    const rawMealFileInputRef = useRef<HTMLInputElement>(null);
-    const realClinkerFileInputRef = useRef<HTMLInputElement>(null);
+    const analysisFileInputRef = useRef<HTMLInputElement>(null);
 
     const [isInterpreting, setIsInterpreting] = useState(false);
     const [interpretation, setInterpretation] = useState<string | null>(null);
@@ -354,7 +353,7 @@ export default function CalculImpactPage() {
         fetchPresets();
     };
 
-    const handleRawMealImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleCombinedImport = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
 
@@ -366,102 +365,67 @@ export default function CalculImpactPage() {
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
                 const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-                
-                if (jsonData.length < 24) {
-                    throw new Error("Le fichier Excel ne contient pas de données à la ligne 24.");
+                let notifications: string[] = [];
+
+                // --- 1. Import Raw Meal ---
+                if (jsonData.length >= 24) {
+                    const rawMealRow: any[] = jsonData[23]; // Line 24
+                    const newRawMealAnalysis: OxideAnalysis = {};
+                    const values = rawMealRow.slice(1, 12); // B to L
+                    OXIDE_KEYS.forEach((key, index) => {
+                        const value = values[index];
+                        if (typeof value === 'number' && !isNaN(value)) newRawMealAnalysis[key] = value;
+                        else if (typeof value === 'string') newRawMealAnalysis[key] = parseFloat(value.replace(',', '.')) || 0;
+                        else newRawMealAnalysis[key] = 0;
+                    });
+                    setRawMealAnalysis(newRawMealAnalysis);
+                    notifications.push("Analyse de la farine mise à jour.");
+                } else {
+                    throw new Error("L'analyse de la farine n'a pas pu être importée (ligne 24 manquante).");
                 }
-                const rowData: any[] = jsonData[23]; // Line 24
-
-                const newAnalysis: OxideAnalysis = {};
-                const values = rowData.slice(1, 12); // B to L -> index 1 to 11
-
-                OXIDE_KEYS.forEach((key, index) => {
-                    const value = values[index];
-                    if (typeof value === 'number' && !isNaN(value)) {
-                        newAnalysis[key] = value;
-                    } else if (typeof value === 'string') {
-                        const parsed = parseFloat(value.replace(',', '.'));
-                        newAnalysis[key] = isNaN(parsed) ? 0 : parsed;
-                    } else {
-                        newAnalysis[key] = 0;
-                    }
-                });
                 
-                setRawMealAnalysis(newAnalysis);
-                toast({ title: "Importation réussie", description: "L'analyse de la farine a été mise à jour." });
+                // --- 2. Import Real Clinker ---
+                if (jsonData.length >= 37) {
+                    const realClinkerRow: any[] = jsonData[36]; // Line 37
+                    const newRealClinkerAnalysis: OxideAnalysis = {};
+                    const oxideValues = [ realClinkerRow[1], ...realClinkerRow.slice(3, 13) ]; // B, D to M
+                    OXIDE_KEYS.forEach((key, index) => {
+                        const value = oxideValues[index];
+                        if (typeof value === 'number' && !isNaN(value)) newRealClinkerAnalysis[key] = value;
+                        else if (typeof value === 'string') newRealClinkerAnalysis[key] = parseFloat(value.replace(',', '.')) || 0;
+                        else newRealClinkerAnalysis[key] = 0;
+                    });
+                    setRealClinkerAnalysis(newRealClinkerAnalysis);
+
+                    const freeLimeValue = realClinkerRow[2]; // Column C
+                    let parsedFreeLime = 0;
+                    if (typeof freeLimeValue === 'number' && !isNaN(freeLimeValue)) parsedFreeLime = freeLimeValue;
+                    else if (typeof freeLimeValue === 'string') parsedFreeLime = parseFloat(freeLimeValue.replace(',', '.')) || 0;
+                    setRealFreeLime(parsedFreeLime);
+                    notifications.push("Analyse du clinker réel et chaux libre mis à jour.");
+                } else {
+                    throw new Error("L'analyse du clinker réel n'a pas pu être importée (ligne 37 manquante).");
+                }
+
+                // --- 3. Import Hot Meal Chlorine ---
+                const chlorineCellAddress = 'X24';
+                const chlorineCellValue = worksheet[chlorineCellAddress]?.v;
+                if (chlorineCellValue !== undefined) {
+                    const parsedChlorine = parseFloat(String(chlorineCellValue).replace(',', '.'));
+                    if (!isNaN(parsedChlorine) && typeof window !== 'undefined') {
+                        localStorage.setItem('importedHotMealChlorine', JSON.stringify(parsedChlorine));
+                        notifications.push("Taux de chlore importé pour le suivi.");
+                    }
+                }
+                
+                toast({ title: "Importation réussie", description: notifications.join(' ') });
 
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
                 toast({ variant: "destructive", title: "Erreur d'importation", description: errorMessage });
             } finally {
-                // Reset file input
-                if (rawMealFileInputRef.current) {
-                    rawMealFileInputRef.current.value = "";
-                }
-            }
-        };
-        reader.readAsArrayBuffer(file);
-    };
-
-    const handleRealClinkerImport = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const data = new Uint8Array(e.target?.result as ArrayBuffer);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const sheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[sheetName];
-                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-                
-                if (jsonData.length < 37) {
-                    throw new Error("Le fichier Excel ne contient pas de données à la ligne 37.");
-                }
-                const rowData: any[] = jsonData[36]; // Line 37
-
-                const newAnalysis: OxideAnalysis = {};
-                
-                // Extract columns B, and D to M for oxides
-                const oxideValues = [
-                    rowData[1], // B (PF)
-                    rowData[3], rowData[4], rowData[5], rowData[6], rowData[7],
-                    rowData[8], rowData[9], rowData[10], rowData[11], rowData[12]
-                ];
-
-                OXIDE_KEYS.forEach((key, index) => {
-                    const value = oxideValues[index];
-                    if (typeof value === 'number' && !isNaN(value)) {
-                        newAnalysis[key] = value;
-                    } else if (typeof value === 'string') {
-                        const parsed = parseFloat(value.replace(',', '.'))
-                        newAnalysis[key] = isNaN(parsed) ? 0 : parsed;
-                    } else {
-                        newAnalysis[key] = 0;
-                    }
-                });
-                setRealClinkerAnalysis(newAnalysis);
-
-                // Extract free lime from column C (index 2)
-                const freeLimeValue = rowData[2];
-                let parsedFreeLime = 0;
-                 if (typeof freeLimeValue === 'number' && !isNaN(freeLimeValue)) {
-                    parsedFreeLime = freeLimeValue;
-                } else if (typeof freeLimeValue === 'string') {
-                    parsedFreeLime = parseFloat(freeLimeValue.replace(',', '.')) || 0;
-                }
-                setRealFreeLime(parsedFreeLime);
-                
-                toast({ title: "Importation réussie", description: "L'analyse du clinker réel et la chaux libre ont été mises à jour." });
-
-            } catch (error) {
-                const errorMessage = error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
-                toast({ variant: "destructive", title: "Erreur d'importation", description: errorMessage });
-            } finally {
-                // Reset file input
-                if (realClinkerFileInputRef.current) {
-                    realClinkerFileInputRef.current.value = "";
+                if (analysisFileInputRef.current) {
+                    analysisFileInputRef.current.value = "";
                 }
             }
         };
@@ -522,15 +486,8 @@ export default function CalculImpactPage() {
     <div className="mx-auto w-full max-w-[90rem] px-4 py-6 space-y-6">
        <input
         type="file"
-        ref={rawMealFileInputRef}
-        onChange={handleRawMealImport}
-        className="hidden"
-        accept=".xlsx, .xls"
-      />
-       <input
-        type="file"
-        ref={realClinkerFileInputRef}
-        onChange={handleRealClinkerImport}
+        ref={analysisFileInputRef}
+        onChange={handleCombinedImport}
         className="hidden"
         accept=".xlsx, .xls"
       />
@@ -592,8 +549,7 @@ export default function CalculImpactPage() {
                 onPresetLoad={(id) => { const p = presets.find(p => p.id === id); if(p) setRawMealAnalysis(p.analysis); }}
                 onPresetSave={fetchPresets}
                 onPresetDelete={handleDeletePreset}
-                onImportRawMeal={() => rawMealFileInputRef.current?.click()}
-                onImportRealClinker={() => realClinkerFileInputRef.current?.click()}
+                onImport={() => analysisFileInputRef.current?.click()}
                 cendresMelange={averageAshAnalysis}
                 clinkerSans={clinkerWithoutAsh}
                 clinkerAvec={clinkerWithAsh}
@@ -684,7 +640,3 @@ export default function CalculImpactPage() {
     </div>
   )
 }
-
-  
-
-    
