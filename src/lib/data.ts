@@ -306,10 +306,7 @@ export async function getAverageAnalysisForFuels(
 ): Promise<Record<string, AverageAnalysis>> {
   if (!fuelNames || fuelNames.length === 0) return {};
 
-  const start = Timestamp.fromDate(startOfDay(dateRange.from));
-  const end = Timestamp.fromDate(endOfDay(dateRange.to));
-
-  const allResultsQuery = query(collection(db, "resultats"));
+  const allResultsQuery = query(collection(db, "resultats"), orderBy("date_arrivage", "desc"));
   const allResultsSnapshot = await getDocs(allResultsQuery);
   const allResults = allResultsSnapshot.docs.map(d => d.data());
 
@@ -319,16 +316,17 @@ export async function getAverageAnalysisForFuels(
     const fuelResults = allResults.filter(r => r.type_combustible === fuelName);
 
     let resultsInDateRange = fuelResults.filter(r => {
+      if (!r.date_arrivage) return false;
       const date = r.date_arrivage.toDate();
-      return date >= start.toDate() && date <= end.toDate();
+      return date >= startOfDay(dateRange.from) && date <= endOfDay(dateRange.to);
     });
 
     let finalResultsToAverage = resultsInDateRange;
+    // If no results in date range, find the single most recent one
     if (resultsInDateRange.length === 0 && fuelResults.length > 0) {
-      fuelResults.sort((a, b) => b.date_arrivage.seconds - a.date_arrivage.seconds);
-      finalResultsToAverage = [fuelResults[0]];
+      finalResultsToAverage = [fuelResults[0]]; // Already sorted by date desc
     }
-
+    
     if (finalResultsToAverage.length > 0) {
       const getAverage = (key: 'pci_brut' | 'h2o' | 'chlore' | 'cendres' | 'taux_metal') => {
         const values = finalResultsToAverage
@@ -357,6 +355,7 @@ export async function getAverageAnalysisForFuels(
       };
 
     } else {
+      // If still no results, return a default empty object
       analyses[fuelName] = { pci_brut: 0, h2o: 0, chlore: 0, cendres: 0, count: 0, taux_metal: 0 };
     }
   }
@@ -848,4 +847,72 @@ export async function getImpactAnalyses(): Promise<ImpactAnalysis[]> {
 export async function deleteImpactAnalysis(id: string): Promise<void> {
     const analysisRef = doc(db, 'impact_analyses', id);
     await deleteDoc(analysisRef);
+}
+
+// --- Key Indicators ---
+export async function getLatestIndicatorData(): Promise<{ tsr: number; consumption: number } | null> {
+    const session = await getLatestMixtureSession();
+    if (!session) return null;
+
+    // These calculations are duplicated from `indicateurs/page.tsx`.
+    // Consider refactoring into a shared helper if logic becomes more complex.
+    const getPci = (fuelName: string) => session.availableFuels[fuelName]?.pci_brut || 0;
+    const getPetCokePci = () => getPci('Pet Coke') || getPci('Pet-Coke') || getPci('Pet-Coke Preca') || getPci('Pet-Coke Tuyere');
+
+    let afEnergyWeightedSum = 0;
+    let afTotalFlow = 0;
+
+    const processInstallation = (installation: any) => {
+         if (!installation?.fuels || !installation.flowRate || installation.flowRate === 0) return;
+         
+         let installationTotalWeight = 0;
+         const fuelWeights: Record<string, number> = {};
+
+         for (const [fuel, data] of Object.entries(installation.fuels as Record<string, {buckets: number}>)) {
+             const weight = (data.buckets || 0) * (session.availableFuels[fuel]?.poids_godet || 1.5);
+             installationTotalWeight += weight;
+             fuelWeights[fuel] = weight;
+         }
+         
+         if(installationTotalWeight === 0) return;
+         afTotalFlow += installation.flowRate;
+         
+         for (const [fuel, data] of Object.entries(installation.fuels as Record<string, {buckets: number}>)) {
+            if (fuel.toLowerCase().includes('grignons') || fuel.toLowerCase().includes('pet coke')) continue;
+            const pci = getPci(fuel);
+            const weight = fuelWeights[fuel] || 0;
+            const proportion = weight / installationTotalWeight;
+            const weightedEnergy = pci * proportion * installation.flowRate;
+            afEnergyWeightedSum += weightedEnergy;
+         }
+    }
+    
+    processInstallation(session.hallAF);
+    processInstallation(session.ats);
+    
+    const energyAFs = afEnergyWeightedSum / 1000;
+
+    const grignonsFlow = (session.directInputs?.['Grignons GO1']?.flowRate || 0) + (session.directInputs?.['Grignons GO2']?.flowRate || 0);
+    const energyGrignons = grignonsFlow * getPci('Grignons') / 1000;
+
+    const petCokeFlow = (session.directInputs?.['Pet-Coke Preca']?.flowRate || 0) + (session.directInputs?.['Pet-Coke Tuyere']?.flowRate || 0);
+    const energyPetCoke = petCokeFlow * getPetCokePci() / 1000;
+
+    const energyTotal = energyAFs + energyGrignons + energyPetCoke;
+    const energyAlternatives = energyAFs + energyGrignons;
+
+    const substitutionRate = energyTotal > 0 ? (energyAlternatives / energyTotal) * 100 : 0;
+    
+    // For consumption, we need clinker production rate. This is not stored in the session.
+    // This part of the logic will need to be adapted or clinker rate stored in session.
+    // For now, returning 0 for consumption as it cannot be calculated with current data.
+    // We need to read 'debitClinker' from localStorage or another persistent source.
+    // Since this is a server-side function, we cannot access localStorage.
+    // This is a limitation that needs to be addressed for a complete solution.
+    // Let's assume for now we cannot calculate it here.
+    
+    return {
+        tsr: substitutionRate,
+        consumption: 0, // Placeholder
+    };
 }

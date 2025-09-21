@@ -34,6 +34,9 @@ function usePersistentValue<T>(key: string, defaultValue: T): T {
 
     useEffect(() => {
         try {
+            if (typeof window === 'undefined') {
+                return;
+            }
             const storedValue = localStorage.getItem(key);
             if (storedValue !== null) {
                 setState(JSON.parse(storedValue));
@@ -53,10 +56,7 @@ export default function IndicateursPage() {
     const { toast } = useToast();
 
     // Read clinker production data from localStorage
-    const rawMealFlow = usePersistentValue<number>('calculImpact_rawMealFlow', 180);
-    const clinkerFactor = usePersistentValue<number>('calculImpact_clinkerFactor', 0.6);
-    
-    const debitClinker = useMemo(() => rawMealFlow * clinkerFactor, [rawMealFlow, clinkerFactor]);
+    const debitClinker = usePersistentValue<number>('debitClinker', 0);
 
 
     useEffect(() => {
@@ -284,5 +284,3 @@ export default function IndicateursPage() {
     </div>
   );
 }
-
-  

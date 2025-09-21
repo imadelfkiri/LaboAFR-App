@@ -2,28 +2,29 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { getLatestMixtureSession, getStocks, getSpecifications, type MixtureSession, type Stock, SPEC_MAP } from '@/lib/data';
-import { collection, query, orderBy, limit, onSnapshot } from "firebase/firestore";
-import { db } from '@/lib/firebase';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getLatestIndicatorData } from '@/lib/data';
 import { Skeleton } from "@/components/ui/skeleton";
-import { StatCard } from './cards/StatCard';
-import { Flame, Droplets, Wind, Percent, Archive, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { format } from "date-fns";
-import { fr } from "date-fns/locale";
+import { Droplets, Wind, Percent, BarChart, Thermometer } from 'lucide-react';
+import { Card } from "@/components/ui/card";
+import { KeyIndicatorCard } from './cards/KeyIndicatorCard';
+import { FlowRateCard, FlowData } from './cards/FlowRateCard';
+import { ImpactCard, ImpactData } from './cards/ImpactCard';
 
-interface Result {
-  id: string;
-  date_arrivage: { seconds: number; nanoseconds: number };
-  type_combustible: string;
-  fournisseur: string;
-  pci_brut: number;
+// Simplified StatCard for local use
+function StatCard({ label, value, icon: Icon, unit }: { label: string; value: string; icon: React.ElementType, unit?: string }) {
+  return (
+    <div className="rounded-2xl bg-brand-surface/60 border border-brand-line/60 p-4 shadow-soft">
+      <div className="flex items-start justify-between">
+        <span className="text-sm text-neutral-300">{label}</span>
+        {Icon ? <div className="opacity-70"><Icon className="h-5 w-5"/></div> : null}
+      </div>
+      <div className="mt-2 text-3xl font-bold text-white">{value}<span className="text-lg text-muted-foreground ml-1">{unit}</span></div>
+    </div>
+  );
 }
 
-const formatNumber = (num: number | null | undefined, digits: number = 0) => {
-    if (num === null || num === undefined || isNaN(num)) return '-';
+const formatNumber = (num: number | null | undefined, digits: number = 2) => {
+    if (num === null || num === undefined || isNaN(num)) return '0.00';
     return num.toLocaleString('fr-FR', {
         minimumFractionDigits: digits,
         maximumFractionDigits: digits,
@@ -32,62 +33,76 @@ const formatNumber = (num: number | null | undefined, digits: number = 0) => {
 
 export function MainDashboard() {
     const [loading, setLoading] = useState(true);
-    const [session, setSession] = useState<MixtureSession | null>(null);
-    const [stocks, setStocks] = useState<Stock[]>([]);
-    const [latestResults, setLatestResults] = useState<Result[]>([]);
+    const [mixtureSession, setMixtureSession] = useState<MixtureSession | null>(null);
+    const [latestImpact, setLatestImpact] = useState<ImpactAnalysis | null>(null);
+    const [keyIndicators, setKeyIndicators] = useState<{ tsr: number; consumption: number } | null>(null);
 
-    const fetchInitialData = useCallback(async () => {
+    const fetchData = useCallback(async () => {
         try {
-            const [sessionData, stockData] = await Promise.all([
+            const [sessionData, impactAnalyses, indicatorData] = await Promise.all([
                 getLatestMixtureSession(),
-                getStocks(),
-                getSpecifications(), // To populate SPEC_MAP
+                getImpactAnalyses(),
+                getLatestIndicatorData()
             ]);
-            setSession(sessionData);
-            setStocks(stockData);
+            setMixtureSession(sessionData);
+            setLatestImpact(impactAnalyses.length > 0 ? impactAnalyses[0] : null);
+            setKeyIndicators(indicatorData);
         } catch (error) {
             console.error("Error fetching dashboard data:", error);
+        } finally {
+            setLoading(false);
         }
     }, []);
 
     useEffect(() => {
-        fetchInitialData();
-        
-        const q = query(collection(db, "resultats"), orderBy("date_arrivage", "desc"), limit(5));
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            const resultsData: Result[] = [];
-            querySnapshot.forEach((doc) => {
-                resultsData.push({ id: doc.id, ...(doc.data() as any) });
-            });
-            setLatestResults(resultsData);
-            setLoading(false);
-        });
+        fetchData();
+    }, [fetchData]);
 
-        return () => unsubscribe();
-    }, [fetchInitialData]);
-
-    const getResultStatus = (result: Result) => {
-        const spec = SPEC_MAP.get(`${result.type_combustible}|${result.fournisseur}`);
-        if (!spec) return true; // Conform if no spec
-        if (spec.PCI_min && result.pci_brut < spec.PCI_min) return false;
-        return true;
-    }
+    const mixtureIndicators = useMemo(() => {
+        if (!mixtureSession?.globalIndicators) return null;
+        const indicators = mixtureSession.globalIndicators;
+        return [
+            { label: "PCI", value: formatNumber(indicators.pci, 0), unit: "kcal/kg", icon: Thermometer },
+            { label: "Chlorures", value: formatNumber(indicators.chlorine, 3), unit: "%", icon: Wind },
+            { label: "Taux Pneus", value: formatNumber(indicators.tireRate, 2), unit: "%", icon: BarChart },
+            { label: "Cendres", value: formatNumber(indicators.ash, 2), unit: "%", icon: Percent },
+            { label: "H₂O", value: formatNumber(indicators.humidity, 2), unit: "%", icon: Droplets },
+        ];
+    }, [mixtureSession]);
     
-    const lowStockThreshold = 100; // in tonnes
-    const lowStocks = useMemo(() => stocks.filter(s => s.stock_actuel_tonnes < lowStockThreshold), [stocks]);
+    const flowData: FlowData[] | null = useMemo(() => {
+        if (!mixtureSession) return null;
+        return [
+          { label: 'AF', value: (mixtureSession.hallAF?.flowRate || 0) + (mixtureSession.ats?.flowRate || 0) },
+          { label: 'GO1', value: mixtureSession.directInputs?.['Grignons GO1']?.flowRate || 0 },
+          { label: 'GO2', value: mixtureSession.directInputs?.['Grignons GO2']?.flowRate || 0 },
+          { label: 'Pet-Coke Preca', value: mixtureSession.directInputs?.['Pet-Coke Preca']?.flowRate || 0 },
+          { label: 'Pet-Coke Tuyère', value: mixtureSession.directInputs?.['Pet-Coke Tuyere']?.flowRate || 0 },
+        ];
+    }, [mixtureSession]);
+
+    const impactData: ImpactData[] | null = useMemo(() => {
+        if (!latestImpact) return null;
+        const { results } = latestImpact;
+        const delta = (a?: number | null, b?: number | null) => (a ?? 0) - (b ?? 0);
+        return [
+            { label: "% Fe2O3", value: delta(results.clinkerWithAsh.fe2o3, results.clinkerWithoutAsh.fe2o3) },
+            { label: "LSF", value: delta(results.modulesAvec.lsf, results.modulesSans.lsf) },
+            { label: "C3S", value: delta(results.c3sAvec, results.c3sSans) },
+            { label: "MS", value: delta(results.modulesAvec.ms, results.modulesSans.ms) },
+            { label: "AF", value: delta(results.modulesAvec.af, results.modulesSans.af) },
+        ];
+    }, [latestImpact]);
+
 
     if (loading) {
         return (
             <div className="p-4 md:p-6 space-y-6">
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                    <Skeleton className="h-24" />
-                    <Skeleton className="h-24" />
-                    <Skeleton className="h-24" />
-                    <Skeleton className="h-24" />
-                </div>
-                <div className="grid gap-6 md:grid-cols-2">
-                    <Skeleton className="h-80" />
-                    <Skeleton className="h-80" />
+                <Skeleton className="h-32 w-full" />
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    <Skeleton className="h-64" />
+                    <Skeleton className="h-64" />
+                    <Skeleton className="h-64" />
                 </div>
             </div>
         );
@@ -95,101 +110,28 @@ export function MainDashboard() {
     
     return (
         <div className="p-4 md:p-6 space-y-6">
-            <section>
-                <h2 className="text-xl font-semibold text-white mb-3">Dernier Mélange Enregistré</h2>
-                {session ? (
+             <section>
+                <h2 className="text-xl font-semibold text-white mb-3">Indicateurs du Mélange Actuel</h2>
+                {mixtureIndicators ? (
                     <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-                       <StatCard label="Débit total" value={`${formatNumber(session.globalIndicators?.flow, 1)} t/h`} icon={<Flame />} />
-                       <StatCard label="PCI moyen" value={`${formatNumber(session.globalIndicators?.pci, 0)} kcal/kg`} icon={<Flame />} />
-                       <StatCard label="Humidité moy." value={`${formatNumber(session.globalIndicators?.humidity, 2)} %`} icon={<Droplets />} />
-                       <StatCard label="% Cendres moy." value={`${formatNumber(session.globalIndicators?.ash, 2)} %`} icon={<Percent />} />
-                       <StatCard label="% Chlorures" value={`${formatNumber(session.globalIndicators?.chlorine, 3)} %`} icon={<Wind />} />
+                       {mixtureIndicators.map(ind => <StatCard key={ind.label} {...ind} />)}
                     </div>
                 ) : (
-                    <Card className="flex items-center justify-center h-24">
+                    <Card className="flex items-center justify-center h-24 bg-brand-surface border-brand-line">
                         <p className="text-muted-foreground">Aucune session de mélange enregistrée.</p>
                     </Card>
                 )}
             </section>
             
-            <section className="grid gap-6 lg:grid-cols-2">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Archive className="text-primary"/>
-                            Niveaux de Stock
-                        </CardTitle>
-                        {lowStocks.length > 0 && <CardDescription className="text-amber-400">{lowStocks.length} stock(s) bas.</CardDescription>}
-                    </CardHeader>
-                    <CardContent>
-                        <ScrollArea className="h-72">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Combustible</TableHead>
-                                        <TableHead className="text-right">Stock Actuel (tonnes)</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {stocks.map(stock => (
-                                        <TableRow key={stock.id} className={stock.stock_actuel_tonnes < lowStockThreshold ? "bg-amber-800/20" : ""}>
-                                            <TableCell className="font-medium">{stock.nom_combustible}</TableCell>
-                                            <TableCell className="text-right font-bold tabular-nums">
-                                                {formatNumber(stock.stock_actuel_tonnes, 1)}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </ScrollArea>
-                    </CardContent>
-                </Card>
+            <section className="grid gap-6 lg:grid-cols-3">
+                <div className="lg:col-span-1 space-y-6">
+                    <KeyIndicatorCard tsr={keyIndicators?.tsr} consumption={keyIndicators?.consumption} />
+                    <FlowRateCard title="Débits Actuels" flows={flowData} />
+                </div>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Dernières Analyses</CardTitle>
-                        <CardDescription>Les 5 analyses les plus récentes.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                         <ScrollArea className="h-72">
-                            <Table>
-                                 <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Date</TableHead>
-                                        <TableHead>Combustible</TableHead>
-                                        <TableHead className="text-right">PCI (kcal/kg)</TableHead>
-                                        <TableHead className="text-center">Statut</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {latestResults.map(result => {
-                                        const isConform = getResultStatus(result);
-                                        return (
-                                            <TableRow key={result.id}>
-                                                <TableCell className="text-muted-foreground">
-                                                    {format(result.date_arrivage.seconds * 1000, "d MMM", { locale: fr })}
-                                                </TableCell>
-                                                <TableCell className="font-medium">{result.type_combustible}</TableCell>
-                                                <TableCell className="text-right font-bold tabular-nums">{formatNumber(result.pci_brut)}</TableCell>
-                                                <TableCell className="text-center">
-                                                    {isConform ? (
-                                                        <span className="inline-flex items-center gap-1.5 text-xs text-green-400">
-                                                            <CheckCircle2 className="h-3.5 w-3.5" /> Conforme
-                                                        </span>
-                                                    ) : (
-                                                        <span className="inline-flex items-center gap-1.5 text-xs text-red-400">
-                                                            <AlertTriangle className="h-3.5 w-3.5" /> Non Conforme
-                                                        </span>
-                                                    )}
-                                                </TableCell>
-                                            </TableRow>
-                                        )
-                                    })}
-                                </TableBody>
-                            </Table>
-                        </ScrollArea>
-                    </CardContent>
-                </Card>
+                <div className="lg:col-span-2">
+                    <ImpactCard title="Impact sur le Clinker" data={impactData} lastUpdate={latestImpact?.createdAt.toDate()} />
+                </div>
             </section>
         </div>
     );
