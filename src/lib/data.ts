@@ -170,7 +170,8 @@ export interface ChlorineTrackingEntry {
     date: Timestamp;
     calculatedMixtureChlorine: number;
     hotMealChlorine: number;
-    totalAfGoFlow: number;
+    afFlow: number;
+    goFlow: number;
 }
 
 
@@ -314,28 +315,45 @@ export async function getAverageAnalysisForFuels(
 ): Promise<Record<string, AverageAnalysis>> {
   if (!fuelNames || fuelNames.length === 0) return {};
 
-  const allResultsQuery = query(collection(db, "resultats"), orderBy("date_arrivage", "desc"));
-  const allResultsSnapshot = await getDocs(allResultsQuery);
-  const allResults = allResultsSnapshot.docs.map(d => d.data());
+  // 1. Fetch all results within the date range
+  const resultsInRangeQuery = query(
+    collection(db, 'resultats'),
+    where('date_arrivage', '>=', Timestamp.fromDate(startOfDay(dateRange.from))),
+    where('date_arrivage', '<=', Timestamp.fromDate(endOfDay(dateRange.to))),
+    orderBy('date_arrivage', 'desc')
+  );
+  const snapshotInRange = await getDocs(resultsInRangeQuery);
+  const resultsInRange = snapshotInRange.docs.map(d => d.data());
+
+  // 2. Group results by fuel type
+  const resultsByFuel: Record<string, any[]> = {};
+  fuelNames.forEach(name => {
+    resultsByFuel[name] = resultsInRange.filter(r => r.type_combustible === name);
+  });
 
   const analyses: Record<string, AverageAnalysis> = {};
 
+  // 3. Process each fuel name
   for (const fuelName of fuelNames) {
-    const fuelResults = allResults.filter(r => r.type_combustible === fuelName);
+    let finalResultsToAverage = resultsByFuel[fuelName];
 
-    let resultsInDateRange = fuelResults.filter(r => {
-      if (!r.date_arrivage) return false;
-      const date = r.date_arrivage.toDate();
-      return date >= startOfDay(dateRange.from) && date <= endOfDay(dateRange.to);
-    });
-
-    let finalResultsToAverage = resultsInDateRange;
-    if (resultsInDateRange.length === 0 && fuelResults.length > 0) {
-      finalResultsToAverage = [fuelResults[0]];
+    // 4. If no results in range, find the single most recent result
+    if (!finalResultsToAverage || finalResultsToAverage.length === 0) {
+      const latestResultQuery = query(
+        collection(db, 'resultats'),
+        where('type_combustible', '==', fuelName),
+        orderBy('date_arrivage', 'desc'),
+        limit(1)
+      );
+      const latestSnapshot = await getDocs(latestResultQuery);
+      if (!latestSnapshot.empty) {
+        finalResultsToAverage = latestSnapshot.docs.map(d => d.data());
+      }
     }
     
+    // 5. Calculate averages, ignoring null/undefined values
     const getAverage = (key: 'pci_brut' | 'h2o' | 'chlore' | 'cendres' | 'taux_metal') => {
-        const values = finalResultsToAverage
+        const values = (finalResultsToAverage || [])
           .map(r => r[key])
           .filter((v): v is number => typeof v === 'number' && isFinite(v));
         
@@ -357,7 +375,7 @@ export async function getAverageAnalysisForFuels(
         chlore: chloreAvg.average,
         cendres: cendresAvg.average,
         taux_metal: metalAvg.average,
-        count: finalResultsToAverage.length,
+        count: finalResultsToAverage?.length || 0,
     };
   }
 
@@ -935,3 +953,5 @@ export async function deleteChlorineTrackingEntry(id: string): Promise<void> {
     const entryRef = doc(db, 'chlorine_tracking', id);
     await deleteDoc(entryRef);
 }
+
+    
