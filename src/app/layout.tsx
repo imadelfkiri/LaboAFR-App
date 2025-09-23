@@ -17,8 +17,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="fr" className={`${inter.className} dark`}>
-      <body className="antialiased">
+    <html lang="fr" className={`${inter.className}`}>
+      <body className="antialiased bg-gray-50 text-gray-900">
         <MainLayout>{children}</MainLayout>
         <Toaster />
       </body>
