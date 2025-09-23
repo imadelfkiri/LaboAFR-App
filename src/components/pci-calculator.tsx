@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -285,9 +284,9 @@ export function PciCalculator() {
 
   const getInputClass = (status: ValidationStatus) => {
     switch (status) {
-      case 'conform': return 'border-green-500 focus-visible:ring-green-500';
-      case 'non-conform': return 'border-red-500 focus-visible:ring-red-500';
-      default: return '';
+      case 'conform': return 'border-emerald-500/50 focus-visible:ring-emerald-500';
+      case 'non-conform': return 'border-rose-500/50 focus-visible:ring-rose-500';
+      default: return 'border-white/10 focus-visible:ring-emerald-500';
     }
   };
 
@@ -406,17 +405,24 @@ export function PciCalculator() {
   }
 
   return (
-    <div className="w-full max-w-5xl space-y-4 pb-24">
+    <>
+    <div className="sticky top-0 z-20 border-b border-white/10 bg-background/80 backdrop-blur w-full">
+        <div className="mx-auto max-w-7xl px-5 py-4">
+            <h1 className="text-xl font-semibold tracking-tight">Calculateur PCI</h1>
+            <p className="text-sm text-muted-foreground">
+                Remplissez les données analytiques et enregistrez le résultat.
+            </p>
+        </div>
+    </div>
+    <div className="w-full max-w-5xl space-y-4 p-5">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card className="p-6 rounded-2xl">
+                <Card className="p-6 rounded-2xl border border-white/10 bg-[#0F1524]/80 shadow-[0_10px_30px_-15px_rgba(0,0,0,0.6)]">
                     <CardHeader className="p-0 pb-6">
-                       <CardTitle>
-                          <div className="text-xl font-bold flex items-center gap-2">
-                            <ClipboardList className="h-5 w-5" />
+                       <CardTitle className="text-lg font-semibold tracking-tight flex items-center gap-2 text-white">
+                            <ClipboardList className="h-5 w-5 text-emerald-400" />
                             <span>Informations Générales</span>
-                          </div>
                        </CardTitle>
                     </CardHeader>
                     <CardContent className="p-0">
@@ -434,7 +440,7 @@ export function PciCalculator() {
                                                 <Button
                                                 variant={"outline"}
                                                 className={cn(
-                                                    "w-full justify-start text-left font-normal rounded-lg h-11 px-4 text-sm",
+                                                    "w-full justify-start text-left font-normal rounded-xl h-11 px-4 text-sm bg-white/5 border-white/10 focus-visible:ring-emerald-500",
                                                     !field.value && "text-muted-foreground"
                                                 )}
                                                 >
@@ -469,7 +475,7 @@ export function PciCalculator() {
                                             <FormLabel>Type d'analyse</FormLabel>
                                             <Select onValueChange={field.onChange} value={field.value}>
                                                 <FormControl>
-                                                <SelectTrigger className="rounded-lg h-11 px-4 text-sm">
+                                                <SelectTrigger className="rounded-xl h-11 px-4 text-sm bg-white/5 border-white/10 focus-visible:ring-emerald-500">
                                                     <SelectValue placeholder="Sélectionner..." />
                                                 </SelectTrigger>
                                                 </FormControl>
@@ -493,7 +499,7 @@ export function PciCalculator() {
                                         <FormLabel>Combustible</FormLabel>
                                         <Select onValueChange={field.onChange} value={field.value}>
                                             <FormControl>
-                                            <SelectTrigger className="rounded-lg h-11 px-4 text-sm">
+                                            <SelectTrigger className="rounded-xl h-11 px-4 text-sm bg-white/5 border-white/10 focus-visible:ring-emerald-500">
                                                 <SelectValue placeholder="Sélectionner..." />
                                             </SelectTrigger>
                                             </FormControl>
@@ -517,7 +523,7 @@ export function PciCalculator() {
                                         <FormLabel>Fournisseur</FormLabel>
                                         <Select onValueChange={field.onChange} value={field.value} disabled={isFournisseurDisabled}>
                                             <FormControl>
-                                            <SelectTrigger className="rounded-lg h-11 px-4 text-sm">
+                                            <SelectTrigger className="rounded-xl h-11 px-4 text-sm bg-white/5 border-white/10 focus-visible:ring-emerald-500">
                                                 <SelectValue placeholder={isFournisseurDisabled ? "Choisir un combustible" : "Sélectionner..."} />
                                             </SelectTrigger>
                                             </FormControl>
@@ -558,7 +564,7 @@ export function PciCalculator() {
                                 <FormItem>
                                     <FormLabel>Tonnage (t)</FormLabel>
                                     <FormControl>
-                                    <Input type="number" step="any" placeholder="Ex: 25.5" {...field} value={field.value ?? ''} className="rounded-lg h-11 px-4 text-sm" />
+                                    <Input type="number" step="any" placeholder="Ex: 25.5" {...field} value={field.value ?? ''} className="h-11 rounded-xl px-4 text-sm bg-white/5 border-white/10 focus-visible:ring-emerald-500" />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -578,7 +584,7 @@ export function PciCalculator() {
                                     <FormControl>
                                         <Textarea
                                             placeholder="Ajoutez une remarque..."
-                                            className="resize-none rounded-lg min-h-[80px]"
+                                            className="resize-none rounded-xl min-h-[80px] bg-white/5 border-white/10 focus-visible:ring-emerald-500"
                                             {...field}
                                             value={field.value ?? ''}
                                         />
@@ -591,10 +597,10 @@ export function PciCalculator() {
                     </CardContent>
                 </Card>
 
-                <Card className="p-6 rounded-2xl">
+                <Card className="p-6 rounded-2xl border border-white/10 bg-[#0F1524]/80 shadow-[0_10px_30px_-15px_rgba(0,0,0,0.6)]">
                     <CardHeader className="p-0 pb-6">
-                        <CardTitle className="text-xl font-bold flex items-center gap-2">
-                            <FlaskConical className="w-5 h-5 text-green-600" /> 
+                        <CardTitle className="text-lg font-semibold tracking-tight flex items-center gap-2 text-white">
+                            <FlaskConical className="w-5 h-5 text-emerald-400" /> 
                             <span>Données Analytiques</span>
                         </CardTitle>
                     </CardHeader>
@@ -607,7 +613,7 @@ export function PciCalculator() {
                                 <FormItem>
                                     <FormLabel>PCS (kcal/kg)</FormLabel>
                                     <FormControl>
-                                    <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className="rounded-lg h-11 px-4 text-sm" />
+                                    <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className="h-11 rounded-xl px-4 text-sm bg-white/5 border-white/10 focus-visible:ring-emerald-500" />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -620,7 +626,7 @@ export function PciCalculator() {
                                 <FormItem>
                                     <FormLabel>% H2O</FormLabel>
                                     <FormControl>
-                                    <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className={cn("rounded-lg h-11 px-4 text-sm", getInputClass(validationStatus.h2o))} />
+                                    <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className={cn("h-11 rounded-xl px-4 text-sm bg-white/5", getInputClass(validationStatus.h2o))} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -634,7 +640,7 @@ export function PciCalculator() {
                                     readOnly 
                                     disabled 
                                     value={hValue !== null ? hValue.toFixed(2) : ''} 
-                                    className="rounded-lg h-11 px-4 text-sm bg-muted text-muted-foreground" 
+                                    className="h-11 rounded-xl px-4 text-sm bg-white/5 border-white/10 text-muted-foreground"
                                     placeholder={watchedTypeCombustible ? (hValue === null ? 'Non défini' : '') : '-'}
                                 />
                                 </FormControl>
@@ -646,7 +652,7 @@ export function PciCalculator() {
                                 <FormItem>
                                     <FormLabel>% Cl-</FormLabel>
                                     <FormControl>
-                                    <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className={cn("rounded-lg h-11 px-4 text-sm", getInputClass(validationStatus.chlore))} />
+                                    <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className={cn("h-11 rounded-xl px-4 text-sm bg-white/5", getInputClass(validationStatus.chlore))} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -659,7 +665,7 @@ export function PciCalculator() {
                                 <FormItem>
                                     <FormLabel>% Cendres</FormLabel>
                                     <FormControl>
-                                    <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className={cn("rounded-lg h-11 px-4 text-sm", getInputClass(validationStatus.cendres))} />
+                                    <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className={cn("h-11 rounded-xl px-4 text-sm bg-white/5", getInputClass(validationStatus.cendres))} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -672,29 +678,26 @@ export function PciCalculator() {
                                 <FormItem>
                                     <FormLabel>Taux du Métal (%)</FormLabel>
                                     <FormControl>
-                                    <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className="rounded-lg h-11 px-4 text-sm"/>
+                                    <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className="h-11 rounded-xl px-4 text-sm bg-white/5 border-white/10 focus-visible:ring-emerald-500"/>
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
                                 )}
                             />
-                            <div className={cn("p-4 rounded-lg border text-center md:col-span-2", 
-                                validationStatus.pci === 'conform' && 'bg-green-500/10 border-green-500/20',
-                                validationStatus.pci === 'non-conform' && 'bg-red-500/10 border-red-500/20',
-                                validationStatus.pci === 'neutral' && 'bg-muted'
+                             <div className={cn(
+                                "md:col-span-2 rounded-2xl p-5 border text-center transition-colors",
+                                validationStatus.pci === "conform" && "bg-emerald-500/10 border-emerald-500/30",
+                                validationStatus.pci === "non-conform" && "bg-rose-500/10 border-rose-500/30",
+                                validationStatus.pci === "neutral" && "bg-white/5 border-white/10"
                             )}>
-                                 <p className={cn("text-sm font-medium",
-                                    validationStatus.pci === 'conform' && 'text-green-400',
-                                    validationStatus.pci === 'non-conform' && 'text-red-400',
-                                    validationStatus.pci === 'neutral' && 'text-muted-foreground'
-                                 )}>PCI sur Brut (kcal/kg)</p>
+                                <p className="text-sm text-white/70">PCI sur Brut (kcal/kg)</p>
                                 <p className={cn(
-                                    "text-3xl font-bold tracking-tight transition-opacity duration-300",
-                                    validationStatus.pci === 'conform' && 'text-green-400',
-                                    validationStatus.pci === 'non-conform' && 'text-red-400',
-                                     pciResult !== null ? "opacity-100" : "text-muted-foreground opacity-50"
+                                "mt-1 text-3xl font-semibold tracking-tight",
+                                validationStatus.pci === "conform" && "text-emerald-300",
+                                validationStatus.pci === "non-conform" && "text-rose-300",
+                                validationStatus.pci === "neutral" && "text-white/80"
                                 )}>
-                                    {pciResult !== null ? pciResult.toLocaleString('fr-FR') : '-'}
+                                    {pciResult !== null ? pciResult.toLocaleString("fr-FR") : "-"}
                                 </p>
                             </div>
                         </div>
@@ -702,13 +705,15 @@ export function PciCalculator() {
                 </Card>
             </div>
             
-            <Button 
-                type="submit" 
-                disabled={isSaving || pciResult === null} 
-                className="fixed bottom-6 right-6 rounded-full h-12 px-6 shadow-lg text-base"
-            >
-                {isSaving ? "Enregistrement..." : "Enregistrer"}
-            </Button>
+            <div className="fixed bottom-4 right-4 z-30">
+                <button
+                    type="submit"
+                    disabled={isSaving || pciResult === null}
+                    className="rounded-full bg-emerald-600 px-5 h-12 text-white shadow-lg hover:bg-emerald-700 disabled:opacity-60"
+                >
+                    {isSaving ? "Enregistrement..." : "Enregistrer"}
+                </button>
+            </div>
         </form>
       </Form>
 
@@ -735,5 +740,6 @@ export function PciCalculator() {
             </DialogContent>
         </Dialog>
     </div>
+    </>
   );
 }
