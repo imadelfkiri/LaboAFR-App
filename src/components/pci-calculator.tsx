@@ -595,114 +595,118 @@ export function PciCalculator() {
                     </CardContent>
                 </Card>
 
-                <Card className="rounded-2xl border border-gray-200 bg-white shadow-[0_6px_24px_-12px_rgba(0,0,0,0.15)]">
-                    <CardHeader className="p-6 pb-6">
-                        <CardTitle className="text-lg font-semibold tracking-tight flex items-center gap-2 text-gray-800">
-                            <FlaskConical className="w-5 h-5 text-emerald-500" /> 
-                            <span>Données Analytiques</span>
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-6 pt-0">
-                        <div className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
-                                <FormField
-                                    control={form.control}
-                                    name="pcs"
-                                    render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-gray-700">PCS (kcal/kg)</FormLabel>
-                                        <FormControl>
-                                        <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className="h-11 rounded-xl px-4 text-sm border-gray-300 focus-visible:ring-emerald-500 focus-visible:border-emerald-500" />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="h2o"
-                                    render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-gray-700">% H2O</FormLabel>
-                                        <FormControl>
-                                        <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className={cn("h-11 rounded-xl px-4 text-sm", getInputClass(validationStatus.h2o))} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                    )}
-                                />
-                                 <FormItem>
-                                    <FormLabel className="text-gray-700">% H</FormLabel>
-                                    <FormControl>
-                                    <Input 
-                                        type="number" 
-                                        readOnly 
-                                        disabled 
-                                        value={hValue !== null ? hValue.toFixed(2) : ''} 
-                                        className="h-11 rounded-xl px-4 text-sm bg-gray-100 border-gray-300 text-gray-500"
-                                        placeholder={watchedTypeCombustible ? (hValue === null ? 'Non défini' : '') : '-'}
+                <div className="space-y-8">
+                    <Card className="rounded-2xl border border-gray-200 bg-white shadow-[0_6px_24px_-12px_rgba(0,0,0,0.15)]">
+                        <CardHeader className="p-6 pb-6">
+                            <CardTitle className="text-lg font-semibold tracking-tight flex items-center gap-2 text-gray-800">
+                                <FlaskConical className="w-5 h-5 text-emerald-500" /> 
+                                <span>Données Analytiques</span>
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-6 pt-0">
+                            <div className="space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
+                                    <FormField
+                                        control={form.control}
+                                        name="pcs"
+                                        render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-gray-700">PCS (kcal/kg)</FormLabel>
+                                            <FormControl>
+                                            <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className="h-11 rounded-xl px-4 text-sm border-gray-300 focus-visible:ring-emerald-500 focus-visible:border-emerald-500" />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                        )}
                                     />
-                                    </FormControl>
-                                </FormItem>
-                                <FormField
-                                    control={form.control}
-                                    name="chlore"
-                                    render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-gray-700">% Cl-</FormLabel>
+                                    <FormField
+                                        control={form.control}
+                                        name="h2o"
+                                        render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-gray-700">% H2O</FormLabel>
+                                            <FormControl>
+                                            <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className={cn("h-11 rounded-xl px-4 text-sm", getInputClass(validationStatus.h2o))} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                        )}
+                                    />
+                                     <FormItem>
+                                        <FormLabel className="text-gray-700">% H</FormLabel>
                                         <FormControl>
-                                        <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className={cn("h-11 rounded-xl px-4 text-sm", getInputClass(validationStatus.chlore))} />
+                                        <Input 
+                                            type="number" 
+                                            readOnly 
+                                            disabled 
+                                            value={hValue !== null ? hValue.toFixed(2) : ''} 
+                                            className="h-11 rounded-xl px-4 text-sm bg-gray-100 border-gray-300 text-gray-500"
+                                            placeholder={watchedTypeCombustible ? (hValue === null ? 'Non défini' : '') : '-'}
+                                        />
                                         </FormControl>
-                                        <FormMessage />
                                     </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="cendres"
-                                    render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-gray-700">% Cendres</FormLabel>
-                                        <FormControl>
-                                        <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className={cn("h-11 rounded-xl px-4 text-sm", getInputClass(validationStatus.cendres))} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="taux_metal"
-                                    render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-gray-700">Taux du Métal (%)</FormLabel>
-                                        <FormControl>
-                                        <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className="h-11 rounded-xl px-4 text-sm border-gray-300 focus-visible:ring-emerald-500 focus-visible:border-emerald-500"/>
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                    )}
-                                />
+                                    <FormField
+                                        control={form.control}
+                                        name="chlore"
+                                        render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-gray-700">% Cl-</FormLabel>
+                                            <FormControl>
+                                            <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className={cn("h-11 rounded-xl px-4 text-sm", getInputClass(validationStatus.chlore))} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="cendres"
+                                        render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-gray-700">% Cendres</FormLabel>
+                                            <FormControl>
+                                            <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className={cn("h-11 rounded-xl px-4 text-sm", getInputClass(validationStatus.cendres))} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="taux_metal"
+                                        render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-gray-700">Taux du Métal (%)</FormLabel>
+                                            <FormControl>
+                                            <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className="h-11 rounded-xl px-4 text-sm border-gray-300 focus-visible:ring-emerald-500 focus-visible:border-emerald-500"/>
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                        )}
+                                    />
+                                </div>
                             </div>
-                            <div className={cn(
-                                "md:col-span-2 rounded-2xl p-5 border text-center transition-colors",
-                                validationStatus.pci === "conform" && "bg-emerald-500/10 border-emerald-500/30",
-                                validationStatus.pci === "non-conform" && "bg-rose-500/10 border-rose-500/30",
-                                validationStatus.pci === "neutral" && "bg-gray-50 border-gray-200 text-gray-700"
-                            )}>
-                                <p className={cn("text-sm", validationStatus.pci === 'neutral' ? 'text-gray-500' : 'text-inherit')}>PCI sur Brut (kcal/kg)</p>
-                                <p className={cn(
-                                "mt-1 text-3xl font-semibold tracking-tight",
-                                validationStatus.pci === "conform" && "text-emerald-600",
-                                validationStatus.pci === "non-conform" && "text-rose-600",
-                                validationStatus.pci === "neutral" && "text-gray-800"
-                                )}>
-                                    {pciResult !== null ? pciResult.toLocaleString("fr-FR") : "-"}
-                                </p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
+
+                     <div className={cn(
+                        "rounded-2xl p-5 border text-center transition-colors",
+                        validationStatus.pci === "conform" && "bg-emerald-500/10 border-emerald-500/30",
+                        validationStatus.pci === "non-conform" && "bg-rose-500/10 border-rose-500/30",
+                        validationStatus.pci === "neutral" && "bg-gray-50 border-gray-200 text-gray-700"
+                    )}>
+                        <p className={cn("text-sm", validationStatus.pci === 'neutral' ? 'text-gray-500' : 'text-inherit')}>PCI sur Brut (kcal/kg)</p>
+                        <p className={cn(
+                        "mt-1 text-3xl font-semibold tracking-tight",
+                        validationStatus.pci === "conform" && "text-emerald-600",
+                        validationStatus.pci === "non-conform" && "text-rose-600",
+                        validationStatus.pci === "neutral" && "text-gray-800"
+                        )}>
+                            {pciResult !== null ? pciResult.toLocaleString("fr-FR") : "-"}
+                        </p>
+                    </div>
+                </div>
+
             </div>
             
             <div className="fixed bottom-4 right-4 z-30">
