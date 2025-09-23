@@ -3,13 +3,16 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getLatestIndicatorData } from '@/lib/data';
+import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getLatestIndicatorData, getMixtureSessions, getStocks, Stock } from '@/lib/data';
 import { Skeleton } from "@/components/ui/skeleton";
-import { Droplets, Wind, Percent, BarChart, Thermometer } from 'lucide-react';
-import { Card } from "@/components/ui/card";
+import { Droplets, Wind, Percent, BarChart, Thermometer, Flame, TrendingUp, Activity, Archive, LayoutDashboard } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { KeyIndicatorCard } from './cards/KeyIndicatorCard';
 import { FlowRateCard, FlowData } from './cards/FlowRateCard';
 import { ImpactCard, ImpactData } from './cards/ImpactCard';
+import { Bar, BarChart as RechartsBarChart, Line, LineChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
+import { subDays, format } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
 // Hook to read from localStorage without causing hydration issues
 function usePersistentValue<T>(key: string, defaultValue: T): T {
@@ -17,7 +20,6 @@ function usePersistentValue<T>(key: string, defaultValue: T): T {
 
     useEffect(() => {
         try {
-            // Only run on client
             if (typeof window === 'undefined') {
                 return;
             }
@@ -26,7 +28,6 @@ function usePersistentValue<T>(key: string, defaultValue: T): T {
                 setState(JSON.parse(storedValue));
             }
         } catch {
-            // If parsing fails, stick with the default value
             setState(defaultValue);
         }
     }, [key]);
@@ -55,24 +56,49 @@ const formatNumber = (num: number | null | undefined, digits: number = 2) => {
     });
 };
 
+const CustomHistoryTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+        return (
+            <div className="bg-background/80 backdrop-blur-sm border border-border rounded-lg shadow-lg p-3 text-xs">
+                <p className="font-bold text-foreground">{label}</p>
+                {payload.map((pld: any) => (
+                    <div key={pld.dataKey} style={{ color: pld.color }}>
+                        {`${pld.name}: ${pld.value.toFixed(2)}`}
+                    </div>
+                ))}
+            </div>
+        );
+    }
+    return null;
+  };
+
 export function MainDashboard() {
     const [loading, setLoading] = useState(true);
     const [mixtureSession, setMixtureSession] = useState<MixtureSession | null>(null);
     const [latestImpact, setLatestImpact] = useState<ImpactAnalysis | null>(null);
     const [keyIndicators, setKeyIndicators] = useState<{ tsr: number; } | null>(null);
+    const [historySessions, setHistorySessions] = useState<MixtureSession[]>([]);
+    const [stocks, setStocks] = useState<Stock[]>([]);
     const debitClinker = usePersistentValue<number>('debitClinker', 0);
 
 
     const fetchData = useCallback(async () => {
         try {
-            const [sessionData, impactAnalyses, indicatorData] = await Promise.all([
+            const thirtyDaysAgo = subDays(new Date(), 30);
+            const today = new Date();
+
+            const [sessionData, impactAnalyses, indicatorData, historyData, stockData] = await Promise.all([
                 getLatestMixtureSession(),
                 getImpactAnalyses(),
-                getLatestIndicatorData()
+                getLatestIndicatorData(),
+                getMixtureSessions(thirtyDaysAgo, today),
+                getStocks(),
             ]);
             setMixtureSession(sessionData);
             setLatestImpact(impactAnalyses.length > 0 ? impactAnalyses[0] : null);
             setKeyIndicators(indicatorData);
+            setHistorySessions(historyData);
+            setStocks(stockData);
         } catch (error) {
             console.error("Error fetching dashboard data:", error);
         } finally {
@@ -124,11 +150,7 @@ export function MainDashboard() {
         if (!mixtureSession || !debitClinker || debitClinker === 0 || !mixtureSession.availableFuels) return 0;
         
         const getPci = (fuelName: string) => mixtureSession.availableFuels[fuelName]?.pci_brut || 0;
-        
-        const getPetCokePci = () => {
-             const pci = getPci('Pet Coke') || getPci('Pet-Coke') || getPci('Pet-Coke Preca') || getPci('Pet-Coke Tuyere');
-             return pci;
-        }
+        const getPetCokePci = () => getPci('Pet Coke') || getPci('Pet-Coke') || getPci('Pet-Coke Preca') || getPci('Pet-Coke Tuyere');
 
         let afEnergyWeightedSum = 0;
 
@@ -177,6 +199,27 @@ export function MainDashboard() {
             : 0;
     }, [mixtureSession, debitClinker]);
 
+    const historyChartData = useMemo(() => {
+        if (!historySessions || historySessions.length === 0) return [];
+        return historySessions.map(session => ({
+            date: format(session.timestamp.toDate(), 'd MMM', { locale: fr }), 
+            'PCI': session.globalIndicators.pci,
+            'Humidité': session.globalIndicators.humidity,
+            'Chlore': session.globalIndicators.chlorine,
+        })).sort((a,b) => a.date.localeCompare(b.date, 'fr', { numeric: true }));
+      }, [historySessions]);
+
+    const stockChartData = useMemo(() => {
+        if (!stocks || stocks.length === 0) return [];
+        return stocks
+            .filter(s => s.stock_actuel_tonnes > 0)
+            .map(s => ({
+                name: s.nom_combustible,
+                tonnage: s.stock_actuel_tonnes
+            }))
+            .sort((a, b) => b.tonnage - a.tonnage);
+    }, [stocks]);
+
 
     if (loading) {
         return (
@@ -192,30 +235,88 @@ export function MainDashboard() {
     }
     
     return (
-        <div className="p-4 md:p-6 space-y-6">
-             <section>
-                <h2 className="text-xl font-semibold text-white mb-3">Indicateurs du Mélange Actuel</h2>
-                {mixtureIndicators ? (
-                    <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-                       {mixtureIndicators.map(ind => <StatCard key={ind.label} {...ind} />)}
-                    </div>
-                ) : (
-                    <Card className="flex items-center justify-center h-24 bg-brand-surface border-brand-line">
-                        <p className="text-muted-foreground">Aucune session de mélange enregistrée.</p>
+        <div className="p-4 md:p-6 lg:p-8 space-y-6">
+            <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-3">
+                <LayoutDashboard className="h-8 w-8" />
+                Tableau de Bord
+            </h1>
+
+            <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <div className="lg:col-span-2 space-y-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2"><TrendingUp /> Historique des Indicateurs</CardTitle>
+                            <CardDescription>Évolution sur les 30 derniers jours</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <ResponsiveContainer width="100%" height={300}>
+                                {historyChartData.length > 0 ? (
+                                    <LineChart data={historyChartData}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                                        <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                                        <YAxis yAxisId="left" stroke="hsl(var(--primary))" fontSize={12} />
+                                        <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" fontSize={12} />
+                                        <Tooltip content={<CustomHistoryTooltip />} />
+                                        <Legend />
+                                        <Line yAxisId="left" type="monotone" dataKey="PCI" stroke="hsl(var(--primary))" dot={false} strokeWidth={2} />
+                                        <Line yAxisId="right" type="monotone" dataKey="Humidité" stroke="#82ca9d" dot={false} strokeWidth={2} />
+                                        <Line yAxisId="right" type="monotone" dataKey="Chlore" stroke="#ffc658" dot={false} strokeWidth={2} />
+                                    </LineChart>
+                                ) : (
+                                    <div className="flex items-center justify-center h-full text-muted-foreground">Aucun historique de session.</div>
+                                )}
+                            </ResponsiveContainer>
+                        </CardContent>
                     </Card>
-                )}
+                    <ImpactCard title="Impact sur le Clinker" data={impactData} lastUpdate={latestImpact?.createdAt.toDate()} />
+                </div>
+
+                <div className="lg:col-span-1 space-y-6">
+                    <KeyIndicatorCard tsr={keyIndicators?.tsr} consumption={calorificConsumption} />
+                    <Card>
+                        <CardHeader><CardTitle className="flex items-center gap-2"><Flame /> Indicateurs du Mélange</CardTitle></CardHeader>
+                        <CardContent className="grid gap-4 grid-cols-2">
+                             {mixtureIndicators ? mixtureIndicators.map(ind => (
+                                <div key={ind.label} className="p-3 rounded-lg bg-brand-muted/70">
+                                    <p className="text-xs text-muted-foreground">{ind.label}</p>
+                                    <p className="text-xl font-bold">{ind.value}<span className="text-xs ml-1">{ind.unit}</span></p>
+                                </div>
+                            )) : <p className="col-span-2 text-center text-muted-foreground p-4">Aucune session de mélange.</p>}
+                        </CardContent>
+                    </Card>
+                </div>
+
             </section>
             
             <section className="grid gap-6 lg:grid-cols-3">
-                <div className="lg:col-span-1 space-y-6">
-                    <KeyIndicatorCard tsr={keyIndicators?.tsr} consumption={calorificConsumption} />
+                 <div className="lg:col-span-2">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2"><Archive /> Répartition du Stock</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <ResponsiveContainer width="100%" height={350}>
+                                {stockChartData.length > 0 ? (
+                                    <RechartsBarChart data={stockChartData} layout="vertical" margin={{ left: 20, right: 20 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                                        <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                                        <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} width={100} />
+                                        <Tooltip cursor={{ fill: 'hsl(var(--muted))' }} contentStyle={{background: 'hsl(var(--background))', border: '1px solid hsl(var(--border))'}}/>
+                                        <Bar dataKey="tonnage" name="Tonnage" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                                    </RechartsBarChart>
+                                ) : (
+                                    <div className="flex items-center justify-center h-full text-muted-foreground">Aucune donnée de stock.</div>
+                                )}
+                            </ResponsiveContainer>
+                        </CardContent>
+                    </Card>
+                 </div>
+                 <div className="lg:col-span-1">
                     <FlowRateCard title="Débits Actuels" flows={flowData} />
-                </div>
-
-                <div className="lg:col-span-2">
-                    <ImpactCard title="Impact sur le Clinker" data={impactData} lastUpdate={latestImpact?.createdAt.toDate()} />
-                </div>
+                 </div>
             </section>
         </div>
     );
 }
+
