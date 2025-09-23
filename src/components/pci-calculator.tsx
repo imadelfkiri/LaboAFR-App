@@ -407,12 +407,6 @@ export function PciCalculator() {
   return (
     <>
     <div className="w-full max-w-5xl space-y-4 mx-auto px-6 pt-6 pb-24">
-        <div className="text-left mb-8">
-            <h1 className="text-xl font-semibold tracking-tight">Calculateur PCI</h1>
-            <p className="text-sm text-gray-500">
-                Remplissez les données analytiques et enregistrez le résultat.
-            </p>
-        </div>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
