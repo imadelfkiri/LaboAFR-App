@@ -4,31 +4,41 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 224 71% 4%;
+    --background: 240 5% 96%; /* Light Gray */
+    --foreground: 240 10% 4%; /* Dark Gray */
+    
     --card: 0 0% 100%;
     --card-foreground: 224 71% 4%;
+    
     --popover: 0 0% 100%;
     --popover-foreground: 224 71% 4%;
-    --primary: 221 83% 53%;
+    
+    --primary: 142 76% 36%; /* Emerald-600 */
     --primary-foreground: 0 0% 98%;
+    
     --secondary: 220 13% 91%;
     --secondary-foreground: 224 71% 4%;
-    --muted: 220 13% 91%;
-    --muted-foreground: 220 9% 45%;
-    --accent: 347 77% 60%;
+
+    --muted: 240 5% 90%; /* Slightly darker gray for muted backgrounds */
+    --muted-foreground: 240 4% 46%; /* Softer gray for text */
+    
+    --accent: 216 34% 50%; /* A softer blue for accents */
     --accent-foreground: 0 0% 98%;
+    
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
-    --border: 220 13% 91%;
-    --input: 220 13% 85%;
-    --ring: 221 83% 53%;
-    --radius: 0.5rem;
+    
+    --border: 240 6% 90%;
+    --input: 240 6% 85%;
+    --ring: 142 76% 36%; /* Emerald-600 for focus rings */
+    
+    --radius: 0.75rem;
 
+    /* Custom brand colors can be kept or adjusted */
     --brand-bg: 240 5% 96%;
     --brand-surface: 0 0% 100%;
-    --brand-accent: 347 77% 60%; /* Vibrant Orange */
-    --brand-muted: 240 5% 96%;
+    --brand-accent: 142 76% 36%;
+    --brand-muted: 240 5% 90%;
     --brand-line: 240 5% 85%;
     --brand-text: 240 10% 4%;
 
@@ -38,6 +48,7 @@
   }
 
   .dark {
+    /* Kept the dark theme variables but they are not active by default anymore */
     --background: 224 71% 4%;
     --foreground: 210 20% 98%;
     --card: 224 71% 4%;
@@ -57,7 +68,7 @@
     --border: 215 28% 17%;
     --input: 215 28% 17%;
     --ring: 210 20% 98%;
-
+    
     --brand-bg: 224 71% 4%;
     --brand-surface: 215 28% 17%;
     --brand-accent: 347 77% 60%;

@@ -18,7 +18,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr" className={`${inter.className}`}>
-      <body className="antialiased bg-gray-50 text-gray-900">
+      <body className="antialiased bg-gradient-to-br from-gray-50 to-white text-gray-900">
         <MainLayout>{children}</MainLayout>
         <Toaster />
       </body>
