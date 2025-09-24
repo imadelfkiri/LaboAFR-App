@@ -548,10 +548,14 @@ export function MixtureCalculator() {
 
   const handlePrepareSave = () => {
     // Exclude direct inputs from the composition table
-    const mixtureFuelWeights = { ...globalFuelWeights };
-    Object.keys(directInputs).forEach(fuelName => {
-        delete mixtureFuelWeights[fuelName];
-    });
+    const mixtureFuelWeights: Record<string, number> = {};
+    const directInputFuelNames = Object.keys(directInputs).map(name => name.split(' ')[0]);
+
+    for (const fuelName in globalFuelWeights) {
+        if (!directInputFuelNames.some(directName => fuelName.toLowerCase().includes(directName.toLowerCase()))) {
+            mixtureFuelWeights[fuelName] = globalFuelWeights[fuelName];
+        }
+    }
 
     const totalMixtureWeight = Object.values(mixtureFuelWeights).reduce((sum, weight) => sum + weight, 0);
 
@@ -722,7 +726,7 @@ export function MixtureCalculator() {
         let textToCopy = "";
 
         // Introduction
-        textToCopy += "Voici le résumé de la nouvelle composition du mélange et de ses indicateurs clés pour la journée :\n\n";
+        textToCopy += "Voici le résumé de la nouvelle composition du mélange et de ses indicateurs clés pour aujourd hui :\n\n";
 
         // Key Indicators
         textToCopy += "Indicateurs Clés\n";
@@ -803,7 +807,7 @@ export function MixtureCalculator() {
           </DialogHeader>
           <div className="grid gap-6 py-4 text-sm">
             <p>
-              Voici le résumé de la nouvelle composition du mélange et de ses indicateurs clés pour la journée :
+              Voici le résumé de la nouvelle composition du mélange et de ses indicateurs clés pour aujourd hui :
             </p>
             
             <div className='grid grid-cols-2 gap-x-8'>
@@ -1105,3 +1109,5 @@ export function MixtureCalculator() {
     </div>
   );
 }
+
+    
