@@ -33,6 +33,7 @@ import { ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip as
 import { Separator } from './ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { handleGenerateSuggestion } from '@/lib/actions';
+import { ScrollArea } from './ui/scroll-area';
 
 
 interface InstallationState {
@@ -76,6 +77,80 @@ const defaultThresholds: MixtureThresholds = {
 };
 
 type IndicatorStatus = 'alert' | 'conform' | 'neutral';
+
+const ThresholdSettingsModal = ({
+  isOpen,
+  onOpenChange,
+  thresholds,
+  onSave,
+}: {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  thresholds: MixtureThresholds;
+  onSave: (newThresholds: MixtureThresholds) => void;
+}) => {
+    const [currentThresholds, setCurrentThresholds] = useState(thresholds);
+
+    useEffect(() => {
+        setCurrentThresholds(thresholds);
+    }, [isOpen, thresholds]);
+
+    const handleChange = (key: keyof MixtureThresholds, value: string) => {
+        const numValue = parseFloat(value);
+        setCurrentThresholds(prev => ({
+            ...prev,
+            [key]: isNaN(numValue) ? defaultThresholds[key] : numValue
+        }));
+    };
+
+    const handleSave = () => {
+        onSave(currentThresholds);
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+                    <Settings className="h-5 w-5" />
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Définir les seuils d'alerte</DialogTitle>
+                    <DialogDescription>
+                        Les indicateurs changeront de couleur si ces seuils sont dépassés.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid grid-cols-2 gap-4 py-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="pci_min">PCI Moyen (min)</Label>
+                        <Input id="pci_min" type="number" value={currentThresholds.pci_min} onChange={e => handleChange('pci_min', e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="humidity_max">Humidité Moyenne (max %)</Label>
+                        <Input id="humidity_max" type="number" value={currentThresholds.humidity_max} onChange={e => handleChange('humidity_max', e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="ash_max">Cendres Moyennes (max %)</Label>
+                        <Input id="ash_max" type="number" value={currentThresholds.ash_max} onChange={e => handleChange('ash_max', e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="chlorine_max">Chlorures Moyens (max %)</Label>
+                        <Input id="chlorine_max" type="number" value={currentThresholds.chlorine_max} onChange={e => handleChange('chlorine_max', e.target.value)} />
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="tireRate_max">Taux de Pneus (max %)</Label>
+                        <Input id="tireRate_max" type="number" value={currentThresholds.tireRate_max} onChange={e => handleChange('tireRate_max', e.target.value)} />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>Annuler</Button>
+                    <Button type="button" onClick={handleSave}>Enregistrer les seuils</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};
 
 function IndicatorCard({ title, value, unit, tooltipText, status = 'neutral' }: { title: string; value: string | number; unit?: string; tooltipText?: string, status?: IndicatorStatus }) {
   const cardContent = (
@@ -308,79 +383,6 @@ const fuelOrder = [
 ];
 
 
-const ThresholdSettingsModal = ({
-  isOpen,
-  onOpenChange,
-  thresholds,
-  onSave,
-}: {
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
-  thresholds: MixtureThresholds;
-  onSave: (newThresholds: MixtureThresholds) => void;
-}) => {
-    const [currentThresholds, setCurrentThresholds] = useState(thresholds);
-
-    useEffect(() => {
-        setCurrentThresholds(thresholds);
-    }, [isOpen, thresholds]);
-
-    const handleChange = (key: keyof MixtureThresholds, value: string) => {
-        const numValue = parseFloat(value);
-        setCurrentThresholds(prev => ({
-            ...prev,
-            [key]: isNaN(numValue) ? defaultThresholds[key] : numValue
-        }));
-    };
-
-    const handleSave = () => {
-        onSave(currentThresholds);
-    };
-
-    return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-                    <Settings className="h-5 w-5" />
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                    <DialogTitle>Définir les seuils d'alerte</DialogTitle>
-                    <DialogDescription>
-                        Les indicateurs changeront de couleur si ces seuils sont dépassés.
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="grid grid-cols-2 gap-4 py-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="pci_min">PCI Moyen (min)</Label>
-                        <Input id="pci_min" type="number" value={currentThresholds.pci_min} onChange={e => handleChange('pci_min', e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="humidity_max">Humidité Moyenne (max %)</Label>
-                        <Input id="humidity_max" type="number" value={currentThresholds.humidity_max} onChange={e => handleChange('humidity_max', e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="ash_max">Cendres Moyennes (max %)</Label>
-                        <Input id="ash_max" type="number" value={currentThresholds.ash_max} onChange={e => handleChange('ash_max', e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="chlorine_max">Chlorures Moyens (max %)</Label>
-                        <Input id="chlorine_max" type="number" value={currentThresholds.chlorine_max} onChange={e => handleChange('chlorine_max', e.target.value)} />
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="tireRate_max">Taux de Pneus (max %)</Label>
-                        <Input id="tireRate_max" type="number" value={currentThresholds.tireRate_max} onChange={e => handleChange('tireRate_max', e.target.value)} />
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>Annuler</Button>
-                    <Button type="button" onClick={handleSave}>Enregistrer les seuils</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
-};
 
 
 export function MixtureCalculator() {
@@ -623,12 +625,12 @@ export function MixtureCalculator() {
   }
 
   const handlePrepareSave = () => {
-    const directInputFuelNames = Object.keys(directInputs).map(name => name.split(" ")[0].toLowerCase());
-    
+    const directInputBaseNames = [...new Set(Object.keys(directInputs).map(name => name.split(" ")[0].toLowerCase()))];
+
     const mixtureFuelWeights: Record<string, number> = {};
 
     for (const fuelName in globalFuelWeights) {
-        if (!directInputFuelNames.includes(fuelName.toLowerCase())) {
+        if (!directInputBaseNames.includes(fuelName.toLowerCase())) {
             mixtureFuelWeights[fuelName] = globalFuelWeights[fuelName];
         }
     }
@@ -727,9 +729,7 @@ export function MixtureCalculator() {
     const { globalIndicators: summaryIndicators, composition, flows } = mixtureSummary;
 
     const generateSummaryText = () => {
-        let textToCopy = "";
-
-        textToCopy += "Voici le résumé de la nouvelle composition du mélange et de ses indicateurs clés :\n\n";
+        let textToCopy = "Voici le résumé de la nouvelle composition du mélange et de ses indicateurs clés :\n\n";
 
         // Key Indicators
         textToCopy += "Indicateurs Clés\n";
@@ -846,9 +846,9 @@ export function MixtureCalculator() {
             <div>
                  <h3 className="font-semibold text-foreground mb-2">Composition du Mélange</h3>
                 {composition.length > 0 ? (
-                    <div className="rounded-lg border">
+                    <ScrollArea className="h-[250px] rounded-lg border">
                        <Table>
-                            <TableHeader>
+                            <TableHeader className="sticky top-0 bg-background z-10">
                                 <TableRow>
                                     <TableHead>Combustible</TableHead>
                                     <TableHead className="text-center">Nb Godets</TableHead>
@@ -865,7 +865,7 @@ export function MixtureCalculator() {
                                 ))}
                             </TableBody>
                         </Table>
-                    </div>
+                    </ScrollArea>
                 ) : (
                     <p className="text-muted-foreground text-center py-4">Le mélange est vide.</p>
                 )}
