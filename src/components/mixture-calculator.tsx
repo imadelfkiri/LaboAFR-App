@@ -61,6 +61,10 @@ interface MixtureSummary {
         totalBuckets: number;
         totalWeight: number;
     }[];
+    flows: {
+        afFlow: number;
+        goFlow: number;
+    }
 }
 
 
@@ -512,8 +516,8 @@ export function MixtureCalculator() {
     if (!historySessions || historySessions.length === 0) return [];
     return historySessions.map(session => ({
         date: session.timestamp.toDate(), 
-        'PCI moyen': session.globalIndicators.pci,
-        'Chlorures moyens': session.globalIndicators.chlorine,
+        'PCI': session.globalIndicators.pci,
+        'Chlorures': session.globalIndicators.chlorine,
     })).sort((a,b) => a.date.valueOf() - b.date.valueOf()) 
      .map(session => ({ 
          ...session,
@@ -561,10 +565,14 @@ export function MixtureCalculator() {
         }
       })
       .sort((a, b) => b.percentage - a.percentage);
+      
+    const afFlow = (hallAF.flowRate || 0) + (ats.flowRate || 0);
+    const goFlow = (directInputs['Grignons GO1']?.flowRate || 0) + (directInputs['Grignons GO2']?.flowRate || 0);
 
     setMixtureSummary({
       globalIndicators,
       composition,
+      flows: { afFlow, goFlow }
     });
     setIsSaveModalOpen(true);
   };
@@ -702,15 +710,14 @@ export function MixtureCalculator() {
   const SaveConfirmationModal = () => {
     if (!mixtureSummary) return null;
 
-    const { globalIndicators: summaryIndicators, composition } = mixtureSummary;
+    const { globalIndicators: summaryIndicators, composition, flows } = mixtureSummary;
 
     const generateSummaryText = () => {
-        const headers = ["Combustible", "Nb Godets", "% Poids", "Poids (t)"];
+        const headers = ["Combustible", "Nb Godets", "% Poids"];
         const colWidths = {
             col1: Math.max(headers[0].length, ...composition.map(item => item.name.length)),
             col2: Math.max(headers[1].length, ...composition.map(item => item.totalBuckets === 0 ? '-' : item.totalBuckets.toString().length)),
             col3: Math.max(headers[2].length, ...composition.map(item => `${item.percentage.toFixed(2)} %`.length)),
-            col4: Math.max(headers[3].length, ...composition.map(item => item.totalWeight.toFixed(2).length))
         };
         
         let textToCopy = "";
@@ -721,8 +728,15 @@ export function MixtureCalculator() {
         // Key Indicators
         textToCopy += "Indicateurs Clés\n";
         textToCopy += `- PCI moyen: ${summaryIndicators.pci.toFixed(0)} kcal/kg\n`;
+        textToCopy += `- % Humidité: ${summaryIndicators.humidity.toFixed(2)} %\n`;
+        textToCopy += `- % Cendres: ${summaryIndicators.ash.toFixed(2)} %\n`;
         textToCopy += `- % Chlorures: ${summaryIndicators.chlorine.toFixed(3)} %\n`;
         textToCopy += `- Taux de pneus: ${summaryIndicators.tireRate.toFixed(2)} %\n\n`;
+
+        // Flows
+        textToCopy += "Débits\n";
+        textToCopy += `- Débit AFs: ${flows.afFlow.toFixed(2)} t/h\n`;
+        textToCopy += `- Débit GO: ${flows.goFlow.toFixed(2)} t/h\n\n`;
 
         // Composition
         textToCopy += "Composition du Mélange\n";
@@ -732,7 +746,6 @@ export function MixtureCalculator() {
             headers[0].padEnd(colWidths.col1),
             headers[1].padStart(colWidths.col2),
             headers[2].padStart(colWidths.col3),
-            headers[3].padStart(colWidths.col4)
         ].join(' | ');
         textToCopy += headerRow + '\n';
         textToCopy += '-'.repeat(headerRow.length) + '\n';
@@ -743,7 +756,6 @@ export function MixtureCalculator() {
                 item.name.padEnd(colWidths.col1),
                 (item.totalBuckets === 0 ? '-' : item.totalBuckets.toString()).padStart(colWidths.col2),
                 `${item.percentage.toFixed(2)} %`.padStart(colWidths.col3),
-                `${item.totalWeight.toFixed(2)}`.padStart(colWidths.col4)
             ];
             textToCopy += row.join(' | ') + '\n';
         });
@@ -772,9 +784,17 @@ export function MixtureCalculator() {
 
     const keyIndicators = [
       { label: 'PCI moyen:', value: summaryIndicators.pci.toFixed(0), unit: 'kcal/kg' },
+      { label: '% Humidité:', value: summaryIndicators.humidity.toFixed(2), unit: '%' },
+      { label: '% Cendres:', value: summaryIndicators.ash.toFixed(2), unit: '%' },
       { label: '% Chlorures:', value: summaryIndicators.chlorine.toFixed(3), unit: '%' },
       { label: 'Taux de pneus:', value: summaryIndicators.tireRate.toFixed(2), unit: '%' },
     ];
+
+    const flowIndicators = [
+        { label: 'Débit AFs:', value: flows.afFlow.toFixed(2), unit: 't/h' },
+        { label: 'Débit GO:', value: flows.goFlow.toFixed(2), unit: 't/h' },
+    ];
+
 
     return (
       <Dialog open={isSaveModalOpen} onOpenChange={setIsSaveModalOpen}>
@@ -787,15 +807,28 @@ export function MixtureCalculator() {
               Voici le résumé de la nouvelle composition du mélange et de ses indicateurs clés pour la journée :
             </p>
             
-            <div>
-                <h3 className="font-semibold text-foreground mb-2">Indicateurs Clés</h3>
-                <div className="rounded-lg border p-4 grid grid-cols-1 gap-2">
-                    {keyIndicators.map(item => (
-                        <div key={item.label} className="flex justify-between items-baseline">
-                            <span className="text-muted-foreground">{item.label}</span>
-                            <span className="font-medium text-foreground">{item.value} <span className="text-xs text-muted-foreground">{item.unit}</span></span>
-                        </div>
-                    ))}
+            <div className='grid grid-cols-2 gap-x-8'>
+                <div>
+                    <h3 className="font-semibold text-foreground mb-2">Indicateurs Clés</h3>
+                    <div className="rounded-lg border p-4 grid grid-cols-1 gap-2">
+                        {keyIndicators.map(item => (
+                            <div key={item.label} className="flex justify-between items-baseline">
+                                <span className="text-muted-foreground">{item.label}</span>
+                                <span className="font-medium text-foreground">{item.value} <span className="text-xs text-muted-foreground">{item.unit}</span></span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <div>
+                    <h3 className="font-semibold text-foreground mb-2">Débits</h3>
+                     <div className="rounded-lg border p-4 grid grid-cols-1 gap-2">
+                        {flowIndicators.map(item => (
+                            <div key={item.label} className="flex justify-between items-baseline">
+                                <span className="text-muted-foreground">{item.label}</span>
+                                <span className="font-medium text-foreground">{item.value} <span className="text-xs text-muted-foreground">{item.unit}</span></span>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
             
@@ -809,7 +842,6 @@ export function MixtureCalculator() {
                                     <TableHead>Combustible</TableHead>
                                     <TableHead className="text-center">Nb Godets</TableHead>
                                     <TableHead className="text-right">% Poids</TableHead>
-                                    <TableHead className="text-right">Poids (t)</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -818,7 +850,6 @@ export function MixtureCalculator() {
                                         <TableCell className="font-medium">{item.name}</TableCell>
                                         <TableCell className="text-center">{item.totalBuckets === 0 ? '-' : item.totalBuckets}</TableCell>
                                         <TableCell className="text-right">{item.percentage.toFixed(2)} %</TableCell>
-                                        <TableCell className="text-right">{item.totalWeight.toFixed(2)}</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -1059,8 +1090,8 @@ export function MixtureCalculator() {
                                 <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} yAxisId="right" orientation="right" />
                                 <RechartsTooltip content={<CustomHistoryTooltip />} />
                                 <Legend />
-                                <Line yAxisId="left" type="monotone" dataKey="PCI moyen" stroke="hsl(var(--primary))" name="PCI" dot={false} strokeWidth={2} />
-                                <Line yAxisId="right" type="monotone" dataKey="Chlorures moyens" stroke="#ffc658" name="Chlorures (%)" dot={false} strokeWidth={2}/>
+                                <Line yAxisId="left" type="monotone" dataKey="PCI" stroke="hsl(var(--primary))" name="PCI" dot={false} strokeWidth={2} />
+                                <Line yAxisId="right" type="monotone" dataKey="Chlorures" stroke="#ffc658" name="Chlorures (%)" dot={false} strokeWidth={2}/>
                             </LineChart>
                         ) : (
                             <div className="flex items-center justify-center h-full text-muted-foreground">
