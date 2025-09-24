@@ -513,7 +513,6 @@ export function MixtureCalculator() {
     return historySessions.map(session => ({
         date: session.timestamp.toDate(), 
         'PCI moyen': session.globalIndicators.pci,
-        'Humidité moyenne': session.globalIndicators.humidity,
         'Chlorures moyens': session.globalIndicators.chlorine,
     })).sort((a,b) => a.date.valueOf() - b.date.valueOf()) 
      .map(session => ({ 
@@ -1061,7 +1060,6 @@ export function MixtureCalculator() {
                                 <RechartsTooltip content={<CustomHistoryTooltip />} />
                                 <Legend />
                                 <Line yAxisId="left" type="monotone" dataKey="PCI moyen" stroke="hsl(var(--primary))" name="PCI" dot={false} strokeWidth={2} />
-                                <Line yAxisId="right" type="monotone" dataKey="Humidité moyenne" stroke="#82ca9d" name="Humidité (%)" dot={false} strokeWidth={2} />
                                 <Line yAxisId="right" type="monotone" dataKey="Chlorures moyens" stroke="#ffc658" name="Chlorures (%)" dot={false} strokeWidth={2}/>
                             </LineChart>
                         ) : (
