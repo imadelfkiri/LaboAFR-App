@@ -188,6 +188,17 @@ function useMixtureCalculations(
   }, [hallAF, ats, grignons, fuelData]);
 }
 
+const fuelOrder = [
+    "Pneus",
+    "CSR",
+    "CSR DD",
+    "DMB",
+    "Plastiques",
+    "Bois",
+    "Mélange"
+];
+
+
 const FuelInputSimulator = ({ 
     installationState, 
     setInstallationState, 
@@ -219,7 +230,14 @@ const FuelInputSimulator = ({
         });
     };
     
-    const fuelTypes = Object.keys(installationState.fuels).sort();
+    const fuelTypes = useMemo(() => Object.keys(installationState.fuels).sort((a, b) => {
+        const indexA = fuelOrder.indexOf(a);
+        const indexB = fuelOrder.indexOf(b);
+        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+        if (indexA !== -1) return -1;
+        if (indexB !== -1) return 1;
+        return a.localeCompare(b);
+    }), [installationState.fuels]);
 
     return (
         <div className="space-y-4">
