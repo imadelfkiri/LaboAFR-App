@@ -11,7 +11,7 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible"
+} from "@/components/ui/collapsible";
 import { Timestamp } from 'firebase/firestore';
 
 import { Button } from '@/components/ui/button';
@@ -307,6 +307,82 @@ const fuelOrder = [
     "Mélange"
 ];
 
+
+const ThresholdSettingsModal = ({
+  isOpen,
+  onOpenChange,
+  thresholds,
+  onSave,
+}: {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  thresholds: MixtureThresholds;
+  onSave: (newThresholds: MixtureThresholds) => void;
+}) => {
+    const [currentThresholds, setCurrentThresholds] = useState(thresholds);
+
+    useEffect(() => {
+        setCurrentThresholds(thresholds);
+    }, [isOpen, thresholds]);
+
+    const handleChange = (key: keyof MixtureThresholds, value: string) => {
+        const numValue = parseFloat(value);
+        setCurrentThresholds(prev => ({
+            ...prev,
+            [key]: isNaN(numValue) ? defaultThresholds[key] : numValue
+        }));
+    };
+
+    const handleSave = () => {
+        onSave(currentThresholds);
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+                    <Settings className="h-5 w-5" />
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Définir les seuils d'alerte</DialogTitle>
+                    <DialogDescription>
+                        Les indicateurs changeront de couleur si ces seuils sont dépassés.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid grid-cols-2 gap-4 py-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="pci_min">PCI Moyen (min)</Label>
+                        <Input id="pci_min" type="number" value={currentThresholds.pci_min} onChange={e => handleChange('pci_min', e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="humidity_max">Humidité Moyenne (max %)</Label>
+                        <Input id="humidity_max" type="number" value={currentThresholds.humidity_max} onChange={e => handleChange('humidity_max', e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="ash_max">Cendres Moyennes (max %)</Label>
+                        <Input id="ash_max" type="number" value={currentThresholds.ash_max} onChange={e => handleChange('ash_max', e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="chlorine_max">Chlorures Moyens (max %)</Label>
+                        <Input id="chlorine_max" type="number" value={currentThresholds.chlorine_max} onChange={e => handleChange('chlorine_max', e.target.value)} />
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="tireRate_max">Taux de Pneus (max %)</Label>
+                        <Input id="tireRate_max" type="number" value={currentThresholds.tireRate_max} onChange={e => handleChange('tireRate_max', e.target.value)} />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>Annuler</Button>
+                    <Button type="button" onClick={handleSave}>Enregistrer les seuils</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+
 export function MixtureCalculator() {
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -547,12 +623,12 @@ export function MixtureCalculator() {
   }
 
   const handlePrepareSave = () => {
-    // Exclude direct inputs from the composition table
+    const directInputFuelNames = Object.keys(directInputs).map(name => name.split(" ")[0].toLowerCase());
+    
     const mixtureFuelWeights: Record<string, number> = {};
-    const directInputFuelNames = Object.keys(directInputs).map(name => name.split(' ')[0]);
 
     for (const fuelName in globalFuelWeights) {
-        if (!directInputFuelNames.some(directName => fuelName.toLowerCase().includes(directName.toLowerCase()))) {
+        if (!directInputFuelNames.includes(fuelName.toLowerCase())) {
             mixtureFuelWeights[fuelName] = globalFuelWeights[fuelName];
         }
     }
@@ -645,88 +721,15 @@ export function MixtureCalculator() {
     );
   };
   
-
-  const ThresholdSettingsModal = () => {
-    const [currentThresholds, setCurrentThresholds] = useState(thresholds);
-
-    useEffect(() => {
-        setCurrentThresholds(thresholds);
-    }, [isThresholdModalOpen, thresholds]);
-
-    const handleChange = (key: keyof MixtureThresholds, value: string) => {
-        const numValue = parseFloat(value);
-        setCurrentThresholds(prev => ({
-            ...prev,
-            [key]: isNaN(numValue) ? defaultThresholds[key] : numValue
-        }));
-    };
-
-    const handleSave = () => {
-        handleSaveThresholds(currentThresholds);
-    };
-
-    return (
-        <Dialog open={isThresholdModalOpen} onOpenChange={setIsThresholdModalOpen}>
-            <DialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-                    <Settings className="h-5 w-5" />
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                    <DialogTitle>Définir les seuils d'alerte</DialogTitle>
-                    <DialogDescription>
-                        Les indicateurs changeront de couleur si ces seuils sont dépassés.
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="grid grid-cols-2 gap-4 py-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="pci_min">PCI Moyen (min)</Label>
-                        <Input id="pci_min" type="number" value={currentThresholds.pci_min} onChange={e => handleChange('pci_min', e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="humidity_max">Humidité Moyenne (max %)</Label>
-                        <Input id="humidity_max" type="number" value={currentThresholds.humidity_max} onChange={e => handleChange('humidity_max', e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="ash_max">Cendres Moyennes (max %)</Label>
-                        <Input id="ash_max" type="number" value={currentThresholds.ash_max} onChange={e => handleChange('ash_max', e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="chlorine_max">Chlorures Moyens (max %)</Label>
-                        <Input id="chlorine_max" type="number" value={currentThresholds.chlorine_max} onChange={e => handleChange('chlorine_max', e.target.value)} />
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="tireRate_max">Taux de Pneus (max %)</Label>
-                        <Input id="tireRate_max" type="number" value={currentThresholds.tireRate_max} onChange={e => handleChange('tireRate_max', e.target.value)} />
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button type="button" variant="secondary" onClick={() => setIsThresholdModalOpen(false)}>Annuler</Button>
-                    <Button type="button" onClick={handleSave}>Enregistrer les seuils</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
-  };
-  
   const SaveConfirmationModal = () => {
     if (!mixtureSummary) return null;
 
     const { globalIndicators: summaryIndicators, composition, flows } = mixtureSummary;
 
     const generateSummaryText = () => {
-        const headers = ["Combustible", "Nb Godets", "% Poids"];
-        const colWidths = {
-            col1: Math.max(headers[0].length, ...composition.map(item => item.name.length)),
-            col2: Math.max(headers[1].length, ...composition.map(item => item.totalBuckets === 0 ? '-' : item.totalBuckets.toString().length)),
-            col3: Math.max(headers[2].length, ...composition.map(item => `${item.percentage.toFixed(2)} %`.length)),
-        };
-        
         let textToCopy = "";
 
-        // Introduction
-        textToCopy += "Voici le résumé de la nouvelle composition du mélange et de ses indicateurs clés pour aujourd hui :\n\n";
+        textToCopy += "Voici le résumé de la nouvelle composition du mélange et de ses indicateurs clés :\n\n";
 
         // Key Indicators
         textToCopy += "Indicateurs Clés\n";
@@ -744,7 +747,13 @@ export function MixtureCalculator() {
         // Composition
         textToCopy += "Composition du Mélange\n";
         
-        // Table Header
+        const headers = ["Combustible", "Nb Godets", "% Poids"];
+        const colWidths = {
+            col1: Math.max(headers[0].length, ...composition.map(item => item.name.length)),
+            col2: Math.max(headers[1].length, ...composition.map(item => item.totalBuckets === 0 ? '-' : item.totalBuckets.toString().length)),
+            col3: Math.max(headers[2].length, ...composition.map(item => `${item.percentage.toFixed(2)} %`.length)),
+        };
+
         const headerRow = [
             headers[0].padEnd(colWidths.col1),
             headers[1].padStart(colWidths.col2),
@@ -753,7 +762,6 @@ export function MixtureCalculator() {
         textToCopy += headerRow + '\n';
         textToCopy += '-'.repeat(headerRow.length) + '\n';
         
-        // Table Rows
         composition.forEach(item => {
             const row = [
                 item.name.padEnd(colWidths.col1),
@@ -807,7 +815,7 @@ export function MixtureCalculator() {
           </DialogHeader>
           <div className="grid gap-6 py-4 text-sm">
             <p>
-              Voici le résumé de la nouvelle composition du mélange et de ses indicateurs clés pour aujourd hui :
+              Voici le résumé de la nouvelle composition du mélange et de ses indicateurs clés :
             </p>
             
             <div className='grid grid-cols-2 gap-x-8'>
@@ -912,7 +920,12 @@ export function MixtureCalculator() {
             <div className="flex items-center gap-4">
               <div className='flex items-center gap-2'>
                 <h1 className="text-2xl font-bold text-white">Indicateurs Globaux</h1>
-                <ThresholdSettingsModal />
+                <ThresholdSettingsModal 
+                    isOpen={isThresholdModalOpen}
+                    onOpenChange={setIsThresholdModalOpen}
+                    thresholds={thresholds}
+                    onSave={handleSaveThresholds}
+                />
               </div>
                <Popover>
                   <PopoverTrigger asChild>
