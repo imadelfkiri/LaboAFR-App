@@ -59,7 +59,6 @@ interface MixtureSummary {
         name: string; 
         percentage: number;
         totalBuckets: number;
-        totalWeight: number;
     }[];
     flows: {
         afFlow: number;
@@ -548,22 +547,22 @@ export function MixtureCalculator() {
   }
 
   const handlePrepareSave = () => {
-    const totalWeight = Object.values(globalFuelWeights).reduce((sum, weight) => sum + weight, 0);
+    // Exclude direct inputs from the composition table
+    const mixtureFuelWeights = { ...globalFuelWeights };
+    Object.keys(directInputs).forEach(fuelName => {
+        delete mixtureFuelWeights[fuelName];
+    });
 
-    const composition = Object.entries(globalFuelWeights)
+    const totalMixtureWeight = Object.values(mixtureFuelWeights).reduce((sum, weight) => sum + weight, 0);
+
+    const composition = Object.entries(mixtureFuelWeights)
       .filter(([, weight]) => weight > 0)
-      .map(([name, weight]) => {
-          let totalBuckets = 0;
-          if (!directInputs[name]) {
-              totalBuckets = (hallAF.fuels[name]?.buckets || 0) + (ats.fuels[name]?.buckets || 0);
-          }
-        return {
+      .map(([name, weight]) => ({
             name,
-            percentage: totalWeight > 0 ? (weight / totalWeight) * 100 : 0,
-            totalBuckets,
-            totalWeight: weight,
-        }
-      })
+            percentage: totalMixtureWeight > 0 ? (weight / totalMixtureWeight) * 100 : 0,
+            totalBuckets: (hallAF.fuels[name]?.buckets || 0) + (ats.fuels[name]?.buckets || 0),
+        })
+      )
       .sort((a, b) => b.percentage - a.percentage);
       
     const afFlow = (hallAF.flowRate || 0) + (ats.flowRate || 0);
