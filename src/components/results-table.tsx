@@ -570,19 +570,6 @@ export default function ResultsTable() {
   const exportData = (type: 'excel' | 'pdf', reportType: 'detailed' | 'aggregated') => {
     let dataToExport = sortedAndFilteredResults;
     
-    if (reportType === 'aggregated') {
-        const fromDate = dateFromFilter ? parseISO(dateFromFilter) : null;
-        const toDate = dateToFilter ? parseISO(dateToFilter) : null;
-        if (fromDate && toDate) {
-            const diffDays = (toDate.getTime() - fromDate.getTime()) / (1000 * 3600 * 24);
-            if (diffDays <= 2) {
-                reportType = 'detailed';
-                toast({ title: "Exportation détaillée", description: "Le rapport agrégé est converti en détaillé pour les périodes de moins de 2 jours."});
-            }
-        }
-    }
-
-
     if (dataToExport.length === 0) {
         toast({ variant: "destructive", title: "Aucune donnée", description: "Il n'y a aucune donnée à exporter." });
         return;
@@ -590,16 +577,18 @@ export default function ResultsTable() {
     
     const generateAlerts = (result: Result) => {
         const spec = SPEC_MAP.get(`${result.type_combustible}|${result.fournisseur}`);
-        if (!spec) return { text: "Conforme", isConform: true };
+        if (!spec) return { text: "Conforme", isConform: true, details: { pci: false, h2o: false, chlore: false, cendres: false } };
 
         const alerts: string[] = [];
-        if (spec.PCI_min != null && result.pci_brut != null && result.pci_brut < spec.PCI_min) alerts.push("PCI bas");
-        if (spec.H2O_max != null && result.h2o != null && result.h2o > spec.H2O_max) alerts.push("H2O élevé");
-        if (result.chlore != null && spec.Cl_max != null && result.chlore > spec.Cl_max) alerts.push("Cl- élevé");
-        if (result.cendres != null && spec.Cendres_max != null && result.cendres > spec.Cendres_max) alerts.push("Cendres élevées");
+        const alertDetails = { pci: false, h2o: false, chlore: false, cendres: false };
 
-        if (alerts.length === 0) return { text: "Conforme", isConform: true };
-        return { text: alerts.join(", "), isConform: false };
+        if (spec.PCI_min != null && result.pci_brut != null && result.pci_brut < spec.PCI_min) { alerts.push("PCI bas"); alertDetails.pci = true; }
+        if (spec.H2O_max != null && result.h2o != null && result.h2o > spec.H2O_max) { alerts.push("H2O élevé"); alertDetails.h2o = true; }
+        if (result.chlore != null && spec.Cl_max != null && result.chlore > spec.Cl_max) { alerts.push("Cl- élevé"); alertDetails.chlore = true; }
+        if (result.cendres != null && spec.Cendres_max != null && result.cendres > spec.Cendres_max) { alerts.push("Cendres élevées"); alertDetails.cendres = true; }
+
+        if (alerts.length === 0) return { text: "Conforme", isConform: true, details: alertDetails };
+        return { text: alerts.join(", "), isConform: false, details: alertDetails };
     };
 
     if (type === 'excel') {
@@ -621,7 +610,7 @@ export default function ResultsTable() {
                     "% H2O": row.h2o,
                     "% Cl-": row.chlore,
                     "% Cendres": row.cendres,
-                    "Alertes": generateAlerts(row).text,
+                    "Alertes": generateAlerts(row).text.replace("H₂O", "H2O"),
                     "Remarques": row.remarques || ""
                 }
             });
@@ -637,7 +626,8 @@ export default function ResultsTable() {
                 doc.text(`Rapport des Résultats d'Analyses (${reportType === 'aggregated' ? 'Agrégé' : 'Détaillé'})`, 14, 15);
                 
                 let head: string[][];
-                let body: (string | number | null)[][];
+                let body: any[][];
+                let columnStyles: any = {};
 
                 if (reportType === 'aggregated') {
                     const aggregatedData = aggregateResults(dataToExport);
@@ -656,11 +646,38 @@ export default function ResultsTable() {
                         date ? format(date, "dd/MM/yy") : "Invalide", row.type_combustible, row.fournisseur,
                         formatNumberForPdf(row.tonnage, 1),
                         formatNumberForPdf(row.pcs, 0), formatNumberForPdf(row.pci_brut, 0), formatNumberForPdf(row.h2o, 1), formatNumberForPdf(row.chlore, 2), formatNumberForPdf(row.cendres, 1),
-                        generateAlerts(row).text, row.remarques || "-",
+                        generateAlerts(row).text.replace("H₂O", "H2O"), row.remarques || "-",
                     ]});
+
+                    columnStyles = {
+                        5: { cellWidth: 20 }, // PCI
+                        6: { cellWidth: 15 }, // H2O
+                        7: { cellWidth: 15 }, // Cl-
+                        8: { cellWidth: 20 }, // Cendres
+                    };
                 }
         
-                (doc as any).autoTable({ head, body, startY: 20, theme: 'grid', styles: { fontSize: 8, cellPadding: 1.5 }, headStyles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: 'bold' }});
+                (doc as any).autoTable({ 
+                    head, 
+                    body, 
+                    startY: 20, 
+                    theme: 'grid', 
+                    styles: { fontSize: 7, cellPadding: 1.5 }, 
+                    headStyles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: 'bold' },
+                    columnStyles,
+                    didDrawCell: (data: any) => {
+                        if (reportType === 'detailed' && data.section === 'body') {
+                            const result = dataToExport[data.row.index];
+                            const alerts = generateAlerts(result).details;
+                            const keyMap: {[key: number]: keyof typeof alerts} = { 5: 'pci', 6: 'h2o', 7: 'chlore', 8: 'cendres'};
+                            const alertKey = keyMap[data.column.index];
+                            if (alertKey && alerts[alertKey]) {
+                                doc.setFillColor(255, 204, 203); // Light red
+                                doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+                            }
+                        }
+                    },
+                });
                 doc.save(`Rapport_Resultats_${reportType === 'aggregated' ? 'Agrege' : 'Detaille'}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
             })
         })
@@ -673,21 +690,26 @@ export default function ResultsTable() {
         if (dateFromFilter && dateToFilter) {
             const from = parseISO(dateFromFilter);
             const to = parseISO(dateToFilter);
-            if (format(from, 'yyyy-MM-dd') === format(to, 'yyyy-MM-dd')) {
-                return format(from, "d MMM yyyy", { locale: fr });
-            }
-            if (
-                format(from, 'yyyy-MM-dd') === format(subDays(startOfDay(new Date()),1), 'yyyy-MM-dd') &&
-                format(to, 'yyyy-MM-dd') === format(endOfDay(new Date()), 'yyyy-MM-dd')
-            ) {
+            if (format(from, 'yyyy-MM-dd') === format(subDays(startOfDay(new Date()),1), 'yyyy-MM-dd') && format(to, 'yyyy-MM-dd') === format(endOfDay(new Date()), 'yyyy-MM-dd')) {
                  return "Veille & Jour J";
             }
+             if (format(from, 'yyyy-MM-dd') === format(startOfWeek(new Date(), { locale: fr }), 'yyyy-MM-dd') && format(to, 'yyyy-MM-dd') === format(endOfWeek(new Date(), { locale: fr }), 'yyyy-MM-dd')) {
+                 return "Cette semaine";
+            }
+             if (format(from, 'yyyy-MM-dd') === format(startOfMonth(new Date()), 'yyyy-MM-dd') && format(to, 'yyyy-MM-dd') === format(endOfMonth(new Date()), 'yyyy-MM-dd')) {
+                 return "Ce mois-ci";
+            }
+            const lastMonth = subMonths(new Date(), 1);
+            if (format(from, 'yyyy-MM-dd') === format(startOfMonth(lastMonth), 'yyyy-MM-dd') && format(to, 'yyyy-MM-dd') === format(endOfMonth(lastMonth), 'yyyy-MM-dd')) {
+                 return "Mois dernier";
+            }
+
             return `${format(from, "d MMM yy")} - ${format(to, "d MMM yy")}`;
         }
         if (dateFromFilter) return `Depuis le ${format(parseISO(dateFromFilter), "d MMM yyyy")}`
         if (dateToFilter) return `Jusqu'au ${format(parseISO(dateToFilter), "d MMM yyyy")}`
     } catch (e) { return "Sélectionner une période"; }
-    return "Sélectionner une période"
+    return "Période"
   }, [dateFromFilter, dateToFilter]);
   
   const setDatePreset = (preset: 'today' | 'this_week' | 'this_month' | 'last_month') => {
@@ -740,7 +762,7 @@ export default function ResultsTable() {
     const alertDetails = { pci: false, h2o: false, chlore: false, cendres: false };
 
     if (spec.PCI_min != null && result.pci_brut != null && result.pci_brut < spec.PCI_min) { alerts.push("PCI bas"); alertDetails.pci = true; }
-    if (spec.H2O_max != null && result.h2o != null && result.h2o > spec.H2O_max) { alerts.push("H2O élevé"); alertDetails.h2o = true; }
+    if (spec.H2O_max != null && result.h2o != null && result.h2o > spec.H2O_max) { alerts.push("H₂O élevé"); alertDetails.h2o = true; }
     if (result.chlore != null && spec.Cl_max != null && result.chlore > spec.Cl_max) { alerts.push("Cl- élevé"); alertDetails.chlore = true; }
     if (result.cendres != null && spec.Cendres_max != null && result.cendres > spec.Cendres_max) { alerts.push("Cendres élevées"); alertDetails.cendres = true; }
 
@@ -880,7 +902,7 @@ export default function ResultsTable() {
                               {alerte.isConform ? (
                                 <span className="inline-flex items-center gap-1 text-green-600 font-medium"><CheckCircle2 className="w-4 h-4" /> Conforme</span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 text-red-600 font-medium"><AlertTriangle className="w-4 h-4" /> {alerte.text || "Non conforme"}</span>
+                                <span className="inline-flex items-center gap-1 text-red-600 font-medium"><AlertTriangle className="w-4 h-4" /> {alerte.text.replace("H₂O", "H2O") || "Non conforme"}</span>
                               )}
                             </td>
                             <td className="p-2 text-muted-foreground max-w-[150px] truncate" title={r.remarques}>{r.remarques ?? "-"}</td>
@@ -938,3 +960,5 @@ export default function ResultsTable() {
       </>
   );
 }
+
+    
