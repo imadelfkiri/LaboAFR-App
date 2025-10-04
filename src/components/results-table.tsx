@@ -115,14 +115,10 @@ declare module "jspdf" {
 
 const formatNumber = (num: number | null | undefined, fractionDigits: number = 0): string => {
     if (num === null || num === undefined || Number.isNaN(num)) return "-";
-
-    const formatter = new Intl.NumberFormat('fr-FR', {
+    return num.toLocaleString('fr-FR', {
         minimumFractionDigits: fractionDigits,
         maximumFractionDigits: fractionDigits,
     });
-    
-    // Replace non-breaking space with regular space for PDF compatibility
-    return formatter.format(num).replace(/\u00A0/g, ' ');
 };
 
 
@@ -306,36 +302,36 @@ export default function ResultsTable() {
     };
   }, [results, fuelTypeFilter]);
 
-    const averages = useMemo(() => {
-        const processGroup = (analyses: Result[]) => {
-            if (analyses.length === 0) {
-                return { count: 0, pci: '-', h2o: '-', cl: '-', cendres: '-' };
-            }
+  const averages = useMemo(() => {
+    const processGroup = (analyses: Result[]) => {
+        if (analyses.length === 0) {
+            return { count: 0, pci: '-', h2o: '-', cl: '-', cendres: '-' };
+        }
 
-            const avg = (key: keyof Result) => {
-                const values = analyses.map(a => a[key]).filter((v): v is number => typeof v === 'number' && isFinite(v));
-                return values.length > 0 ? values.reduce((s, v) => s + v, 0) / values.length : null;
-            };
-            
-            return {
-                count: analyses.length,
-                pci: formatNumber(avg('pci_brut'), 0),
-                h2o: formatNumber(avg('h2o'), 1),
-                cl: formatNumber(avg('chlore'), 2),
-                cendres: formatNumber(avg('cendres'), 1),
-            };
+        const avg = (key: keyof Result) => {
+            const values = analyses.map(a => a[key]).filter((v): v is number => typeof v === 'number' && isFinite(v));
+            return values.length > 0 ? values.reduce((s, v) => s + v, 0) / values.length : null;
         };
         
-        const petCokeAnalyses = sortedAndFilteredResults.filter(a => a.type_combustible?.toLowerCase().includes('pet coke'));
-        const grignonsAnalyses = sortedAndFilteredResults.filter(a => a.type_combustible?.toLowerCase().includes('grignons'));
-        const afsAnalyses = sortedAndFilteredResults.filter(a => !a.type_combustible?.toLowerCase().includes('pet coke') && !a.type_combustible?.toLowerCase().includes('grignons'));
-
         return {
-            petCoke: processGroup(petCokeAnalyses),
-            grignons: processGroup(grignonsAnalyses),
-            afs: processGroup(afsAnalyses),
+            count: analyses.length,
+            pci: formatNumber(avg('pci_brut'), 0),
+            h2o: formatNumber(avg('h2o'), 1),
+            cl: formatNumber(avg('chlore'), 2),
+            cendres: formatNumber(avg('cendres'), 1),
         };
-    }, [sortedAndFilteredResults]);
+    };
+    
+    const petCokeAnalyses = sortedAndFilteredResults.filter(a => a.type_combustible?.toLowerCase().includes('pet coke'));
+    const grignonsAnalyses = sortedAndFilteredResults.filter(a => a.type_combustible?.toLowerCase().includes('grignons'));
+    const afsAnalyses = sortedAndFilteredResults.filter(a => !a.type_combustible?.toLowerCase().includes('pet coke') && !a.type_combustible?.toLowerCase().includes('grignons'));
+
+    return {
+        petCoke: processGroup(petCokeAnalyses),
+        grignons: processGroup(grignonsAnalyses),
+        afs: processGroup(afsAnalyses),
+    };
+  }, [sortedAndFilteredResults]);
 
   useEffect(() => {
       if (fournisseurFilter !== '__ALL__' && !availableSuppliers.includes(fournisseurFilter)) {
@@ -529,7 +525,7 @@ export default function ResultsTable() {
         reader.readAsArrayBuffer(file);
     };
 
-  const aggregateResults = (data: Result[]) => {
+    const aggregateResults = (data: Result[]) => {
       const grouped = new Map<string, Result[]>();
       data.forEach(result => {
           const key = `${result.type_combustible}|${result.fournisseur}`;
@@ -561,8 +557,29 @@ export default function ResultsTable() {
       return aggregated;
   };
     
+    const formatNumberForPdf = (num: number | null | undefined, fractionDigits: number = 0): string => {
+        if (num === null || num === undefined || Number.isNaN(num)) return "-";
+        const fixed = num.toFixed(fractionDigits);
+        let [integerPart, decimalPart] = fixed.split('.');
+        integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+        return decimalPart ? `${integerPart},${decimalPart}` : integerPart;
+    };
+
+
   const exportData = (type: 'excel' | 'pdf', reportType: 'detailed' | 'aggregated') => {
     let dataToExport = sortedAndFilteredResults;
+
+    const fromDate = dateFromFilter ? parseISO(dateFromFilter) : null;
+    const toDate = dateToFilter ? parseISO(dateToFilter) : null;
+    
+    if (reportType === 'aggregated' && fromDate && toDate) {
+        const diffDays = (toDate.getTime() - fromDate.getTime()) / (1000 * 3600 * 24);
+        if (diffDays <= 2) {
+             reportType = 'detailed';
+             toast({ title: "Exportation détaillée", description: "Le rapport détaillé est exporté pour les périodes de moins de 2 jours."});
+        }
+    }
+
 
     if (dataToExport.length === 0) {
         toast({ variant: "destructive", title: "Aucune donnée", description: "Il n'y a aucune donnée à exporter." });
@@ -625,9 +642,9 @@ export default function ResultsTable() {
                     head = [["Combustible", "Fournisseur", "Analyses", "Tonnage", "Moy. PCS", "Moy. PCI", "Moy. H2O", "Moy. Cl-", "Moy. Cendres"]];
                     body = aggregatedData.map(row => [
                         row["Type Combustible"], row["Fournisseur"], row["Analyses"],
-                        formatNumber(row["Tonnage (t)"], 1), formatNumber(row["PCS sur sec (kcal/kg)"], 0),
-                        formatNumber(row["PCI sur Brut (kcal/kg)"], 0), formatNumber(row["% H2O"], 1),
-                        formatNumber(row["% Cl-"], 2), formatNumber(row["% Cendres"], 1)
+                        formatNumberForPdf(row["Tonnage (t)"], 1), formatNumberForPdf(row["PCS sur sec (kcal/kg)"], 0),
+                        formatNumberForPdf(row["PCI sur Brut (kcal/kg)"], 0), formatNumberForPdf(row["% H2O"], 1),
+                        formatNumberForPdf(row["% Cl-"], 2), formatNumberForPdf(row["% Cendres"], 1)
                     ]);
                 } else {
                     head = [["Date", "Combustible", "Fournisseur", "Tonnage (t)", "PCS", "PCI Brut", "H2O", "Cl-", "Cendres", "Alertes", "Remarques"]];
@@ -635,8 +652,8 @@ export default function ResultsTable() {
                       const date = normalizeDate(row.date_arrivage);
                       return [
                         date ? format(date, "dd/MM/yy") : "Invalide", row.type_combustible, row.fournisseur,
-                        formatNumber(row.tonnage, 1),
-                        formatNumber(row.pcs, 0), formatNumber(row.pci_brut, 0), formatNumber(row.h2o, 1), formatNumber(row.chlore, 2), formatNumber(row.cendres, 1),
+                        formatNumberForPdf(row.tonnage, 1),
+                        formatNumberForPdf(row.pcs, 0), formatNumberForPdf(row.pci_brut, 0), formatNumberForPdf(row.h2o, 1), formatNumberForPdf(row.chlore, 2), formatNumberForPdf(row.cendres, 1),
                         generateAlerts(row).text, row.remarques || "-",
                     ]});
                 }
@@ -661,7 +678,7 @@ export default function ResultsTable() {
                 format(from, 'yyyy-MM-dd') === format(subDays(startOfDay(new Date()),1), 'yyyy-MM-dd') &&
                 format(to, 'yyyy-MM-dd') === format(endOfDay(new Date()), 'yyyy-MM-dd')
             ) {
-                 return "Aujourd'hui & Veille";
+                 return "Veille & Jour J";
             }
             return `${format(from, "d MMM yy")} - ${format(to, "d MMM yy")}`;
         }
@@ -784,7 +801,7 @@ export default function ResultsTable() {
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild><Button variant="outline" size="icon" className="h-9 w-9 rounded-r-xl"><ChevronDown className="h-4 w-4" /></Button></DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
-                                        <DropdownMenuItem onClick={() => setDatePreset('today')}>Aujourd'hui & Veille</DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setDatePreset('today')}>Veille & Jour J</DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => setDatePreset('this_week')}>Cette semaine</DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => setDatePreset('this_month')}>Ce mois-ci</DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => setDatePreset('last_month')}>Mois dernier</DropdownMenuItem>
@@ -795,12 +812,11 @@ export default function ResultsTable() {
                             </div>
 
                           <div className="col-span-1 md:col-span-2 lg:col-span-2 xl:col-span-2 flex items-center justify-end gap-2">
-                              <Button variant="outline" className="h-9 rounded-xl" onClick={() => fileInputRef.current?.click()}><Upload className="w-4 h-4 mr-1" /> Importer</Button>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild><Button variant="outline" className="h-9 rounded-xl"><Download className="w-4 h-4 mr-1"/>Exporter</Button></DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
                                     <DropdownMenuSub>
-                                        <DropdownMenuSubTrigger>Rapport Détaillé</DropdownMenuSubTrigger>
+                                        <DropdownMenuSubTrigger>Exporter rapport détaillé</DropdownMenuSubTrigger>
                                         <DropdownMenuPortal>
                                             <DropdownMenuSubContent>
                                                 <DropdownMenuItem onClick={() => exportData('excel', 'detailed')}>Excel</DropdownMenuItem>
@@ -808,8 +824,8 @@ export default function ResultsTable() {
                                             </DropdownMenuSubContent>
                                         </DropdownMenuPortal>
                                     </DropdownMenuSub>
-                                    <DropdownMenuSub>
-                                        <DropdownMenuSubTrigger>Rapport Agrégé (Moyennes)</DropdownMenuSubTrigger>
+                                     <DropdownMenuSub>
+                                        <DropdownMenuSubTrigger>Exporter rapport agrégé</DropdownMenuSubTrigger>
                                         <DropdownMenuPortal>
                                             <DropdownMenuSubContent>
                                                 <DropdownMenuItem onClick={() => exportData('excel', 'aggregated')}>Excel</DropdownMenuItem>
