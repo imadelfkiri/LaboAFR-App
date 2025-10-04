@@ -320,7 +320,8 @@ export async function getAverageAnalysisForFuels(
   // Fetch all documents for the given fuel names in one go.
   const allResultsQuery = query(
     collection(db, 'resultats'), 
-    where('type_combustible', 'in', fuelNames)
+    where('type_combustible', 'in', fuelNames),
+    where('type_analyse', '==', 'Arrivage')
   );
   const allResultsSnapshot = await getDocs(allResultsQuery);
   const allResults = allResultsSnapshot.docs.map(doc => doc.data());
