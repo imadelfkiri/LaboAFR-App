@@ -66,7 +66,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal } from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -553,18 +553,12 @@ export default function ResultsTable() {
       return aggregated;
   };
     
-  const exportData = (type: 'excel' | 'pdf') => {
+  const exportData = (type: 'excel' | 'pdf', reportType: 'detailed' | 'aggregated') => {
     let dataToExport = sortedAndFilteredResults;
     if (dataToExport.length === 0) {
         toast({ variant: "destructive", title: "Aucune donnée", description: "Il n'y a aucune donnée à exporter." });
         return;
     }
-
-    const fromDate = dateFromFilter ? parseISO(dateFromFilter) : null;
-    const toDate = dateToFilter ? parseISO(dateToFilter) : null;
-    const dateDiff = (toDate && fromDate) ? (toDate.getTime() - fromDate.getTime()) / (1000 * 3600 * 24) : 0;
-    
-    const isAggregatedReport = dateDiff > 2;
     
     const generateAlerts = (result: Result) => {
         const spec = SPEC_MAP.get(`${result.type_combustible}|${result.fournisseur}`);
@@ -581,10 +575,10 @@ export default function ResultsTable() {
     };
 
     if (type === 'excel') {
-        const filename = `Export_Resultats_${format(new Date(), "yyyy-MM-dd")}.xlsx`;
+        const filename = `Export_Resultats_${reportType === 'aggregated' ? 'Agrege' : 'Detaille'}_${format(new Date(), "yyyy-MM-dd")}.xlsx`;
         let excelData: any[];
 
-        if (isAggregatedReport) {
+        if (reportType === 'aggregated') {
             excelData = aggregateResults(dataToExport);
         } else {
             excelData = dataToExport.map(row => {
@@ -612,12 +606,12 @@ export default function ResultsTable() {
         import('jspdf').then(jsPDF => {
             import('jspdf-autotable').then(() => {
                 const doc = new jsPDF.default({ orientation: 'landscape' });
-                doc.text("Rapport des Résultats d'Analyses", 14, 15);
+                doc.text(`Rapport des Résultats d'Analyses (${reportType === 'aggregated' ? 'Agrégé' : 'Détaillé'})`, 14, 15);
                 
                 let head: string[][];
                 let body: (string | number | null)[][];
 
-                if (isAggregatedReport) {
+                if (reportType === 'aggregated') {
                     const aggregatedData = aggregateResults(dataToExport);
                     head = [["Combustible", "Fournisseur", "Analyses", "Tonnage", "Moy. PCS", "Moy. PCI", "Moy. H2O", "Moy. Cl-", "Moy. Cendres"]];
                     body = aggregatedData.map(row => [
@@ -639,7 +633,7 @@ export default function ResultsTable() {
                 }
         
                 (doc as any).autoTable({ head, body, startY: 20, theme: 'grid', styles: { fontSize: 8, cellPadding: 1.5 }, headStyles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: 'bold' }});
-                doc.save(`Rapport_Resultats_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+                doc.save(`Rapport_Resultats_${reportType === 'aggregated' ? 'Agrege' : 'Detaille'}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
             })
         })
     }
@@ -794,8 +788,27 @@ export default function ResultsTable() {
                           <div className="col-span-1 md:col-span-2 lg:col-span-2 xl:col-span-2 flex items-center justify-end gap-2">
                               <Button variant="outline" className="h-9 rounded-xl" onClick={() => fileInputRef.current?.click()}><Upload className="w-4 h-4 mr-1" /> Importer</Button>
                               <DropdownMenu>
-                                  <DropdownMenuTrigger asChild><Button variant="outline" className="h-9 rounded-xl"><Download className="w-4 h-4 mr-1"/>Exporter</Button></DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end"><DropdownMenuItem onClick={() => exportData('excel')}>Exporter en Excel</DropdownMenuItem><DropdownMenuItem onClick={() => exportData('pdf')}>Exporter en PDF</DropdownMenuItem></DropdownMenuContent>
+                                <DropdownMenuTrigger asChild><Button variant="outline" className="h-9 rounded-xl"><Download className="w-4 h-4 mr-1"/>Exporter</Button></DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuSub>
+                                        <DropdownMenuSubTrigger>Rapport Détaillé</DropdownMenuSubTrigger>
+                                        <DropdownMenuPortal>
+                                            <DropdownMenuSubContent>
+                                                <DropdownMenuItem onClick={() => exportData('excel', 'detailed')}>Excel</DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => exportData('pdf', 'detailed')}>PDF</DropdownMenuItem>
+                                            </DropdownMenuSubContent>
+                                        </DropdownMenuPortal>
+                                    </DropdownMenuSub>
+                                    <DropdownMenuSub>
+                                        <DropdownMenuSubTrigger>Rapport Agrégé (Moyennes)</DropdownMenuSubTrigger>
+                                        <DropdownMenuPortal>
+                                            <DropdownMenuSubContent>
+                                                <DropdownMenuItem onClick={() => exportData('excel', 'aggregated')}>Excel</DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => exportData('pdf', 'aggregated')}>PDF</DropdownMenuItem>
+                                            </DropdownMenuSubContent>
+                                        </DropdownMenuPortal>
+                                    </DropdownMenuSub>
+                                </DropdownMenuContent>
                               </DropdownMenu>
                               <Button variant="destructive" className="h-9 rounded-xl" onClick={() => setIsDeleteAllConfirmOpen(true)}><Trash2 className="w-4 h-4" /></Button>
                           </div>
