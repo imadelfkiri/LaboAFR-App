@@ -28,7 +28,8 @@ import {
   endOfWeek,
   startOfMonth,
   endOfMonth,
-  subMonths
+  subMonths,
+  subDays
 } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
@@ -488,41 +489,52 @@ export default function ResultsTable() {
         };
         reader.readAsArrayBuffer(file);
     };
+
+  const aggregateResults = (data: Result[]) => {
+      const grouped = new Map<string, Result[]>();
+      data.forEach(result => {
+          const key = `${result.type_combustible}|${result.fournisseur}`;
+          if (!grouped.has(key)) {
+              grouped.set(key, []);
+          }
+          grouped.get(key)!.push(result);
+      });
+
+      const aggregated: any[] = [];
+      grouped.forEach((results, key) => {
+          const [type_combustible, fournisseur] = key.split('|');
+          const avg = (metric: keyof Result) => {
+              const values = results.map(r => r[metric]).filter((v): v is number => typeof v === 'number' && isFinite(v));
+              return values.length > 0 ? values.reduce((s, v) => s + v, 0) / values.length : null;
+          };
+          aggregated.push({
+              "Type Combustible": type_combustible,
+              "Fournisseur": fournisseur,
+              "Analyses": results.length,
+              "Tonnage (t)": results.reduce((s, r) => s + (r.tonnage ?? 0), 0),
+              "PCS sur sec (kcal/kg)": avg('pcs'),
+              "PCI sur Brut (kcal/kg)": avg('pci_brut'),
+              "% H2O": avg('h2o'),
+              "% Cl-": avg('chlore'),
+              "% Cendres": avg('cendres'),
+          });
+      });
+      return aggregated;
+  };
     
-  const averages = useMemo(() => {
-        const group = (items: Result[]) => {
-            if (items.length === 0) return { count: 0, pci: '-', h2o: '-', cl: '-', cendres: '-' };
-
-            const metrics: ('pci_brut' | 'h2o' | 'chlore' | 'cendres')[] = ['pci_brut', 'h2o', 'chlore', 'cendres'];
-            const totals = metrics.reduce((acc, metric) => {
-                const validValues = items.map(r => r[metric]).filter((v): v is number => typeof v === 'number' && isFinite(v));
-                const sum = validValues.reduce((s, v) => s + v, 0);
-                acc[metric] = { sum, count: validValues.length };
-                return acc;
-            }, {} as Record<typeof metrics[number], { sum: number, count: number }>);
-        
-            return {
-                count: items.length,
-                pci: totals.pci_brut.count > 0 ? formatNumber(totals.pci_brut.sum / totals.pci_brut.count, 0) : '-',
-                h2o: totals.h2o.count > 0 ? formatNumber(totals.h2o.sum / totals.h2o.count, 1) : '-',
-                cl: totals.chlore.count > 0 ? formatNumber(totals.chlore.sum / totals.chlore.count, 2) : '-',
-                cendres: totals.cendres.count > 0 ? formatNumber(totals.cendres.sum / totals.cendres.count, 1) : '-',
-            };
-        };
-        
-        const petCokeAnalyses = sortedAndFilteredResults.filter(r => r.type_combustible?.toLowerCase().includes('pet coke'));
-        const grignonsAnalyses = sortedAndFilteredResults.filter(r => r.type_combustible?.toLowerCase().includes('grignons'));
-        const afsAnalyses = sortedAndFilteredResults.filter(r => !r.type_combustible?.toLowerCase().includes('pet coke') && !r.type_combustible?.toLowerCase().includes('grignons'));
-
-        return { petCoke: group(petCokeAnalyses), grignons: group(grignonsAnalyses), afs: group(afsAnalyses) };
-    }, [sortedAndFilteredResults]);
-  
   const exportData = (type: 'excel' | 'pdf') => {
     let dataToExport = sortedAndFilteredResults;
     if (dataToExport.length === 0) {
         toast({ variant: "destructive", title: "Aucune donnée", description: "Il n'y a aucune donnée à exporter." });
         return;
     }
+
+    const fromDate = dateFromFilter ? parseISO(dateFromFilter) : null;
+    const toDate = dateToFilter ? parseISO(dateToFilter) : null;
+    const dateDiff = (toDate && fromDate) ? (toDate.getTime() - fromDate.getTime()) / (1000 * 3600 * 24) : 0;
+    
+    // Si la période est supérieure à 2 jours, on fait une agrégation
+    const isAggregatedReport = dateDiff > 2;
     
     const generateAlerts = (result: Result) => {
         const spec = SPEC_MAP.get(`${result.type_combustible}|${result.fournisseur}`);
@@ -540,22 +552,28 @@ export default function ResultsTable() {
 
     if (type === 'excel') {
         const filename = `Export_Resultats_${format(new Date(), "yyyy-MM-dd")}.xlsx`;
-        const excelData = dataToExport.map(row => {
-             const date = normalizeDate(row.date_arrivage);
-             return {
-                "Date Arrivage": date ? format(date, "dd/MM/yyyy") : "Date invalide",
-                "Type Combustible": row.type_combustible,
-                "Fournisseur": row.fournisseur,
-                "Tonnage (t)": row.tonnage,
-                "PCS sur sec (kcal/kg)": row.pcs,
-                "PCI sur Brut (kcal/kg)": row.pci_brut,
-                "% H2O": row.h2o,
-                "% Cl-": row.chlore,
-                "% Cendres": row.cendres,
-                "Alertes": generateAlerts(row).text,
-                "Remarques": row.remarques || ""
-            }
-        });
+        let excelData: any[];
+
+        if (isAggregatedReport) {
+            excelData = aggregateResults(dataToExport);
+        } else {
+            excelData = dataToExport.map(row => {
+                const date = normalizeDate(row.date_arrivage);
+                return {
+                    "Date Arrivage": date ? format(date, "dd/MM/yyyy") : "Date invalide",
+                    "Type Combustible": row.type_combustible,
+                    "Fournisseur": row.fournisseur,
+                    "Tonnage (t)": row.tonnage,
+                    "PCS sur sec (kcal/kg)": row.pcs,
+                    "PCI sur Brut (kcal/kg)": row.pci_brut,
+                    "% H2O": row.h2o,
+                    "% Cl-": row.chlore,
+                    "% Cendres": row.cendres,
+                    "Alertes": generateAlerts(row).text,
+                    "Remarques": row.remarques || ""
+                }
+            });
+        }
         const ws = XLSX.utils.json_to_sheet(excelData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Rapport AFR");
@@ -565,15 +583,30 @@ export default function ResultsTable() {
             import('jspdf-autotable').then(() => {
                 const doc = new jsPDF.default({ orientation: 'landscape' });
                 doc.text("Rapport des Résultats d'Analyses", 14, 15);
-                const head = [["Date", "Combustible", "Fournisseur", "Tonnage (t)", "PCS", "PCI Brut", "H2O", "Cl-", "Cendres", "Alertes", "Remarques"]];
-                const body = dataToExport.map(row => {
-                  const date = normalizeDate(row.date_arrivage);
-                  return [
-                    date ? format(date, "dd/MM/yy") : "Invalide", row.type_combustible, row.fournisseur,
-                    formatNumber(row.tonnage, 1),
-                    formatNumber(row.pcs, 0), formatNumber(row.pci_brut, 0), formatNumber(row.h2o, 1), formatNumber(row.chlore, 2), formatNumber(row.cendres, 1),
-                    generateAlerts(row).text, row.remarques || "-",
-                ]});
+                
+                let head: string[][];
+                let body: (string | number | null)[][];
+
+                if (isAggregatedReport) {
+                    const aggregatedData = aggregateResults(dataToExport);
+                    head = [["Combustible", "Fournisseur", "Analyses", "Tonnage", "Moy. PCS", "Moy. PCI", "Moy. H2O", "Moy. Cl-", "Moy. Cendres"]];
+                    body = aggregatedData.map(row => [
+                        row["Type Combustible"], row["Fournisseur"], row["Analyses"],
+                        formatNumber(row["Tonnage (t)"], 1), formatNumber(row["PCS sur sec (kcal/kg)"], 0),
+                        formatNumber(row["PCI sur Brut (kcal/kg)"], 0), formatNumber(row["% H2O"], 1),
+                        formatNumber(row["% Cl-"], 2), formatNumber(row["% Cendres"], 1)
+                    ]);
+                } else {
+                    head = [["Date", "Combustible", "Fournisseur", "Tonnage (t)", "PCS", "PCI Brut", "H2O", "Cl-", "Cendres", "Alertes", "Remarques"]];
+                    body = dataToExport.map(row => {
+                      const date = normalizeDate(row.date_arrivage);
+                      return [
+                        date ? format(date, "dd/MM/yy") : "Invalide", row.type_combustible, row.fournisseur,
+                        formatNumber(row.tonnage, 1),
+                        formatNumber(row.pcs, 0), formatNumber(row.pci_brut, 0), formatNumber(row.h2o, 1), formatNumber(row.chlore, 2), formatNumber(row.cendres, 1),
+                        generateAlerts(row).text, row.remarques || "-",
+                    ]});
+                }
         
                 (doc as any).autoTable({ head, body, startY: 20, theme: 'grid', styles: { fontSize: 8, cellPadding: 1.5 }, headStyles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: 'bold' }});
                 doc.save(`Rapport_Resultats_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
@@ -582,6 +615,7 @@ export default function ResultsTable() {
     }
   };
 
+
   const periodLabel = useMemo(() => {
     try {
         if (dateFromFilter && dateToFilter) {
@@ -589,6 +623,12 @@ export default function ResultsTable() {
             const to = parseISO(dateToFilter);
             if (format(from, 'yyyy-MM-dd') === format(to, 'yyyy-MM-dd')) {
                 return format(from, "d MMM yyyy", { locale: fr });
+            }
+            if (
+                format(from, 'yyyy-MM-dd') === format(subDays(startOfDay(new Date()),1), 'yyyy-MM-dd') &&
+                format(to, 'yyyy-MM-dd') === format(endOfDay(new Date()), 'yyyy-MM-dd')
+            ) {
+                 return "Aujourd'hui & Veille";
             }
             return `${format(from, "d MMM yy")} - ${format(to, "d MMM yy")}`;
         }
@@ -604,8 +644,8 @@ export default function ResultsTable() {
 
       switch(preset) {
           case 'today':
-              from = startOfDay(now);
-              to = endOfDay(now);
+              from = subDays(startOfDay(now), 1); // Veille
+              to = endOfDay(now); // Jour J
               break;
           case 'this_week':
               from = startOfWeek(now, { locale: fr });
@@ -711,7 +751,7 @@ export default function ResultsTable() {
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild><Button variant="outline" size="icon" className="h-9 w-9 rounded-r-xl"><ChevronDown className="h-4 w-4" /></Button></DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
-                                        <DropdownMenuItem onClick={() => setDatePreset('today')}>Aujourd'hui</DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setDatePreset('today')}>Aujourd'hui & Veille</DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => setDatePreset('this_week')}>Cette semaine</DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => setDatePreset('this_month')}>Ce mois-ci</DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => setDatePreset('last_month')}>Mois dernier</DropdownMenuItem>
@@ -828,5 +868,3 @@ export default function ResultsTable() {
       </>
   );
 }
-
-    
