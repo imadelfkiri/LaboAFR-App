@@ -113,10 +113,24 @@ declare module "jspdf" {
   }
 }
 
-const formatNumber = (num: number | null | undefined, fractionDigits: number = 0) => {
+const formatNumber = (num: number | null | undefined, fractionDigits: number = 0): string => {
     if (num === null || num === undefined || Number.isNaN(num)) return "-";
-    return num.toLocaleString("fr-FR", { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits })
+
+    const formatter = new Intl.NumberFormat('fr-FR', {
+        minimumFractionDigits: fractionDigits,
+        maximumFractionDigits: fractionDigits,
+    });
+    
+    // Fallback for environments where Intl might not behave as expected (like PDF generation)
+    try {
+        return formatter.format(num);
+    } catch (e) {
+        const parts = num.toFixed(fractionDigits).toString().split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' '); // Use space as thousands separator
+        return parts.join(',');
+    }
 };
+
 
 const editSchema = z.object({
   pcs: z.coerce.number().positive(),
@@ -555,6 +569,17 @@ export default function ResultsTable() {
     
   const exportData = (type: 'excel' | 'pdf', reportType: 'detailed' | 'aggregated') => {
     let dataToExport = sortedAndFilteredResults;
+
+    const dateFrom = dateFromFilter ? startOfDay(parseISO(dateFromFilter)) : null;
+    const dateTo = dateToFilter ? endOfDay(parseISO(dateToFilter)) : null;
+
+    if (reportType === 'aggregated') {
+        // If the date range is more than 2 days, aggregate data
+        if(dateFrom && dateTo && (dateTo.getTime() - dateFrom.getTime()) > 2 * 24 * 60 * 60 * 1000) {
+             dataToExport = aggregateResults(dataToExport) as any;
+        }
+    }
+    
     if (dataToExport.length === 0) {
         toast({ variant: "destructive", title: "Aucune donnée", description: "Il n'y a aucune donnée à exporter." });
         return;
