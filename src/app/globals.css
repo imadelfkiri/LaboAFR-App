@@ -4,43 +4,44 @@
 
 @layer base {
   :root {
-    --background: 240 5% 96%; /* Light Gray */
-    --foreground: 240 10% 4%; /* Dark Gray */
-    
-    --card: 0 0% 100%;
-    --card-foreground: 224 71% 4%;
-    
-    --popover: 0 0% 100%;
-    --popover-foreground: 224 71% 4%;
-    
-    --primary: 142 76% 36%; /* Emerald-600 */
-    --primary-foreground: 0 0% 98%;
-    
-    --secondary: 220 13% 91%;
-    --secondary-foreground: 224 71% 4%;
+    /* Thème sombre moderne */
+    --background: 220 14% 6%; /* #0D0F13 */
+    --foreground: 210 20% 98%;
 
-    --muted: 240 5% 90%; /* Slightly darker gray for muted backgrounds */
-    --muted-foreground: 240 4% 46%; /* Softer gray for text */
-    
-    --accent: 216 34% 50%; /* A softer blue for accents */
-    --accent-foreground: 0 0% 98%;
-    
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
-    
-    --border: 240 6% 90%;
-    --input: 240 6% 85%;
-    --ring: 142 76% 36%; /* Emerald-600 for focus rings */
-    
+    --card: 220 13% 9%; /* #11151A */
+    --card-foreground: 210 20% 98%;
+
+    --popover: 220 13% 9%;
+    --popover-foreground: 210 20% 98%;
+
+    --primary: 142 71% 45%; /* #10B981 - Green */
+    --primary-foreground: 210 20% 98%;
+
+    --secondary: 215 28% 17%; /* #202A37 */
+    --secondary-foreground: 210 20% 98%;
+
+    --muted: 215 28% 17%;
+    --muted-foreground: 218 11% 65%;
+
+    --accent: 218 11% 65%;
+    --accent-foreground: 210 20% 98%;
+
+    --destructive: 0 63% 31%; /* #9A2323 */
+    --destructive-foreground: 210 20% 98%;
+
+    --border: 215 28% 17%;
+    --input: 215 28% 17%;
+    --ring: 142 71% 45%;
+
     --radius: 0.75rem;
 
-    /* Custom brand colors can be kept or adjusted */
-    --brand-bg: 240 5% 96%;
-    --brand-surface: 0 0% 100%;
-    --brand-accent: 142 76% 36%;
-    --brand-muted: 240 5% 90%;
-    --brand-line: 240 5% 85%;
-    --brand-text: 240 10% 4%;
+    /* Couleurs custom pour le branding */
+    --brand-bg: 220 14% 6%;
+    --brand-surface: 220 13% 9%;
+    --brand-accent: 142 71% 45%;
+    --brand-muted: 215 28% 17%;
+    --brand-line: 215 20% 25%;
+    --brand-text: 210 20% 98%;
 
     --positive: 145 63% 42%;
     --warning: 38 92% 50%;
@@ -48,15 +49,15 @@
   }
 
   .dark {
-    /* Kept the dark theme variables but they are not active by default anymore */
-    --background: 224 71% 4%;
+    /* Garder une variante sombre si besoin de switcher plus tard */
+    --background: 220 14% 6%;
     --foreground: 210 20% 98%;
-    --card: 224 71% 4%;
+    --card: 220 13% 9%;
     --card-foreground: 210 20% 98%;
-    --popover: 224 71% 4%;
+    --popover: 220 13% 9%;
     --popover-foreground: 210 20% 98%;
-    --primary: 210 20% 98%;
-    --primary-foreground: 224 71% 4%;
+    --primary: 142 71% 45%;
+    --primary-foreground: 210 20% 98%;
     --secondary: 215 28% 17%;
     --secondary-foreground: 210 20% 98%;
     --muted: 215 28% 17%;
@@ -67,14 +68,7 @@
     --destructive-foreground: 210 20% 98%;
     --border: 215 28% 17%;
     --input: 215 28% 17%;
-    --ring: 210 20% 98%;
-    
-    --brand-bg: 224 71% 4%;
-    --brand-surface: 215 28% 17%;
-    --brand-accent: 347 77% 60%;
-    --brand-muted: 215 28% 17%;
-    --brand-line: 215 28% 17%;
-    --brand-text: 210 20% 98%;
+    --ring: 142 71% 45%;
   }
 }
  
