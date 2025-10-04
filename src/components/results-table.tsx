@@ -115,11 +115,10 @@ declare module "jspdf" {
 
 const formatNumber = (num: number | null | undefined, fractionDigits: number = 0): string => {
     if (num === null || num === undefined || Number.isNaN(num)) return "-";
-    // Using a regex to replace the non-breaking space with a regular space for PDF compatibility
     return num.toLocaleString('fr-FR', {
         minimumFractionDigits: fractionDigits,
         maximumFractionDigits: fractionDigits,
-    }).replace(/\s/g, ' ');
+    }).replace(/\u00A0/g, ' ');
 };
 
 
@@ -559,14 +558,14 @@ export default function ResultsTable() {
   };
     
     const formatNumberForPdf = (num: number | null | undefined, fractionDigits: number = 0): string => {
-      if (num === null || num === undefined || Number.isNaN(num)) return "-";
-      const fixed = num.toFixed(fractionDigits);
-      const [integerPart, decimalPart] = fixed.split('.');
-      
-      // Use a simple regex to add spaces for thousands separator
-      const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+        if (num === null || num === undefined || Number.isNaN(num)) return "-";
+        const fixed = num.toFixed(fractionDigits);
+        const [integerPart, decimalPart] = fixed.split('.');
+        
+        // Use a simple regex to add spaces for thousands separator
+        const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 
-      return decimalPart ? `${formattedInteger},${decimalPart}` : formattedInteger;
+        return decimalPart ? `${formattedInteger},${decimalPart}` : formattedInteger;
     };
 
 
@@ -613,7 +612,7 @@ export default function ResultsTable() {
                     "% H2O": row.h2o,
                     "% Cl-": row.chlore,
                     "% Cendres": row.cendres,
-                    "Alertes": generateAlerts(row).text.replace("H2O", "H2O"),
+                    "Alertes": generateAlerts(row).text,
                     "Remarques": row.remarques || ""
                 }
             });
@@ -649,7 +648,7 @@ export default function ResultsTable() {
                         date ? format(date, "dd/MM/yy") : "Invalide", row.type_combustible, row.fournisseur,
                         formatNumberForPdf(row.tonnage, 1),
                         formatNumberForPdf(row.pcs, 0), formatNumberForPdf(row.pci_brut, 0), formatNumberForPdf(row.h2o, 1), formatNumberForPdf(row.chlore, 2), formatNumberForPdf(row.cendres, 1),
-                        generateAlerts(row).text.replace("H2O", "H2O"), row.remarques || "-",
+                        generateAlerts(row).text, row.remarques || "-",
                     ]});
 
                     columnStyles = {
@@ -668,15 +667,15 @@ export default function ResultsTable() {
                     styles: { fontSize: 7, cellPadding: 1.5 }, 
                     headStyles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: 'bold' },
                     columnStyles,
-                    didDrawCell: (data: any) => {
+                    willDrawCell: (data: any) => {
                         if (reportType === 'detailed' && data.section === 'body') {
                             const result = dataToExport[data.row.index];
                             const alerts = generateAlerts(result).details;
                             const keyMap: {[key: number]: keyof typeof alerts} = { 5: 'pci', 6: 'h2o', 7: 'chlore', 8: 'cendres'};
                             const alertKey = keyMap[data.column.index];
+
                             if (alertKey && alerts[alertKey]) {
-                                // Set text color to dark red
-                                doc.setTextColor(139, 0, 0); 
+                                data.cell.styles.textColor = '#8B0000'; // Dark Red
                             }
                         }
                     },
