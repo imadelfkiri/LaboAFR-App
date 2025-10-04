@@ -24,6 +24,10 @@ import {
   isValid,
   parseISO,
   parse,
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth
 } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
@@ -580,11 +584,31 @@ export default function ResultsTable() {
   const periodLabel = useMemo(() => {
     try {
         if (dateFromFilter && dateToFilter) return `${format(parseISO(dateFromFilter), "dd/MM/yy")} → ${format(parseISO(dateToFilter), "dd/MM/yy")}`
-        if (dateFromFilter) return `Depuis ${format(parseISO(dateFromFilter), "dd/MM/yy")}`
+        if (dateFromFilter) return `Depuis le ${format(parseISO(dateFromFilter), "dd/MM/yy")}`
         if (dateToFilter) return `Jusqu'au ${format(parseISO(dateToFilter), "dd/MM/yy")}`
-    } catch (e) { return "Période"; }
-    return "Période"
-  }, [dateFromFilter, dateToFilter])
+    } catch (e) { return "Sélectionner une période"; }
+    return "Sélectionner une période"
+  }, [dateFromFilter, dateToFilter]);
+  
+  const setDatePreset = (preset: 'today' | 'this_week' | 'this_month') => {
+      const now = new Date();
+      let from: Date, to: Date = endOfDay(now);
+
+      switch(preset) {
+          case 'today':
+              from = startOfDay(now);
+              break;
+          case 'this_week':
+              from = startOfWeek(now, { locale: fr });
+              break;
+          case 'this_month':
+              from = startOfMonth(now);
+              break;
+      }
+      setDateFromFilter(format(from, 'yyyy-MM-dd'));
+      setToFilter(format(to, 'yyyy-MM-dd'));
+  };
+
 
   const stats = useMemo(() => {
     const total = sortedAndFilteredResults.length
@@ -598,7 +622,7 @@ export default function ResultsTable() {
         return true;
     }).length
     return { total, conformes, non: total - conformes }
-  }, [sortedAndFilteredResults])
+  }, [sortedAndFilteredResults]);
   
   const generateAlerts = (result: Result) => {
     const spec = SPEC_MAP.get(`${result.type_combustible}|${result.fournisseur}`);
@@ -652,7 +676,7 @@ export default function ResultsTable() {
                           
                           <div className="col-span-1">
                             <Select value={fuelTypeFilter} onValueChange={setFuelTypeFilter}>
-                                <SelectTrigger className="h-9 rounded-xl text-[13px]"><SelectValue placeholder="Type combustible" /></SelectTrigger>
+                                <SelectTrigger className="h-9 rounded-xl text-[13px]"><SelectValue placeholder="Combustible" /></SelectTrigger>
                                 <SelectContent><SelectItem value="__ALL__">Tous les combustibles</SelectItem>{uniqueFuelTypes.map((f:string)=><SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
                             </Select>
                           </div>
@@ -663,12 +687,22 @@ export default function ResultsTable() {
                             </Select>
                           </div>
 
-                          <div className="col-span-1">
-                            <Popover>
-                                <PopoverTrigger asChild><Button variant="outline" className="w-full h-9 rounded-xl justify-start text-[13px]"><CalendarIcon className="w-4 h-4 mr-2" />{periodLabel}</Button></PopoverTrigger>
-                                <PopoverContent align="start" className="w-auto p-0"><Calendar initialFocus mode="range" defaultMonth={dateFromFilter ? parseISO(dateFromFilter) : new Date()} selected={{from: dateFromFilter ? parseISO(dateFromFilter) : undefined, to: dateToFilter ? parseISO(dateToFilter) : undefined}} onSelect={(range) => { setDateFromFilter(range?.from ? format(range.from, 'yyyy-MM-dd') : ''); setToFilter(range?.to ? format(range.to, 'yyyy-MM-dd') : ''); }} numberOfMonths={1} locale={fr} /></PopoverContent>
-                            </Popover>
-                          </div>
+                          <div className="col-span-1 flex items-center gap-1">
+                                <Popover>
+                                    <PopoverTrigger asChild><Button variant="outline" className="w-full h-9 rounded-l-xl justify-start text-[13px] border-r-0"><CalendarIcon className="w-4 h-4 mr-2" />{periodLabel}</Button></PopoverTrigger>
+                                    <PopoverContent align="start" className="w-auto p-0"><Calendar initialFocus mode="range" defaultMonth={dateFromFilter ? parseISO(dateFromFilter) : new Date()} selected={{from: dateFromFilter ? parseISO(dateFromFilter) : undefined, to: dateToFilter ? parseISO(dateToFilter) : undefined}} onSelect={(range) => { setDateFromFilter(range?.from ? format(range.from, 'yyyy-MM-dd') : ''); setToFilter(range?.to ? format(range.to, 'yyyy-MM-dd') : ''); }} numberOfMonths={1} locale={fr} /></PopoverContent>
+                                </Popover>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild><Button variant="outline" size="icon" className="h-9 w-9 rounded-r-xl"><ChevronDown className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => setDatePreset('today')}>Aujourd'hui</DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setDatePreset('this_week')}>Cette semaine</DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setDatePreset('this_month')}>Ce mois-ci</DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem onClick={() => { setDateFromFilter(''); setToFilter(''); }}>Réinitialiser</DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
 
                           <div className="col-span-1 md:col-span-2 lg:col-span-2 xl:col-span-2 flex items-center justify-end gap-2">
                               <Button variant="outline" className="h-9 rounded-xl" onClick={() => fileInputRef.current?.click()}><Upload className="w-4 h-4 mr-1" /> Importer</Button>
@@ -777,3 +811,5 @@ export default function ResultsTable() {
       </>
   );
 }
+
+    
