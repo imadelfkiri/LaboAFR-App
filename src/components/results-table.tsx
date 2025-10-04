@@ -667,13 +667,15 @@ export default function ResultsTable() {
                     styles: { fontSize: 7, cellPadding: 1.5 }, 
                     headStyles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: 'bold' },
                     columnStyles,
-                    willDrawCell: (data: any) => {
+                    didParseCell: (data: any) => {
                         if (reportType === 'detailed' && data.section === 'body') {
                             const result = dataToExport[data.row.index];
+                            if (!result) return;
+
                             const alerts = generateAlerts(result).details;
                             const keyMap: {[key: number]: keyof typeof alerts} = { 5: 'pci', 6: 'h2o', 7: 'chlore', 8: 'cendres'};
+                            
                             const alertKey = keyMap[data.column.index];
-
                             if (alertKey && alerts[alertKey]) {
                                 data.cell.styles.textColor = '#8B0000'; // Dark Red
                             }
@@ -964,3 +966,4 @@ export default function ResultsTable() {
 }
 
     
+
