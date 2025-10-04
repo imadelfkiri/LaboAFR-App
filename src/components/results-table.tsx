@@ -121,6 +121,17 @@ const formatNumber = (num: number | null | undefined, fractionDigits: number = 0
     }).replace(/\u00A0/g, ' ');
 };
 
+const formatNumberForPdf = (num: number | null | undefined, fractionDigits: number = 0): string => {
+    if (num === null || num === undefined || Number.isNaN(num)) return "-";
+    
+    const fixed = num.toFixed(fractionDigits);
+    const [integerPart, decimalPart] = fixed.split('.');
+    
+    const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+
+    return decimalPart ? `${formattedInteger},${decimalPart}` : formattedInteger;
+};
+
 
 const editSchema = z.object({
   pcs: z.coerce.number().positive(),
@@ -557,18 +568,6 @@ export default function ResultsTable() {
       return aggregated;
   };
     
-    const formatNumberForPdf = (num: number | null | undefined, fractionDigits: number = 0): string => {
-        if (num === null || num === undefined || Number.isNaN(num)) return "-";
-        
-        const fixed = num.toFixed(fractionDigits);
-        const [integerPart, decimalPart] = fixed.split('.');
-        
-        const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-
-        return decimalPart ? `${formattedInteger},${decimalPart}` : formattedInteger;
-    };
-
-
   const exportData = (type: 'excel' | 'pdf', reportType: 'detailed' | 'aggregated') => {
     let dataToExport = sortedAndFilteredResults;
     
@@ -648,7 +647,7 @@ export default function ResultsTable() {
                         date ? format(date, "dd/MM/yy") : "Invalide", row.type_combustible, row.fournisseur,
                         formatNumberForPdf(row.tonnage, 1),
                         formatNumberForPdf(row.pcs, 0), formatNumberForPdf(row.pci_brut, 0), formatNumberForPdf(row.h2o, 1), formatNumberForPdf(row.chlore, 2), formatNumberForPdf(row.cendres, 1),
-                        generateAlerts(row).text.replace("H₂O", "H2O"), row.remarques || "-",
+                        generateAlerts(row).text.replace("H2O", "H2O"), row.remarques || "-",
                     ]});
 
                     columnStyles = {
@@ -659,7 +658,7 @@ export default function ResultsTable() {
                     };
                 }
         
-                (doc as any).autoTable({ 
+                doc.autoTable({ 
                     head, 
                     body, 
                     startY: 20, 
@@ -677,7 +676,7 @@ export default function ResultsTable() {
                             
                             const alertKey = keyMap[data.column.index];
                             if (alertKey && alerts[alertKey]) {
-                                data.cell.styles.textColor = '#EF4444'; // Light Red
+                                data.cell.styles.textColor = '#EF4444'; // red-500
                             }
                         }
                     },
@@ -906,7 +905,7 @@ export default function ResultsTable() {
                               {alerte.isConform ? (
                                 <span className="inline-flex items-center gap-1 text-green-600 font-medium"><CheckCircle2 className="w-4 h-4" /> Conforme</span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 text-red-600 font-medium"><AlertTriangle className="w-4 h-4" /> {alerte.text.replace("H₂O", "H2O") || "Non conforme"}</span>
+                                <span className="inline-flex items-center gap-1 text-red-500 font-medium"><AlertTriangle className="w-4 h-4" /> {alerte.text.replace("H2O", "H2O") || "Non conforme"}</span>
                               )}
                             </td>
                             <td className="p-2 text-muted-foreground max-w-[150px] truncate" title={r.remarques}>{r.remarques ?? "-"}</td>
@@ -966,5 +965,6 @@ export default function ResultsTable() {
 }
 
     
+
 
 
