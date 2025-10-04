@@ -115,10 +115,11 @@ declare module "jspdf" {
 
 const formatNumber = (num: number | null | undefined, fractionDigits: number = 0): string => {
     if (num === null || num === undefined || Number.isNaN(num)) return "-";
+    // Using a regex to replace the non-breaking space with a regular space for PDF compatibility
     return num.toLocaleString('fr-FR', {
         minimumFractionDigits: fractionDigits,
         maximumFractionDigits: fractionDigits,
-    });
+    }).replace(/\s/g, ' ');
 };
 
 
@@ -561,22 +562,23 @@ export default function ResultsTable() {
         if (num === null || num === undefined || Number.isNaN(num)) return "-";
         const fixed = num.toFixed(fractionDigits);
         let [integerPart, decimalPart] = fixed.split('.');
-        integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+        integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " "); // Use a regular space
         return decimalPart ? `${integerPart},${decimalPart}` : integerPart;
     };
 
 
   const exportData = (type: 'excel' | 'pdf', reportType: 'detailed' | 'aggregated') => {
     let dataToExport = sortedAndFilteredResults;
-
-    const fromDate = dateFromFilter ? parseISO(dateFromFilter) : null;
-    const toDate = dateToFilter ? parseISO(dateToFilter) : null;
     
-    if (reportType === 'aggregated' && fromDate && toDate) {
-        const diffDays = (toDate.getTime() - fromDate.getTime()) / (1000 * 3600 * 24);
-        if (diffDays <= 2) {
-             reportType = 'detailed';
-             toast({ title: "Exportation détaillée", description: "Le rapport détaillé est exporté pour les périodes de moins de 2 jours."});
+    if (reportType === 'aggregated') {
+        const fromDate = dateFromFilter ? parseISO(dateFromFilter) : null;
+        const toDate = dateToFilter ? parseISO(dateToFilter) : null;
+        if (fromDate && toDate) {
+            const diffDays = (toDate.getTime() - fromDate.getTime()) / (1000 * 3600 * 24);
+            if (diffDays <= 2) {
+                reportType = 'detailed';
+                toast({ title: "Exportation détaillée", description: "Le rapport agrégé est converti en détaillé pour les périodes de moins de 2 jours."});
+            }
         }
     }
 
@@ -592,7 +594,7 @@ export default function ResultsTable() {
 
         const alerts: string[] = [];
         if (spec.PCI_min != null && result.pci_brut != null && result.pci_brut < spec.PCI_min) alerts.push("PCI bas");
-        if (spec.H2O_max != null && result.h2o != null && result.h2o > spec.H2O_max) alerts.push("H₂O élevé");
+        if (spec.H2O_max != null && result.h2o != null && result.h2o > spec.H2O_max) alerts.push("H2O élevé");
         if (result.chlore != null && spec.Cl_max != null && result.chlore > spec.Cl_max) alerts.push("Cl- élevé");
         if (result.cendres != null && spec.Cendres_max != null && result.cendres > spec.Cendres_max) alerts.push("Cendres élevées");
 
@@ -738,7 +740,7 @@ export default function ResultsTable() {
     const alertDetails = { pci: false, h2o: false, chlore: false, cendres: false };
 
     if (spec.PCI_min != null && result.pci_brut != null && result.pci_brut < spec.PCI_min) { alerts.push("PCI bas"); alertDetails.pci = true; }
-    if (spec.H2O_max != null && result.h2o != null && result.h2o > spec.H2O_max) { alerts.push("H₂O élevé"); alertDetails.h2o = true; }
+    if (spec.H2O_max != null && result.h2o != null && result.h2o > spec.H2O_max) { alerts.push("H2O élevé"); alertDetails.h2o = true; }
     if (result.chlore != null && spec.Cl_max != null && result.chlore > spec.Cl_max) { alerts.push("Cl- élevé"); alertDetails.chlore = true; }
     if (result.cendres != null && spec.Cendres_max != null && result.cendres > spec.Cendres_max) { alerts.push("Cendres élevées"); alertDetails.cendres = true; }
 
