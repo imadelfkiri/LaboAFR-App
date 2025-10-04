@@ -298,6 +298,37 @@ export default function ResultsTable() {
     };
   }, [results, fuelTypeFilter]);
 
+    const averages = useMemo(() => {
+        const processGroup = (analyses: Result[]) => {
+            if (analyses.length === 0) {
+                return { count: 0, pci: '-', h2o: '-', cl: '-', cendres: '-' };
+            }
+
+            const avg = (key: keyof Result) => {
+                const values = analyses.map(a => a[key]).filter((v): v is number => typeof v === 'number' && isFinite(v));
+                return values.length > 0 ? values.reduce((s, v) => s + v, 0) / values.length : null;
+            };
+            
+            return {
+                count: analyses.length,
+                pci: formatNumber(avg('pci_brut'), 0),
+                h2o: formatNumber(avg('h2o'), 1),
+                cl: formatNumber(avg('chlore'), 2),
+                cendres: formatNumber(avg('cendres'), 1),
+            };
+        };
+        
+        const petCokeAnalyses = sortedAndFilteredResults.filter(a => a.type_combustible?.toLowerCase().includes('pet coke'));
+        const grignonsAnalyses = sortedAndFilteredResults.filter(a => a.type_combustible?.toLowerCase().includes('grignons'));
+        const afsAnalyses = sortedAndFilteredResults.filter(a => !a.type_combustible?.toLowerCase().includes('pet coke') && !a.type_combustible?.toLowerCase().includes('grignons'));
+
+        return {
+            petCoke: processGroup(petCokeAnalyses),
+            grignons: processGroup(grignonsAnalyses),
+            afs: processGroup(afsAnalyses),
+        };
+    }, [sortedAndFilteredResults]);
+
   useEffect(() => {
       if (fournisseurFilter !== '__ALL__' && !availableSuppliers.includes(fournisseurFilter)) {
           setFournisseurFilter('__ALL__');
@@ -533,7 +564,6 @@ export default function ResultsTable() {
     const toDate = dateToFilter ? parseISO(dateToFilter) : null;
     const dateDiff = (toDate && fromDate) ? (toDate.getTime() - fromDate.getTime()) / (1000 * 3600 * 24) : 0;
     
-    // Si la période est supérieure à 2 jours, on fait une agrégation
     const isAggregatedReport = dateDiff > 2;
     
     const generateAlerts = (result: Result) => {
