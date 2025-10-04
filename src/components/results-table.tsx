@@ -113,14 +113,6 @@ declare module "jspdf" {
   }
 }
 
-const formatNumber = (num: number | null | undefined, fractionDigits: number = 0): string => {
-    if (num === null || num === undefined || Number.isNaN(num)) return "-";
-    return num.toLocaleString('fr-FR', {
-        minimumFractionDigits: fractionDigits,
-        maximumFractionDigits: fractionDigits,
-    }).replace(/\u00A0/g, ' ');
-};
-
 const formatNumberForPdf = (num: number | null | undefined, fractionDigits: number = 0): string => {
     if (num === null || num === undefined || Number.isNaN(num)) return "-";
     
@@ -312,6 +304,15 @@ export default function ResultsTable() {
       availableSuppliers: suppliersInFiltered
     };
   }, [results, fuelTypeFilter]);
+
+  const formatNumber = (num: number | null | undefined, fractionDigits: number = 0): string => {
+    if (num === null || num === undefined || Number.isNaN(num)) return "-";
+    // Replace non-breaking space with a regular space for consistency
+    return num.toLocaleString('fr-FR', {
+        minimumFractionDigits: fractionDigits,
+        maximumFractionDigits: fractionDigits,
+    }).replace(/\u00A0/g, ' ');
+  };
 
   const averages = useMemo(() => {
     const processGroup = (analyses: Result[]) => {
@@ -640,14 +641,15 @@ export default function ResultsTable() {
                         formatNumberForPdf(row["% Cl-"], 2), formatNumberForPdf(row["% Cendres"], 1)
                     ]);
                 } else {
-                    head = [["Date", "Combustible", "Fournisseur", "Tonnage (t)", "PCS", "PCI Brut", "H2O", "Cl-", "Cendres", "Alertes", "Remarques"]];
+                    head = [["Date", "Combustible", "Fournisseur", "Tonnage (t)", "PCS", "PCI Brut", "H2O (%)", "Cl- (%)", "Cendres (%)", "Alertes", "Remarques"]];
                     body = dataToExport.map(row => {
                       const date = normalizeDate(row.date_arrivage);
                       return [
                         date ? format(date, "dd/MM/yy") : "Invalide", row.type_combustible, row.fournisseur,
                         formatNumberForPdf(row.tonnage, 1),
                         formatNumberForPdf(row.pcs, 0), formatNumberForPdf(row.pci_brut, 0), formatNumberForPdf(row.h2o, 1), formatNumberForPdf(row.chlore, 2), formatNumberForPdf(row.cendres, 1),
-                        generateAlerts(row).text.replace("H2O", "H2O"), row.remarques || "-",
+                        generateAlerts(row).text.replace("H2O élevé", "H2O élevé"),
+                        row.remarques || "-",
                     ]});
 
                     columnStyles = {
@@ -672,17 +674,21 @@ export default function ResultsTable() {
                             if (!result) return;
 
                             const alertsInfo = generateAlerts(result);
-                            
-                            // Color alert text column if not conform
-                            if (data.column.index === 9 && !alertsInfo.isConform) {
-                                data.cell.styles.textColor = '#8B0000'; // Dark Red
+
+                            // Color alert text column
+                            if (data.column.index === 9) { // "Alertes" column
+                                if (alertsInfo.isConform) {
+                                    data.cell.styles.textColor = '#16A34A'; // Green
+                                } else {
+                                    data.cell.styles.textColor = '#8B0000'; // Dark Red
+                                }
                             }
                             
                             const keyMap: {[key: number]: keyof typeof alertsInfo.details} = { 5: 'pci', 6: 'h2o', 7: 'chlore', 8: 'cendres'};
                             const alertKey = keyMap[data.column.index];
 
                             if (alertKey && alertsInfo.details[alertKey]) {
-                                data.cell.styles.textColor = '#EF4444'; // Light Red (Tailwind red-500)
+                                data.cell.styles.textColor = '#EF4444'; // Red-500
                             }
                         }
                     },
@@ -911,7 +917,7 @@ export default function ResultsTable() {
                               {alerte.isConform ? (
                                 <span className="inline-flex items-center gap-1 text-green-600 font-medium"><CheckCircle2 className="w-4 h-4" /> Conforme</span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 text-red-500 font-medium"><AlertTriangle className="w-4 h-4" /> {alerte.text.replace("H2O", "H2O") || "Non conforme"}</span>
+                                <span className="inline-flex items-center gap-1 text-red-500 font-medium"><AlertTriangle className="w-4 h-4" /> {alerte.text.replace("H2O élevé", "H2O élevé") || "Non conforme"}</span>
                               )}
                             </td>
                             <td className="p-2 text-muted-foreground max-w-[150px] truncate" title={r.remarques}>{r.remarques ?? "-"}</td>
@@ -971,6 +977,7 @@ export default function ResultsTable() {
 }
 
     
+
 
 
 
