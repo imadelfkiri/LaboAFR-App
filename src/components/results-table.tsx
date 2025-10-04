@@ -611,7 +611,7 @@ export default function ResultsTable() {
                     "% H2O": row.h2o,
                     "% Cl-": row.chlore,
                     "% Cendres": row.cendres,
-                    "Alertes": generateAlerts(row).text.replace("H₂O", "H2O"),
+                    "Alertes": generateAlerts(row).text.replace("H2O", "H2O"),
                     "Remarques": row.remarques || ""
                 }
             });
@@ -671,12 +671,18 @@ export default function ResultsTable() {
                             const result = dataToExport[data.row.index];
                             if (!result) return;
 
-                            const alerts = generateAlerts(result).details;
-                            const keyMap: {[key: number]: keyof typeof alerts} = { 5: 'pci', 6: 'h2o', 7: 'chlore', 8: 'cendres'};
+                            const alertsInfo = generateAlerts(result);
                             
+                            // Color alert text column if not conform
+                            if (data.column.index === 9 && !alertsInfo.isConform) {
+                                data.cell.styles.textColor = '#8B0000'; // Dark Red
+                            }
+                            
+                            const keyMap: {[key: number]: keyof typeof alertsInfo.details} = { 5: 'pci', 6: 'h2o', 7: 'chlore', 8: 'cendres'};
                             const alertKey = keyMap[data.column.index];
-                            if (alertKey && alerts[alertKey]) {
-                                data.cell.styles.textColor = '#EF4444'; // red-500
+
+                            if (alertKey && alertsInfo.details[alertKey]) {
+                                data.cell.styles.textColor = '#EF4444'; // Light Red (Tailwind red-500)
                             }
                         }
                     },
@@ -965,6 +971,7 @@ export default function ResultsTable() {
 }
 
     
+
 
 
 
