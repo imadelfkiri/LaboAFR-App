@@ -27,7 +27,8 @@ import {
   startOfWeek,
   endOfWeek,
   startOfMonth,
-  endOfMonth
+  endOfMonth,
+  subMonths
 } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
@@ -583,26 +584,41 @@ export default function ResultsTable() {
 
   const periodLabel = useMemo(() => {
     try {
-        if (dateFromFilter && dateToFilter) return `${format(parseISO(dateFromFilter), "dd/MM/yy")} → ${format(parseISO(dateToFilter), "dd/MM/yy")}`
-        if (dateFromFilter) return `Depuis le ${format(parseISO(dateFromFilter), "dd/MM/yy")}`
-        if (dateToFilter) return `Jusqu'au ${format(parseISO(dateToFilter), "dd/MM/yy")}`
+        if (dateFromFilter && dateToFilter) {
+            const from = parseISO(dateFromFilter);
+            const to = parseISO(dateToFilter);
+            if (format(from, 'yyyy-MM-dd') === format(to, 'yyyy-MM-dd')) {
+                return format(from, "d MMM yyyy", { locale: fr });
+            }
+            return `${format(from, "d MMM yy")} - ${format(to, "d MMM yy")}`;
+        }
+        if (dateFromFilter) return `Depuis le ${format(parseISO(dateFromFilter), "d MMM yyyy")}`
+        if (dateToFilter) return `Jusqu'au ${format(parseISO(dateToFilter), "d MMM yyyy")}`
     } catch (e) { return "Sélectionner une période"; }
     return "Sélectionner une période"
   }, [dateFromFilter, dateToFilter]);
   
-  const setDatePreset = (preset: 'today' | 'this_week' | 'this_month') => {
+  const setDatePreset = (preset: 'today' | 'this_week' | 'this_month' | 'last_month') => {
       const now = new Date();
-      let from: Date, to: Date = endOfDay(now);
+      let from: Date, to: Date;
 
       switch(preset) {
           case 'today':
               from = startOfDay(now);
+              to = endOfDay(now);
               break;
           case 'this_week':
               from = startOfWeek(now, { locale: fr });
+              to = endOfWeek(now, { locale: fr });
               break;
           case 'this_month':
               from = startOfMonth(now);
+              to = endOfMonth(now);
+              break;
+          case 'last_month':
+              const lastMonth = subMonths(now, 1);
+              from = startOfMonth(lastMonth);
+              to = endOfMonth(lastMonth);
               break;
       }
       setDateFromFilter(format(from, 'yyyy-MM-dd'));
@@ -698,6 +714,7 @@ export default function ResultsTable() {
                                         <DropdownMenuItem onClick={() => setDatePreset('today')}>Aujourd'hui</DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => setDatePreset('this_week')}>Cette semaine</DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => setDatePreset('this_month')}>Ce mois-ci</DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setDatePreset('last_month')}>Mois dernier</DropdownMenuItem>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem onClick={() => { setDateFromFilter(''); setToFilter(''); }}>Réinitialiser</DropdownMenuItem>
                                     </DropdownMenuContent>
