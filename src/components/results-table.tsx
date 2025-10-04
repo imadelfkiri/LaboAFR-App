@@ -559,10 +559,10 @@ export default function ResultsTable() {
     
     const formatNumberForPdf = (num: number | null | undefined, fractionDigits: number = 0): string => {
         if (num === null || num === undefined || Number.isNaN(num)) return "-";
+        
         const fixed = num.toFixed(fractionDigits);
         const [integerPart, decimalPart] = fixed.split('.');
         
-        // Use a simple regex to add spaces for thousands separator
         const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 
         return decimalPart ? `${formattedInteger},${decimalPart}` : formattedInteger;
@@ -612,7 +612,7 @@ export default function ResultsTable() {
                     "% H2O": row.h2o,
                     "% Cl-": row.chlore,
                     "% Cendres": row.cendres,
-                    "Alertes": generateAlerts(row).text,
+                    "Alertes": generateAlerts(row).text.replace("H₂O", "H2O"),
                     "Remarques": row.remarques || ""
                 }
             });
@@ -648,7 +648,7 @@ export default function ResultsTable() {
                         date ? format(date, "dd/MM/yy") : "Invalide", row.type_combustible, row.fournisseur,
                         formatNumberForPdf(row.tonnage, 1),
                         formatNumberForPdf(row.pcs, 0), formatNumberForPdf(row.pci_brut, 0), formatNumberForPdf(row.h2o, 1), formatNumberForPdf(row.chlore, 2), formatNumberForPdf(row.cendres, 1),
-                        generateAlerts(row).text, row.remarques || "-",
+                        generateAlerts(row).text.replace("H₂O", "H2O"), row.remarques || "-",
                     ]});
 
                     columnStyles = {
@@ -677,7 +677,7 @@ export default function ResultsTable() {
                             
                             const alertKey = keyMap[data.column.index];
                             if (alertKey && alerts[alertKey]) {
-                                data.cell.styles.textColor = '#8B0000'; // Dark Red
+                                data.cell.styles.textColor = '#EF4444'; // Light Red
                             }
                         }
                     },
@@ -898,15 +898,15 @@ export default function ResultsTable() {
                             <td className="p-2">{r.fournisseur}</td>
                             <td className={`p-2 text-right tabular-nums`}>{formatNumber(r.tonnage, 1)}</td>
                             <td className={`p-2 text-right tabular-nums`}>{formatNumber(r.pcs, 0)}</td>
-                            <td className={`p-2 text-right font-semibold tabular-nums ${alerte.details.pci ? "text-red-600" : ""}`}>{formatNumber(r.pci_brut, 0)}</td>
-                            <td className={`p-2 text-right tabular-nums ${alerte.details.h2o ? "text-red-600" : ""}`}>{formatNumber(r.h2o, 1)}</td>
-                            <td className={`p-2 text-right tabular-nums ${alerte.details.chlore ? "text-red-600" : ""}`}>{formatNumber(r.chlore, 2)}</td>
-                            <td className={`p-2 text-right tabular-nums ${alerte.details.cendres ? "text-red-600" : ""}`}>{formatNumber(r.cendres, 1)}</td>
+                            <td className={`p-2 text-right font-semibold tabular-nums ${alerte.details.pci ? "text-red-500" : ""}`}>{formatNumber(r.pci_brut, 0)}</td>
+                            <td className={`p-2 text-right tabular-nums ${alerte.details.h2o ? "text-red-500" : ""}`}>{formatNumber(r.h2o, 1)}</td>
+                            <td className={`p-2 text-right tabular-nums ${alerte.details.chlore ? "text-red-500" : ""}`}>{formatNumber(r.chlore, 2)}</td>
+                            <td className={`p-2 text-right tabular-nums ${alerte.details.cendres ? "text-red-500" : ""}`}>{formatNumber(r.cendres, 1)}</td>
                             <td className="p-2">
                               {alerte.isConform ? (
                                 <span className="inline-flex items-center gap-1 text-green-600 font-medium"><CheckCircle2 className="w-4 h-4" /> Conforme</span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 text-red-600 font-medium"><AlertTriangle className="w-4 h-4" /> {alerte.text.replace("H2O", "H2O") || "Non conforme"}</span>
+                                <span className="inline-flex items-center gap-1 text-red-600 font-medium"><AlertTriangle className="w-4 h-4" /> {alerte.text.replace("H₂O", "H2O") || "Non conforme"}</span>
                               )}
                             </td>
                             <td className="p-2 text-muted-foreground max-w-[150px] truncate" title={r.remarques}>{r.remarques ?? "-"}</td>
@@ -966,4 +966,5 @@ export default function ResultsTable() {
 }
 
     
+
 
