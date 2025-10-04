@@ -559,11 +559,14 @@ export default function ResultsTable() {
   };
     
     const formatNumberForPdf = (num: number | null | undefined, fractionDigits: number = 0): string => {
-        if (num === null || num === undefined || Number.isNaN(num)) return "-";
-        const fixed = num.toFixed(fractionDigits);
-        let [integerPart, decimalPart] = fixed.split('.');
-        integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " "); // Use a regular space
-        return decimalPart ? `${integerPart},${decimalPart}` : integerPart;
+      if (num === null || num === undefined || Number.isNaN(num)) return "-";
+      const fixed = num.toFixed(fractionDigits);
+      const [integerPart, decimalPart] = fixed.split('.');
+      
+      // Use a simple regex to add spaces for thousands separator
+      const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+
+      return decimalPart ? `${formattedInteger},${decimalPart}` : formattedInteger;
     };
 
 
@@ -610,7 +613,7 @@ export default function ResultsTable() {
                     "% H2O": row.h2o,
                     "% Cl-": row.chlore,
                     "% Cendres": row.cendres,
-                    "Alertes": generateAlerts(row).text.replace("H₂O", "H2O"),
+                    "Alertes": generateAlerts(row).text.replace("H2O", "H2O"),
                     "Remarques": row.remarques || ""
                 }
             });
@@ -646,7 +649,7 @@ export default function ResultsTable() {
                         date ? format(date, "dd/MM/yy") : "Invalide", row.type_combustible, row.fournisseur,
                         formatNumberForPdf(row.tonnage, 1),
                         formatNumberForPdf(row.pcs, 0), formatNumberForPdf(row.pci_brut, 0), formatNumberForPdf(row.h2o, 1), formatNumberForPdf(row.chlore, 2), formatNumberForPdf(row.cendres, 1),
-                        generateAlerts(row).text.replace("H₂O", "H2O"), row.remarques || "-",
+                        generateAlerts(row).text.replace("H2O", "H2O"), row.remarques || "-",
                     ]});
 
                     columnStyles = {
@@ -672,8 +675,8 @@ export default function ResultsTable() {
                             const keyMap: {[key: number]: keyof typeof alerts} = { 5: 'pci', 6: 'h2o', 7: 'chlore', 8: 'cendres'};
                             const alertKey = keyMap[data.column.index];
                             if (alertKey && alerts[alertKey]) {
-                                doc.setFillColor(255, 204, 203); // Light red
-                                doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+                                // Set text color to dark red
+                                doc.setTextColor(139, 0, 0); 
                             }
                         }
                     },
@@ -762,7 +765,7 @@ export default function ResultsTable() {
     const alertDetails = { pci: false, h2o: false, chlore: false, cendres: false };
 
     if (spec.PCI_min != null && result.pci_brut != null && result.pci_brut < spec.PCI_min) { alerts.push("PCI bas"); alertDetails.pci = true; }
-    if (spec.H2O_max != null && result.h2o != null && result.h2o > spec.H2O_max) { alerts.push("H₂O élevé"); alertDetails.h2o = true; }
+    if (spec.H2O_max != null && result.h2o != null && result.h2o > spec.H2O_max) { alerts.push("H2O élevé"); alertDetails.h2o = true; }
     if (result.chlore != null && spec.Cl_max != null && result.chlore > spec.Cl_max) { alerts.push("Cl- élevé"); alertDetails.chlore = true; }
     if (result.cendres != null && spec.Cendres_max != null && result.cendres > spec.Cendres_max) { alerts.push("Cendres élevées"); alertDetails.cendres = true; }
 
@@ -902,7 +905,7 @@ export default function ResultsTable() {
                               {alerte.isConform ? (
                                 <span className="inline-flex items-center gap-1 text-green-600 font-medium"><CheckCircle2 className="w-4 h-4" /> Conforme</span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 text-red-600 font-medium"><AlertTriangle className="w-4 h-4" /> {alerte.text.replace("H₂O", "H2O") || "Non conforme"}</span>
+                                <span className="inline-flex items-center gap-1 text-red-600 font-medium"><AlertTriangle className="w-4 h-4" /> {alerte.text.replace("H2O", "H2O") || "Non conforme"}</span>
                               )}
                             </td>
                             <td className="p-2 text-muted-foreground max-w-[150px] truncate" title={r.remarques}>{r.remarques ?? "-"}</td>
