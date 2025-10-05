@@ -139,7 +139,7 @@ export default function RapportSynthesePage() {
         yPos += 15;
 
         // Section 1: Indicateurs du Mélange
-        if (mixtureIndicators) {
+        if (mixtureIndicators && mixtureSession?.globalIndicators) {
             doc.setFontSize(14);
             doc.text("Indicateurs du Mélange", 14, yPos);
             yPos += 6;
@@ -147,14 +147,28 @@ export default function RapportSynthesePage() {
                 startY: yPos,
                 head: [['Indicateur', 'Valeur', 'Unité']],
                 body: mixtureIndicators.map(ind => {
-                    const label = ind.label === 'H₂O' ? 'H2O' : ind.label;
+                    const label = ind.label;
+                    let digits = 2;
+                    switch (label) {
+                        case 'PCI':
+                            digits = 0;
+                            break;
+                        case 'H₂O':
+                        case 'Cendres':
+                            digits = 1;
+                            break;
+                        case 'Chlorures':
+                            digits = 2;
+                            break;
+                    }
+                    
                     const value = formatNumberForPdf(
                         mixtureSession?.globalIndicators[
-                            ind.label.toLowerCase().replace('chlorures', 'chlorine').replace('cendres', 'ash').replace('h₂o', 'humidity') as keyof typeof mixtureSession.globalIndicators
+                            label.toLowerCase().replace('chlorures', 'chlorine').replace('cendres', 'ash').replace('h₂o', 'humidity') as keyof typeof mixtureSession.globalIndicators
                         ], 
-                        ind.label === 'Chlorures' ? 3 : (ind.label === 'PCI' ? 0 : 2)
+                        digits
                     );
-                    return [label, value, ind.unit];
+                    return [label === 'H₂O' ? 'H2O' : label, value, ind.unit];
                 }),
                 theme: 'striped',
                 headStyles: { fillColor: [44, 62, 80] },
