@@ -579,16 +579,19 @@ export function MixtureCalculator() {
     loadInitialData();
   }, []); // Run only once on mount
 
-  // Effect to refetch data when date ranges change
-  useEffect(() => {
-      const individualRanges = {
+  const individualDateRanges = useMemo(() => {
+    return JSON.stringify({
         ...Object.fromEntries(Object.entries(hallAF.fuels).map(([k, v]) => [k, v.dateRange])),
         ...Object.fromEntries(Object.entries(ats.fuels).map(([k, v]) => [k, v.dateRange]))
-      };
+    });
+  }, [hallAF.fuels, ats.fuels]);
+
+  // Effect to refetch data when date ranges change
+  useEffect(() => {
       if (analysisDateRange?.from && analysisDateRange.to) {
-          fetchData(analysisDateRange, individualRanges);
+          fetchData(analysisDateRange, JSON.parse(individualDateRanges));
       }
-  }, [analysisDateRange, hallAF, ats, fetchData]);
+  }, [analysisDateRange, individualDateRanges, fetchData]);
 
 
   const fetchHistoryData = useCallback(async () => {
