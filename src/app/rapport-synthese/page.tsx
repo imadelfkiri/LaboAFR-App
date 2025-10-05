@@ -3,13 +3,22 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getFuelData, type FuelData } from '@/lib/data';
 import { Skeleton } from "@/components/ui/skeleton";
-import { Flame, Activity, BookOpen, Beaker, BarChart2 } from 'lucide-react';
+import { Flame, Activity, BookOpen, Beaker, BarChart2, Download } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, Cell, LabelList } from 'recharts';
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 
+// Extend jsPDF for autoTable
+declare module "jspdf" {
+  interface jsPDF {
+    autoTable: (options: any) => jsPDF;
+  }
+}
 
 const formatNumber = (num: number | null | undefined, digits: number = 2) => {
     if (num === null || num === undefined || isNaN(num)) return '0.00';
@@ -18,19 +27,6 @@ const formatNumber = (num: number | null | undefined, digits: number = 2) => {
         maximumFractionDigits: digits,
     });
 };
-
-const DeltaPill = ({ delta }: { delta: number }) => {
-  const color =
-    delta > 0.001 ? "bg-red-500/20 text-red-300 ring-red-500/30"
-    : delta < -0.001 ? "bg-green-500/20 text-green-300 ring-green-500/30"
-    : "bg-neutral-700/30 text-neutral-300 ring-neutral-600/30"
-  const sign = delta > 0 ? "+" : ""
-  return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-sm font-semibold tabular-nums ring-1 ring-inset ${color}`}>
-      {sign}{delta.toFixed(2)}
-    </span>
-  )
-}
 
 export default function RapportSynthesePage() {
     const [loading, setLoading] = useState(true);
@@ -118,6 +114,73 @@ export default function RapportSynthesePage() {
 
     }, [mixtureSession, fuelDataMap]);
 
+    const handleExportPDF = () => {
+        const doc = new jsPDF();
+        const date = format(new Date(), "dd/MM/yyyy HH:mm");
+        let yPos = 20;
+
+        doc.setFontSize(18);
+        doc.text("Rapport de Synthèse", 105, yPos, { align: "center" });
+        yPos += 8;
+        doc.setFontSize(10);
+        doc.text(`Généré le ${date}`, 105, yPos, { align: "center" });
+        yPos += 15;
+
+        // Section 1: Indicateurs du Mélange
+        if (mixtureIndicators) {
+            doc.setFontSize(14);
+            doc.text("Indicateurs du Mélange", 14, yPos);
+            yPos += 6;
+            doc.autoTable({
+                startY: yPos,
+                head: [['Indicateur', 'Valeur', 'Unité']],
+                body: mixtureIndicators.map(ind => [ind.label, ind.value, ind.unit]),
+                theme: 'striped',
+                headStyles: { fillColor: [44, 62, 80] },
+            });
+            yPos = (doc as any).lastAutoTable.finalY + 15;
+        }
+
+        // Section 2: Composition du Mélange
+        if (mixtureComposition.length > 0) {
+            doc.setFontSize(14);
+            doc.text("Composition du Mélange", 14, yPos);
+            yPos += 6;
+            doc.autoTable({
+                startY: yPos,
+                head: [['Combustible', 'Nombre de Godets', '% Poids']],
+                body: mixtureComposition.map(item => [
+                    item.name,
+                    item.buckets,
+                    `${item.percentage}%`
+                ]),
+                theme: 'striped',
+                headStyles: { fillColor: [44, 62, 80] },
+            });
+            yPos = (doc as any).lastAutoTable.finalY + 15;
+        }
+
+        // Section 3: Impact sur le Clinker
+        if (impactChartData.length > 0) {
+            doc.setFontSize(14);
+            doc.text("Impact sur le Clinker", 14, yPos);
+            yPos += 6;
+            doc.autoTable({
+                startY: yPos,
+                head: [['Indicateur', 'Variation (Calculé - Sans Cendres)']],
+                body: impactChartData.map(item => [
+                    item.name,
+                    item.value.toFixed(2),
+                ]),
+                theme: 'striped',
+                headStyles: { fillColor: [44, 62, 80] },
+            });
+        }
+        
+        const filename = `Rapport_Synthese_${format(new Date(), "yyyy-MM-dd")}.pdf`;
+        doc.save(filename);
+    };
+
 
     if (loading) {
         return (
@@ -139,11 +202,17 @@ export default function RapportSynthesePage() {
                     <BookOpen className="h-8 w-8" />
                     Rapport de Synthèse
                 </h1>
-                {mixtureSession?.timestamp && (
-                    <p className="text-sm text-muted-foreground">
-                        Données de la session du {format(mixtureSession.timestamp.toDate(), "d MMMM yyyy 'à' HH:mm", { locale: fr })}
-                    </p>
-                )}
+                <div className='flex items-center gap-4'>
+                    {mixtureSession?.timestamp && (
+                        <p className="text-sm text-muted-foreground">
+                            Données de la session du {format(mixtureSession.timestamp.toDate(), "d MMMM yyyy 'à' HH:mm", { locale: fr })}
+                        </p>
+                    )}
+                    <Button onClick={handleExportPDF} variant="outline">
+                        <Download className="mr-2 h-4 w-4" />
+                        Exporter en PDF
+                    </Button>
+                </div>
             </div>
             
             <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
