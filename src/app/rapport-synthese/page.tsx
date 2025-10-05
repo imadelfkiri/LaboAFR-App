@@ -114,7 +114,7 @@ export default function RapportSynthesePage() {
             .map(([name, data]) => ({
                 name,
                 buckets: data.buckets,
-                percentage: totalWeight > 0 ? (data.weight / totalWeight) * 100 : 0,
+                percentage: totalWeight > 0 ? Math.ceil((data.weight / totalWeight) * 100) : 0,
             }))
             .sort((a, b) => b.buckets - a.buckets);
 
@@ -204,7 +204,7 @@ export default function RapportSynthesePage() {
                                         <TableRow key={item.name}>
                                             <TableCell className="font-medium">{item.name}</TableCell>
                                             <TableCell className="text-right">{item.buckets}</TableCell>
-                                            <TableCell className="text-right">{item.percentage.toFixed(2)}%</TableCell>
+                                            <TableCell className="text-right">{item.percentage}%</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
