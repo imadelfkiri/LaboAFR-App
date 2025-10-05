@@ -128,14 +128,14 @@ export default function RapportSynthesePage() {
 
     const handleExportPDF = () => {
         const doc = new jsPDF();
-        const date = format(new Date(), "dd/MM/yyyy HH:mm");
+        const date = format(new Date(), "dd/MM/yyyy");
         let yPos = 20;
 
         doc.setFontSize(18);
-        doc.text("Rapport de Synthèse", 105, yPos, { align: "center" });
+        doc.text("Composition de mélange et son impact", 105, yPos, { align: "center" });
         yPos += 8;
         doc.setFontSize(10);
-        doc.text(`Généré le ${date}`, 105, yPos, { align: "center" });
+        doc.text(date, 105, yPos, { align: "center" });
         yPos += 15;
 
         // Section 1: Indicateurs du Mélange
