@@ -31,6 +31,7 @@ const formatNumber = (num: number | null | undefined, digits: number = 2) => {
 const formatNumberForPdf = (num: number | null | undefined, digits: number = 2): string => {
     if (num === null || num === undefined || isNaN(num)) return '0,00';
     const fixed = num.toFixed(digits);
+    // Remplacer le point par une virgule pour le format français
     const [integerPart, decimalPart] = fixed.split('.');
     
     // Utilise un espace comme séparateur de milliers
@@ -145,12 +146,16 @@ export default function RapportSynthesePage() {
             doc.autoTable({
                 startY: yPos,
                 head: [['Indicateur', 'Valeur', 'Unité']],
-                body: mixtureIndicators.map(ind => [
-                    ind.label, 
-                    // Re-format numbers specifically for PDF to avoid locale issues
-                    formatNumberForPdf(mixtureSession?.globalIndicators[ind.label.toLowerCase().replace('chlorures', 'chlorine').replace('cendres', 'ash').replace('h₂o', 'humidity') as keyof typeof mixtureSession.globalIndicators], ind.label === 'Chlorures' ? 3 : (ind.label === 'PCI' ? 0 : 2)),
-                    ind.unit
-                ]),
+                body: mixtureIndicators.map(ind => {
+                    const label = ind.label === 'H₂O' ? 'H2O' : ind.label;
+                    const value = formatNumberForPdf(
+                        mixtureSession?.globalIndicators[
+                            ind.label.toLowerCase().replace('chlorures', 'chlorine').replace('cendres', 'ash').replace('h₂o', 'humidity') as keyof typeof mixtureSession.globalIndicators
+                        ], 
+                        ind.label === 'Chlorures' ? 3 : (ind.label === 'PCI' ? 0 : 2)
+                    );
+                    return [label, value, ind.unit];
+                }),
                 theme: 'striped',
                 headStyles: { fillColor: [44, 62, 80] },
             });
