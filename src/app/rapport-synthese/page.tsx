@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis } from '@/lib/data';
+import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getFuelData, type FuelData } from '@/lib/data';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Flame, Activity, BookOpen, Beaker, BarChart2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,15 +37,21 @@ export default function RapportSynthesePage() {
     const [loading, setLoading] = useState(true);
     const [mixtureSession, setMixtureSession] = useState<MixtureSession | null>(null);
     const [latestImpact, setLatestImpact] = useState<ImpactAnalysis | null>(null);
+    const [fuelDataMap, setFuelDataMap] = useState<Record<string, FuelData>>({});
 
     const fetchData = useCallback(async () => {
         try {
-            const [sessionData, impactAnalyses] = await Promise.all([
+            const [sessionData, impactAnalyses, fuelData] = await Promise.all([
                 getLatestMixtureSession(),
                 getImpactAnalyses(),
+                getFuelData(),
             ]);
             setMixtureSession(sessionData);
             setLatestImpact(impactAnalyses.length > 0 ? impactAnalyses[0] : null);
+            setFuelDataMap(fuelData.reduce((acc, fd) => {
+                acc[fd.nom_combustible] = fd;
+                return acc;
+            }, {} as Record<string, FuelData>));
         } catch (error) {
             console.error("Error fetching dashboard data:", error);
         } finally {
@@ -82,25 +88,37 @@ export default function RapportSynthesePage() {
     }, [latestImpact]);
 
     const mixtureComposition = useMemo(() => {
-        if (!mixtureSession) return [];
-        const combinedFuels: Record<string, { buckets: number }> = {};
+        if (!mixtureSession || !fuelDataMap) return [];
+        const combinedFuels: Record<string, { buckets: number, weight: number }> = {};
 
-        Object.entries(mixtureSession.hallAF?.fuels || {}).forEach(([name, data]) => {
-            combinedFuels[name] = { buckets: (combinedFuels[name]?.buckets || 0) + data.buckets };
-        });
-        Object.entries(mixtureSession.ats?.fuels || {}).forEach(([name, data]) => {
-            combinedFuels[name] = { buckets: (combinedFuels[name]?.buckets || 0) + data.buckets };
-        });
+        const processInstallation = (installation: any) => {
+            if (!installation?.fuels) return;
+            Object.entries(installation.fuels as Record<string, { buckets: number }>).forEach(([name, data]) => {
+                const poidsGodet = fuelDataMap[name]?.poids_godet || 1.5; // Default 1.5 tonnes
+                const weight = data.buckets * poidsGodet;
+                if (!combinedFuels[name]) {
+                    combinedFuels[name] = { buckets: 0, weight: 0 };
+                }
+                combinedFuels[name].buckets += data.buckets;
+                combinedFuels[name].weight += weight;
+            });
+        };
+        
+        processInstallation(mixtureSession.hallAF);
+        processInstallation(mixtureSession.ats);
+        
+        const totalWeight = Object.values(combinedFuels).reduce((sum, data) => sum + data.weight, 0);
 
         return Object.entries(combinedFuels)
             .filter(([, data]) => data.buckets > 0)
             .map(([name, data]) => ({
                 name,
                 buckets: data.buckets,
+                percentage: totalWeight > 0 ? (data.weight / totalWeight) * 100 : 0,
             }))
             .sort((a, b) => b.buckets - a.buckets);
 
-    }, [mixtureSession]);
+    }, [mixtureSession, fuelDataMap]);
 
 
     if (loading) {
@@ -178,6 +196,7 @@ export default function RapportSynthesePage() {
                                     <TableRow>
                                         <TableHead>Combustible</TableHead>
                                         <TableHead className="text-right">Nb. Godets</TableHead>
+                                        <TableHead className="text-right">% Poids</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -185,6 +204,7 @@ export default function RapportSynthesePage() {
                                         <TableRow key={item.name}>
                                             <TableCell className="font-medium">{item.name}</TableCell>
                                             <TableCell className="text-right">{item.buckets}</TableCell>
+                                            <TableCell className="text-right">{item.percentage.toFixed(2)}%</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
