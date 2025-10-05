@@ -87,31 +87,30 @@ export default function RapportSynthesePage() {
     }, [latestImpact]);
 
     const mixtureComposition = useMemo(() => {
-        if (!mixtureSession || !fuelDataMap) return [];
-        const combinedFuels: Record<string, { buckets: number, weight: number }> = {};
+        if (!mixtureSession || !fuelDataMap || Object.keys(fuelDataMap).length === 0) return [];
 
-        const processInstallation = (installation: any) => {
-            if (!installation?.fuels) return;
-            Object.entries(installation.fuels as Record<string, { buckets: number }>).forEach(([name, data]) => {
-                const poidsGodet = fuelDataMap[name]?.poids_godet || 1.5; // Default 1.5 tonnes
-                const weight = data.buckets * poidsGodet;
-                if (!combinedFuels[name]) {
-                    combinedFuels[name] = { buckets: 0, weight: 0 };
-                }
-                combinedFuels[name].buckets += data.buckets;
-                combinedFuels[name].weight += weight;
-            });
-        };
-        
-        processInstallation(mixtureSession.hallAF);
-        processInstallation(mixtureSession.ats);
-        
-        const totalWeight = Object.values(combinedFuels).reduce((sum, data) => sum + data.weight, 0);
+        const allFuelNames = new Set([
+            ...Object.keys(mixtureSession.hallAF?.fuels || {}),
+            ...Object.keys(mixtureSession.ats?.fuels || {})
+        ]);
 
-        return Object.entries(combinedFuels)
-            .filter(([, data]) => data.buckets > 0)
-            .map(([name, data]) => ({
-                name,
+        const combinedFuelsData = Array.from(allFuelNames).map(name => {
+            const hallBuckets = mixtureSession.hallAF?.fuels[name]?.buckets || 0;
+            const atsBuckets = mixtureSession.ats?.fuels[name]?.buckets || 0;
+            const totalBuckets = hallBuckets + atsBuckets;
+            
+            const poidsGodet = fuelDataMap[name]?.poids_godet || 1.5;
+            const weight = totalBuckets * poidsGodet;
+
+            return { name, buckets: totalBuckets, weight };
+        });
+
+        const totalWeight = combinedFuelsData.reduce((sum, data) => sum + data.weight, 0);
+
+        return combinedFuelsData
+            .filter(data => data.buckets > 0)
+            .map(data => ({
+                name: data.name,
                 buckets: data.buckets,
                 percentage: totalWeight > 0 ? Math.round((data.weight / totalWeight) * 100) : 0,
             }))
