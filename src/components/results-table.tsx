@@ -577,10 +577,10 @@ export default function ResultsTable() {
             if (format(from, 'yyyy-MM-dd') === format(to, 'yyyy-MM-dd')) {
                 return { title: `Rapport Journalier du ${format(from, "d MMMM yyyy", { locale: fr })}`, filenamePart: `Journalier_${format(from, "yyyy-MM-dd")}` };
             }
-            if (format(from, 'yyyy-MM-dd') === format(startOfWeek(from, { locale: fr }), 'yyyy-MM-dd') && format(to, 'yyyy-MM-dd') === format(endOfWeek(from, { locale: fr }), 'yyyy-MM-dd')) {
+            if (startOfWeek(from, { locale: fr }).getTime() === from.getTime() && endOfWeek(from, { locale: fr }).getTime() === to.getTime()) {
                 return { title: `Rapport Hebdomadaire (semaine du ${format(from, "d MMM", { locale: fr })})`, filenamePart: `Hebdomadaire_${format(from, "yyyy-MM-dd")}` };
             }
-            if (format(from, 'yyyy-MM-dd') === format(startOfMonth(from), 'yyyy-MM-dd') && format(to, 'yyyy-MM-dd') === format(endOfMonth(from), 'yyyy-MM-dd')) {
+            if (startOfMonth(from).getTime() === from.getTime() && endOfMonth(from).getTime() === to.getTime()) {
                 return { title: `Rapport Mensuel de ${format(from, "MMMM yyyy", { locale: fr })}`, filenamePart: `Mensuel_${format(from, "yyyy-MM")}` };
             }
             return { title: `Rapport du ${format(from, "dd/MM/yy")} au ${format(to, "dd/MM/yy")}`, filenamePart: `Periode_${format(from, "yyyy-MM-dd")}_a_${format(to, "yyyy-MM-dd")}` };
@@ -650,10 +650,6 @@ export default function ResultsTable() {
         import('jspdf').then(jsPDF => {
             import('jspdf-autotable').then(() => {
                 const doc = new jsPDF.default({ orientation: 'landscape' });
-                doc.setFontSize(16);
-                doc.text(reportTitle, 14, 15);
-                doc.setFontSize(10);
-                doc.text(reportSubtitle, 14, 22);
                 
                 let head: string[][];
                 let body: any[][];
@@ -676,7 +672,7 @@ export default function ResultsTable() {
                         date ? format(date, "dd/MM/yy") : "Invalide", row.type_combustible, row.fournisseur,
                         formatNumberForPdf(row.tonnage, 1),
                         formatNumberForPdf(row.pcs, 0), formatNumberForPdf(row.pci_brut, 0), formatNumberForPdf(row.h2o, 1), formatNumberForPdf(row.chlore, 2), formatNumberForPdf(row.cendres, 1),
-                        generateAlerts(row).text.replace("H2O élevé", "H2O élevé"),
+                        generateAlerts(row).text,
                         row.remarques || "-",
                     ]});
 
@@ -696,15 +692,15 @@ export default function ResultsTable() {
                     styles: { fontSize: 7, cellPadding: 1.5 }, 
                     headStyles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: 'bold' },
                     columnStyles,
-                    didParseCell: (data: any) => {
+                    didParseCell: (data) => {
                         if (reportType === 'detailed' && data.section === 'body') {
                             const result = dataToExport[data.row.index];
                             if (!result) return;
 
                             const alertsInfo = generateAlerts(result);
                             
-                            // Color alert text in "Alertes" column
-                            if (data.column.index === 9) { // "Alertes" column
+                            // Column 9: "Alertes"
+                            if (data.column.index === 9) {
                                 data.cell.styles.textColor = alertsInfo.isConform ? '#16A34A' : '#8B0000'; // Green / Dark Red
                             }
                             
@@ -716,6 +712,29 @@ export default function ResultsTable() {
                             }
                         }
                     },
+                    didDrawPage: (data) => {
+                        // Header
+                        doc.setFontSize(16);
+                        doc.setFont("helvetica", "bold");
+                        doc.text(reportTitle, doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
+                        doc.setFontSize(10);
+                        doc.setFont("helvetica", "normal");
+                        doc.text(reportSubtitle, doc.internal.pageSize.getWidth() / 2, 22, { align: 'center' });
+
+                        // Footer
+                        const footerText = "*Le taux en hydrogène est une estimation basée sur le tableau 'Données Combustibles'.";
+                        const textWidth = doc.getStringUnitWidth(footerText) * 8 / doc.internal.scaleFactor;
+                        const textHeight = 5; 
+                        const padding = 2;
+
+                        doc.setFillColor(255, 255, 0); // Jaune
+                        doc.rect(data.settings.margin.left - padding, doc.internal.pageSize.getHeight() - 15 - textHeight, textWidth + padding * 2, textHeight + padding, 'F');
+                        
+                        doc.setFontSize(8);
+                        doc.setTextColor(0, 0, 0);
+                        doc.text(footerText, data.settings.margin.left, doc.internal.pageSize.getHeight() - 12);
+                    },
+                    margin: { top: 30, bottom: 20 },
                 });
                 doc.save(`Rapport_${filenamePart}_${reportSubtitle}.pdf`);
             })
@@ -941,7 +960,7 @@ export default function ResultsTable() {
                               {alerte.isConform ? (
                                 <span className="inline-flex items-center gap-1 text-green-600 font-medium"><CheckCircle2 className="w-4 h-4" /> Conforme</span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 text-red-500 font-medium"><AlertTriangle className="w-4 h-4" /> {alerte.text.replace("H2O élevé", "H2O élevé") || "Non conforme"}</span>
+                                <span className="inline-flex items-center gap-1 text-red-500 font-medium"><AlertTriangle className="w-4 h-4" /> {alerte.text}</span>
                               )}
                             </td>
                             <td className="p-2 text-muted-foreground max-w-[150px] truncate" title={r.remarques}>{r.remarques ?? "-"}</td>
