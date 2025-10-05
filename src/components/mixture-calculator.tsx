@@ -263,44 +263,24 @@ function useMixtureCalculations(
     const hallIndicators = processInstallation(hallAF);
     const atsIndicators = processInstallation(ats);
 
-    let allFlows = [
+    // Only consider Hall AF and ATS for the mixture indicators
+    const afFlows = [
       { flow: hallAF.flowRate || 0, indicators: hallIndicators },
       { flow: ats.flowRate || 0, indicators: atsIndicators },
     ];
     
-    // Add direct inputs to flows
-    for (const fuelName in directInputs) {
-        const inputState = directInputs[fuelName];
-        const flow = inputState.flowRate || 0;
-        const analysis = availableFuels[fuelName];
-        if (flow > 0 && analysis && analysis.count > 0) {
-            allFlows.push({
-                flow,
-                indicators: {
-                    pci: analysis.pci_brut,
-                    humidity: analysis.h2o,
-                    ash: analysis.cendres,
-                    chlorine: analysis.chlore,
-                    cost: fuelCosts[fuelName]?.cost || 0,
-                    tireWeight: 0,
-                    weight: 0,
-                }
-            });
-        }
-    }
-
-    const totalFlow = allFlows.reduce((sum, item) => sum + item.flow, 0);
+    const totalAfFlow = afFlows.reduce((sum, item) => sum + item.flow, 0);
 
     const weightedAvg = (valueKey: 'pci' | 'humidity' | 'ash' | 'chlorine' | 'cost') => {
-        if (totalFlow === 0) return 0;
-        const totalValue = allFlows.reduce((sum, item) => {
+        if (totalAfFlow === 0) return 0;
+        const totalValue = afFlows.reduce((sum, item) => {
             const indicatorValue = item.indicators[valueKey as keyof typeof item.indicators];
             if (typeof indicatorValue === 'number') {
                 return sum + item.flow * indicatorValue;
             }
             return sum;
         }, 0);
-        return totalValue / totalFlow;
+        return totalValue / totalAfFlow;
     };
     
     const pci = weightedAvg('pci');
@@ -309,8 +289,6 @@ function useMixtureCalculations(
     const ash = weightedAvg('ash');
     const cost = weightedAvg('cost');
 
-    const totalAfFlow = (hallAF.flowRate || 0) + (ats.flowRate || 0);
-    
     let tireRate = 0;
     if (totalAfFlow > 0) {
         const hallWeightProportion = hallAF.flowRate / totalAfFlow;
@@ -319,11 +297,11 @@ function useMixtureCalculations(
         const hallTireWeight = hallIndicators.tireWeight;
         const atsTireWeight = atsIndicators.tireWeight;
 
-        const totalTireWeight = (hallTireWeight * hallWeightProportion) + (atsTireWeight * atsWeightProportion);
-        const totalAfWeight = (hallIndicators.weight * hallWeightProportion) + (atsIndicators.weight * atsWeightProportion);
+        const totalTireWeightInMixture = (hallTireWeight * hallWeightProportion) + (atsTireWeight * atsWeightProportion);
+        const totalAfWeightInMixture = (hallIndicators.weight * hallWeightProportion) + (atsIndicators.weight * atsWeightProportion);
         
-        if (totalAfWeight > 0) {
-            tireRate = (totalTireWeight / totalAfWeight) * 100;
+        if (totalAfWeightInMixture > 0) {
+            tireRate = (totalTireWeightInMixture / totalAfWeightInMixture) * 100;
         }
     }
 
@@ -363,7 +341,7 @@ function useMixtureCalculations(
 
     return {
       globalIndicators: {
-        flow: totalFlow,
+        flow: totalAfFlow,
         pci,
         humidity,
         ash,
