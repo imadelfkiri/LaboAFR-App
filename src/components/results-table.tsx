@@ -94,6 +94,7 @@ interface Result {
   type_analyse: string;
   type_combustible: string;
   fournisseur: string;
+  numero_bc?: string | null;
   tonnage?: number | null;
   pcs: number | null;
   h2o: number;
@@ -128,6 +129,7 @@ const formatNumberForPdf = (num: number | null | undefined, fractionDigits: numb
 const editSchema = z.object({
   pcs: z.coerce.number().positive(),
   h2o: z.coerce.number().min(0).max(100),
+  numero_bc: z.string().optional().nullable(),
   tonnage: z.coerce.number().min(0).optional().nullable(),
   chlore: z.coerce.number().min(0).optional().nullable(),
   cendres: z.coerce.number().min(0).optional().nullable(),
@@ -140,6 +142,7 @@ const importSchema = z.object({
   type_analyse: z.string().optional().nullable(),
   type_combustible: z.string().nonempty({message: "Le type de combustible est requis."}),
   fournisseur: z.string().nonempty({message: "Le fournisseur est requis."}),
+  numero_bc: z.string().optional().nullable(),
   tonnage: z.coerce.number({invalid_type_error: "Tonnage doit être un nombre."}).optional().nullable(),
   pcs: z.coerce.number({invalid_type_error: "PCS doit être un nombre."}).optional().nullable(),
   pci_brut: z.coerce.number({invalid_type_error: "PCI Brut doit être un nombre."}).optional().nullable(),
@@ -319,8 +322,8 @@ export default function ResultsTable() {
             return { count: 0, pci: '-', h2o: '-', cl: '-', cendres: '-' };
         }
 
-        const avg = (key: keyof Result) => {
-            const values = analyses.map(a => a[key]).filter((v): v is number => typeof v === 'number' && isFinite(v));
+        const avg = (metric: keyof Result) => {
+            const values = analyses.map(a => a[metric]).filter((v): v is number => typeof v === 'number' && isFinite(v));
             return values.length > 0 ? values.reduce((s, v) => s + v, 0) / values.length : null;
         };
         
@@ -380,6 +383,7 @@ export default function ResultsTable() {
     form.reset({
         pcs: result.pcs ?? undefined,
         h2o: result.h2o,
+        numero_bc: result.numero_bc,
         tonnage: result.tonnage,
         chlore: result.chlore,
         cendres: result.cendres,
@@ -415,6 +419,7 @@ export default function ResultsTable() {
                  dataToUpdate[key] = null;
             }
         }
+        dataToUpdate.numero_bc = dataToUpdate.numero_bc || "";
         dataToUpdate.remarques = dataToUpdate.remarques || "";
 
 
@@ -455,6 +460,7 @@ export default function ResultsTable() {
                     'date arrivage': 'date_arrivage',
                     'type combustible': 'type_combustible',
                     'fournisseur': 'fournisseur',
+                    'n° bc': 'numero_bc',
                     'tonnage (t)': 'tonnage',
                     'pcs sur sec (kcal/kg)': 'pcs',
                     'pci sur brut (kcal/kg)': 'pci_brut',
@@ -631,6 +637,7 @@ export default function ResultsTable() {
                     "Date Arrivage": date ? format(date, "dd/MM/yyyy") : "Date invalide",
                     "Type Combustible": row.type_combustible,
                     "Fournisseur": row.fournisseur,
+                    "N° BC": row.numero_bc,
                     "Tonnage (t)": row.tonnage,
                     "PCS sur sec (kcal/kg)": row.pcs,
                     "PCI sur Brut (kcal/kg)": row.pci_brut,
@@ -665,11 +672,11 @@ export default function ResultsTable() {
                         formatNumberForPdf(row["% Cl-"], 2), formatNumberForPdf(row["% Cendres"], 1)
                     ]);
                 } else {
-                    head = [["Date", "Combustible", "Fournisseur", "Tonnage (t)", "PCS", "PCI Brut", "H2O (%)", "Cl- (%)", "Cendres (%)", "Alertes", "Remarques"]];
+                    head = [["Date", "Combustible", "Fournisseur", "N° BC", "Tonnage (t)", "PCS", "PCI Brut", "H2O (%)", "Cl- (%)", "Cendres (%)", "Alertes", "Remarques"]];
                     body = dataToExport.map(row => {
                       const date = normalizeDate(row.date_arrivage);
                       return [
-                        date ? format(date, "dd/MM/yy") : "Invalide", row.type_combustible, row.fournisseur,
+                        date ? format(date, "dd/MM/yy") : "Invalide", row.type_combustible, row.fournisseur, row.numero_bc || '-',
                         formatNumberForPdf(row.tonnage, 1),
                         formatNumberForPdf(row.pcs, 0), formatNumberForPdf(row.pci_brut, 0), formatNumberForPdf(row.h2o, 1), formatNumberForPdf(row.chlore, 2), formatNumberForPdf(row.cendres, 1),
                         generateAlerts(row).text,
@@ -677,10 +684,10 @@ export default function ResultsTable() {
                     ]});
 
                     columnStyles = {
-                        5: { cellWidth: 20 }, // PCI
-                        6: { cellWidth: 15 }, // H2O
-                        7: { cellWidth: 15 }, // Cl-
-                        8: { cellWidth: 20 }, // Cendres
+                        6: { cellWidth: 20 }, // PCI
+                        7: { cellWidth: 15 }, // H2O
+                        8: { cellWidth: 15 }, // Cl-
+                        9: { cellWidth: 20 }, // Cendres
                     };
                 }
         
@@ -699,12 +706,12 @@ export default function ResultsTable() {
 
                             const alertsInfo = generateAlerts(result);
                             
-                            // Column 9: "Alertes"
-                            if (data.column.index === 9) {
+                            // Column 10: "Alertes"
+                            if (data.column.index === 10) {
                                 data.cell.styles.textColor = alertsInfo.isConform ? '#16A34A' : '#8B0000'; // Green / Dark Red
                             }
                             
-                            const keyMap: {[key: number]: keyof typeof alertsInfo.details} = { 5: 'pci', 6: 'h2o', 7: 'chlore', 8: 'cendres'};
+                            const keyMap: {[key: number]: keyof typeof alertsInfo.details} = { 6: 'pci', 7: 'h2o', 8: 'chlore', 9: 'cendres'};
                             const alertKey = keyMap[data.column.index];
 
                             if (alertKey && alertsInfo.details[alertKey]) {
@@ -832,6 +839,7 @@ export default function ResultsTable() {
     { label: "Date Arrivage", key: "date_arrivage" },
     { label: "Type Combustible", key: "type_combustible" },
     { label: "Fournisseur", key: "fournisseur" },
+    { label: "N° BC", key: "numero_bc"},
     { label: "Tonnage (t)", key: "tonnage" },
     { label: "PCS sur sec", key: "pcs" },
     { label: "PCI sur Brut", key: "pci" },
@@ -950,6 +958,7 @@ export default function ResultsTable() {
                             <td className="p-2 text-muted-foreground whitespace-nowrap">{normalizeDate(r.date_arrivage) ? format(normalizeDate(r.date_arrivage)!, 'dd/MM/yyyy') : 'Date invalide'}</td>
                             <td className="p-2 font-medium">{r.type_combustible}</td>
                             <td className="p-2">{r.fournisseur}</td>
+                            <td className="p-2">{r.numero_bc || "-"}</td>
                             <td className={`p-2 text-right tabular-nums`}>{formatNumber(r.tonnage, 1)}</td>
                             <td className={`p-2 text-right tabular-nums`}>{formatNumber(r.pcs, 0)}</td>
                             <td className={`p-2 text-right font-semibold tabular-nums ${alerte.details.pci ? "text-red-500" : ""}`}>{formatNumber(r.pci_brut, 0)}</td>
@@ -971,12 +980,12 @@ export default function ResultsTable() {
                           </tr>
                         );
                       })}
-                      {sortedAndFilteredResults.length===0 && ( <tr><td colSpan={12} className="p-6 text-center text-muted-foreground">Aucun résultat.</td></tr> )}
+                      {sortedAndFilteredResults.length===0 && ( <tr><td colSpan={13} className="p-6 text-center text-muted-foreground">Aucun résultat.</td></tr> )}
                     </tbody>
                      <tfoot className="sticky bottom-0 bg-background/95 backdrop-blur-sm">
-                        <tr className="border-b border-border last:border-0 bg-secondary/30 hover:bg-secondary/40 font-semibold"><td colSpan={5} className="p-2 text-secondary-foreground whitespace-nowrap">Moyenne Pet Coke ({averages.petCoke.count})</td><td className="p-2 text-right tabular-nums">{averages.petCoke.pci}</td><td className="p-2 text-right tabular-nums">{averages.petCoke.h2o}</td><td className="p-2 text-right tabular-nums">{averages.petCoke.cl}</td><td className="p-2 text-right tabular-nums">{averages.petCoke.cendres}</td><td colSpan={3}></td></tr>
-                        <tr className="border-b border-border last:border-0 bg-secondary/30 hover:bg-secondary/40 font-semibold"><td colSpan={5} className="p-2 text-secondary-foreground whitespace-nowrap">Moyenne Grignons ({averages.grignons.count})</td><td className="p-2 text-right tabular-nums">{averages.grignons.pci}</td><td className="p-2 text-right tabular-nums">{averages.grignons.h2o}</td><td className="p-2 text-right tabular-nums">{averages.grignons.cl}</td><td className="p-2 text-right tabular-nums">{averages.grignons.cendres}</td><td colSpan={3}></td></tr>
-                        <tr className="border-b border-border last:border-0 bg-secondary/30 hover:bg-secondary/40 font-semibold"><td colSpan={5} className="p-2 text-secondary-foreground whitespace-nowrap">Moyenne AFs ({averages.afs.count})</td><td className="p-2 text-right tabular-nums">{averages.afs.pci}</td><td className="p-2 text-right tabular-nums">{averages.afs.h2o}</td><td className="p-2 text-right tabular-nums">{averages.afs.cl}</td><td className="p-2 text-right tabular-nums">{averages.afs.cendres}</td><td colSpan={3}></td></tr>
+                        <tr className="border-b border-border last:border-0 bg-secondary/30 hover:bg-secondary/40 font-semibold"><td colSpan={6} className="p-2 text-secondary-foreground whitespace-nowrap">Moyenne Pet Coke ({averages.petCoke.count})</td><td className="p-2 text-right tabular-nums">{averages.petCoke.pci}</td><td className="p-2 text-right tabular-nums">{averages.petCoke.h2o}</td><td className="p-2 text-right tabular-nums">{averages.petCoke.cl}</td><td className="p-2 text-right tabular-nums">{averages.petCoke.cendres}</td><td colSpan={3}></td></tr>
+                        <tr className="border-b border-border last:border-0 bg-secondary/30 hover:bg-secondary/40 font-semibold"><td colSpan={6} className="p-2 text-secondary-foreground whitespace-nowrap">Moyenne Grignons ({averages.grignons.count})</td><td className="p-2 text-right tabular-nums">{averages.grignons.pci}</td><td className="p-2 text-right tabular-nums">{averages.grignons.h2o}</td><td className="p-2 text-right tabular-nums">{averages.grignons.cl}</td><td className="p-2 text-right tabular-nums">{averages.grignons.cendres}</td><td colSpan={3}></td></tr>
+                        <tr className="border-b border-border last:border-0 bg-secondary/30 hover:bg-secondary/40 font-semibold"><td colSpan={6} className="p-2 text-secondary-foreground whitespace-nowrap">Moyenne AFs ({averages.afs.count})</td><td className="p-2 text-right tabular-nums">{averages.afs.pci}</td><td className="p-2 text-right tabular-nums">{averages.afs.h2o}</td><td className="p-2 text-right tabular-nums">{averages.afs.cl}</td><td className="p-2 text-right tabular-nums">{averages.afs.cendres}</td><td colSpan={3}></td></tr>
                     </tfoot>
                   </table>
                 </div>
@@ -1004,6 +1013,7 @@ export default function ResultsTable() {
                         <div className="grid grid-cols-2 gap-4">
                             <FormField control={form.control} name="pcs" render={({ field }) => (<FormItem><FormLabel>PCS</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                             <FormField control={form.control} name="h2o" render={({ field }) => (<FormItem><FormLabel>% H2O</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                            <FormField control={form.control} name="numero_bc" render={({ field }) => (<FormItem><FormLabel>N° BC</FormLabel><FormControl><Input type="text" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                             <FormField control={form.control} name="tonnage" render={({ field }) => (<FormItem><FormLabel>Tonnage (t)</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                             <FormField control={form.control} name="chlore" render={({ field }) => (<FormItem><FormLabel>% Cl-</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                             <FormField control={form.control} name="cendres" render={({ field }) => (<FormItem><FormLabel>% Cendres</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
