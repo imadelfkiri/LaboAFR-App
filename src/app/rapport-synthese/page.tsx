@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -215,19 +214,22 @@ export default function RapportSynthesePage() {
                     </CardContent>
                 </Card>
                  <Card>
-                    <CardHeader><CardTitle className="flex items-center gap-2"><BarChart2 /> Répartition du Mélange</CardTitle></CardHeader>
+                    <CardHeader><CardTitle className="flex items-center gap-2"><BarChart2 /> Répartition du Mélange (% Poids)</CardTitle></CardHeader>
                     <CardContent>
                           {mixtureComposition.length > 0 ? (
                              <ResponsiveContainer width="100%" height={250}>
-                                <BarChart data={mixtureComposition} margin={{ top: 5, right: 20, bottom: 0, left: -10}}>
+                                <BarChart data={mixtureComposition} margin={{ top: 20, right: 20, bottom: 0, left: -10}}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                                     <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} unit="%" />
                                     <Tooltip
+                                        formatter={(value) => `${value}%`}
                                         contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))" }}
                                         cursor={{ fill: 'hsl(var(--muted))' }}
                                     />
-                                    <Bar dataKey="buckets" name="Nb. Godets" fill="hsl(var(--primary)/0.8)" />
+                                    <Bar dataKey="percentage" name="% Poids" fill="hsl(var(--primary)/0.8)">
+                                       <LabelList dataKey="percentage" position="top" formatter={(value: number) => `${value}%`} fontSize={12} fill="hsl(var(--foreground))" />
+                                    </Bar>
                                 </BarChart>
                              </ResponsiveContainer>
                          ) : <p className="text-center text-muted-foreground p-4">Aucune donnée pour le graphique.</p>}
