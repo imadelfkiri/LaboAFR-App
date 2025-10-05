@@ -195,7 +195,6 @@ export default function RapportSynthesePage() {
                                     <TableRow>
                                         <TableHead>Combustible</TableHead>
                                         <TableHead className="text-right">Nb. Godets</TableHead>
-                                        <TableHead className="text-right">% Poids</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -203,7 +202,6 @@ export default function RapportSynthesePage() {
                                         <TableRow key={item.name}>
                                             <TableCell className="font-medium">{item.name}</TableCell>
                                             <TableCell className="text-right">{item.buckets}</TableCell>
-                                            <TableCell className="text-right">{item.percentage}%</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
