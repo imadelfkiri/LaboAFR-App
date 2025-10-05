@@ -307,7 +307,6 @@ export default function ResultsTable() {
 
   const formatNumber = (num: number | null | undefined, fractionDigits: number = 0): string => {
     if (num === null || num === undefined || Number.isNaN(num)) return "-";
-    // Replace non-breaking space with a regular space for consistency
     return num.toLocaleString('fr-FR', {
         minimumFractionDigits: fractionDigits,
         maximumFractionDigits: fractionDigits,
@@ -568,7 +567,30 @@ export default function ResultsTable() {
       });
       return aggregated;
   };
-    
+  
+    const getReportTitle = (): { title: string; filenamePart: string } => {
+        const now = new Date();
+        if (dateFromFilter && dateToFilter) {
+            const from = parseISO(dateFromFilter);
+            const to = parseISO(dateToFilter);
+            
+            if (format(from, 'yyyy-MM-dd') === format(to, 'yyyy-MM-dd')) {
+                return { title: `Rapport Journalier du ${format(from, "d MMMM yyyy", { locale: fr })}`, filenamePart: `Journalier_${format(from, "yyyy-MM-dd")}` };
+            }
+            if (format(from, 'yyyy-MM-dd') === format(startOfWeek(from, { locale: fr }), 'yyyy-MM-dd') && format(to, 'yyyy-MM-dd') === format(endOfWeek(from, { locale: fr }), 'yyyy-MM-dd')) {
+                return { title: `Rapport Hebdomadaire (semaine du ${format(from, "d MMM", { locale: fr })})`, filenamePart: `Hebdomadaire_${format(from, "yyyy-MM-dd")}` };
+            }
+            if (format(from, 'yyyy-MM-dd') === format(startOfMonth(from), 'yyyy-MM-dd') && format(to, 'yyyy-MM-dd') === format(endOfMonth(from), 'yyyy-MM-dd')) {
+                return { title: `Rapport Mensuel de ${format(from, "MMMM yyyy", { locale: fr })}`, filenamePart: `Mensuel_${format(from, "yyyy-MM")}` };
+            }
+            return { title: `Rapport du ${format(from, "dd/MM/yy")} au ${format(to, "dd/MM/yy")}`, filenamePart: `Periode_${format(from, "yyyy-MM-dd")}_a_${format(to, "yyyy-MM-dd")}` };
+        }
+        if (!dateFromFilter && !dateToFilter) {
+            return { title: "Rapport Global", filenamePart: `Global_${format(now, "yyyy-MM-dd")}` };
+        }
+        return { title: "Rapport des Résultats d'Analyses", filenamePart: `Filtre_${format(now, "yyyy-MM-dd")}` };
+    };
+
   const exportData = (type: 'excel' | 'pdf', reportType: 'detailed' | 'aggregated') => {
     let dataToExport = sortedAndFilteredResults;
     
@@ -576,6 +598,9 @@ export default function ResultsTable() {
         toast({ variant: "destructive", title: "Aucune donnée", description: "Il n'y a aucune donnée à exporter." });
         return;
     }
+    
+    const { title: reportTitle, filenamePart } = getReportTitle();
+    const reportSubtitle = `${reportType === 'aggregated' ? 'Agrégé' : 'Détaillé'}`;
     
     const generateAlerts = (result: Result) => {
         const spec = SPEC_MAP.get(`${result.type_combustible}|${result.fournisseur}`);
@@ -594,7 +619,7 @@ export default function ResultsTable() {
     };
 
     if (type === 'excel') {
-        const filename = `Export_Resultats_${reportType === 'aggregated' ? 'Agrege' : 'Detaille'}_${format(new Date(), "yyyy-MM-dd")}.xlsx`;
+        const filename = `Rapport_${filenamePart}_${reportSubtitle}.xlsx`;
         let excelData: any[];
 
         if (reportType === 'aggregated') {
@@ -612,7 +637,7 @@ export default function ResultsTable() {
                     "% H2O": row.h2o,
                     "% Cl-": row.chlore,
                     "% Cendres": row.cendres,
-                    "Alertes": generateAlerts(row).text.replace("H2O", "H2O"),
+                    "Alertes": generateAlerts(row).text.replace("H2O élevé", "H2O élevé"),
                     "Remarques": row.remarques || ""
                 }
             });
@@ -625,7 +650,10 @@ export default function ResultsTable() {
         import('jspdf').then(jsPDF => {
             import('jspdf-autotable').then(() => {
                 const doc = new jsPDF.default({ orientation: 'landscape' });
-                doc.text(`Rapport des Résultats d'Analyses (${reportType === 'aggregated' ? 'Agrégé' : 'Détaillé'})`, 14, 15);
+                doc.setFontSize(16);
+                doc.text(reportTitle, 14, 15);
+                doc.setFontSize(10);
+                doc.text(reportSubtitle, 14, 22);
                 
                 let head: string[][];
                 let body: any[][];
@@ -663,7 +691,7 @@ export default function ResultsTable() {
                 doc.autoTable({ 
                     head, 
                     body, 
-                    startY: 20, 
+                    startY: 30, 
                     theme: 'grid', 
                     styles: { fontSize: 7, cellPadding: 1.5 }, 
                     headStyles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: 'bold' },
@@ -674,26 +702,22 @@ export default function ResultsTable() {
                             if (!result) return;
 
                             const alertsInfo = generateAlerts(result);
-
-                            // Color alert text column
+                            
+                            // Color alert text in "Alertes" column
                             if (data.column.index === 9) { // "Alertes" column
-                                if (alertsInfo.isConform) {
-                                    data.cell.styles.textColor = '#16A34A'; // Green
-                                } else {
-                                    data.cell.styles.textColor = '#8B0000'; // Dark Red
-                                }
+                                data.cell.styles.textColor = alertsInfo.isConform ? '#16A34A' : '#8B0000'; // Green / Dark Red
                             }
                             
                             const keyMap: {[key: number]: keyof typeof alertsInfo.details} = { 5: 'pci', 6: 'h2o', 7: 'chlore', 8: 'cendres'};
                             const alertKey = keyMap[data.column.index];
 
                             if (alertKey && alertsInfo.details[alertKey]) {
-                                data.cell.styles.textColor = '#EF4444'; // Red-500
+                                data.cell.styles.textColor = '#EF4444'; // Light Red for non-conform values
                             }
                         }
                     },
                 });
-                doc.save(`Rapport_Resultats_${reportType === 'aggregated' ? 'Agrege' : 'Detaille'}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+                doc.save(`Rapport_${filenamePart}_${reportSubtitle}.pdf`);
             })
         })
     }
@@ -975,10 +999,3 @@ export default function ResultsTable() {
       </>
   );
 }
-
-    
-
-
-
-
-
