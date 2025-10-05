@@ -3,7 +3,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { BrainCircuit, Calendar as CalendarIcon, Save, Settings, ChevronDown, CheckCircle, AlertTriangle, Copy, Mail, Flame } from 'lucide-react';
+import { BrainCircuit, Calendar as CalendarIcon, Save, Settings, ChevronDown, CheckCircle, AlertTriangle, Copy, Mail, Flame, X } from 'lucide-react';
 import { DateRange } from "react-day-picker";
 import { format, subDays, startOfDay, endOfDay, parseISO, isValid } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -36,10 +36,16 @@ import { handleGenerateSuggestion } from '@/lib/actions';
 import { ScrollArea } from './ui/scroll-area';
 
 
+interface FuelState {
+  buckets: number;
+  dateRange?: DateRange;
+}
+
 interface InstallationState {
   flowRate: number;
-  fuels: Record<string, { buckets: number }>;
+  fuels: Record<string, FuelState>;
 }
+
 
 interface DirectInputState {
     flowRate: number;
@@ -441,7 +447,7 @@ export function MixtureCalculator() {
     }
   }
 
- const fetchData = useCallback(async (dateRangeToUse: DateRange) => {
+ const fetchData = useCallback(async (dateRangeToUse: DateRange, individualFuelRanges: Record<string, DateRange | undefined>) => {
     if (!dateRangeToUse?.from || !dateRangeToUse?.to) return;
 
     setLoading(true);
@@ -453,13 +459,20 @@ export function MixtureCalculator() {
             getGlobalMixtureSpecification(),
         ]);
         
-        const directInputFuelNames = ['Grignons GO1', 'Grignons GO2', 'Pet-Coke Preca', 'Pet-Coke Tuyere'];
-        const directInputBaseNames = ['Grignons', 'Pet-Coke'];
         const allPossibleFuelNames = new Set(allStocks.map(s => s.nom_combustible));
-        directInputBaseNames.forEach(name => allPossibleFuelNames.add(name));
+        ['Grignons', 'Pet-Coke'].forEach(name => allPossibleFuelNames.add(name));
 
         const fuelNamesArray = Array.from(allPossibleFuelNames);
-        const fuelsAnalysis = await getAverageAnalysisForFuels(fuelNamesArray, dateRangeToUse);
+
+        // Fetch analyses based on global or individual date ranges
+        const analysisPromises = fuelNamesArray.map(fuelName => {
+            const specificRange = individualFuelRanges[fuelName];
+            const range = (specificRange?.from && specificRange?.to) ? specificRange : dateRangeToUse;
+            return getAverageAnalysisForFuels([fuelName], range).then(res => ({ [fuelName]: res[fuelName] }));
+        });
+
+        const analysesResults = await Promise.all(analysisPromises);
+        const fuelsAnalysis = Object.assign({}, ...analysesResults);
         
         const extendedAnalyses = {...fuelsAnalysis};
         extendedAnalyses['Grignons GO1'] = fuelsAnalysis['Grignons'];
@@ -506,10 +519,6 @@ export function MixtureCalculator() {
                     setAnalysisDateRange(dateRangeToUse);
                 }
             }
-
-            if (dateRangeToUse) {
-                await fetchData(dateRangeToUse);
-            }
             
             const [allFuelData, allStocks] = await Promise.all([getFuelData(), getStocks()]);
             const allPossibleFuelNames = new Set(allStocks.map(s => s.nom_combustible));
@@ -526,8 +535,8 @@ export function MixtureCalculator() {
                 return acc;
             }, {} as InstallationState['fuels']);
         
-            let initialHallState = { flowRate: 0, fuels: { ...initialFuelState } };
-            let initialAtsState = { flowRate: 0, fuels: { ...initialFuelState } };
+            let initialHallState: InstallationState = { flowRate: 0, fuels: { ...initialFuelState } };
+            let initialAtsState: InstallationState = { flowRate: 0, fuels: { ...initialFuelState } };
             let initialDirectInputs = { ...directInputs };
 
             if (latestSession) {
@@ -551,6 +560,15 @@ export function MixtureCalculator() {
             setAts(initialAtsState);
             setDirectInputs(initialDirectInputs);
             
+            const individualRanges = {
+                ...Object.fromEntries(Object.entries(initialHallState.fuels).map(([k, v]) => [k, v.dateRange])),
+                ...Object.fromEntries(Object.entries(initialAtsState.fuels).map(([k, v]) => [k, v.dateRange]))
+            };
+
+            if (dateRangeToUse) {
+                await fetchData(dateRangeToUse, individualRanges);
+            }
+            
         } catch (error) {
              console.error("Error on initial load:", error);
         } finally {
@@ -561,12 +579,16 @@ export function MixtureCalculator() {
     loadInitialData();
   }, []); // Run only once on mount
 
-  // Effect to refetch data when date range changes
+  // Effect to refetch data when date ranges change
   useEffect(() => {
+      const individualRanges = {
+        ...Object.fromEntries(Object.entries(hallAF.fuels).map(([k, v]) => [k, v.dateRange])),
+        ...Object.fromEntries(Object.entries(ats.fuels).map(([k, v]) => [k, v.dateRange]))
+      };
       if (analysisDateRange?.from && analysisDateRange.to) {
-          fetchData(analysisDateRange);
+          fetchData(analysisDateRange, individualRanges);
       }
-  }, [analysisDateRange, fetchData]);
+  }, [analysisDateRange, hallAF, ats, fetchData]);
 
 
   const fetchHistoryData = useCallback(async () => {
@@ -702,23 +724,66 @@ export function MixtureCalculator() {
             if (indexB !== -1) return 1;
             return a.localeCompare(b);
         });
+        
+    const handleIndividualDateChange = (fuelName: string, dateRange: DateRange | undefined) => {
+        setInstallationState(prev => {
+            const newFuels = { ...prev.fuels };
+            newFuels[fuelName] = { ...newFuels[fuelName], dateRange: dateRange };
+            return { ...prev, fuels: newFuels };
+        });
+    };
 
     return (
         <div className="space-y-3">
-        {sortedFuelNames.map(fuelName => (
+        {sortedFuelNames.map(fuelName => {
+            const fuelState = installationState.fuels[fuelName];
+            const specificDateRange = fuelState?.dateRange;
+            
+            return (
             <div key={fuelName} className="flex items-center gap-2">
-            <Label htmlFor={`${installationName}-${fuelName}`} className="flex-1 text-sm">{fuelName}</Label>
-            <Input
-                id={`${installationName}-${fuelName}`}
-                type="number"
-                placeholder="0"
-                className="w-24 h-9"
-                value={installationState.fuels[fuelName]?.buckets || ''}
-                onChange={(e) => handleInputChange(setInstallationState, fuelName, e.target.value)}
-                min="0"
-            />
+                <Label htmlFor={`${installationName}-${fuelName}`} className="flex-1 text-sm">{fuelName}</Label>
+                
+                 <Popover>
+                    <PopoverTrigger asChild>
+                        <Button
+                            variant={'ghost'}
+                            size="icon"
+                            className={cn("h-8 w-8", specificDateRange && "text-primary hover:text-primary")}
+                        >
+                            <CalendarIcon className="h-4 w-4" />
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                            initialFocus
+                            mode="range"
+                            defaultMonth={specificDateRange?.from}
+                            selected={specificDateRange}
+                            onSelect={(range) => handleIndividualDateChange(fuelName, range)}
+                            numberOfMonths={1}
+                            locale={fr}
+                        />
+                        {specificDateRange && (
+                           <div className="p-2 border-t text-center">
+                             <Button variant="ghost" size="sm" onClick={() => handleIndividualDateChange(fuelName, undefined)}>
+                                Réinitialiser
+                             </Button>
+                           </div>
+                        )}
+                    </PopoverContent>
+                </Popover>
+
+                <Input
+                    id={`${installationName}-${fuelName}`}
+                    type="number"
+                    placeholder="0"
+                    className="w-24 h-9"
+                    value={fuelState?.buckets || ''}
+                    onChange={(e) => handleInputChange(setInstallationState, fuelName, e.target.value)}
+                    min="0"
+                />
             </div>
-        ))}
+        )})}
         </div>
     );
   };
@@ -1122,5 +1187,3 @@ export function MixtureCalculator() {
     </div>
   );
 }
-
-    
