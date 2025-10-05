@@ -6,11 +6,11 @@ import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type I
 import { Skeleton } from "@/components/ui/skeleton";
 import { Droplets, Wind, Percent, BarChart, Thermometer, Flame, TrendingUp, Activity, Archive, BookOpen, MessageSquare } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { KeyIndicatorCard } from '../components/cards/KeyIndicatorCard';
-import { FlowRateCard, FlowData } from '../components/cards/FlowRateCard';
-import { ImpactCard, ImpactData } from '../components/cards/ImpactCard';
+import { KeyIndicatorCard } from '@/components/cards/KeyIndicatorCard';
+import { FlowRateCard, FlowData } from '@/components/cards/FlowRateCard';
+import { ImpactCard, ImpactData } from '@/components/cards/ImpactCard';
 import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
-import { format }s from 'date-fns';
+import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Textarea } from '@/components/ui/textarea';
 
