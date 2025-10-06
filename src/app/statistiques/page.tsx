@@ -204,7 +204,7 @@ export default function StatisticsDashboard() {
             const fournisseurMatch = selectedFournisseur === 'all' || r.fournisseur === selectedFournisseur;
             return fuelTypeMatch && fournisseurMatch;
         });
-
+        
         const currentYearResults = baseFilteredResults.filter(r => {
             const date = normalizeDate(r.date_arrivage);
             return date && getYear(date) === currentYear;
@@ -423,13 +423,13 @@ export default function StatisticsDashboard() {
                     <ResponsiveContainer width="100%" height={400}>
                         {comparisonChartData.length > 0 ? (
                             <BarChart data={comparisonChartData}>
-                                <CartesianGrid strokeDasharray="3 3" />
+                                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.2)" />
                                 <XAxis dataKey="period" />
-                                <YAxis domain={[0, yAxisDomainMax]} />
+                                <YAxis domain={[0, yAxisDomainMax]} tickFormatter={(value) => value.toFixed(0)} />
                                 <Tooltip content={<CustomTooltip />} />
                                 <Bar dataKey="value">
                                     {comparisonChartData.map((entry, index) => {
-                                        let color = "#82ca9d"; // Default color for months
+                                        let color = "hsl(var(--primary))"; // Default color for months
                                         if (entry.period === String(getYear(new Date()) - 1)) color = "#8884d8"; // last year
                                         if (entry.period === String(getYear(new Date()))) color = "#ffc658"; // current year
                                         return <Cell key={`cell-${index}`} fill={color} />;
@@ -454,6 +454,3 @@ export default function StatisticsDashboard() {
         </div>
     );
 }
-
-
-
