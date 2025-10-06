@@ -194,41 +194,6 @@ export default function StatisticsDashboard() {
 
     }, [filteredResults]);
 
-    const aggregateByPeriod = (data: Result[], period: 'monthly' | 'yearly') => {
-        const grouped: { [key: string]: { [key in MetricKey]: number[] } } = {};
-        
-        data.forEach(r => {
-            const date = normalizeDate(r.date_arrivage);
-            if (!date) return;
-            
-            const key = period === 'monthly' 
-                ? format(date, 'yyyy-MM')
-                : format(date, 'yyyy');
-
-            if (!grouped[key]) {
-                grouped[key] = { pci_brut: [], h2o: [], chlore: [], cendres: [] };
-            }
-
-            METRICS.forEach(({ key: metricKey }) => {
-                const value = r[metricKey];
-                if (typeof value === 'number' && isFinite(value)) {
-                    grouped[key][metricKey].push(value);
-                }
-            });
-        });
-
-        return Object.entries(grouped).map(([periodKey, values]) => {
-            const entry: any = { period: periodKey };
-             METRICS.forEach(({ key: metricKey }) => {
-                const dayValues = values[metricKey];
-                if (dayValues.length > 0) {
-                    entry[metricKey] = dayValues.reduce((a, b) => a + b, 0) / dayValues.length;
-                }
-            });
-            return entry;
-        });
-    };
-    
     const comparisonChartData = useMemo(() => {
         const now = new Date();
         const currentYear = getYear(now);
@@ -306,12 +271,12 @@ export default function StatisticsDashboard() {
     
     const dynamicTitle = useMemo(() => {
         const metricName = METRICS.find(m => m.key === selectedComparisonMetric)?.name || '';
-        let title = metricName;
+        let title = `Suivi ${metricName}`;
         if (selectedFuelType !== 'all') {
-            title += ` - ${selectedFuelType}`;
+            title += ` ${selectedFuelType}`;
         }
         if (selectedFournisseur !== 'all') {
-            title += ` - ${selectedFournisseur}`;
+            title += ` ${selectedFournisseur}`;
         }
         return title;
     }, [selectedComparisonMetric, selectedFuelType, selectedFournisseur]);
@@ -489,5 +454,6 @@ export default function StatisticsDashboard() {
         </div>
     );
 }
+
 
 
