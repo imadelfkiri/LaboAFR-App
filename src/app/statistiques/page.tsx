@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -42,7 +43,8 @@ import {
     Legend,
     Line,
     Bar,
-    Cell
+    Cell,
+    LabelList
 } from 'recharts';
 
 import { getFuelTypes, FuelType } from '@/lib/data';
@@ -232,7 +234,7 @@ export default function StatisticsDashboard() {
         const currentYear = getYear(now);
         const lastYear = currentYear - 1;
 
-        const currentYearResults = results.filter(r => { // Use all results, not filtered, for yearly comparison
+        const currentYearResults = results.filter(r => {
             const date = normalizeDate(r.date_arrivage);
             return date && getYear(date) === currentYear && (selectedFuelType === 'all' || r.type_combustible === selectedFuelType);
         });
@@ -244,18 +246,22 @@ export default function StatisticsDashboard() {
 
         const monthlyAvgCurrentYear = Array.from({ length: 12 }, (_, i) => {
             const monthResults = currentYearResults.filter(r => getMonth(normalizeDate(r.date_arrivage)!) === i);
-            if (monthResults.length === 0) return { period: format(new Date(currentYear, i), 'MMM', { locale: fr }), value: 0 };
+            if (monthResults.length === 0) return { period: format(new Date(currentYear, i), 'MMM', { locale: fr }), value: null };
             
             const monthValues = monthResults.map(r => r[selectedComparisonMetric]).filter((v): v is number => typeof v === 'number');
-            const avg = monthValues.length > 0 ? monthValues.reduce((a, b) => a + b, 0) / monthValues.length : 0;
+            const avg = monthValues.length > 0 ? monthValues.reduce((a, b) => a + b, 0) / monthValues.length : null;
             return { period: format(new Date(currentYear, i), 'MMM', { locale: fr }), value: avg };
         });
 
         const lastYearValues = lastYearResults.map(r => r[selectedComparisonMetric]).filter((v): v is number => typeof v === 'number');
-        const avgLastYear = lastYearValues.length > 0 ? lastYearValues.reduce((a, b) => a + b, 0) / lastYearValues.length : 0;
+        const avgLastYear = lastYearValues.length > 0 ? lastYearValues.reduce((a, b) => a + b, 0) / lastYearValues.length : null;
+
+        const currentYearValues = currentYearResults.map(r => r[selectedComparisonMetric]).filter((v): v is number => typeof v === 'number');
+        const avgCurrentYear = currentYearValues.length > 0 ? currentYearValues.reduce((a, b) => a + b, 0) / currentYearValues.length : null;
 
         return [
             { period: String(lastYear), value: avgLastYear },
+            { period: String(currentYear), value: avgCurrentYear },
             ...monthlyAvgCurrentYear
         ];
     }, [results, selectedComparisonMetric, selectedFuelType]);
@@ -426,9 +432,19 @@ export default function StatisticsDashboard() {
                                 <Tooltip content={<CustomTooltip />} />
                                 <Legend />
                                 <Bar dataKey="value" name={METRICS.find(m => m.key === selectedComparisonMetric)?.name}>
-                                    {comparisonChartData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={index === 0 ? "#8884d8" : "#82ca9d"} />
-                                    ))}
+                                    {comparisonChartData.map((entry, index) => {
+                                        let color = "#82ca9d"; // Default color for months
+                                        if (entry.period === String(getYear(new Date()) - 1)) color = "#8884d8"; // last year
+                                        if (entry.period === String(getYear(new Date()))) color = "#ffc658"; // current year
+                                        return <Cell key={`cell-${index}`} fill={color} />;
+                                    })}
+                                    <LabelList 
+                                        dataKey="value" 
+                                        position="top" 
+                                        formatter={(value: number) => value ? value.toFixed(2) : ''}
+                                        fill="hsl(var(--foreground))"
+                                        fontSize={12}
+                                    />
                                 </Bar>
                             </BarChart>
                         ) : (
@@ -442,3 +458,4 @@ export default function StatisticsDashboard() {
         </div>
     );
 }
+
