@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -87,6 +86,8 @@ export default function StatisticsDashboard() {
     const [selectedFuelType, setSelectedFuelType] = useState<string>("all");
     const [selectedFournisseur, setSelectedFournisseur] = useState<string>("all");
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
+    const [selectedComparisonMetric, setSelectedComparisonMetric] = useState<MetricKey>('pci_brut');
+
 
     // Data for filters
     const [allFuelTypes, setAllFuelTypes] = useState<FuelType[]>([]);
@@ -209,7 +210,7 @@ export default function StatisticsDashboard() {
             METRICS.forEach(({ key: metricKey }) => {
                 const value = r[metricKey];
                 if (typeof value === 'number' && isFinite(value)) {
-                    grouped[key][metricKey].push(value);
+                    grouped[key][metricKey][push](value);
                 }
             });
         });
@@ -226,30 +227,38 @@ export default function StatisticsDashboard() {
         });
     };
     
-    const yearlyAndMonthlyAverages = useMemo(() => {
+    const comparisonChartData = useMemo(() => {
         const now = new Date();
         const currentYear = getYear(now);
         const lastYear = currentYear - 1;
 
-        const currentYearResults = filteredResults.filter(r => {
+        const currentYearResults = results.filter(r => { // Use all results, not filtered, for yearly comparison
             const date = normalizeDate(r.date_arrivage);
-            return date && getYear(date) === currentYear;
+            return date && getYear(date) === currentYear && (selectedFuelType === 'all' || r.type_combustible === selectedFuelType);
         });
 
-        const lastYearResults = filteredResults.filter(r => {
+        const lastYearResults = results.filter(r => {
             const date = normalizeDate(r.date_arrivage);
-            return date && getYear(date) === lastYear;
+            return date && getYear(date) === lastYear && (selectedFuelType === 'all' || r.type_combustible === selectedFuelType);
         });
 
-        const monthlyAvgCurrentYear = aggregateByPeriod(currentYearResults, 'monthly')
-            .map(d => ({ ...d, month: format(parseISO(d.period), 'MMMM', { locale: fr }) }))
-            .sort((a, b) => parseISO(a.period).getMonth() - parseISO(b.period).getMonth());
+        const monthlyAvgCurrentYear = Array.from({ length: 12 }, (_, i) => {
+            const monthResults = currentYearResults.filter(r => getMonth(normalizeDate(r.date_arrivage)!) === i);
+            if (monthResults.length === 0) return { period: format(new Date(currentYear, i), 'MMM', { locale: fr }), value: 0 };
             
-        const overallAvgLastYear = aggregateByPeriod(lastYearResults, 'yearly')[0] || {};
-        const overallAvgCurrentYear = aggregateByPeriod(currentYearResults, 'yearly')[0] || {};
+            const monthValues = monthResults.map(r => r[selectedComparisonMetric]).filter((v): v is number => typeof v === 'number');
+            const avg = monthValues.length > 0 ? monthValues.reduce((a, b) => a + b, 0) / monthValues.length : 0;
+            return { period: format(new Date(currentYear, i), 'MMM', { locale: fr }), value: avg };
+        });
 
-        return { monthlyAvgCurrentYear, overallAvgLastYear, overallAvgCurrentYear };
-    }, [filteredResults]);
+        const lastYearValues = lastYearResults.map(r => r[selectedComparisonMetric]).filter((v): v is number => typeof v === 'number');
+        const avgLastYear = lastYearValues.length > 0 ? lastYearValues.reduce((a, b) => a + b, 0) / lastYearValues.length : 0;
+
+        return [
+            { period: String(lastYear), value: avgLastYear },
+            ...monthlyAvgCurrentYear
+        ];
+    }, [results, selectedComparisonMetric, selectedFuelType]);
 
 
     const CustomTooltip = ({ active, payload, label }: any) => {
@@ -388,52 +397,48 @@ export default function StatisticsDashboard() {
                 })}
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Moyennes Mensuelles (Année en cours)</CardTitle>
-                        <CardDescription>Comparaison des indicateurs mois par mois pour l'année en cours.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={yearlyAndMonthlyAverages.monthlyAvgCurrentYear}>
+             <Card>
+                <CardHeader>
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <CardTitle>Comparaison Annuelle et Mensuelle</CardTitle>
+                            <CardDescription>Moyenne de l'année précédente vs. moyennes mensuelles de l'année en cours.</CardDescription>
+                        </div>
+                        <Select value={selectedComparisonMetric} onValueChange={(value) => setSelectedComparisonMetric(value as MetricKey)}>
+                            <SelectTrigger className="w-[200px]">
+                                <SelectValue placeholder="Choisir un indicateur..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {METRICS.map(m => (
+                                    <SelectItem key={m.key} value={m.key}>{m.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <ResponsiveContainer width="100%" height={400}>
+                        {comparisonChartData.length > 0 ? (
+                            <BarChart data={comparisonChartData}>
                                 <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="month" />
+                                <XAxis dataKey="period" />
                                 <YAxis />
                                 <Tooltip content={<CustomTooltip />} />
                                 <Legend />
-                                <Bar dataKey="pci_brut" name="PCI" fill={METRICS[0].color} />
-                                <Bar dataKey="h2o" name="H2O" fill={METRICS[1].color} />
-                                <Bar dataKey="chlore" name="Chlore" fill={METRICS[2].color} />
-                                <Bar dataKey="cendres" name="Cendres" fill={METRICS[3].color} />
+                                <Bar dataKey="value" name={METRICS.find(m => m.key === selectedComparisonMetric)?.name}>
+                                    {comparisonChartData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={index === 0 ? "#8884d8" : "#82ca9d"} />
+                                    ))}
+                                </Bar>
                             </BarChart>
-                        </ResponsiveContainer>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Comparaison Annuelle</CardTitle>
-                        <CardDescription>Moyenne de l'année précédente vs. moyenne de l'année en cours.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                         <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={METRICS.map(m => ({
-                                name: m.name,
-                                'Année Précédente': yearlyAndMonthlyAverages.overallAvgLastYear?.[m.key] || 0,
-                                'Année en Cours': yearlyAndMonthlyAverages.overallAvgCurrentYear?.[m.key] || 0
-                            }))}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="name" tick={false} />
-                                <YAxis />
-                                <Tooltip content={<CustomTooltip />} />
-                                <Legend />
-                                <Bar dataKey="Année Précédente" fill="#8884d8" />
-                                <Bar dataKey="Année en Cours" fill="#82ca9d" />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </CardContent>
-                </Card>
-            </div>
+                        ) : (
+                             <div className="flex items-center justify-center h-full text-muted-foreground">
+                                Aucune donnée à afficher.
+                            </div>
+                        )}
+                    </ResponsiveContainer>
+                </CardContent>
+            </Card>
         </div>
     );
 }
