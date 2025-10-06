@@ -88,7 +88,7 @@ export default function StatisticsDashboard() {
     const [selectedFuelType, setSelectedFuelType] = useState<string>("all");
     const [selectedFournisseur, setSelectedFournisseur] = useState<string>("all");
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
-    const [selectedComparisonMetric, setSelectedComparisonMetric] = useState<MetricKey>('pci_brut');
+    const [selectedComparisonMetric, setSelectedComparisonMetric] = useState<MetricKey>('cendres');
 
 
     // Data for filters
@@ -212,7 +212,7 @@ export default function StatisticsDashboard() {
             METRICS.forEach(({ key: metricKey }) => {
                 const value = r[metricKey];
                 if (typeof value === 'number' && isFinite(value)) {
-                    grouped[key][metricKey][push](value);
+                    grouped[key][metricKey].push(value);
                 }
             });
         });
@@ -292,6 +292,30 @@ export default function StatisticsDashboard() {
         }
         return null;
     };
+
+    const valueFormatter = (value: number) => {
+      if (value === null || value === undefined) return '';
+      switch (selectedComparisonMetric) {
+        case 'pci_brut': return value.toFixed(0);
+        case 'h2o': return value.toFixed(1);
+        case 'cendres': return value.toFixed(1);
+        case 'chlore': return value.toFixed(2);
+        default: return value.toFixed(2);
+      }
+    };
+    
+    const legendTitle = useMemo(() => {
+        const metricName = METRICS.find(m => m.key === selectedComparisonMetric)?.name || '';
+        let title = metricName;
+        if (selectedFuelType !== 'all') {
+            title += ` - ${selectedFuelType}`;
+        }
+        if (selectedFournisseur !== 'all') {
+            title += ` - ${selectedFournisseur}`;
+        }
+        return title;
+    }, [selectedComparisonMetric, selectedFuelType, selectedFournisseur]);
+
 
     if (loading) {
         return (
@@ -412,10 +436,7 @@ export default function StatisticsDashboard() {
              <Card>
                 <CardHeader>
                     <div className="flex justify-between items-center">
-                        <div>
-                            <CardTitle>Comparaison Annuelle et Mensuelle</CardTitle>
-                            <CardDescription>Moyenne de l'année précédente vs. moyennes mensuelles de l'année en cours.</CardDescription>
-                        </div>
+                        <CardTitle>{legendTitle}</CardTitle>
                         <Select value={selectedComparisonMetric} onValueChange={(value) => setSelectedComparisonMetric(value as MetricKey)}>
                             <SelectTrigger className="w-[200px]">
                                 <SelectValue placeholder="Choisir un indicateur..." />
@@ -436,8 +457,8 @@ export default function StatisticsDashboard() {
                                 <XAxis dataKey="period" />
                                 <YAxis />
                                 <Tooltip content={<CustomTooltip />} />
-                                <Legend />
-                                <Bar dataKey="value" name={METRICS.find(m => m.key === selectedComparisonMetric)?.name}>
+                                <Legend formatter={() => legendTitle} />
+                                <Bar dataKey="value" name={legendTitle}>
                                     {comparisonChartData.map((entry, index) => {
                                         let color = "#82ca9d"; // Default color for months
                                         if (entry.period === String(getYear(new Date()) - 1)) color = "#8884d8"; // last year
@@ -447,7 +468,7 @@ export default function StatisticsDashboard() {
                                     <LabelList 
                                         dataKey="value" 
                                         position="top" 
-                                        formatter={(value: number) => value ? value.toFixed(2) : ''}
+                                        formatter={valueFormatter}
                                         fill="hsl(var(--foreground))"
                                         fontSize={12}
                                     />
@@ -464,3 +485,4 @@ export default function StatisticsDashboard() {
         </div>
     );
 }
+
