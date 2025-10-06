@@ -304,7 +304,7 @@ export default function StatisticsDashboard() {
       }
     };
     
-    const legendTitle = useMemo(() => {
+    const dynamicTitle = useMemo(() => {
         const metricName = METRICS.find(m => m.key === selectedComparisonMetric)?.name || '';
         let title = metricName;
         if (selectedFuelType !== 'all') {
@@ -315,6 +315,11 @@ export default function StatisticsDashboard() {
         }
         return title;
     }, [selectedComparisonMetric, selectedFuelType, selectedFournisseur]);
+    
+    const yAxisDomainMax = useMemo(() => {
+        const maxValue = Math.max(...comparisonChartData.map(d => d.value ?? 0).filter(v => v !== null));
+        return isFinite(maxValue) ? maxValue * 1.2 : 'auto';
+    }, [comparisonChartData]);
 
 
     if (loading) {
@@ -436,7 +441,7 @@ export default function StatisticsDashboard() {
              <Card>
                 <CardHeader>
                     <div className="flex justify-between items-center">
-                        <CardTitle>{legendTitle}</CardTitle>
+                        <CardTitle className="text-center flex-1">{dynamicTitle}</CardTitle>
                         <Select value={selectedComparisonMetric} onValueChange={(value) => setSelectedComparisonMetric(value as MetricKey)}>
                             <SelectTrigger className="w-[200px]">
                                 <SelectValue placeholder="Choisir un indicateur..." />
@@ -455,10 +460,9 @@ export default function StatisticsDashboard() {
                             <BarChart data={comparisonChartData}>
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis dataKey="period" />
-                                <YAxis />
+                                <YAxis domain={[0, yAxisDomainMax]} />
                                 <Tooltip content={<CustomTooltip />} />
-                                <Legend formatter={() => legendTitle} />
-                                <Bar dataKey="value" name={legendTitle}>
+                                <Bar dataKey="value">
                                     {comparisonChartData.map((entry, index) => {
                                         let color = "#82ca9d"; // Default color for months
                                         if (entry.period === String(getYear(new Date()) - 1)) color = "#8884d8"; // last year
@@ -485,4 +489,5 @@ export default function StatisticsDashboard() {
         </div>
     );
 }
+
 
