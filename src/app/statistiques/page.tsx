@@ -234,16 +234,22 @@ export default function StatisticsDashboard() {
         const currentYear = getYear(now);
         const lastYear = currentYear - 1;
 
-        const currentYearResults = results.filter(r => {
-            const date = normalizeDate(r.date_arrivage);
-            return date && getYear(date) === currentYear && (selectedFuelType === 'all' || r.type_combustible === selectedFuelType);
+        const baseFilteredResults = results.filter(r => {
+            const fuelTypeMatch = selectedFuelType === 'all' || r.type_combustible === selectedFuelType;
+            const fournisseurMatch = selectedFournisseur === 'all' || r.fournisseur === selectedFournisseur;
+            return fuelTypeMatch && fournisseurMatch;
         });
 
-        const lastYearResults = results.filter(r => {
+        const currentYearResults = baseFilteredResults.filter(r => {
             const date = normalizeDate(r.date_arrivage);
-            return date && getYear(date) === lastYear && (selectedFuelType === 'all' || r.type_combustible === selectedFuelType);
+            return date && getYear(date) === currentYear;
         });
 
+        const lastYearResults = baseFilteredResults.filter(r => {
+            const date = normalizeDate(r.date_arrivage);
+            return date && getYear(date) === lastYear;
+        });
+        
         const monthlyAvgCurrentYear = Array.from({ length: 12 }, (_, i) => {
             const monthResults = currentYearResults.filter(r => getMonth(normalizeDate(r.date_arrivage)!) === i);
             if (monthResults.length === 0) return { period: format(new Date(currentYear, i), 'MMM', { locale: fr }), value: null };
@@ -264,7 +270,7 @@ export default function StatisticsDashboard() {
             { period: String(currentYear), value: avgCurrentYear },
             ...monthlyAvgCurrentYear
         ];
-    }, [results, selectedComparisonMetric, selectedFuelType]);
+    }, [results, selectedComparisonMetric, selectedFuelType, selectedFournisseur]);
 
 
     const CustomTooltip = ({ active, payload, label }: any) => {
@@ -458,4 +464,3 @@ export default function StatisticsDashboard() {
         </div>
     );
 }
-
