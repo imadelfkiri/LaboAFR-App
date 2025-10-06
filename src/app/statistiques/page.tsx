@@ -78,7 +78,7 @@ const METRICS: { key: MetricKey; name: string; color: string; icon: React.Elemen
     { key: 'cendres', name: 'Cendres (%)', color: '#8b5cf6', icon: Percent, chartType: 'bar' },
 ];
 
-export function StatisticsDashboard() {
+export default function StatisticsDashboard() {
     const [results, setResults] = useState<Result[]>([]);
     const [loading, setLoading] = useState(true);
     const [initialDataLoaded, setInitialDataLoaded] = useState(false);
