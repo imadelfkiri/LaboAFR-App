@@ -397,7 +397,7 @@ export default function StatisticsDashboard() {
                                                 <Bar dataKey={key} name={name} fill={color} />
                                             )}
                                             {specValue !== null && specValue !== undefined && (
-                                                <ReferenceLine y={specValue} label={{ value: `Limite ${specKey?.includes('min') ? 'Min' : 'Max'}`, position: 'insideTopLeft', fill: 'red' }} stroke="red" strokeDasharray="3 3" />
+                                                <ReferenceLine y={specValue} label={{ value: specValue, position: 'insideTopLeft', fill: 'red' }} stroke="red" strokeDasharray="3 3" />
                                             )}
                                         </ChartComponent>
                                     ) : (
