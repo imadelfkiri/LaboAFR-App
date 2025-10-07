@@ -87,6 +87,7 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { cn } from "@/lib/utils";
+import { DateRange } from "react-day-picker";
 
 interface Result {
   id: string;
@@ -159,8 +160,7 @@ export default function ResultsTable() {
   const [fuelTypeFilter, setFuelTypeFilter] = useState('__ALL__');
   const [fournisseurFilter, setFournisseurFilter] = useState('__ALL__');
   const [analysisTypeFilter, setAnalysisTypeFilter] = useState('__ALL__');
-  const [dateFromFilter, setDateFromFilter] = useState('');
-  const [dateToFilter, setToFilter] = useState('');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   
   const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' }>({ key: 'date_arrivage', direction: 'descending' });
 
@@ -262,16 +262,14 @@ export default function ResultsTable() {
     if (analysisTypeFilter !== '__ALL__') {
       filtered = filtered.filter(result => (result.type_analyse || 'Arrivage') === analysisTypeFilter);
     }
-    if (dateFromFilter || dateToFilter) {
-      const dateFrom = dateFromFilter ? startOfDay(parseISO(dateFromFilter)) : null;
-      const dateTo = dateToFilter ? endOfDay(parseISO(dateToFilter)) : null;
-      filtered = filtered.filter(result => {
-        const dateArrivage = normalizeDate(result.date_arrivage);
-        if (!dateArrivage) return false;
-        if (dateFrom && dateArrivage < dateFrom) return false;
-        if (dateTo && dateArrivage > dateTo) return false;
-        return true;
-      });
+    if (dateRange?.from || dateRange?.to) {
+        filtered = filtered.filter(result => {
+            const dateArrivage = normalizeDate(result.date_arrivage);
+            if (!dateArrivage) return false;
+            const fromMatch = !dateRange.from || dateArrivage >= startOfDay(dateRange.from);
+            const toMatch = !dateRange.to || dateArrivage <= endOfDay(dateRange.to);
+            return fromMatch && toMatch;
+        });
     }
 
     if (sortConfig !== null) {
@@ -289,7 +287,7 @@ export default function ResultsTable() {
     }
 
     return filtered;
-  }, [results, fuelTypeFilter, fournisseurFilter, analysisTypeFilter, dateFromFilter, dateToFilter, sortConfig]);
+  }, [results, fuelTypeFilter, fournisseurFilter, analysisTypeFilter, dateRange, sortConfig]);
 
   const { uniqueFuelTypes, uniqueAnalysisTypes, availableSuppliers } = useMemo(() => {
     const allFuels = [...new Set(results.map(r => r.type_combustible))].sort();
@@ -545,9 +543,9 @@ export default function ResultsTable() {
   
     const getReportTitle = (): { title: string; filenamePart: string } => {
         const now = new Date();
-        if (dateFromFilter && dateToFilter) {
-            const from = parseISO(dateFromFilter);
-            const to = parseISO(dateToFilter);
+        if (dateRange?.from && dateRange.to) {
+            const from = dateRange.from;
+            const to = dateRange.to;
             
             if (format(from, 'yyyy-MM-dd') === format(to, 'yyyy-MM-dd')) {
                 return { title: `Rapport Journalier du ${format(from, "d MMMM yyyy", { locale: fr })}`, filenamePart: `Journalier_${format(from, "yyyy-MM-dd")}` };
@@ -560,7 +558,7 @@ export default function ResultsTable() {
             }
             return { title: `Rapport du ${format(from, "dd/MM/yy")} au ${format(to, "dd/MM/yy")}`, filenamePart: `Periode_${format(from, "yyyy-MM-dd")}_a_${format(to, "yyyy-MM-dd")}` };
         }
-        if (!dateFromFilter && !dateToFilter) {
+        if (!dateRange?.from && !dateRange?.to) {
             return { title: "Rapport Global", filenamePart: `Global_${format(now, "yyyy-MM-dd")}` };
         }
         return { title: "Rapport des Résultats d'Analyses", filenamePart: `Filtre_${format(now, "yyyy-MM-dd")}` };
@@ -721,12 +719,9 @@ export default function ResultsTable() {
 
   const periodLabel = useMemo(() => {
     try {
-        if (dateFromFilter && dateToFilter) {
-            const from = parseISO(dateFromFilter);
-            const to = parseISO(dateToFilter);
-            if (format(from, 'yyyy-MM-dd') === format(subDays(startOfDay(new Date()),1), 'yyyy-MM-dd') && format(to, 'yyyy-MM-dd') === format(endOfDay(new Date()), 'yyyy-MM-dd')) {
-                 return "Veille & Jour J";
-            }
+        if (dateRange?.from && dateRange.to) {
+            const from = dateRange.from;
+            const to = dateRange.to;
              if (format(from, 'yyyy-MM-dd') === format(startOfWeek(new Date(), { locale: fr }), 'yyyy-MM-dd') && format(to, 'yyyy-MM-dd') === format(endOfWeek(new Date(), { locale: fr }), 'yyyy-MM-dd')) {
                  return "Cette semaine";
             }
@@ -737,14 +732,15 @@ export default function ResultsTable() {
             if (format(from, 'yyyy-MM-dd') === format(startOfMonth(lastMonth), 'yyyy-MM-dd') && format(to, 'yyyy-MM-dd') === format(endOfMonth(lastMonth), 'yyyy-MM-dd')) {
                  return "Mois dernier";
             }
+             if (format(from, 'yyyy-MM-dd') === format(subDays(startOfDay(new Date()),1), 'yyyy-MM-dd') && format(to, 'yyyy-MM-dd') === format(endOfDay(new Date()), 'yyyy-MM-dd')) {
+                 return "Veille & Jour J";
+            }
 
             return `${format(from, "d MMM yy")} - ${format(to, "d MMM yy")}`;
         }
-        if (dateFromFilter) return `Depuis le ${format(parseISO(dateFromFilter), "d MMM yyyy")}`
-        if (dateToFilter) return `Jusqu'au ${format(parseISO(dateToFilter), "d MMM yyyy")}`
-    } catch (e) { return "Sélectionner une période"; }
-    return "Période"
-  }, [dateFromFilter, dateToFilter]);
+    } catch (e) { return "Période"; }
+    return "Toute la période"
+  }, [dateRange]);
   
   const setDatePreset = (preset: 'today' | 'this_week' | 'this_month' | 'last_month') => {
       const now = new Date();
@@ -769,8 +765,7 @@ export default function ResultsTable() {
               to = endOfMonth(lastMonth);
               break;
       }
-      setDateFromFilter(format(from, 'yyyy-MM-dd'));
-      setToFilter(format(to, 'yyyy-MM-dd'));
+      setDateRange({ from, to });
   };
 
 
@@ -852,20 +847,31 @@ export default function ResultsTable() {
                             </Select>
                           </div>
 
-                          <div className="col-span-1 flex items-center gap-1">
-                                <Popover>
-                                    <PopoverTrigger asChild><Button variant="outline" className="w-full h-9 rounded-l-xl justify-start text-[13px] border-r-0 bg-brand-bg border-brand-line"><CalendarIcon className="w-4 h-4 mr-2" />{periodLabel}</Button></PopoverTrigger>
-                                    <PopoverContent align="start" className="w-auto p-0"><Calendar initialFocus mode="range" defaultMonth={dateFromFilter ? parseISO(dateFromFilter) : new Date()} selected={{from: dateFromFilter ? parseISO(dateFromFilter) : undefined, to: dateToFilter ? parseISO(dateToFilter) : undefined}} onSelect={(range) => { setDateFromFilter(range?.from ? format(range.from, 'yyyy-MM-dd') : ''); setToFilter(range?.to ? format(range.to, 'yyyy-MM-dd') : ''); }} numberOfMonths={1} locale={fr} /></PopoverContent>
-                                </Popover>
+                          <div className="lg:col-span-1">
                                 <DropdownMenu>
-                                    <DropdownMenuTrigger asChild><Button variant="outline" size="icon" className="h-9 w-9 rounded-r-xl bg-brand-bg border-brand-line"><ChevronDown className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" className="w-full h-9 rounded-xl justify-start text-[13px] bg-brand-bg border-brand-line">
+                                            <CalendarIcon className="w-4 h-4 mr-2" />
+                                            <span>{periodLabel}</span>
+                                            <ChevronDown className="h-4 w-4 ml-auto" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
                                         <DropdownMenuItem onClick={() => setDatePreset('today')}>Veille & Jour J</DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => setDatePreset('this_week')}>Cette semaine</DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => setDatePreset('this_month')}>Ce mois-ci</DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => setDatePreset('last_month')}>Mois dernier</DropdownMenuItem>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem onClick={() => { setDateFromFilter(''); setToFilter(''); }}>Réinitialiser</DropdownMenuItem>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button variant="ghost" className="w-full justify-start font-normal text-sm">Personnalisée...</Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent align="end" className="w-auto p-0">
+                                                <Calendar initialFocus mode="range" selected={dateRange} onSelect={setDateRange} numberOfMonths={1} locale={fr} />
+                                            </PopoverContent>
+                                        </Popover>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem onClick={() => setDateRange(undefined)}>Toute la période</DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </div>
