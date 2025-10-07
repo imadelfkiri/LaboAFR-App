@@ -387,7 +387,10 @@ export default function StatisticsDashboard() {
                                                 dataKey="date" 
                                                 tickFormatter={(value) => format(parseISO(value), 'd MMM', { locale: fr })}
                                             />
-                                            <YAxis domain={['auto', 'auto']} tickFormatter={(value) => Math.round(value).toString()} />
+                                            <YAxis 
+                                                domain={['auto', 'auto']} 
+                                                tickFormatter={(value) => key === 'chlore' ? value.toFixed(1) : Math.round(value).toString()} 
+                                            />
 
                                             <Tooltip content={<CustomTooltip />}/>
                                             <Legend />
@@ -397,7 +400,7 @@ export default function StatisticsDashboard() {
                                                 <Bar dataKey={key} name={name} fill={color} />
                                             )}
                                             {specValue !== null && specValue !== undefined && (
-                                                <ReferenceLine y={specValue} label={{ value: specValue, fill: 'red', position: 'left' }} stroke="red" strokeDasharray="3 3" />
+                                                <ReferenceLine y={specValue} label={{ value: specValue, fill: 'red', position: 'insideLeft' }} stroke="red" strokeDasharray="3 3" />
                                             )}
                                         </ChartComponent>
                                     ) : (
