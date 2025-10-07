@@ -564,16 +564,40 @@ export default function ResultsTable() {
         return { title: "Rapport des Résultats d'Analyses", filenamePart: `Filtre_${format(now, "yyyy-MM-dd")}` };
     };
 
-  const exportData = (type: 'excel' | 'pdf', reportType: 'detailed' | 'aggregated') => {
-    let dataToExport = sortedAndFilteredResults;
-    
-    if (dataToExport.length === 0) {
-        toast({ variant: "destructive", title: "Aucune donnée", description: "Il n'y a aucune donnée à exporter." });
-        return;
-    }
-    
-    const { title: reportTitle, filenamePart } = getReportTitle();
-    const reportSubtitle = `${reportType === 'aggregated' ? 'Agrégé' : 'Détaillé'}`;
+    const exportData = (type: 'excel' | 'pdf', reportType: 'detailed' | 'aggregated', period?: 'today' | 'this_week' | 'this_month' | 'last_month' | 'all' | 'current') => {
+        let dateRangeToUse = dateRange;
+
+        if (period && period !== 'current') {
+            const now = new Date();
+            let from: Date | undefined, to: Date | undefined;
+            switch(period) {
+                case 'today': from = subDays(startOfDay(now), 1); to = endOfDay(now); break;
+                case 'this_week': from = startOfWeek(now, { locale: fr }); to = endOfWeek(now, { locale: fr }); break;
+                case 'this_month': from = startOfMonth(now); to = endOfMonth(now); break;
+                case 'last_month': const lastMonth = subMonths(now, 1); from = startOfMonth(lastMonth); to = endOfMonth(lastMonth); break;
+                case 'all': from = undefined; to = undefined; break;
+            }
+            dateRangeToUse = { from, to };
+        }
+
+        let dataToExport = [...results].filter(r => {
+            const fuelTypeMatch = fuelTypeFilter === '__ALL__' || r.type_combustible === fuelTypeFilter;
+            const fournisseurMatch = fournisseurFilter === '__ALL__' || r.fournisseur === fournisseurFilter;
+            const dateArrivage = normalizeDate(r.date_arrivage);
+            if (!dateArrivage) return false;
+            const fromMatch = !dateRangeToUse?.from || dateArrivage >= startOfDay(dateRangeToUse.from);
+            const toMatch = !dateRangeToUse?.to || dateArrivage <= endOfDay(dateRangeToUse.to);
+            return fuelTypeMatch && fournisseurMatch && fromMatch && toMatch;
+        });
+
+        if (dataToExport.length === 0) {
+            toast({ variant: "destructive", title: "Aucune donnée", description: "Il n'y a aucune donnée à exporter pour la sélection." });
+            return;
+        }
+
+        const { title: reportTitle, filenamePart } = getReportTitle();
+        const reportSubtitle = `${reportType === 'aggregated' ? 'Agrégé' : 'Détaillé'}`;
+        const finalFilename = `Rapport_${filenamePart}_${reportSubtitle}`;
     
     const generateAlerts = (result: Result) => {
         const spec = SPEC_MAP.get(`${result.type_combustible}|${result.fournisseur}`);
@@ -592,7 +616,6 @@ export default function ResultsTable() {
     };
 
     if (type === 'excel') {
-        const filename = `Rapport_${filenamePart}_${reportSubtitle}.xlsx`;
         let excelData: any[];
 
         if (reportType === 'aggregated') {
@@ -619,7 +642,7 @@ export default function ResultsTable() {
         const ws = XLSX.utils.json_to_sheet(excelData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Rapport AFR");
-        XLSX.writeFile(wb, filename);
+        XLSX.writeFile(wb, `${finalFilename}.xlsx`);
     } else {
         import('jspdf').then(jsPDF => {
             import('jspdf-autotable').then(() => {
@@ -673,91 +696,41 @@ export default function ResultsTable() {
 
                             const alertsInfo = generateAlerts(result);
                             
-                            // Column 10: "Alertes"
                             if (data.column.index === 10) {
-                                data.cell.styles.textColor = alertsInfo.isConform ? '#16A34A' : '#8B0000'; // Green / Dark Red
+                                data.cell.styles.textColor = alertsInfo.isConform ? '#16A34A' : '#8B0000';
                             }
                             
                             const keyMap: {[key: number]: keyof typeof alertsInfo.details} = { 6: 'pci', 7: 'h2o', 8: 'chlore', 9: 'cendres'};
                             const alertKey = keyMap[data.column.index];
 
                             if (alertKey && alertsInfo.details[alertKey]) {
-                                data.cell.styles.textColor = '#EF4444'; // Light Red for non-conform values
+                                data.cell.styles.textColor = '#EF4444';
                             }
                         }
                     },
                     didDrawPage: (data) => {
-                        // Header
                         doc.setFontSize(16);
                         doc.setFont("helvetica", "bold");
                         doc.text(reportTitle, doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
                         doc.setFontSize(10);
                         doc.setFont("helvetica", "normal");
                         doc.text(reportSubtitle, doc.internal.pageSize.getWidth() / 2, 22, { align: 'center' });
-
-                        // Footer
                         const footerText = "*Le taux en hydrogène est une estimation basée sur le tableau 'Données Combustibles'.";
                         const textWidth = doc.getStringUnitWidth(footerText) * 8 / doc.internal.scaleFactor;
                         const textHeight = 5; 
                         const padding = 2;
-
-                        doc.setFillColor(255, 255, 0); // Jaune
+                        doc.setFillColor(255, 255, 0);
                         doc.rect(data.settings.margin.left - padding, doc.internal.pageSize.getHeight() - 15 - textHeight, textWidth + padding * 2, textHeight + padding, 'F');
-                        
                         doc.setFontSize(8);
                         doc.setTextColor(0, 0, 0);
                         doc.text(footerText, data.settings.margin.left, doc.internal.pageSize.getHeight() - 12);
                     },
                     margin: { top: 30, bottom: 20 },
                 });
-                doc.save(`Rapport_${filenamePart}_${reportSubtitle}.pdf`);
+                doc.save(`${finalFilename}.pdf`);
             })
         })
     }
-  };
-
-  const periodLabel = useMemo(() => {
-    if (dateRange?.from) {
-      if (dateRange.to) {
-        if (format(dateRange.from, 'yyyy-MM-dd') === format(dateRange.to, 'yyyy-MM-dd')) return format(dateRange.from, "d MMM yyyy");
-        return `${format(dateRange.from, "d MMM")} - ${format(dateRange.to, "d MMM yyyy")}`;
-      }
-      return `Depuis le ${format(dateRange.from, "d MMM yyyy")}`;
-    }
-    if (dateRange?.to) {
-      return `Jusqu'au ${format(dateRange.to, "d MMM yyyy")}`;
-    }
-    return "Période";
-  }, [dateRange]);
-
-  const setDatePreset = (preset: 'today' | 'this_week' | 'this_month' | 'last_month' | 'all') => {
-      const now = new Date();
-      let from: Date | undefined, to: Date | undefined;
-
-      switch(preset) {
-          case 'today':
-              from = subDays(startOfDay(now), 1); // Veille
-              to = endOfDay(now); // Jour J
-              break;
-          case 'this_week':
-              from = startOfWeek(now, { locale: fr });
-              to = endOfWeek(now, { locale: fr });
-              break;
-          case 'this_month':
-              from = startOfMonth(now);
-              to = endOfMonth(now);
-              break;
-          case 'last_month':
-              const lastMonth = subMonths(now, 1);
-              from = startOfMonth(lastMonth);
-              to = endOfMonth(lastMonth);
-              break;
-          case 'all':
-              from = undefined;
-              to = undefined;
-              break;
-      }
-      setDateRange({ from, to });
   };
 
 
@@ -874,56 +847,61 @@ export default function ResultsTable() {
                           </div>
 
                            <div className="lg:col-span-1">
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" className="w-full h-9 rounded-xl justify-start text-[13px] bg-brand-bg border-brand-line">
-                                            <CalendarIcon className="w-4 h-4 mr-2" />
-                                            <span>{periodLabel}</span>
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                        <DropdownMenuItem onSelect={() => setDatePreset('today')}>Veille & Jour J</DropdownMenuItem>
-                                        <DropdownMenuItem onSelect={() => setDatePreset('this_week')}>Cette semaine</DropdownMenuItem>
-                                        <DropdownMenuItem onSelect={() => setDatePreset('this_month')}>Ce mois-ci</DropdownMenuItem>
-                                        <DropdownMenuItem onSelect={() => setDatePreset('last_month')}>Mois dernier</DropdownMenuItem>
-                                        <DropdownMenuItem onSelect={() => setDatePreset('all')}>Toute la période</DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                         <Popover>
-                                            <PopoverTrigger asChild>
-                                                <Button variant="ghost" className="w-full justify-start text-sm font-normal">Personnalisée...</Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent align="end" className="w-auto p-0">
-                                                <Calendar initialFocus mode="range" selected={dateRange} onSelect={setDateRange} numberOfMonths={1} locale={fr} />
-                                            </PopoverContent>
-                                        </Popover>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
+                               <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" className="w-full h-9 rounded-xl justify-start text-[13px] bg-brand-bg border-brand-line">
+                                        <CalendarIcon className="w-4 h-4 mr-2" />
+                                        <span>Période...</span>
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent align="end" className="w-auto p-0">
+                                    <Calendar initialFocus mode="range" selected={dateRange} onSelect={setDateRange} numberOfMonths={1} locale={fr} />
+                                </PopoverContent>
+                            </Popover>
                             </div>
 
                           <div className="col-span-1 md:col-span-2 lg:col-span-2 xl:col-span-3 flex items-center justify-end gap-2">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild><Button variant="outline" className="h-9 rounded-xl bg-brand-bg border-brand-line"><Download className="w-4 h-4 mr-1"/>Exporter</Button></DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuSub>
-                                        <DropdownMenuSubTrigger>Exporter rapport détaillé</DropdownMenuSubTrigger>
-                                        <DropdownMenuPortal>
-                                            <DropdownMenuSubContent>
-                                                <DropdownMenuItem onClick={() => exportData('excel', 'detailed')}>Excel</DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => exportData('pdf', 'detailed')}>PDF</DropdownMenuItem>
-                                            </DropdownMenuSubContent>
-                                        </DropdownMenuPortal>
-                                    </DropdownMenuSub>
-                                     <DropdownMenuSub>
-                                        <DropdownMenuSubTrigger>Exporter rapport agrégé</DropdownMenuSubTrigger>
-                                        <DropdownMenuPortal>
-                                            <DropdownMenuSubContent>
-                                                <DropdownMenuItem onClick={() => exportData('excel', 'aggregated')}>Excel</DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => exportData('pdf', 'aggregated')}>PDF</DropdownMenuItem>
-                                            </DropdownMenuSubContent>
-                                        </DropdownMenuPortal>
-                                    </DropdownMenuSub>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild><Button variant="outline" className="h-9 rounded-xl bg-brand-bg border-brand-line"><Download className="w-4 h-4 mr-1"/>Exporter</Button></DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuSub>
+                                            <DropdownMenuSubTrigger>Rapport Détaillé</DropdownMenuSubTrigger>
+                                            <DropdownMenuPortal>
+                                                <DropdownMenuSubContent>
+                                                    <DropdownMenuItem onSelect={() => exportData('excel', 'detailed', 'current')}>Sélection actuelle (Excel)</DropdownMenuItem>
+                                                    <DropdownMenuItem onSelect={() => exportData('pdf', 'detailed', 'current')}>Sélection actuelle (PDF)</DropdownMenuItem>
+                                                    <DropdownMenuSeparator/>
+                                                    <DropdownMenuItem onSelect={() => exportData('excel', 'detailed', 'today')}>Veille & Jour J (Excel)</DropdownMenuItem>
+                                                    <DropdownMenuItem onSelect={() => exportData('pdf', 'detailed', 'today')}>Veille & Jour J (PDF)</DropdownMenuItem>
+                                                    <DropdownMenuItem onSelect={() => exportData('excel', 'detailed', 'this_week')}>Cette semaine (Excel)</DropdownMenuItem>
+                                                    <DropdownMenuItem onSelect={() => exportData('pdf', 'detailed', 'this_week')}>Cette semaine (PDF)</DropdownMenuItem>
+                                                    <DropdownMenuItem onSelect={() => exportData('excel', 'detailed', 'this_month')}>Ce mois-ci (Excel)</DropdownMenuItem>
+                                                    <DropdownMenuItem onSelect={() => exportData('pdf', 'detailed', 'this_month')}>Ce mois-ci (PDF)</DropdownMenuItem>
+                                                    <DropdownMenuItem onSelect={() => exportData('excel', 'detailed', 'last_month')}>Mois dernier (Excel)</DropdownMenuItem>
+                                                    <DropdownMenuItem onSelect={() => exportData('pdf', 'detailed', 'last_month')}>Mois dernier (PDF)</DropdownMenuItem>
+                                                </DropdownMenuSubContent>
+                                            </DropdownMenuPortal>
+                                        </DropdownMenuSub>
+                                        <DropdownMenuSub>
+                                            <DropdownMenuSubTrigger>Rapport Agrégé</DropdownMenuSubTrigger>
+                                            <DropdownMenuPortal>
+                                                 <DropdownMenuSubContent>
+                                                    <DropdownMenuItem onSelect={() => exportData('excel', 'aggregated', 'current')}>Sélection actuelle (Excel)</DropdownMenuItem>
+                                                    <DropdownMenuItem onSelect={() => exportData('pdf', 'aggregated', 'current')}>Sélection actuelle (PDF)</DropdownMenuItem>
+                                                    <DropdownMenuSeparator/>
+                                                    <DropdownMenuItem onSelect={() => exportData('excel', 'aggregated', 'today')}>Veille & Jour J (Excel)</DropdownMenuItem>
+                                                     <DropdownMenuItem onSelect={() => exportData('pdf', 'aggregated', 'today')}>Veille & Jour J (PDF)</DropdownMenuItem>
+                                                    <DropdownMenuItem onSelect={() => exportData('excel', 'aggregated', 'this_week')}>Cette semaine (Excel)</DropdownMenuItem>
+                                                    <DropdownMenuItem onSelect={() => exportData('pdf', 'aggregated', 'this_week')}>Cette semaine (PDF)</DropdownMenuItem>
+                                                    <DropdownMenuItem onSelect={() => exportData('excel', 'aggregated', 'this_month')}>Ce mois-ci (Excel)</DropdownMenuItem>
+                                                    <DropdownMenuItem onSelect={() => exportData('pdf', 'aggregated', 'this_month')}>Ce mois-ci (PDF)</DropdownMenuItem>
+                                                    <DropdownMenuItem onSelect={() => exportData('excel', 'aggregated', 'last_month')}>Mois dernier (Excel)</DropdownMenuItem>
+                                                    <DropdownMenuItem onSelect={() => exportData('pdf', 'aggregated', 'last_month')}>Mois dernier (PDF)</DropdownMenuItem>
+                                                </DropdownMenuSubContent>
+                                            </DropdownMenuPortal>
+                                        </DropdownMenuSub>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                               <Button variant="destructive" className="h-9 rounded-xl" onClick={() => setIsDeleteAllConfirmOpen(true)}><Trash2 className="w-4 h-4" /></Button>
                           </div>
                       </div>
@@ -1038,3 +1016,4 @@ export default function ResultsTable() {
       </>
   );
 }
+
