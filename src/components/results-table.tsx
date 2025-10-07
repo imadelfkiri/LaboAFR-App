@@ -720,8 +720,6 @@ export default function ResultsTable() {
   const periodLabel = useMemo(() => {
     try {
         if (dateRange?.from && dateRange.to) {
-            const from = dateRange.from;
-            const to = dateRange.to;
              if (format(from, 'yyyy-MM-dd') === format(startOfWeek(new Date(), { locale: fr }), 'yyyy-MM-dd') && format(to, 'yyyy-MM-dd') === format(endOfWeek(new Date(), { locale: fr }), 'yyyy-MM-dd')) {
                  return "Cette semaine";
             }
@@ -736,15 +734,15 @@ export default function ResultsTable() {
                  return "Veille & Jour J";
             }
 
-            return `${format(from, "d MMM yy")} - ${format(to, "d MMM yy")}`;
+            return `${format(dateRange.from, "d MMM yy")} - ${format(dateRange.to, "d MMM yy")}`;
         }
     } catch (e) { return "Période"; }
     return "Toute la période"
   }, [dateRange]);
   
-  const setDatePreset = (preset: 'today' | 'this_week' | 'this_month' | 'last_month') => {
+  const setDatePreset = (preset: 'today' | 'this_week' | 'this_month' | 'last_month' | 'all') => {
       const now = new Date();
-      let from: Date, to: Date;
+      let from: Date | undefined, to: Date | undefined;
 
       switch(preset) {
           case 'today':
@@ -763,6 +761,10 @@ export default function ResultsTable() {
               const lastMonth = subMonths(now, 1);
               from = startOfMonth(lastMonth);
               to = endOfMonth(lastMonth);
+              break;
+          case 'all':
+              from = undefined;
+              to = undefined;
               break;
       }
       setDateRange({ from, to });
@@ -881,35 +883,18 @@ export default function ResultsTable() {
                             </Select>
                           </div>
 
-                          <div className="lg:col-span-1">
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
+                           <div className="lg:col-span-1">
+                                <Popover>
+                                    <PopoverTrigger asChild>
                                         <Button variant="outline" className="w-full h-9 rounded-xl justify-start text-[13px] bg-brand-bg border-brand-line">
                                             <CalendarIcon className="w-4 h-4 mr-2" />
                                             <span>{periodLabel}</span>
-                                            <ChevronDown className="h-4 w-4 ml-auto" />
                                         </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                        <DropdownMenuItem onClick={() => setDatePreset('today')}>Veille & Jour J</DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setDatePreset('this_week')}>Cette semaine</DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setDatePreset('this_month')}>Ce mois-ci</DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setDatePreset('last_month')}>Mois dernier</DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                         <Popover>
-                                            <PopoverTrigger asChild>
-                                                <Button variant="ghost" className="w-full justify-start font-normal text-sm relative select-none items-center rounded-sm px-2 py-1.5 outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
-                                                    Personnalisée...
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent align="end" className="w-auto p-0">
-                                                <Calendar initialFocus mode="range" selected={dateRange} onSelect={setDateRange} numberOfMonths={1} locale={fr} />
-                                            </PopoverContent>
-                                        </Popover>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem onClick={() => setDateRange(undefined)}>Toute la période</DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
+                                    </PopoverTrigger>
+                                    <PopoverContent align="end" className="w-auto p-0">
+                                        <Calendar initialFocus mode="range" selected={dateRange} onSelect={setDateRange} numberOfMonths={1} locale={fr} />
+                                    </PopoverContent>
+                                </Popover>
                             </div>
 
                           <div className="col-span-1 md:col-span-2 lg:col-span-2 xl:col-span-2 flex items-center justify-end gap-2">
@@ -934,6 +919,12 @@ export default function ResultsTable() {
                                             </DropdownMenuSubContent>
                                         </DropdownMenuPortal>
                                     </DropdownMenuSub>
+                                    <DropdownMenuSeparator />
+                                     <DropdownMenuItem onClick={() => setDatePreset('today')}>Veille & Jour J</DropdownMenuItem>
+                                     <DropdownMenuItem onClick={() => setDatePreset('this_week')}>Cette semaine</DropdownMenuItem>
+                                     <DropdownMenuItem onClick={() => setDatePreset('this_month')}>Ce mois-ci</DropdownMenuItem>
+                                     <DropdownMenuItem onClick={() => setDatePreset('last_month')}>Mois dernier</DropdownMenuItem>
+                                     <DropdownMenuItem onClick={() => setDatePreset('all')}>Toute la période</DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
                               <Button variant="destructive" className="h-9 rounded-xl" onClick={() => setIsDeleteAllConfirmOpen(true)}><Trash2 className="w-4 h-4" /></Button>
