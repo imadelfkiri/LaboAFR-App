@@ -274,15 +274,14 @@ export default function StatisticsDashboard() {
     };
     
     const dynamicTitle = useMemo(() => {
-        const metricName = METRICS.find(m => m.key === selectedComparisonMetric)?.name || '';
-        let title = `Suivi ${metricName}`;
+        let metricPart = METRICS.find(m => m.key === selectedComparisonMetric)?.name || '';
         if (selectedFuelType !== 'all') {
-            title += ` ${selectedFuelType}`;
+            metricPart += ` ${selectedFuelType}`;
         }
         if (selectedFournisseur !== 'all') {
-            title += ` ${selectedFournisseur}`;
+            metricPart += ` ${selectedFournisseur}`;
         }
-        return title;
+        return `Suivi ${metricPart}`;
     }, [selectedComparisonMetric, selectedFuelType, selectedFournisseur]);
     
     const yAxisDomainMax = useMemo(() => {
@@ -370,6 +369,21 @@ export default function StatisticsDashboard() {
                     const spec = SPEC_MAP.get(`${selectedFuelType}|${selectedFournisseur}`);
                     const specValue = specKey && spec ? spec[specKey] : null;
 
+                    const CustomYAxisTick = (props: any) => {
+                        const { x, y, payload } = props;
+                        // Ne pas afficher le tick si c'est la même valeur que le seuil
+                        if (specValue !== null && payload.value === specValue) {
+                            return null;
+                        }
+                        return (
+                            <g transform={`translate(${x},${y})`}>
+                                <text x={0} y={0} dy={4} textAnchor="end" fill="#666" fontSize={12}>
+                                    {payload.value}
+                                </text>
+                            </g>
+                        );
+                    };
+
                     return (
                         <Card key={key}>
                             <CardHeader>
@@ -388,7 +402,8 @@ export default function StatisticsDashboard() {
                                                 dataKey="date" 
                                                 tickFormatter={(value) => format(parseISO(value), 'd MMM', { locale: fr })}
                                             />
-                                            <YAxis domain={['auto', 'auto']} />
+                                            <YAxis domain={['auto', 'auto']} tick={<CustomYAxisTick />} />
+
                                             <Tooltip content={<CustomTooltip />}/>
                                             <Legend />
                                             {chartType === 'line' ? (
