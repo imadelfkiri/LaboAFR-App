@@ -44,10 +44,11 @@ import {
     Line,
     Bar,
     Cell,
-    LabelList
+    LabelList,
+    ReferenceLine
 } from 'recharts';
 
-import { getFuelTypes, FuelType } from '@/lib/data';
+import { getFuelTypes, FuelType, getSpecifications, SPEC_MAP, Specification } from '@/lib/data';
 import { CalendarIcon, Fuel, Truck, LineChart as LineChartIcon, Droplets, Percent, Wind } from "lucide-react";
 
 
@@ -71,12 +72,14 @@ interface ChartData {
 }
 
 type MetricKey = 'pci_brut' | 'h2o' | 'chlore' | 'cendres';
+type SpecKey = 'PCI_min' | 'H2O_max' | 'Cl_max' | 'Cendres_max';
 
-const METRICS: { key: MetricKey; name: string; color: string; icon: React.ElementType, chartType: 'line' | 'bar' }[] = [
-    { key: 'pci_brut', name: 'PCI (kcal/kg)', color: '#22c55e', icon: Fuel, chartType: 'line' },
-    { key: 'h2o', name: 'H₂O (%)', color: '#3b82f6', icon: Droplets, chartType: 'line' },
-    { key: 'chlore', name: 'Chlore (%)', color: '#f97316', icon: Wind, chartType: 'line' },
-    { key: 'cendres', name: 'Cendres (%)', color: '#8b5cf6', icon: Percent, chartType: 'bar' },
+
+const METRICS: { key: MetricKey; name: string; color: string; icon: React.ElementType, chartType: 'line' | 'bar', specKey: SpecKey | null }[] = [
+    { key: 'pci_brut', name: 'PCI (kcal/kg)', color: '#22c55e', icon: Fuel, chartType: 'line', specKey: 'PCI_min' },
+    { key: 'h2o', name: 'H₂O (%)', color: '#3b82f6', icon: Droplets, chartType: 'line', specKey: 'H2O_max' },
+    { key: 'chlore', name: 'Chlore (%)', color: '#f97316', icon: Wind, chartType: 'line', specKey: 'Cl_max' },
+    { key: 'cendres', name: 'Cendres (%)', color: '#8b5cf6', icon: Percent, chartType: 'bar', specKey: 'Cendres_max' },
 ];
 
 export default function StatisticsDashboard() {
@@ -112,8 +115,9 @@ export default function StatisticsDashboard() {
     useEffect(() => {
         const fetchDropdownData = async () => {
             try {
-                const [fuels, resultsSnapshot] = await Promise.all([
+                const [fuels, specs, resultsSnapshot] = await Promise.all([
                     getFuelTypes(),
+                    getSpecifications(),
                     onSnapshot(collection(db, "resultats"), (snapshot) => {
                          const suppliers = [...new Set(snapshot.docs.map(doc => doc.data().fournisseur as string))].sort();
                          setAllFournisseurs(suppliers);
@@ -361,9 +365,11 @@ export default function StatisticsDashboard() {
             </Card>
             
             <div className="grid gap-6 md:grid-cols-2">
-                {METRICS.map(({ key, name, color, icon: Icon, chartType }) => {
+                {METRICS.map(({ key, name, color, icon: Icon, chartType, specKey }) => {
                     const ChartComponent = chartType === 'bar' ? BarChart : LineChart;
-                    
+                    const spec = SPEC_MAP.get(`${selectedFuelType}|${selectedFournisseur}`);
+                    const specValue = specKey && spec ? spec[specKey] : null;
+
                     return (
                         <Card key={key}>
                             <CardHeader>
@@ -389,6 +395,9 @@ export default function StatisticsDashboard() {
                                                 <Line type="monotone" dataKey={key} name={name} stroke={color} strokeWidth={2} dot={false} />
                                             ) : (
                                                 <Bar dataKey={key} name={name} fill={color} />
+                                            )}
+                                            {specValue !== null && specValue !== undefined && (
+                                                <ReferenceLine y={specValue} label={{ value: `Limite ${specKey?.includes('min') ? 'Min' : 'Max'}`, position: 'insideTopLeft' }} stroke="red" strokeDasharray="3 3" />
                                             )}
                                         </ChartComponent>
                                     ) : (
