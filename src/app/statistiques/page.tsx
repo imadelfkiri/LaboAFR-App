@@ -382,7 +382,7 @@ export default function StatisticsDashboard() {
                                 <ResponsiveContainer width="100%" height={300}>
                                     {chartData.length > 0 ? (
                                         <ChartComponent data={chartData} margin={{ left: 20 }}>
-                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.2)" />
                                             <XAxis 
                                                 dataKey="date" 
                                                 tickFormatter={(value) => format(parseISO(value), 'd MMM', { locale: fr })}
