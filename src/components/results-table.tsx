@@ -316,37 +316,6 @@ export default function ResultsTable() {
     }).replace(/\u00A0/g, ' ');
   };
 
-  const averages = useMemo(() => {
-    const processGroup = (analyses: Result[]) => {
-        if (analyses.length === 0) {
-            return { count: 0, pci: '-', h2o: '-', cl: '-', cendres: '-' };
-        }
-
-        const avg = (metric: keyof Result) => {
-            const values = analyses.map(a => a[metric]).filter((v): v is number => typeof v === 'number' && isFinite(v));
-            return values.length > 0 ? values.reduce((s, v) => s + v, 0) / values.length : null;
-        };
-        
-        return {
-            count: analyses.length,
-            pci: formatNumber(avg('pci_brut'), 0),
-            h2o: formatNumber(avg('h2o'), 1),
-            cl: formatNumber(avg('chlore'), 2),
-            cendres: formatNumber(avg('cendres'), 1),
-        };
-    };
-    
-    const petCokeAnalyses = sortedAndFilteredResults.filter(a => a.type_combustible?.toLowerCase().includes('pet coke'));
-    const grignonsAnalyses = sortedAndFilteredResults.filter(a => a.type_combustible?.toLowerCase().includes('grignons'));
-    const afsAnalyses = sortedAndFilteredResults.filter(a => !a.type_combustible?.toLowerCase().includes('pet coke') && !a.type_combustible?.toLowerCase().includes('grignons'));
-
-    return {
-        petCoke: processGroup(petCokeAnalyses),
-        grignons: processGroup(grignonsAnalyses),
-        afs: processGroup(afsAnalyses),
-    };
-  }, [sortedAndFilteredResults]);
-
   useEffect(() => {
       if (fournisseurFilter !== '__ALL__' && !availableSuppliers.includes(fournisseurFilter)) {
           setFournisseurFilter('__ALL__');
@@ -697,7 +666,7 @@ export default function ResultsTable() {
                     startY: 30, 
                     theme: 'grid', 
                     styles: { fontSize: 7, cellPadding: 1.5 }, 
-                    headStyles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: 'bold' },
+                    headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
                     columnStyles,
                     didParseCell: (data) => {
                         if (reportType === 'detailed' && data.section === 'body') {
@@ -984,11 +953,6 @@ export default function ResultsTable() {
                       })}
                       {sortedAndFilteredResults.length===0 && ( <tr><td colSpan={13} className="p-6 text-center text-muted-foreground">Aucun résultat.</td></tr> )}
                     </tbody>
-                     <tfoot className="sticky bottom-0 bg-brand-surface/95 backdrop-blur-sm">
-                        <tr className="border-b border-brand-line/40 last:border-0 bg-brand-muted/50 hover:bg-brand-muted font-semibold"><td colSpan={6} className="p-2 text-muted-foreground whitespace-nowrap">Moyenne Pet Coke ({averages.petCoke.count})</td><td className="p-2 text-right tabular-nums">{averages.petCoke.pci}</td><td className="p-2 text-right tabular-nums">{averages.petCoke.h2o}</td><td className="p-2 text-right tabular-nums">{averages.petCoke.cl}</td><td className="p-2 text-right tabular-nums">{averages.petCoke.cendres}</td><td colSpan={3}></td></tr>
-                        <tr className="border-b border-brand-line/40 last:border-0 bg-brand-muted/50 hover:bg-brand-muted font-semibold"><td colSpan={6} className="p-2 text-muted-foreground whitespace-nowrap">Moyenne Grignons ({averages.grignons.count})</td><td className="p-2 text-right tabular-nums">{averages.grignons.pci}</td><td className="p-2 text-right tabular-nums">{averages.grignons.h2o}</td><td className="p-2 text-right tabular-nums">{averages.grignons.cl}</td><td className="p-2 text-right tabular-nums">{averages.grignons.cendres}</td><td colSpan={3}></td></tr>
-                        <tr className="border-b border-brand-line/40 last:border-0 bg-brand-muted/50 hover:bg-brand-muted font-semibold"><td colSpan={6} className="p-2 text-muted-foreground whitespace-nowrap">Moyenne AFs ({averages.afs.count})</td><td className="p-2 text-right tabular-nums">{averages.afs.pci}</td><td className="p-2 text-right tabular-nums">{averages.afs.h2o}</td><td className="p-2 text-right tabular-nums">{averages.afs.cl}</td><td className="p-2 text-right tabular-nums">{averages.afs.cendres}</td><td colSpan={3}></td></tr>
-                    </tfoot>
                   </table>
                 </div>
               </CardContent>
