@@ -716,30 +716,20 @@ export default function ResultsTable() {
     }
   };
 
-
   const periodLabel = useMemo(() => {
-    try {
-        if (dateRange?.from && dateRange.to) {
-             if (format(from, 'yyyy-MM-dd') === format(startOfWeek(new Date(), { locale: fr }), 'yyyy-MM-dd') && format(to, 'yyyy-MM-dd') === format(endOfWeek(new Date(), { locale: fr }), 'yyyy-MM-dd')) {
-                 return "Cette semaine";
-            }
-             if (format(from, 'yyyy-MM-dd') === format(startOfMonth(new Date()), 'yyyy-MM-dd') && format(to, 'yyyy-MM-dd') === format(endOfMonth(new Date()), 'yyyy-MM-dd')) {
-                 return "Ce mois-ci";
-            }
-            const lastMonth = subMonths(new Date(), 1);
-            if (format(from, 'yyyy-MM-dd') === format(startOfMonth(lastMonth), 'yyyy-MM-dd') && format(to, 'yyyy-MM-dd') === format(endOfMonth(lastMonth), 'yyyy-MM-dd')) {
-                 return "Mois dernier";
-            }
-             if (format(from, 'yyyy-MM-dd') === format(subDays(startOfDay(new Date()),1), 'yyyy-MM-dd') && format(to, 'yyyy-MM-dd') === format(endOfDay(new Date()), 'yyyy-MM-dd')) {
-                 return "Veille & Jour J";
-            }
-
-            return `${format(dateRange.from, "d MMM yy")} - ${format(dateRange.to, "d MMM yy")}`;
-        }
-    } catch (e) { return "Période"; }
-    return "Toute la période"
+    if (dateRange?.from) {
+      if (dateRange.to) {
+        if (format(dateRange.from, 'yyyy-MM-dd') === format(dateRange.to, 'yyyy-MM-dd')) return format(dateRange.from, "d MMM yyyy");
+        return `${format(dateRange.from, "d MMM")} - ${format(dateRange.to, "d MMM yyyy")}`;
+      }
+      return `Depuis le ${format(dateRange.from, "d MMM yyyy")}`;
+    }
+    if (dateRange?.to) {
+      return `Jusqu'au ${format(dateRange.to, "d MMM yyyy")}`;
+    }
+    return "Période";
   }, [dateRange]);
-  
+
   const setDatePreset = (preset: 'today' | 'this_week' | 'this_month' | 'last_month' | 'all') => {
       const now = new Date();
       let from: Date | undefined, to: Date | undefined;
@@ -863,7 +853,7 @@ export default function ResultsTable() {
               <Card className="rounded-2xl shadow-sm border border-brand-line/60 bg-brand-surface/60">
                   <CardContent className="p-3">
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 xl:grid-cols-8 gap-2 items-center">
-                          <div className="col-span-1 md:col-span-2 lg:col-span-2 xl:col-span-3 flex items-center gap-2 text-[12px]">
+                          <div className="col-span-1 md:col-span-2 lg:col-span-2 xl:col-span-2 flex items-center gap-2 text-[12px]">
                             <span className="font-semibold text-foreground/80">Statistiques:</span>
                             <span className="inline-flex items-center rounded-md px-2 py-0.5 bg-muted text-muted-foreground">Total: {stats.total}</span>
                             <span className="inline-flex items-center rounded-md px-2 py-0.5 bg-green-500/10 text-green-500"><CheckCircle2 className="w-3 h-3 mr-1" /> {stats.conformes}</span>
@@ -884,20 +874,33 @@ export default function ResultsTable() {
                           </div>
 
                            <div className="lg:col-span-1">
-                                <Popover>
-                                    <PopoverTrigger asChild>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
                                         <Button variant="outline" className="w-full h-9 rounded-xl justify-start text-[13px] bg-brand-bg border-brand-line">
                                             <CalendarIcon className="w-4 h-4 mr-2" />
                                             <span>{periodLabel}</span>
                                         </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent align="end" className="w-auto p-0">
-                                        <Calendar initialFocus mode="range" selected={dateRange} onSelect={setDateRange} numberOfMonths={1} locale={fr} />
-                                    </PopoverContent>
-                                </Popover>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onSelect={() => setDatePreset('today')}>Veille & Jour J</DropdownMenuItem>
+                                        <DropdownMenuItem onSelect={() => setDatePreset('this_week')}>Cette semaine</DropdownMenuItem>
+                                        <DropdownMenuItem onSelect={() => setDatePreset('this_month')}>Ce mois-ci</DropdownMenuItem>
+                                        <DropdownMenuItem onSelect={() => setDatePreset('last_month')}>Mois dernier</DropdownMenuItem>
+                                        <DropdownMenuItem onSelect={() => setDatePreset('all')}>Toute la période</DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                         <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button variant="ghost" className="w-full justify-start text-sm font-normal">Personnalisée...</Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent align="end" className="w-auto p-0">
+                                                <Calendar initialFocus mode="range" selected={dateRange} onSelect={setDateRange} numberOfMonths={1} locale={fr} />
+                                            </PopoverContent>
+                                        </Popover>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                             </div>
 
-                          <div className="col-span-1 md:col-span-2 lg:col-span-2 xl:col-span-2 flex items-center justify-end gap-2">
+                          <div className="col-span-1 md:col-span-2 lg:col-span-2 xl:col-span-3 flex items-center justify-end gap-2">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild><Button variant="outline" className="h-9 rounded-xl bg-brand-bg border-brand-line"><Download className="w-4 h-4 mr-1"/>Exporter</Button></DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
@@ -919,12 +922,6 @@ export default function ResultsTable() {
                                             </DropdownMenuSubContent>
                                         </DropdownMenuPortal>
                                     </DropdownMenuSub>
-                                    <DropdownMenuSeparator />
-                                     <DropdownMenuItem onClick={() => setDatePreset('today')}>Veille & Jour J</DropdownMenuItem>
-                                     <DropdownMenuItem onClick={() => setDatePreset('this_week')}>Cette semaine</DropdownMenuItem>
-                                     <DropdownMenuItem onClick={() => setDatePreset('this_month')}>Ce mois-ci</DropdownMenuItem>
-                                     <DropdownMenuItem onClick={() => setDatePreset('last_month')}>Mois dernier</DropdownMenuItem>
-                                     <DropdownMenuItem onClick={() => setDatePreset('all')}>Toute la période</DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
                               <Button variant="destructive" className="h-9 rounded-xl" onClick={() => setIsDeleteAllConfirmOpen(true)}><Trash2 className="w-4 h-4" /></Button>
