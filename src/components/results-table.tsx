@@ -813,6 +813,40 @@ export default function ResultsTable() {
     { label: "Alertes", key: "id" },
     { label: "Remarques", key: "remarques" },
   ];
+  
+  const averages = useMemo(() => {
+    if (sortedAndFilteredResults.length === 0) {
+      return null;
+    }
+
+    const sum = (key: keyof Result) => sortedAndFilteredResults.reduce((acc, curr) => {
+        const value = curr[key];
+        if (typeof value === 'number' && isFinite(value)) {
+            return acc + value;
+        }
+        return acc;
+    }, 0);
+    
+    const count = (key: keyof Result) => sortedAndFilteredResults.filter(r => {
+        const value = r[key];
+        return typeof value === 'number' && isFinite(value);
+    }).length;
+
+    const avg = (key: keyof Result) => {
+        const total = sum(key);
+        const numItems = count(key);
+        return numItems > 0 ? total / numItems : null;
+    };
+
+    return {
+      tonnage: sum('tonnage'),
+      pcs: avg('pcs'),
+      pci_brut: avg('pci_brut'),
+      h2o: avg('h2o'),
+      chlore: avg('chlore'),
+      cendres: avg('cendres'),
+    };
+  }, [sortedAndFilteredResults]);
 
   if (loading) {
     return ( <div className="space-y-2 p-4 lg:p-6"><Skeleton className="h-10 w-full" /><Skeleton className="h-96 w-full" /></div> );
@@ -862,9 +896,11 @@ export default function ResultsTable() {
                                         <DropdownMenuItem onClick={() => setDatePreset('this_month')}>Ce mois-ci</DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => setDatePreset('last_month')}>Mois dernier</DropdownMenuItem>
                                         <DropdownMenuSeparator />
-                                        <Popover>
+                                         <Popover>
                                             <PopoverTrigger asChild>
-                                                <Button variant="ghost" className="w-full justify-start font-normal text-sm">Personnalisée...</Button>
+                                                <Button variant="ghost" className="w-full justify-start font-normal text-sm relative select-none items-center rounded-sm px-2 py-1.5 outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
+                                                    Personnalisée...
+                                                </Button>
                                             </PopoverTrigger>
                                             <PopoverContent align="end" className="w-auto p-0">
                                                 <Calendar initialFocus mode="range" selected={dateRange} onSelect={setDateRange} numberOfMonths={1} locale={fr} />
@@ -925,30 +961,30 @@ export default function ResultsTable() {
                         <th className="sticky top-0 z-20 bg-brand-surface/95 backdrop-blur p-2 text-center font-semibold border-b border-brand-line/60">Action</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-brand-line/40">
                       {sortedAndFilteredResults.map((r, i) => {
                         const alerte = generateAlerts(r);
                         return (
-                          <tr key={r.id ?? i} className="border-b border-brand-line/40 last:border-0 even:bg-brand-muted/30 hover:bg-brand-muted/50 transition-colors">
-                            <td className="p-2 text-muted-foreground whitespace-nowrap">{normalizeDate(r.date_arrivage) ? format(normalizeDate(r.date_arrivage)!, 'dd/MM/yyyy') : 'Date invalide'}</td>
-                            <td className="p-2 font-medium">{r.type_combustible}</td>
-                            <td className="p-2">{r.fournisseur}</td>
-                            <td className="p-2">{r.numero_bc || "-"}</td>
-                            <td className={`p-2 text-right tabular-nums`}>{formatNumber(r.tonnage, 1)}</td>
-                            <td className={`p-2 text-right tabular-nums`}>{formatNumber(r.pcs, 0)}</td>
-                            <td className={`p-2 text-right font-semibold tabular-nums ${alerte.details.pci ? "text-red-400" : ""}`}>{formatNumber(r.pci_brut, 0)}</td>
-                            <td className={`p-2 text-right tabular-nums ${alerte.details.h2o ? "text-red-400" : ""}`}>{formatNumber(r.h2o, 1)}</td>
-                            <td className={`p-2 text-right tabular-nums ${alerte.details.chlore ? "text-red-400" : ""}`}>{formatNumber(r.chlore, 2)}</td>
-                            <td className={`p-2 text-right tabular-nums ${alerte.details.cendres ? "text-red-400" : ""}`}>{formatNumber(r.cendres, 1)}</td>
-                            <td className="p-2">
+                          <tr key={r.id ?? i} className="hover:bg-brand-muted/50 transition-colors">
+                            <td className="p-1.5 text-muted-foreground whitespace-nowrap">{normalizeDate(r.date_arrivage) ? format(normalizeDate(r.date_arrivage)!, 'dd/MM/yyyy') : 'Date invalide'}</td>
+                            <td className="p-1.5 font-medium">{r.type_combustible}</td>
+                            <td className="p-1.5">{r.fournisseur}</td>
+                            <td className="p-1.5">{r.numero_bc || "-"}</td>
+                            <td className={`p-1.5 text-right tabular-nums`}>{formatNumber(r.tonnage, 1)}</td>
+                            <td className={`p-1.5 text-right tabular-nums`}>{formatNumber(r.pcs, 0)}</td>
+                            <td className={`p-1.5 text-right font-semibold tabular-nums ${alerte.details.pci ? "text-red-400" : ""}`}>{formatNumber(r.pci_brut, 0)}</td>
+                            <td className={`p-1.5 text-right tabular-nums ${alerte.details.h2o ? "text-red-400" : ""}`}>{formatNumber(r.h2o, 1)}</td>
+                            <td className={`p-1.5 text-right tabular-nums ${alerte.details.chlore ? "text-red-400" : ""}`}>{formatNumber(r.chlore, 2)}</td>
+                            <td className={`p-1.5 text-right tabular-nums ${alerte.details.cendres ? "text-red-400" : ""}`}>{formatNumber(r.cendres, 1)}</td>
+                            <td className="p-1.5">
                               {alerte.isConform ? (
                                 <span className="inline-flex items-center gap-1 text-green-400 font-medium"><CheckCircle2 className="w-4 h-4" /> Conforme</span>
                               ) : (
                                 <span className="inline-flex items-center gap-1 text-red-400 font-medium" title={alerte.text}><AlertTriangle className="w-4 h-4" /> Non Conforme</span>
                               )}
                             </td>
-                            <td className="p-2 text-muted-foreground max-w-[150px] truncate" title={r.remarques}>{r.remarques ?? "-"}</td>
-                            <td className="p-2 text-center">
+                            <td className="p-1.5 text-muted-foreground max-w-[150px] truncate" title={r.remarques}>{r.remarques ?? "-"}</td>
+                            <td className="p-1.5 text-center">
                                 <div className="inline-flex gap-1">
                                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditOpen(r)}><Edit className="w-4 h-4 text-muted-foreground" /></Button>
                                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setResultToDelete(r.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
@@ -959,6 +995,20 @@ export default function ResultsTable() {
                       })}
                       {sortedAndFilteredResults.length===0 && ( <tr><td colSpan={13} className="p-6 text-center text-muted-foreground">Aucun résultat.</td></tr> )}
                     </tbody>
+                    {averages && (
+                        <tfoot className="sticky bottom-0 bg-brand-surface/95 backdrop-blur-sm">
+                            <tr className="font-semibold border-t-2 border-brand-line/80">
+                                <td className="p-2" colSpan={4}>Moyenne de la sélection</td>
+                                <td className="p-2 text-right tabular-nums">{formatNumber(averages.tonnage, 1)}</td>
+                                <td className="p-2 text-right tabular-nums">{formatNumber(averages.pcs, 0)}</td>
+                                <td className="p-2 text-right tabular-nums">{formatNumber(averages.pci_brut, 0)}</td>
+                                <td className="p-2 text-right tabular-nums">{formatNumber(averages.h2o, 1)}</td>
+                                <td className="p-2 text-right tabular-nums">{formatNumber(averages.chlore, 2)}</td>
+                                <td className="p-2 text-right tabular-nums">{formatNumber(averages.cendres, 1)}</td>
+                                <td className="p-2" colSpan={3}></td>
+                            </tr>
+                        </tfoot>
+                    )}
                   </table>
                 </div>
               </CardContent>
