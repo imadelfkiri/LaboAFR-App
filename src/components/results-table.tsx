@@ -860,36 +860,36 @@ export default function ResultsTable() {
         
         <div className="flex flex-col h-screen bg-muted/20">
           <header className="p-3 md:p-5">
-              <Card className="rounded-2xl shadow-sm border">
-                  <CardContent className="p-2">
+              <Card className="rounded-2xl shadow-sm border border-brand-line/60 bg-brand-surface/60">
+                  <CardContent className="p-3">
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 xl:grid-cols-8 gap-2 items-center">
                           <div className="col-span-1 md:col-span-2 lg:col-span-2 xl:col-span-3 flex items-center gap-2 text-[12px]">
                             <span className="font-semibold text-foreground/80">Statistiques:</span>
                             <span className="inline-flex items-center rounded-md px-2 py-0.5 bg-muted text-muted-foreground">Total: {stats.total}</span>
-                            <span className="inline-flex items-center rounded-md px-2 py-0.5 bg-green-100 text-green-700"><CheckCircle2 className="w-3 h-3 mr-1" /> {stats.conformes}</span>
-                            <span className="inline-flex items-center rounded-md px-2 py-0.5 bg-red-100 text-red-700"><AlertTriangle className="w-3 h-3 mr-1" /> {stats.non}</span>
+                            <span className="inline-flex items-center rounded-md px-2 py-0.5 bg-green-500/10 text-green-500"><CheckCircle2 className="w-3 h-3 mr-1" /> {stats.conformes}</span>
+                            <span className="inline-flex items-center rounded-md px-2 py-0.5 bg-red-500/10 text-red-500"><AlertTriangle className="w-3 h-3 mr-1" /> {stats.non}</span>
                           </div>
                           
                           <div className="col-span-1">
                             <Select value={fuelTypeFilter} onValueChange={setFuelTypeFilter}>
-                                <SelectTrigger className="h-9 rounded-xl text-[13px]"><SelectValue placeholder="Combustible" /></SelectTrigger>
+                                <SelectTrigger className="h-9 rounded-xl text-[13px] bg-brand-bg border-brand-line"><SelectValue placeholder="Combustible" /></SelectTrigger>
                                 <SelectContent><SelectItem value="__ALL__">Tous les combustibles</SelectItem>{uniqueFuelTypes.map((f:string)=><SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
                             </Select>
                           </div>
                           <div className="col-span-1">
                             <Select value={fournisseurFilter} onValueChange={setFournisseurFilter}>
-                                <SelectTrigger className="h-9 rounded-xl text-[13px]"><SelectValue placeholder="Fournisseur" /></SelectTrigger>
+                                <SelectTrigger className="h-9 rounded-xl text-[13px] bg-brand-bg border-brand-line"><SelectValue placeholder="Fournisseur" /></SelectTrigger>
                                 <SelectContent><SelectItem value="__ALL__">Tous les fournisseurs</SelectItem>{availableSuppliers.map((s:string)=><SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                             </Select>
                           </div>
 
                           <div className="col-span-1 flex items-center gap-1">
                                 <Popover>
-                                    <PopoverTrigger asChild><Button variant="outline" className="w-full h-9 rounded-l-xl justify-start text-[13px] border-r-0"><CalendarIcon className="w-4 h-4 mr-2" />{periodLabel}</Button></PopoverTrigger>
+                                    <PopoverTrigger asChild><Button variant="outline" className="w-full h-9 rounded-l-xl justify-start text-[13px] border-r-0 bg-brand-bg border-brand-line"><CalendarIcon className="w-4 h-4 mr-2" />{periodLabel}</Button></PopoverTrigger>
                                     <PopoverContent align="start" className="w-auto p-0"><Calendar initialFocus mode="range" defaultMonth={dateFromFilter ? parseISO(dateFromFilter) : new Date()} selected={{from: dateFromFilter ? parseISO(dateFromFilter) : undefined, to: dateToFilter ? parseISO(dateToFilter) : undefined}} onSelect={(range) => { setDateFromFilter(range?.from ? format(range.from, 'yyyy-MM-dd') : ''); setToFilter(range?.to ? format(range.to, 'yyyy-MM-dd') : ''); }} numberOfMonths={1} locale={fr} /></PopoverContent>
                                 </Popover>
                                 <DropdownMenu>
-                                    <DropdownMenuTrigger asChild><Button variant="outline" size="icon" className="h-9 w-9 rounded-r-xl"><ChevronDown className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                    <DropdownMenuTrigger asChild><Button variant="outline" size="icon" className="h-9 w-9 rounded-r-xl bg-brand-bg border-brand-line"><ChevronDown className="h-4 w-4" /></Button></DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
                                         <DropdownMenuItem onClick={() => setDatePreset('today')}>Veille & Jour J</DropdownMenuItem>
                                         <DropdownMenuItem onClick={() => setDatePreset('this_week')}>Cette semaine</DropdownMenuItem>
@@ -903,7 +903,7 @@ export default function ResultsTable() {
 
                           <div className="col-span-1 md:col-span-2 lg:col-span-2 xl:col-span-2 flex items-center justify-end gap-2">
                               <DropdownMenu>
-                                <DropdownMenuTrigger asChild><Button variant="outline" className="h-9 rounded-xl"><Download className="w-4 h-4 mr-1"/>Exporter</Button></DropdownMenuTrigger>
+                                <DropdownMenuTrigger asChild><Button variant="outline" className="h-9 rounded-xl bg-brand-bg border-brand-line"><Download className="w-4 h-4 mr-1"/>Exporter</Button></DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
                                     <DropdownMenuSub>
                                         <DropdownMenuSubTrigger>Exporter rapport détaillé</DropdownMenuSubTrigger>
@@ -933,59 +933,61 @@ export default function ResultsTable() {
           </header>
 
           <main className="flex-grow px-3 md:px-5 pb-3 md:pb-5">
-            <Card className="rounded-2xl shadow-md h-full">
+            <Card className="rounded-2xl shadow-md h-full bg-transparent">
               <CardContent className="p-0 h-full">
-                  <div className="max-h-[calc(100vh-160px)] overflow-auto rounded-2xl border-t bg-background h-full">
+                  <div className="max-h-[calc(100vh-160px)] overflow-auto rounded-2xl border-t border-brand-line/60 bg-brand-surface h-full">
                   <table className="w-full text-[13px] border-separate border-spacing-0">
-                    <thead className="text-primary-foreground">
+                    <thead className="text-neutral-300">
                       <tr>
                         {headers.map(({ label, key }) => {
                           const isSorted = sortConfig?.key === key;
                           return (
-                            <th key={label} onClick={() => requestSort(key as SortableKeys)} className="sticky top-0 z-20 bg-primary text-primary-foreground p-2 text-left font-semibold border-b cursor-pointer hover:bg-primary/90">
+                            <th key={label} onClick={() => requestSort(key as SortableKeys)} className="sticky top-0 z-20 bg-brand-surface/95 backdrop-blur p-2 text-left font-semibold border-b border-brand-line/60 cursor-pointer hover:bg-brand-muted/50">
                               <div className="flex items-center gap-2"><span>{label}</span>{isSorted && (<ArrowUpDown className="h-4 w-4" />)}</div>
                             </th>
                           );
                         })}
-                        <th className="sticky top-0 z-20 bg-primary text-primary-foreground p-2 text-left font-semibold border-b">Action</th>
+                        <th className="sticky top-0 z-20 bg-brand-surface/95 backdrop-blur p-2 text-center font-semibold border-b border-brand-line/60">Action</th>
                       </tr>
                     </thead>
                     <tbody>
                       {sortedAndFilteredResults.map((r, i) => {
                         const alerte = generateAlerts(r);
                         return (
-                          <tr key={r.id ?? i} className="border-b last:border-0 even:bg-muted/30 hover:bg-muted/50 transition-colors">
+                          <tr key={r.id ?? i} className="border-b border-brand-line/40 last:border-0 even:bg-brand-muted/30 hover:bg-brand-muted/50 transition-colors">
                             <td className="p-2 text-muted-foreground whitespace-nowrap">{normalizeDate(r.date_arrivage) ? format(normalizeDate(r.date_arrivage)!, 'dd/MM/yyyy') : 'Date invalide'}</td>
                             <td className="p-2 font-medium">{r.type_combustible}</td>
                             <td className="p-2">{r.fournisseur}</td>
                             <td className="p-2">{r.numero_bc || "-"}</td>
                             <td className={`p-2 text-right tabular-nums`}>{formatNumber(r.tonnage, 1)}</td>
                             <td className={`p-2 text-right tabular-nums`}>{formatNumber(r.pcs, 0)}</td>
-                            <td className={`p-2 text-right font-semibold tabular-nums ${alerte.details.pci ? "text-red-500" : ""}`}>{formatNumber(r.pci_brut, 0)}</td>
-                            <td className={`p-2 text-right tabular-nums ${alerte.details.h2o ? "text-red-500" : ""}`}>{formatNumber(r.h2o, 1)}</td>
-                            <td className={`p-2 text-right tabular-nums ${alerte.details.chlore ? "text-red-500" : ""}`}>{formatNumber(r.chlore, 2)}</td>
-                            <td className={`p-2 text-right tabular-nums ${alerte.details.cendres ? "text-red-500" : ""}`}>{formatNumber(r.cendres, 1)}</td>
+                            <td className={`p-2 text-right font-semibold tabular-nums ${alerte.details.pci ? "text-red-400" : ""}`}>{formatNumber(r.pci_brut, 0)}</td>
+                            <td className={`p-2 text-right tabular-nums ${alerte.details.h2o ? "text-red-400" : ""}`}>{formatNumber(r.h2o, 1)}</td>
+                            <td className={`p-2 text-right tabular-nums ${alerte.details.chlore ? "text-red-400" : ""}`}>{formatNumber(r.chlore, 2)}</td>
+                            <td className={`p-2 text-right tabular-nums ${alerte.details.cendres ? "text-red-400" : ""}`}>{formatNumber(r.cendres, 1)}</td>
                             <td className="p-2">
                               {alerte.isConform ? (
-                                <span className="inline-flex items-center gap-1 text-green-600 font-medium"><CheckCircle2 className="w-4 h-4" /> Conforme</span>
+                                <span className="inline-flex items-center gap-1 text-green-400 font-medium"><CheckCircle2 className="w-4 h-4" /> Conforme</span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 text-red-500 font-medium"><AlertTriangle className="w-4 h-4" /> {alerte.text}</span>
+                                <span className="inline-flex items-center gap-1 text-red-400 font-medium" title={alerte.text}><AlertTriangle className="w-4 h-4" /> Non Conforme</span>
                               )}
                             </td>
                             <td className="p-2 text-muted-foreground max-w-[150px] truncate" title={r.remarques}>{r.remarques ?? "-"}</td>
                             <td className="p-2 text-center">
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditOpen(r)}><Edit className="w-4 h-4 text-muted-foreground" /></Button>
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setResultToDelete(r.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                                <div className="inline-flex gap-1">
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditOpen(r)}><Edit className="w-4 h-4 text-muted-foreground" /></Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setResultToDelete(r.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                                </div>
                             </td>
                           </tr>
                         );
                       })}
                       {sortedAndFilteredResults.length===0 && ( <tr><td colSpan={13} className="p-6 text-center text-muted-foreground">Aucun résultat.</td></tr> )}
                     </tbody>
-                     <tfoot className="sticky bottom-0 bg-background/95 backdrop-blur-sm">
-                        <tr className="border-b border-border last:border-0 bg-secondary/30 hover:bg-secondary/40 font-semibold"><td colSpan={6} className="p-2 text-secondary-foreground whitespace-nowrap">Moyenne Pet Coke ({averages.petCoke.count})</td><td className="p-2 text-right tabular-nums">{averages.petCoke.pci}</td><td className="p-2 text-right tabular-nums">{averages.petCoke.h2o}</td><td className="p-2 text-right tabular-nums">{averages.petCoke.cl}</td><td className="p-2 text-right tabular-nums">{averages.petCoke.cendres}</td><td colSpan={3}></td></tr>
-                        <tr className="border-b border-border last:border-0 bg-secondary/30 hover:bg-secondary/40 font-semibold"><td colSpan={6} className="p-2 text-secondary-foreground whitespace-nowrap">Moyenne Grignons ({averages.grignons.count})</td><td className="p-2 text-right tabular-nums">{averages.grignons.pci}</td><td className="p-2 text-right tabular-nums">{averages.grignons.h2o}</td><td className="p-2 text-right tabular-nums">{averages.grignons.cl}</td><td className="p-2 text-right tabular-nums">{averages.grignons.cendres}</td><td colSpan={3}></td></tr>
-                        <tr className="border-b border-border last:border-0 bg-secondary/30 hover:bg-secondary/40 font-semibold"><td colSpan={6} className="p-2 text-secondary-foreground whitespace-nowrap">Moyenne AFs ({averages.afs.count})</td><td className="p-2 text-right tabular-nums">{averages.afs.pci}</td><td className="p-2 text-right tabular-nums">{averages.afs.h2o}</td><td className="p-2 text-right tabular-nums">{averages.afs.cl}</td><td className="p-2 text-right tabular-nums">{averages.afs.cendres}</td><td colSpan={3}></td></tr>
+                     <tfoot className="sticky bottom-0 bg-brand-surface/95 backdrop-blur-sm">
+                        <tr className="border-b border-brand-line/40 last:border-0 bg-brand-muted/50 hover:bg-brand-muted font-semibold"><td colSpan={6} className="p-2 text-muted-foreground whitespace-nowrap">Moyenne Pet Coke ({averages.petCoke.count})</td><td className="p-2 text-right tabular-nums">{averages.petCoke.pci}</td><td className="p-2 text-right tabular-nums">{averages.petCoke.h2o}</td><td className="p-2 text-right tabular-nums">{averages.petCoke.cl}</td><td className="p-2 text-right tabular-nums">{averages.petCoke.cendres}</td><td colSpan={3}></td></tr>
+                        <tr className="border-b border-brand-line/40 last:border-0 bg-brand-muted/50 hover:bg-brand-muted font-semibold"><td colSpan={6} className="p-2 text-muted-foreground whitespace-nowrap">Moyenne Grignons ({averages.grignons.count})</td><td className="p-2 text-right tabular-nums">{averages.grignons.pci}</td><td className="p-2 text-right tabular-nums">{averages.grignons.h2o}</td><td className="p-2 text-right tabular-nums">{averages.grignons.cl}</td><td className="p-2 text-right tabular-nums">{averages.grignons.cendres}</td><td colSpan={3}></td></tr>
+                        <tr className="border-b border-brand-line/40 last:border-0 bg-brand-muted/50 hover:bg-brand-muted font-semibold"><td colSpan={6} className="p-2 text-muted-foreground whitespace-nowrap">Moyenne AFs ({averages.afs.count})</td><td className="p-2 text-right tabular-nums">{averages.afs.pci}</td><td className="p-2 text-right tabular-nums">{averages.afs.h2o}</td><td className="p-2 text-right tabular-nums">{averages.afs.cl}</td><td className="p-2 text-right tabular-nums">{averages.afs.cendres}</td><td colSpan={3}></td></tr>
                     </tfoot>
                   </table>
                 </div>
