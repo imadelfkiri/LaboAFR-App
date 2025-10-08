@@ -3,15 +3,19 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getFuelData, type FuelData } from '@/lib/data';
 import { Skeleton } from "@/components/ui/skeleton";
-import { Flame, Activity, BookOpen, Beaker, BarChart2, Download } from 'lucide-react';
+import { Flame, Activity, BookOpen, Beaker, BarChart2, Download, FileText, FileJson, ChevronDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, Cell, LabelList } from 'recharts';
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, Table as DocxTable, TableRow as DocxTableRow, TableCell as DocxTableCell, WidthType, BorderStyle } from 'docx';
+import { saveAs } from 'file-saver';
+
 
 // Extend jsPDF for autoTable
 declare module "jspdf" {
@@ -216,6 +220,91 @@ export default function RapportSynthesePage() {
         doc.save(filename);
     };
 
+    const handleExportWord = () => {
+        const doc = new Document({
+            sections: [{
+                children: [
+                    new Paragraph({ text: "Composition de mélange et son impact", heading: HeadingLevel.TITLE, alignment: 'center' }),
+                    new Paragraph({ text: format(new Date(), "dd/MM/yyyy"), alignment: 'center', spacing: { after: 400 } }),
+                    
+                    // Indicateurs
+                    ...(mixtureIndicators && mixtureSession?.globalIndicators ? [
+                        new Paragraph({ text: "Indicateurs du Mélange", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
+                        new DocxTable({
+                            width: { size: 100, type: WidthType.PERCENTAGE },
+                            rows: [
+                                new DocxTableRow({
+                                    children: [
+                                        new DocxTableCell({ children: [new Paragraph({ text: "Indicateur", children: [new TextRun({ bold: true })]})] }),
+                                        new DocxTableCell({ children: [new Paragraph({ text: "Valeur", children: [new TextRun({ bold: true })]})] }),
+                                        new DocxTableCell({ children: [new Paragraph({ text: "Unité", children: [new TextRun({ bold: true })]})] }),
+                                    ],
+                                }),
+                                ...mixtureIndicators.map(ind => new DocxTableRow({
+                                    children: [
+                                        new DocxTableCell({ children: [new Paragraph(ind.label)] }),
+                                        new DocxTableCell({ children: [new Paragraph(ind.value)] }),
+                                        new DocxTableCell({ children: [new Paragraph(ind.unit)] }),
+                                    ]
+                                }))
+                            ]
+                        })
+                    ] : []),
+    
+                    // Composition
+                    ...(mixtureComposition.length > 0 ? [
+                        new Paragraph({ text: "Composition du Mélange", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
+                         new DocxTable({
+                            width: { size: 100, type: WidthType.PERCENTAGE },
+                            rows: [
+                                new DocxTableRow({
+                                    children: [
+                                        new DocxTableCell({ children: [new Paragraph({ text: "Combustible", children: [new TextRun({ bold: true })]})] }),
+                                        new DocxTableCell({ children: [new Paragraph({ text: "Nombre de Godets", children: [new TextRun({ bold: true })]})] }),
+                                        new DocxTableCell({ children: [new Paragraph({ text: "% Poids", children: [new TextRun({ bold: true })]})] }),
+                                    ],
+                                }),
+                                ...mixtureComposition.map(item => new DocxTableRow({
+                                    children: [
+                                        new DocxTableCell({ children: [new Paragraph(item.name)] }),
+                                        new DocxTableCell({ children: [new Paragraph(String(item.buckets))] }),
+                                        new DocxTableCell({ children: [new Paragraph(`${item.percentage}%`)] }),
+                                    ]
+                                }))
+                            ]
+                        })
+                    ] : []),
+    
+                     // Impact
+                    ...(impactChartData.length > 0 ? [
+                        new Paragraph({ text: "Impact sur le Clinker", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
+                         new DocxTable({
+                            width: { size: 100, type: WidthType.PERCENTAGE },
+                            rows: [
+                                new DocxTableRow({
+                                    children: [
+                                        new DocxTableCell({ children: [new Paragraph({ text: "Indicateur", children: [new TextRun({ bold: true })]})] }),
+                                        new DocxTableCell({ children: [new Paragraph({ text: "Variation (Calculé - Sans Cendres)", children: [new TextRun({ bold: true })]})] }),
+                                    ],
+                                }),
+                                ...impactChartData.map(item => new DocxTableRow({
+                                    children: [
+                                        new DocxTableCell({ children: [new Paragraph(item.name)] }),
+                                        new DocxTableCell({ children: [new Paragraph(item.value.toFixed(2))] }),
+                                    ]
+                                }))
+                            ]
+                        })
+                    ] : []),
+                ],
+            }],
+        });
+    
+        Packer.toBlob(doc).then(blob => {
+            saveAs(blob, `Rapport_Synthese_${format(new Date(), "yyyy-MM-dd")}.docx`);
+        });
+    };
+
 
     if (loading) {
         return (
@@ -243,10 +332,25 @@ export default function RapportSynthesePage() {
                             Données de la session du {format(mixtureSession.timestamp.toDate(), "d MMMM yyyy 'à' HH:mm", { locale: fr })}
                         </p>
                     )}
-                    <Button onClick={handleExportPDF} variant="outline">
-                        <Download className="mr-2 h-4 w-4" />
-                        Exporter en PDF
-                    </Button>
+                     <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline">
+                                <Download className="mr-2 h-4 w-4" />
+                                Exporter
+                                <ChevronDown className="ml-2 h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                            <DropdownMenuItem onClick={handleExportPDF}>
+                                <FileText className="mr-2 h-4 w-4" />
+                                Exporter en PDF
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={handleExportWord}>
+                                <FileJson className="mr-2 h-4 w-4" />
+                                Exporter en Word
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             </div>
             
