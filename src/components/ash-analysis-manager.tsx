@@ -215,13 +215,9 @@ function AnalysesCendresView({
   to = "",
   setTo = () => {},
 }) {
-  const chip = (v: number | undefined, t: "MS"|"AF"|"LSF") => {
-    const n = typeof v === "number" && isFinite(v) ? v : undefined
-    const base = "inline-flex items-center justify-center rounded-md px-1.5 py-0.5 text-[11px] font-medium tabular-nums"
-    if (n === undefined) return <span className={`${base} bg-muted text-muted-foreground`}>-</span>
-    if (t === "MS") return <span className={`${base} ${n<1.5?"bg-red-500/20 text-red-300":n<2.0?"bg-yellow-500/20 text-yellow-300":"bg-green-500/20 text-green-300"}`}>{n.toFixed(2)}</span>
-    if (t === "AF") return <span className={`${base} ${n<0.5?"bg-red-500/20 text-red-300":n<1.5?"bg-yellow-500/20 text-yellow-300":"bg-green-500/20 text-green-300"}`}>{n.toFixed(2)}</span>
-    return <span className={`${base} ${n<0.80?"bg-red-500/20 text-red-300":n<=1.00?"bg-yellow-500/20 text-yellow-300":"bg-green-500/20 text-green-300"}`}>{n.toFixed(2)}</span>
+  const chip = (v: number | undefined) => {
+    if (v === undefined || !isFinite(v)) return '-';
+    return v.toFixed(2);
   }
 
   const SortableHeader = ({ label, sortKey }: { label: string; sortKey: SortableKeys }) => {
@@ -279,9 +275,9 @@ function AnalysesCendresView({
             <td className="p-2 text-right tabular-nums">{data.oxides?.TiO2}</td>
             <td className="p-2 text-right tabular-nums">{data.oxides?.MnO}</td>
             <td className="p-2 text-right tabular-nums">{data.oxides?.P2O5}</td>
-            <td className="p-2 text-center">{chip(data.modules?.MS, "MS")}</td>
-            <td className="p-2 text-center">{chip(data.modules?.AF, "AF")}</td>
-            <td className="p-2 text-center">{chip(data.modules?.LSF, "LSF")}</td>
+            <td className="p-2 text-center tabular-nums">{chip(data.modules?.MS)}</td>
+            <td className="p-2 text-center tabular-nums">{chip(data.modules?.AF)}</td>
+            <td className="p-2 text-center tabular-nums">{chip(data.modules?.LSF)}</td>
             <td className="p-2"></td>
         </tr>
     );
@@ -328,9 +324,9 @@ function AnalysesCendresView({
                       <td className="p-2 text-right tabular-nums">{r.oxides?.TiO2}</td>
                       <td className="p-2 text-right tabular-nums">{r.oxides?.MnO}</td>
                       <td className="p-2 text-right tabular-nums">{r.oxides?.P2O5}</td>
-                      <td className="p-2 text-center">{chip(r.modules?.MS, "MS")}</td>
-                      <td className="p-2 text-center">{chip(r.modules?.AF, "AF")}</td>
-                      <td className="p-2 text-center">{chip(r.modules?.LSF, "LSF")}</td>
+                      <td className="p-2 text-center tabular-nums">{chip(r.modules?.MS)}</td>
+                      <td className="p-2 text-center tabular-nums">{chip(r.modules?.AF)}</td>
+                      <td className="p-2 text-center tabular-nums">{chip(r.modules?.LSF)}</td>
                       <td className="p-2 text-center">
                         <div className="inline-flex gap-1">
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(r.original)} title="Éditer">
