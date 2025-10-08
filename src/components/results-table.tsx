@@ -960,10 +960,8 @@ export default function ResultsTable() {
                         );
                       })}
                       {sortedAndFilteredResults.length===0 && ( <tr><td colSpan={13} className="p-6 text-center text-muted-foreground">Aucun résultat.</td></tr> )}
-                    </tbody>
-                    {averages && (
-                        <tfoot className="sticky bottom-0 bg-brand-surface/95 backdrop-blur-sm">
-                            <tr className="font-semibold border-t-2 border-brand-line/80">
+                       {averages && (
+                            <tr className="font-semibold border-t-2 border-brand-line/80 bg-blue-900/30">
                                 <td className="p-2" colSpan={4}>Moyenne de la sélection</td>
                                 <td className="p-2 text-right tabular-nums">{formatNumber(averages.tonnage, 1)}</td>
                                 <td className="p-2 text-right tabular-nums">{formatNumber(averages.pcs, 0)}</td>
@@ -973,8 +971,8 @@ export default function ResultsTable() {
                                 <td className="p-2 text-right tabular-nums">{formatNumber(averages.cendres, 1)}</td>
                                 <td className="p-2" colSpan={3}></td>
                             </tr>
-                        </tfoot>
-                    )}
+                        )}
+                    </tbody>
                   </table>
                 </div>
               </CardContent>
@@ -1016,4 +1014,3 @@ export default function ResultsTable() {
       </>
   );
 }
-
