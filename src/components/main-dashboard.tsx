@@ -3,14 +3,14 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getLatestIndicatorData, getMixtureSessions, getStocks, Stock } from '@/lib/data';
+import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getLatestIndicatorData, getMixtureSessions, getStocks, Stock, getAverageAnalysisForFuels, AverageAnalysis, getUniqueFuelTypes } from '@/lib/data';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Droplets, Wind, Percent, BarChart, Thermometer, Flame, TrendingUp, Activity, Archive, LayoutDashboard } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { KeyIndicatorCard } from './cards/KeyIndicatorCard';
 import { FlowRateCard, FlowData } from './cards/FlowRateCard';
 import { ImpactCard, ImpactData } from './cards/ImpactCard';
-import { Bar, BarChart as RechartsBarChart, Line, LineChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
+import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import { subDays, format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -77,34 +77,40 @@ export function MainDashboard() {
     const [mixtureSession, setMixtureSession] = useState<MixtureSession | null>(null);
     const [latestImpact, setLatestImpact] = useState<ImpactAnalysis | null>(null);
     const [keyIndicators, setKeyIndicators] = useState<{ tsr: number; } | null>(null);
-    const [historySessions, setHistorySessions] = useState<MixtureSession[]>([]);
     const [stocks, setStocks] = useState<Stock[]>([]);
+    const [weeklyAverages, setWeeklyAverages] = useState<Record<string, AverageAnalysis>>({});
     const debitClinker = usePersistentValue<number>('debitClinker', 0);
 
 
     const fetchData = useCallback(async () => {
         try {
-            const thirtyDaysAgo = subDays(new Date(), 30);
+            const sevenDaysAgo = subDays(new Date(), 7);
             const today = new Date();
 
-            const [sessionData, impactAnalyses, indicatorData, historyData, stockData] = await Promise.all([
+            const [sessionData, impactAnalyses, indicatorData, stockData, uniqueFuels] = await Promise.all([
                 getLatestMixtureSession(),
                 getImpactAnalyses(),
                 getLatestIndicatorData(),
-                getMixtureSessions(thirtyDaysAgo, today),
                 getStocks(),
+                getUniqueFuelTypes(),
             ]);
+
+            const fuelNames = uniqueFuels.filter(name => name.toLowerCase() !== 'grignons' && name.toLowerCase() !== 'pet-coke');
+
+            const weeklyAvgsData = await getAverageAnalysisForFuels(fuelNames, { from: sevenDaysAgo, to: today });
+
             setMixtureSession(sessionData);
             setLatestImpact(impactAnalyses.length > 0 ? impactAnalyses[0] : null);
             setKeyIndicators(indicatorData);
-            setHistorySessions(historyData);
             setStocks(stockData);
+            setWeeklyAverages(weeklyAvgsData);
         } catch (error) {
             console.error("Error fetching dashboard data:", error);
         } finally {
             setLoading(false);
         }
     }, []);
+
 
     useEffect(() => {
         fetchData();
@@ -199,16 +205,16 @@ export function MainDashboard() {
             : 0;
     }, [mixtureSession, debitClinker]);
 
-    const historyChartData = useMemo(() => {
-        if (!historySessions || historySessions.length === 0) return [];
-        return historySessions.map(session => ({
-            date: format(session.timestamp.toDate(), 'd MMM', { locale: fr }), 
-            'PCI': session.globalIndicators.pci,
-            'Humidité': session.globalIndicators.humidity,
-            'Chlore': session.globalIndicators.chlorine,
-        })).sort((a,b) => a.date.localeCompare(b.date, 'fr', { numeric: true }));
-      }, [historySessions]);
-
+    const chartData = useMemo(() => {
+        return Object.entries(weeklyAverages)
+            .filter(([, data]) => data && data.count > 0)
+            .map(([name, data]) => ({
+                name,
+                pci: data.pci_brut,
+                chlore: data.chlore,
+            }));
+    }, [weeklyAverages]);
+    
     const stockChartData = useMemo(() => {
         if (!stocks || stocks.length === 0) return [];
         return stocks
@@ -246,30 +252,48 @@ export function MainDashboard() {
                 <div className="lg:col-span-2 space-y-6">
                     <Card>
                         <CardHeader>
-                            <CardTitle className="flex items-center gap-2"><TrendingUp /> Historique des Indicateurs</CardTitle>
-                            <CardDescription>Évolution sur les 30 derniers jours</CardDescription>
+                            <CardTitle className="flex items-center gap-2"><Flame /> Moyenne PCI par Combustible</CardTitle>
+                            <CardDescription>Moyenne des 7 derniers jours</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <ResponsiveContainer width="100%" height={300}>
-                                {historyChartData.length > 0 ? (
-                                    <LineChart data={historyChartData}>
+                             <ResponsiveContainer width="100%" height={300}>
+                                {chartData.length > 0 ? (
+                                    <RechartsBarChart data={chartData}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                                        <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                                        <YAxis yAxisId="left" stroke="hsl(var(--primary))" fontSize={12} />
-                                        <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" fontSize={12} />
+                                        <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
                                         <Tooltip content={<CustomHistoryTooltip />} />
                                         <Legend />
-                                        <Line yAxisId="left" type="monotone" dataKey="PCI" stroke="hsl(var(--primary))" dot={false} strokeWidth={2} />
-                                        <Line yAxisId="right" type="monotone" dataKey="Humidité" stroke="#82ca9d" dot={false} strokeWidth={2} />
-                                        <Line yAxisId="right" type="monotone" dataKey="Chlore" stroke="#ffc658" dot={false} strokeWidth={2} />
-                                    </LineChart>
+                                        <Bar dataKey="pci" name="PCI (kcal/kg)" fill="hsl(var(--primary))" />
+                                    </RechartsBarChart>
                                 ) : (
-                                    <div className="flex items-center justify-center h-full text-muted-foreground">Aucun historique de session.</div>
+                                    <div className="flex items-center justify-center h-full text-muted-foreground">Aucune donnée pour la période.</div>
                                 )}
                             </ResponsiveContainer>
                         </CardContent>
                     </Card>
-                    <ImpactCard title="Impact sur le Clinker" data={impactData} lastUpdate={latestImpact?.createdAt.toDate()} />
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2"><Wind /> Moyenne Chlore par Combustible</CardTitle>
+                            <CardDescription>Moyenne des 7 derniers jours</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                             <ResponsiveContainer width="100%" height={300}>
+                                {chartData.length > 0 ? (
+                                    <RechartsBarChart data={chartData}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                                        <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                                        <Tooltip content={<CustomHistoryTooltip />} />
+                                        <Legend />
+                                        <Bar dataKey="chlore" name="Chlore (%)" fill="#ffc658" />
+                                    </RechartsBarChart>
+                                ) : (
+                                    <div className="flex items-center justify-center h-full text-muted-foreground">Aucune donnée pour la période.</div>
+                                )}
+                            </ResponsiveContainer>
+                        </CardContent>
+                    </Card>
                 </div>
 
                 <div className="lg:col-span-1 space-y-6">
@@ -285,6 +309,7 @@ export function MainDashboard() {
                             )) : <p className="col-span-2 text-center text-muted-foreground p-4">Aucune session de mélange.</p>}
                         </CardContent>
                     </Card>
+                     <ImpactCard title="Impact sur le Clinker" data={impactData} lastUpdate={latestImpact?.createdAt.toDate()} />
                 </div>
 
             </section>
@@ -319,4 +344,3 @@ export function MainDashboard() {
         </div>
     );
 }
-
