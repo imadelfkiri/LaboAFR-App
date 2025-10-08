@@ -3,14 +3,14 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getLatestIndicatorData, getMixtureSessions, getStocks, Stock, getAverageAnalysisForFuels, AverageAnalysis, getUniqueFuelTypes } from '@/lib/data';
+import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getLatestIndicatorData, getMixtureSessions, getStocks, Stock, getAverageAnalysisForFuels as getAverageAnalysisForFuelTypes, AverageAnalysis, getUniqueFuelTypes } from '@/lib/data';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Droplets, Wind, Percent, BarChart, Thermometer, Flame, TrendingUp, Activity, Archive, LayoutDashboard } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { KeyIndicatorCard } from './cards/KeyIndicatorCard';
 import { FlowRateCard, FlowData } from './cards/FlowRateCard';
 import { ImpactCard, ImpactData } from './cards/ImpactCard';
-import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
+import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell } from 'recharts';
 import { subDays, format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -72,6 +72,8 @@ const CustomHistoryTooltip = ({ active, payload, label }: any) => {
     return null;
   };
 
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658'];
+
 export function MainDashboard() {
     const [loading, setLoading] = useState(true);
     const [mixtureSession, setMixtureSession] = useState<MixtureSession | null>(null);
@@ -97,7 +99,7 @@ export function MainDashboard() {
 
             const fuelNames = uniqueFuels.filter(name => name.toLowerCase() !== 'grignons' && name.toLowerCase() !== 'pet-coke');
 
-            const weeklyAvgsData = await getAverageAnalysisForFuels(fuelNames, { from: sevenDaysAgo, to: today });
+            const weeklyAvgsData = await getAverageAnalysisForFuelTypes(fuelNames, { from: sevenDaysAgo, to: today });
 
             setMixtureSession(sessionData);
             setLatestImpact(impactAnalyses.length > 0 ? impactAnalyses[0] : null);
@@ -264,7 +266,11 @@ export function MainDashboard() {
                                         <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
                                         <Tooltip content={<CustomHistoryTooltip />} />
                                         <Legend />
-                                        <Bar dataKey="pci" name="PCI (kcal/kg)" fill="hsl(var(--primary))" />
+                                        <Bar dataKey="pci" name="PCI (kcal/kg)">
+                                            {chartData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            ))}
+                                        </Bar>
                                     </RechartsBarChart>
                                 ) : (
                                     <div className="flex items-center justify-center h-full text-muted-foreground">Aucune donnée pour la période.</div>
@@ -286,7 +292,11 @@ export function MainDashboard() {
                                         <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
                                         <Tooltip content={<CustomHistoryTooltip />} />
                                         <Legend />
-                                        <Bar dataKey="chlore" name="Chlore (%)" fill="#ffc658" />
+                                        <Bar dataKey="chlore" name="Chlore (%)">
+                                            {chartData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            ))}
+                                        </Bar>
                                     </RechartsBarChart>
                                 ) : (
                                     <div className="flex items-center justify-center h-full text-muted-foreground">Aucune donnée pour la période.</div>
@@ -328,7 +338,11 @@ export function MainDashboard() {
                                         <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} />
                                         <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} width={100} />
                                         <Tooltip cursor={{ fill: 'hsl(var(--muted))' }} contentStyle={{background: 'hsl(var(--background))', border: '1px solid hsl(var(--border))'}}/>
-                                        <Bar dataKey="tonnage" name="Tonnage" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                                        <Bar dataKey="tonnage" name="Tonnage">
+                                            {stockChartData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            ))}
+                                        </Bar>
                                     </RechartsBarChart>
                                 ) : (
                                     <div className="flex items-center justify-center h-full text-muted-foreground">Aucune donnée de stock.</div>
