@@ -261,7 +261,7 @@ function AnalysesCendresView({
   const AverageRow = ({ label, data }: { label: string; data: any; }) => {
     if (!data || data.count === 0) return null;
     return (
-        <tr className="border-b border-brand-line/40 last:border-0 bg-brand-muted/50 hover:bg-brand-muted font-semibold">
+        <tr className="border-t-2 border-brand-line/80 bg-brand-muted/50 hover:bg-brand-muted font-semibold">
             <td className="p-2 text-muted-foreground whitespace-nowrap" colSpan={3}>{label} ({data.count})</td>
             <td className="p-2 text-right tabular-nums">{data.oxides?.['%Cendres']}</td>
             <td className="p-2 text-right tabular-nums">{data.oxides?.PF}</td>
@@ -342,12 +342,10 @@ function AnalysesCendresView({
                   {(!rows || rows.length === 0) && (
                     <tr><td colSpan={19} className="p-6 text-center text-muted-foreground">Aucune donnée.</td></tr>
                   )}
-                </tbody>
-                 <tfoot className="sticky bottom-0 bg-brand-surface/95 backdrop-blur-sm">
                     <AverageRow label="Moyenne Pet coke" data={averages.petCoke} />
                     <AverageRow label="Moyenne Grignons" data={averages.grignons} />
                     <AverageRow label="Moyenne AFs" data={averages.afs} />
-                </tfoot>
+                </tbody>
               </table>
             </div>
           </CardContent>
