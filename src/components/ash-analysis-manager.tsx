@@ -225,7 +225,7 @@ function AnalysesCendresView({
     return (
       <th
         onClick={() => onSort(sortKey)}
-        className="sticky top-0 z-20 bg-brand-surface/95 backdrop-blur p-2 text-left font-semibold border-b border-brand-line/60 cursor-pointer hover:bg-brand-muted/50"
+        className="sticky top-0 z-20 bg-blue-900/40 backdrop-blur p-2 text-left font-semibold border-b border-brand-line/60 cursor-pointer hover:bg-brand-muted/50"
       >
         <div className="flex items-center gap-2">
             <span>{label}</span>
@@ -303,7 +303,7 @@ function AnalysesCendresView({
                 <thead className="text-neutral-300">
                   <tr>
                     {headers.map(h => <SortableHeader key={h.key} label={h.label} sortKey={h.key} />)}
-                    <th className="sticky top-0 z-20 bg-brand-surface/95 backdrop-blur p-2 text-center font-semibold border-b border-brand-line/60">Actions</th>
+                    <th className="sticky top-0 z-20 bg-blue-900/40 backdrop-blur p-2 text-center font-semibold border-b border-brand-line/60">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
