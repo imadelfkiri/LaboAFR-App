@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { KeyIndicatorCard } from './cards/KeyIndicatorCard';
 import { FlowRateCard, FlowData } from './cards/FlowRateCard';
 import { ImpactCard, ImpactData } from './cards/ImpactCard';
-import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell } from 'recharts';
+import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell, LabelList } from 'recharts';
 import { subDays, format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -265,8 +265,8 @@ export function MainDashboard() {
                                         <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
                                         <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
                                         <Tooltip content={<CustomHistoryTooltip />} />
-                                        <Legend />
                                         <Bar dataKey="pci" name="PCI (kcal/kg)">
+                                            <LabelList dataKey="pci" position="top" formatter={(value: number) => Math.round(value)} fontSize={12} fill="hsl(var(--foreground))" />
                                             {chartData.map((entry, index) => (
                                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                             ))}
@@ -291,8 +291,8 @@ export function MainDashboard() {
                                         <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
                                         <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
                                         <Tooltip content={<CustomHistoryTooltip />} />
-                                        <Legend />
                                         <Bar dataKey="chlore" name="Chlore (%)">
+                                             <LabelList dataKey="chlore" position="top" formatter={(value: number) => value.toFixed(2)} fontSize={12} fill="hsl(var(--foreground))" />
                                             {chartData.map((entry, index) => (
                                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                             ))}
