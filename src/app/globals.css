@@ -4,44 +4,44 @@
 
 @layer base {
   :root {
-    /* Thème sombre moderne */
-    --background: 220 14% 6%; /* #0D0F13 */
-    --foreground: 210 20% 98%;
+    /* Nouveau thème Slate & Green */
+    --background: 222 47% 11%; /* Slate-900 */
+    --foreground: 210 40% 98%;
 
-    --card: 220 13% 9%; /* #11151A */
-    --card-foreground: 210 20% 98%;
+    --card: 222 47% 14%; /* Un peu plus clair que le fond */
+    --card-foreground: 210 40% 98%;
 
-    --popover: 220 13% 9%;
-    --popover-foreground: 210 20% 98%;
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
 
-    --primary: 142 71% 45%; /* #10B981 - Green */
-    --primary-foreground: 210 20% 98%;
+    --primary: 142 71% 45%; /* Vert émeraude */
+    --primary-foreground: 210 40% 98%;
 
-    --secondary: 215 28% 17%; /* #202A37 */
-    --secondary-foreground: 210 20% 98%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 215 28% 17%;
-    --muted-foreground: 218 11% 65%;
+    --muted: 217 33% 25%;
+    --muted-foreground: 215 20% 65%;
 
-    --accent: 218 11% 65%;
-    --accent-foreground: 210 20% 98%;
+    --accent: 217 33% 25%;
+    --accent-foreground: 210 40% 98%;
 
-    --destructive: 0 63% 31%; /* #9A2323 */
-    --destructive-foreground: 210 20% 98%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
 
-    --border: 215 28% 17%;
-    --input: 215 28% 17%;
+    --border: 217 33% 20%;
+    --input: 217 33% 20%;
     --ring: 142 71% 45%;
 
     --radius: 0.75rem;
 
     /* Couleurs custom pour le branding */
-    --brand-bg: 220 14% 6%;
-    --brand-surface: 220 13% 9%;
+    --brand-bg: 222 47% 11%;
+    --brand-surface: 222 47% 14%;
     --brand-accent: 142 71% 45%;
-    --brand-muted: 215 28% 17%;
-    --brand-line: 215 20% 25%;
-    --brand-text: 210 20% 98%;
+    --brand-muted: 217 33% 25%;
+    --brand-line: 217 33% 20%;
+    --brand-text: 210 40% 98%;
 
     --positive: 145 63% 42%;
     --warning: 38 92% 50%;
@@ -49,25 +49,24 @@
   }
 
   .dark {
-    /* Garder une variante sombre si besoin de switcher plus tard */
-    --background: 220 14% 6%;
-    --foreground: 210 20% 98%;
-    --card: 220 13% 9%;
-    --card-foreground: 210 20% 98%;
-    --popover: 220 13% 9%;
-    --popover-foreground: 210 20% 98%;
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 14%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
     --primary: 142 71% 45%;
-    --primary-foreground: 210 20% 98%;
-    --secondary: 215 28% 17%;
-    --secondary-foreground: 210 20% 98%;
-    --muted: 215 28% 17%;
-    --muted-foreground: 218 11% 65%;
-    --accent: 218 11% 65%;
-    --accent-foreground: 210 20% 98%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 25%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 33% 25%;
+    --accent-foreground: 210 40% 98%;
     --destructive: 0 63% 31%;
-    --destructive-foreground: 210 20% 98%;
-    --border: 215 28% 17%;
-    --input: 215 28% 17%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 33% 20%;
+    --input: 217 33% 20%;
     --ring: 142 71% 45%;
   }
 }
