@@ -19,30 +19,10 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/lib/firebase';
 import { Skeleton } from '../ui/skeleton';
 
-const pageTitles: { [key: string]: string } = {
-  '/': 'Tableau de Bord',
-  '/rapport-synthese': 'Rapport de Synthèse',
-  '/calculateur': 'Calculateur PCI',
-  '/resultats': 'Résultats',
-  '/statistiques': 'Statistiques',
-  '/specifications': 'Spécifications',
-  '/analyses-cendres': 'Analyses Cendres',
-  '/donnees-combustibles': 'Données Combustibles',
-  '/calcul-melange': 'Calcul de Mélange',
-  '/simulation-melange': 'Simulation de Mélange',
-  '/gestion-couts': 'Gestion des Coûts',
-  '/gestion-stock': 'Gestion du Stock',
-  '/indicateurs': 'Indicateurs',
-  '/calcul-impact': "Calcul d'Impact",
-  '/historique-impact': "Historique Impact",
-  '/suivi-chlore': 'Suivi Chlore',
-};
-
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [user, loading, error] = useAuthState(auth);
-  const title = pageTitles[pathname] || 'FuelTrack AFR';
   
   const isLoginPage = pathname === '/login';
 
@@ -96,25 +76,25 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         </SidebarContent>
       </Sidebar>
       <SidebarInset>
-        <header className="flex h-16 items-center justify-between gap-4 border-b bg-background/95 backdrop-blur-sm px-4 lg:px-6 sticky top-0 z-30">
-            <div className="flex items-center gap-2">
-                <SidebarTrigger className="flex" />
-                <h1 className="text-xl font-bold tracking-tight">{title}</h1>
-            </div>
-            <div className="flex items-center justify-end gap-2" style={{ minWidth: '180px' }}>
-                {pathname === '/specifications' && (
-                    <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={() => (window as any).openSpecModal()}>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Ajouter une spécification
-                    </Button>
+        <header className="flex h-[60px] items-center justify-between gap-4 border-b bg-slate-900 px-6 sticky top-0 z-30 text-white">
+            <div className="text-lg font-bold">⚡ FuelTrack AFR Monitoring</div>
+            <div className="flex items-center gap-4">
+                {user && (
+                    <span className="text-sm text-slate-300">👋 {user.email}</span>
                 )}
-                 <Button variant="ghost" size="sm" onClick={handleLogout}>
-                    <LogOut className="mr-2 h-4 w-4" />
+                 <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleLogout}
+                    className="bg-red-500 hover:bg-red-600 rounded-lg font-bold"
+                 >
                     Déconnexion
                  </Button>
             </div>
         </header>
-        {user ? children : null}
+        <div style={{marginTop: '20px'}}>
+            {user ? children : null}
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );
