@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, cloneElement } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -99,6 +99,13 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
+  const childrenWithProps = React.Children.map(children, child => {
+    if (React.isValidElement(child)) {
+      return cloneElement(child as React.ReactElement<any>, { userProfile });
+    }
+    return child;
+  });
+
   return (
     <SidebarProvider>
       <Sidebar>
@@ -137,7 +144,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
             </div>
         </header>
         <div style={{marginTop: '20px'}}>
-            {user ? children : null}
+            {user ? childrenWithProps : null}
         </div>
       </SidebarInset>
     </SidebarProvider>

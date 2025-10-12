@@ -55,7 +55,7 @@ import {
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator";
 import { calculerPCI } from '@/lib/pci';
-import { getFuelTypes, type FuelType, getFuelSupplierMap, addSupplierToFuel, SPEC_MAP, getSpecifications, addFuelType, getFuelData, FuelData, getUniqueFuelTypes } from '@/lib/data';
+import { getFuelTypes, type FuelType, getFuelSupplierMap, addSupplierToFuel, SPEC_MAP, getSpecifications, addFuelType, getFuelData, FuelData, getUniqueFuelTypes, UserProfile } from '@/lib/data';
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from './ui/skeleton';
 
@@ -103,8 +103,11 @@ const fuelOrder = [
     "Mélange"
 ];
 
+interface PciCalculatorProps {
+    userProfile?: UserProfile;
+}
 
-export function PciCalculator() {
+export function PciCalculator({ userProfile }: PciCalculatorProps) {
   const [pciResult, setPciResult] = useState<number | null>(null);
   const [hValue, setHValue] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -396,6 +399,8 @@ export function PciCalculator() {
   }
 
   const isFournisseurDisabled = !watchedTypeCombustible;
+  const isReadOnly = userProfile?.role === 'viewer';
+
 
   if (loading) {
       return (
@@ -722,15 +727,17 @@ export function PciCalculator() {
 
             </div>
             
-            <div className="fixed bottom-4 right-4 z-30">
-                <button
-                    type="submit"
-                    disabled={isSaving || pciResult === null}
-                    className="rounded-full bg-emerald-600 px-5 h-12 text-white shadow-lg hover:bg-emerald-700 disabled:bg-emerald-300"
-                >
-                    {isSaving ? "Enregistrement..." : "Enregistrer"}
-                </button>
-            </div>
+            {!isReadOnly && (
+                <div className="fixed bottom-4 right-4 z-30">
+                    <button
+                        type="submit"
+                        disabled={isSaving || pciResult === null}
+                        className="rounded-full bg-emerald-600 px-5 h-12 text-white shadow-lg hover:bg-emerald-700 disabled:bg-emerald-300"
+                    >
+                        {isSaving ? "Enregistrement..." : "Enregistrer"}
+                    </button>
+                </div>
+            )}
         </form>
       </Form>
 
