@@ -1,11 +1,8 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Autorise la lecture et l'écriture sur toutes les collections
-    // C'est une règle permissive, adaptée pour un environnement de développement/interne.
-    // Pour la production, il faudrait affiner ces règles (ex: allow read, write: if request.auth != null;)
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if request.auth != null;
     }
   }
 }
