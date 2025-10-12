@@ -5,8 +5,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { useRouter } from 'next/navigation';
 import { auth, db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 import {
   Table,
   TableBody,
@@ -50,7 +49,7 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { getAllUsers, updateUserRole, type UserProfile } from '@/lib/data';
+import { getAllUsers, updateUserRole, createUser, type UserProfile } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -145,28 +144,18 @@ export function UserManagementTable() {
 
     const onCreateUserSubmit = async (values: z.infer<typeof newUserSchema>) => {
         try {
-            // Note: This creates the user on the client. For production, a Cloud Function is recommended.
-            const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-            const newUser = userCredential.user;
-
-            // Now, create the user profile in Firestore
-            await setDoc(doc(db, 'users', newUser.uid), {
-                uid: newUser.uid,
-                email: values.email,
-                role: values.role,
-                active: true,
-                createdAt: Timestamp.now(),
-            });
-
+            await createUser(values);
             toast({ title: "Utilisateur créé !", description: `Le compte pour ${values.email} a été créé avec succès.` });
             setIsCreateModalOpen(false);
             form.reset();
-            fetchUsers(); // Refresh the user list
+            fetchUsers();
         } catch (error: any) {
             console.error("Error creating user:", error);
             let errorMessage = "Une erreur est survenue lors de la création de l'utilisateur.";
-            if (error.code === 'auth/email-already-in-use') {
+            if (error.message.includes('EMAIL_EXISTS')) {
                 errorMessage = "Cette adresse email est déjà utilisée par un autre compte.";
+            } else if (error.message.includes('permission-denied')) {
+                errorMessage = "Vous n'avez pas les permissions pour effectuer cette action.";
             }
             toast({ variant: "destructive", title: "Erreur de création", description: errorMessage });
         }

@@ -2,6 +2,7 @@
 import { initializeApp, getApp, getApps, type FirebaseApp } from "firebase/app";
 import { getFirestore, Firestore } from "firebase/firestore";
 import { getAuth, Auth } from "firebase/auth";
+import { getFunctions, Functions } from "firebase/functions";
 import { initializeAppCheck, ReCaptchaV3Provider, AppCheck } from "firebase/app-check";
 
 const firebaseConfig = {
@@ -17,6 +18,7 @@ const firebaseConfig = {
 const app: FirebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db: Firestore = getFirestore(app);
 const auth: Auth = getAuth(app);
+const functions: Functions = getFunctions(app);
 
 let appCheck: AppCheck | null = null;
 
@@ -29,4 +31,4 @@ if (typeof window !== 'undefined') {
     });
 }
 
-export { db, auth };
+export { db, auth, functions };
