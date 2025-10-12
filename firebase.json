@@ -9,5 +9,12 @@
     "frameworksBackend": {
       "region": "us-central1"
     }
-  }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "runtime": "nodejs20"
+    }
+  ]
 }
