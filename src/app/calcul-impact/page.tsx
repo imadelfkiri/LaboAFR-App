@@ -1,3 +1,4 @@
+
 // app/calcul-impact/page.tsx
 "use client"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -17,6 +18,7 @@ import* as XLSX from 'xlsx';
 import { Label } from "@/components/ui/label"
 import { handleInterpretImpact } from "@/lib/actions"
 import type { ImpactInterpreterInput, ImpactInterpreterOutput } from "@/ai/flows/impact-interpreter-flow"
+import { useAuth } from "@/context/auth-provider";
 
 
 // --- Type Definitions ---
@@ -194,6 +196,8 @@ const useClinkerCalculations = (
 
 // --- Page Component ---
 export default function CalculImpactPage() {
+    const { userProfile } = useAuth();
+    const isReadOnly = userProfile?.role === 'viewer';
     const { toast } = useToast();
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -322,6 +326,7 @@ export default function CalculImpactPage() {
 
 
     const handleSave = async () => {
+        if (isReadOnly) return;
         setIsSaving(true);
         try {
             const analysisToSave: Omit<ImpactAnalysis, 'id' | 'createdAt'> = {
@@ -348,12 +353,14 @@ export default function CalculImpactPage() {
 
 
     const handleDeletePreset = async (id: string) => {
+        if (isReadOnly) return;
         await deleteRawMealPreset(id);
         toast({ title: "Preset supprimé." });
         fetchPresets();
     };
 
     const handleCombinedImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+        if (isReadOnly) return;
         const file = event.target.files?.[0];
         if (!file) return;
 
@@ -447,6 +454,7 @@ export default function CalculImpactPage() {
     const chartColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F'];
 
     const onInterpret = async () => {
+        if (isReadOnly) return;
         setIsInterpreting(true);
         setInterpretation(null);
         try {
@@ -490,16 +498,19 @@ export default function CalculImpactPage() {
         onChange={handleCombinedImport}
         className="hidden"
         accept=".xlsx, .xls"
+        disabled={isReadOnly}
       />
       <section>
           <Card>
             <CardHeader>
                 <div className="flex justify-between items-center">
                     <CardTitle>Paramètres du Four</CardTitle>
-                    <Button onClick={handleSave} disabled={isSaving}>
-                        <Save className="mr-2 h-4 w-4" />
-                        {isSaving ? "Sauvegarde..." : "Sauvegarder l'Analyse"}
-                    </Button>
+                    {!isReadOnly && (
+                        <Button onClick={handleSave} disabled={isSaving}>
+                            <Save className="mr-2 h-4 w-4" />
+                            {isSaving ? "Sauvegarde..." : "Sauvegarder l'Analyse"}
+                        </Button>
+                    )}
                 </div>
             </CardHeader>
             <CardContent>
@@ -507,12 +518,12 @@ export default function CalculImpactPage() {
                 
                 <div className="space-y-2">
                   <Label htmlFor="debit-farine" className="flex items-center gap-2 text-sm text-muted-foreground"><Beaker className="h-4 w-4" />Débit Farine (t/h)</Label>
-                  <Input id="debit-farine" type="number" value={rawMealFlow} onChange={e => setRawMealFlow(parseFloat(e.target.value) || 0)} className="h-10 text-lg" />
+                  <Input id="debit-farine" type="number" value={rawMealFlow} onChange={e => setRawMealFlow(parseFloat(e.target.value) || 0)} className="h-10 text-lg" readOnly={isReadOnly} />
                 </div>
                 
                 <div className="space-y-2">
                   <Label htmlFor="facteur-clinkerisation" className="flex items-center gap-2 text-sm text-muted-foreground"><Gauge className="h-4 w-4" />Facteur Clinkérisation</Label>
-                  <Input id="facteur-clinkerisation" type="number" step="0.01" value={clinkerFactor} onChange={e => setClinkerFactor(parseFloat(e.target.value) || 0)} className="h-10 text-lg" />
+                  <Input id="facteur-clinkerisation" type="number" step="0.01" value={clinkerFactor} onChange={e => setClinkerFactor(parseFloat(e.target.value) || 0)} className="h-10 text-lg" readOnly={isReadOnly}/>
                 </div>
 
                 <div className="space-y-2">
@@ -522,17 +533,17 @@ export default function CalculImpactPage() {
                 
                 <div className="space-y-2">
                   <Label htmlFor="chaux-libre" className="flex items-center gap-2 text-sm text-muted-foreground"><Zap className="h-4 w-4" />Chaux Libre (calcul C₃S)</Label>
-                  <Input id="chaux-libre" type="number" step="0.1" value={freeLime} onChange={e => setFreeLime(parseFloat(e.target.value) || 0)} className="h-10 text-lg" />
+                  <Input id="chaux-libre" type="number" step="0.1" value={freeLime} onChange={e => setFreeLime(parseFloat(e.target.value) || 0)} className="h-10 text-lg" readOnly={isReadOnly}/>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="cible-so3" className="flex items-center gap-2 text-sm text-muted-foreground"><Wind className="h-4 w-4" />Cible SO₃ Clinker (%)</Label>
-                  <Input id="cible-so3" type="number" step="0.1" value={so3Target} onChange={e => setSo3Target(parseFloat(e.target.value) || 0)} className="h-10 text-lg" />
+                  <Input id="cible-so3" type="number" step="0.1" value={so3Target} onChange={e => setSo3Target(parseFloat(e.target.value) || 0)} className="h-10 text-lg" readOnly={isReadOnly}/>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="pf-clinker" className="flex items-center gap-2 text-sm text-muted-foreground"><Zap className="h-4 w-4" />PF Clinker (%)</Label>
-                  <Input id="pf-clinker" type="number" step="0.1" value={pfClinkerTarget} onChange={e => setPfClinkerTarget(parseFloat(e.target.value) || 0)} className="h-10 text-lg" />
+                  <Input id="pf-clinker" type="number" step="0.1" value={pfClinkerTarget} onChange={e => setPfClinkerTarget(parseFloat(e.target.value) || 0)} className="h-10 text-lg" readOnly={isReadOnly}/>
                 </div>
 
               </div>
@@ -563,6 +574,7 @@ export default function CalculImpactPage() {
                 c3sAvec={c3sAvec}
                 c3sReel={c3sReel}
                 showDelta={true}
+                isReadOnly={isReadOnly}
             />
         </div>
         <Card>
@@ -572,10 +584,12 @@ export default function CalculImpactPage() {
                         <CardTitle>Impact sur les Indicateurs Clés</CardTitle>
                         <CardDescription>Variation absolue (Avec Cendres - Sans Cendres)</CardDescription>
                     </div>
-                     <Button onClick={onInterpret} disabled={isInterpreting}>
-                        <BrainCircuit className="mr-2 h-4 w-4" />
-                        {isInterpreting ? "Analyse en cours..." : "Interpréter l'Impact"}
-                    </Button>
+                    {!isReadOnly && (
+                        <Button onClick={onInterpret} disabled={isInterpreting}>
+                            <BrainCircuit className="mr-2 h-4 w-4" />
+                            {isInterpreting ? "Analyse en cours..." : "Interpréter l'Impact"}
+                        </Button>
+                    )}
                 </div>
             </CardHeader>
             <CardContent>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -20,8 +21,11 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Trash2 } from 'lucide-react';
+import { useAuth } from '@/context/auth-provider';
 
 export function ImpactHistoryTable() {
+    const { userProfile } = useAuth();
+    const isReadOnly = userProfile?.role === 'viewer';
     const [analyses, setAnalyses] = useState<ImpactAnalysis[]>([]);
     const [loading, setLoading] = useState(true);
     const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -45,7 +49,7 @@ export function ImpactHistoryTable() {
     }, []);
     
     const handleDelete = async () => {
-        if (!deletingId) return;
+        if (isReadOnly || !deletingId) return;
         try {
             await deleteImpactAnalysis(deletingId);
             toast({ title: "Succès", description: "L'enregistrement a été supprimé." });
@@ -98,7 +102,7 @@ export function ImpactHistoryTable() {
                                         <TableHead className="text-right">Δ Fe2O3</TableHead>
                                         <TableHead className="text-right">Δ LSF</TableHead>
                                         <TableHead className="text-right">Δ C3S</TableHead>
-                                        <TableHead className="text-center">Actions</TableHead>
+                                        {!isReadOnly && <TableHead className="text-center">Actions</TableHead>}
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -120,11 +124,13 @@ export function ImpactHistoryTable() {
                                                     <TableCell className={`text-right font-medium ${deltaClass(deltaFe2O3)}`}>{formatDelta(deltaFe2O3)}</TableCell>
                                                     <TableCell className={`text-right font-medium ${deltaClass(deltaLSF)}`}>{formatDelta(deltaLSF)}</TableCell>
                                                     <TableCell className={`text-right font-bold ${deltaClass(deltaC3S)}`}>{formatDelta(deltaC3S)}</TableCell>
-                                                    <TableCell className="text-center">
-                                                        <Button variant="ghost" size="icon" onClick={() => setDeletingId(item.id!)}>
-                                                            <Trash2 className="h-4 w-4 text-destructive" />
-                                                        </Button>
-                                                    </TableCell>
+                                                    {!isReadOnly && (
+                                                        <TableCell className="text-center">
+                                                            <Button variant="ghost" size="icon" onClick={() => setDeletingId(item.id!)}>
+                                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                                            </Button>
+                                                        </TableCell>
+                                                    )}
                                                 </TableRow>
                                             );
                                         })
