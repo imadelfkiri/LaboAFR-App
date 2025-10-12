@@ -47,16 +47,18 @@ import {
   FormMessage,
   FormLabel,
 } from "@/components/ui/form";
+import { Checkbox } from '@/components/ui/checkbox';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { getAllUsers, updateUserRole, type UserProfile } from '@/lib/data';
+import { getAllUsers, updateUserRole, type UserProfile, getRoles, type Role, updateRoleAccess } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Users, Crown, HardHat, Eye, PlusCircle } from 'lucide-react';
+import { Users, Crown, HardHat, Eye, PlusCircle, Settings, Edit } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { ScrollArea } from './ui/scroll-area';
 
 
 const roleIcons = {
@@ -77,14 +79,87 @@ const newUserSchema = z.object({
   role: z.enum(['technician', 'viewer', 'admin'], { required_error: "Veuillez sélectionner un rôle." }),
 });
 
+const allPages = [
+  { id: '/', label: 'Tableau de Bord' },
+  { id: '/rapport-synthese', label: 'Rapport Synthèse' },
+  { id: '/calculateur', label: 'Calculateur PCI' },
+  { id: '/resultats', label: 'Résultats' },
+  { id: '/statistiques', label: 'Statistiques' },
+  { id: '/specifications', label: 'Spécifications' },
+  { id: '/analyses-cendres', label: 'Analyses Cendres' },
+  { id: '/donnees-combustibles', label: 'Données Combustibles' },
+  { id: '/calcul-melange', label: 'Calcul de Mélange' },
+  { id: '/simulation-melange', label: 'Simulation de Mélange' },
+  { id: '/gestion-couts', label: 'Gestion des Coûts' },
+  { id: '/gestion-stock', label: 'Gestion du Stock' },
+  { id: '/indicateurs', label: 'Indicateurs' },
+  { id: '/calcul-impact', label: 'Calcul d\'Impact' },
+  { id: '/historique-impact', label: 'Historique Impact' },
+  { id: '/suivi-chlore', label: 'Suivi Chlore' },
+  { id: '/gestion-utilisateurs', label: 'Gestion Utilisateurs' },
+];
+
+const RolePermissionsModal = ({ role, onSave, allPages }: { role: Role; onSave: (access: string[]) => void; allPages: {id: string, label: string}[] }) => {
+    const [selectedPages, setSelectedPages] = useState<string[]>(role.access || []);
+    const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        setSelectedPages(role.access || []);
+    }, [role]);
+
+    const handleTogglePage = (pageId: string) => {
+        setSelectedPages(prev => 
+            prev.includes(pageId) ? prev.filter(p => p !== pageId) : [...prev, pageId]
+        );
+    };
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        await onSave(selectedPages);
+        setIsSaving(false);
+    };
+
+    return (
+        <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+                <DialogTitle>Modifier les accès pour le rôle: <span className="capitalize font-bold">{role.id}</span></DialogTitle>
+            </DialogHeader>
+            <ScrollArea className="h-72 my-4">
+                <div className="grid grid-cols-1 gap-2 p-1">
+                    {allPages.map(page => (
+                        <div key={page.id} className="flex items-center space-x-2 p-2 rounded-md hover:bg-muted">
+                            <Checkbox
+                                id={`page-${role.id}-${page.id}`}
+                                checked={selectedPages.includes(page.id)}
+                                onCheckedChange={() => handleTogglePage(page.id)}
+                            />
+                            <label htmlFor={`page-${role.id}-${page.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                {page.label}
+                            </label>
+                        </div>
+                    ))}
+                </div>
+            </ScrollArea>
+            <DialogFooter>
+                <DialogClose asChild><Button variant="secondary">Annuler</Button></DialogClose>
+                <DialogClose asChild><Button onClick={handleSave} disabled={isSaving}>{isSaving ? "Sauvegarde..." : "Sauvegarder"}</Button></DialogClose>
+            </DialogFooter>
+        </DialogContent>
+    );
+};
+
+
 export function UserManagementTable() {
     const [user, authLoading] = useAuthState(auth);
     const router = useRouter();
     const { toast } = useToast();
 
     const [users, setUsers] = useState<UserProfile[]>([]);
+    const [roles, setRoles] = useState<Role[]>([]);
     const [pageLoading, setPageLoading] = useState(true);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [isRoleManagerOpen, setIsRoleManagerOpen] = useState(false);
+    const [editingRole, setEditingRole] = useState<Role | null>(null);
     
     const form = useForm<z.infer<typeof newUserSchema>>({
         resolver: zodResolver(newUserSchema),
@@ -95,14 +170,15 @@ export function UserManagementTable() {
         },
     });
 
-    const fetchUsers = useCallback(async () => {
+    const fetchAllData = useCallback(async () => {
         setPageLoading(true);
         try {
-            const allUsers = await getAllUsers();
+            const [allUsers, allRoles] = await Promise.all([getAllUsers(), getRoles()]);
             setUsers(allUsers);
+            setRoles(allRoles);
         } catch (error) {
-            console.error("Error fetching users:", error);
-            toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger la liste des utilisateurs." });
+            console.error("Error fetching data:", error);
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données." });
         } finally {
             setPageLoading(false);
         }
@@ -120,7 +196,7 @@ export function UserManagementTable() {
                 const userDocRef = doc(db, 'users', user.uid);
                 const userDoc = await getDoc(userDocRef);
                 if (userDoc.exists() && userDoc.data().role === 'admin') {
-                    fetchUsers();
+                    fetchAllData();
                 } else {
                     router.push('/unauthorized');
                 }
@@ -130,16 +206,27 @@ export function UserManagementTable() {
             }
         };
         checkPermissionsAndFetch();
-    }, [user, authLoading, router, fetchUsers]);
+    }, [user, authLoading, router, fetchAllData]);
 
     const handleRoleChange = async (userId: string, newRole: 'admin' | 'technician' | 'viewer') => {
         try {
             await updateUserRole(userId, newRole);
             toast({ title: "Succès", description: "Le rôle de l'utilisateur a été mis à jour." });
-            fetchUsers(); // Refresh the user list
+            fetchAllData(); // Refresh the user list
         } catch (error) {
             console.error("Error updating user role:", error);
             toast({ variant: "destructive", title: "Erreur", description: "Impossible de mettre à jour le rôle." });
+        }
+    };
+    
+    const handleUpdateRoleAccess = async (roleId: string, access: string[]) => {
+        try {
+            await updateRoleAccess(roleId, access);
+            toast({ title: "Succès", description: `Les permissions pour le rôle ${roleId} ont été mises à jour.` });
+            fetchAllData(); // Refresh roles
+        } catch (error) {
+            console.error("Error updating role access:", error);
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible de mettre à jour les permissions." });
         }
     };
 
@@ -151,7 +238,7 @@ export function UserManagementTable() {
             toast({ title: "Utilisateur créé !", description: `Le compte pour ${values.email} a été créé avec succès.` });
             setIsCreateModalOpen(false);
             form.reset();
-            fetchUsers();
+            fetchAllData();
         } catch (error: any) {
             console.error("Error creating user:", error);
             let errorMessage = "Une erreur est survenue lors de la création de l'utilisateur.";
@@ -181,7 +268,7 @@ export function UserManagementTable() {
     return (
         <>
             <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
+                <CardHeader className="flex flex-row items-start md:items-center justify-between gap-4">
                     <div>
                         <CardTitle className="flex items-center gap-2">
                             <Users className="h-6 w-6 text-primary" />
@@ -191,10 +278,16 @@ export function UserManagementTable() {
                             Gérez les rôles et l'accès de chaque membre de l'équipe.
                         </CardDescription>
                     </div>
-                     <Button onClick={() => setIsCreateModalOpen(true)}>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Créer un utilisateur
-                    </Button>
+                    <div className="flex gap-2">
+                         <Button variant="outline" onClick={() => setIsRoleManagerOpen(true)}>
+                            <Settings className="mr-2 h-4 w-4" />
+                            Gérer les Rôles
+                        </Button>
+                         <Button onClick={() => setIsCreateModalOpen(true)}>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Créer un utilisateur
+                        </Button>
+                    </div>
                 </CardHeader>
                 <CardContent>
                      <Table>
@@ -306,6 +399,44 @@ export function UserManagementTable() {
                     </Form>
                 </DialogContent>
             </Dialog>
+
+             <Dialog open={isRoleManagerOpen} onOpenChange={setIsRoleManagerOpen}>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Gestion des Permissions par Rôle</DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4 space-y-4">
+                        {roles.map(role => (
+                            <Card key={role.id}>
+                                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                                     <CardTitle className="text-lg capitalize flex items-center gap-2">
+                                        {roleIcons[role.id as keyof typeof roleIcons]}
+                                        {role.id}
+                                    </CardTitle>
+                                    <Dialog>
+                                        <DialogTrigger asChild>
+                                             <Button variant="outline" size="sm" onClick={() => setEditingRole(role)}><Edit className="mr-2 h-3 w-3" /> Modifier les accès</Button>
+                                        </DialogTrigger>
+                                        {editingRole && editingRole.id === role.id && (
+                                            <RolePermissionsModal 
+                                                role={editingRole} 
+                                                onSave={(access) => handleUpdateRoleAccess(editingRole.id, access)}
+                                                allPages={allPages}
+                                            />
+                                        )}
+                                    </Dialog>
+                                </CardHeader>
+                                <CardContent>
+                                    <p className="text-sm text-muted-foreground">
+                                        Accès à {role.access.length} page(s).
+                                    </p>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                </DialogContent>
+            </Dialog>
+
         </>
     );
 }

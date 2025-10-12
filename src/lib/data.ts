@@ -37,6 +37,12 @@ export interface UserProfile {
     createdAt: Timestamp;
 }
 
+export interface Role {
+    id: string;
+    access: string[];
+}
+
+
 export interface AverageAnalysis {
     pci_brut: number;
     h2o: number;
@@ -186,7 +192,7 @@ export interface ChlorineTrackingEntry {
 }
 
 // --- Role-based Access Control ---
-export const roleAccess: Record<string, string[]> = {
+const defaultRoleAccess: Record<string, string[]> = {
   admin: [
     '/',
     '/rapport-synthese',
@@ -230,11 +236,36 @@ export const roleAccess: Record<string, string[]> = {
 };
 
 export const getAllowedRoutesForRole = async (role: string): Promise<string[]> => {
-    // For now, we use the hardcoded object.
-    // This can be replaced with a Firestore call later to make it dynamic.
-    return roleAccess[role] || [];
+    const roleDocRef = doc(db, 'roles', role);
+    const docSnap = await getDoc(roleDocRef);
+    if (docSnap.exists()) {
+        return docSnap.data().access || [];
+    }
+    // Fallback to hardcoded roles if not found in Firestore
+    return defaultRoleAccess[role] || [];
 };
 
+export const getRoles = async (): Promise<Role[]> => {
+    const rolesCollection = collection(db, 'roles');
+    const snapshot = await getDocs(rolesCollection);
+    if(snapshot.empty) {
+        // If roles collection is empty, populate with default
+        const batch = writeBatch(db);
+        Object.entries(defaultRoleAccess).forEach(([roleName, accessList]) => {
+            const roleRef = doc(db, 'roles', roleName);
+            batch.set(roleRef, { access: accessList });
+        });
+        await batch.commit();
+        const newSnapshot = await getDocs(rolesCollection);
+        return newSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Role));
+    }
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Role));
+}
+
+export const updateRoleAccess = async (roleId: string, access: string[]): Promise<void> => {
+    const roleRef = doc(db, 'roles', roleId);
+    await updateDoc(roleRef, { access });
+};
 
 export const SPEC_MAP = new Map<string, Specification>();
 
