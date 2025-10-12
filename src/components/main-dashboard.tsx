@@ -3,13 +3,12 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getLatestIndicatorData, getMixtureSessions, getStocks, Stock, getAverageAnalysisForFuels as getAverageAnalysisForFuelTypes, AverageAnalysis, getUniqueFuelTypes } from '@/lib/data';
+import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getLatestIndicatorData, getAverageAnalysisForFuels as getAverageAnalysisForFuelTypes, type AverageAnalysis, getUniqueFuelTypes } from '@/lib/data';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Droplets, Wind, Percent, BarChart, Thermometer, Flame, TrendingUp, Activity, Archive, LayoutDashboard, ChevronDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { KeyIndicatorCard } from './cards/KeyIndicatorCard';
-import { FlowRateCard, FlowData } from './cards/FlowRateCard';
-import { ImpactCard, ImpactData } from './cards/ImpactCard';
+import { ImpactCard, type ImpactData } from './cards/ImpactCard';
 import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell, LabelList } from 'recharts';
 import { subDays, format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -51,7 +50,7 @@ function StatCard({ label, value, icon: Icon, unit }: { label: string; value: st
 }
 
 const formatNumber = (num: number | null | undefined, digits: number = 2) => {
-    if (num === null || num === undefined || isNaN(num)) return '0.00';
+    if (num === null || num === undefined || isNaN(num)) return '0,00';
     return num.toLocaleString('fr-FR', {
         minimumFractionDigits: digits,
         maximumFractionDigits: digits,
@@ -123,13 +122,13 @@ export function MainDashboard() {
     const mixtureIndicators = useMemo(() => {
         if (!mixtureSession?.globalIndicators) return null;
         const indicators = mixtureSession.globalIndicators;
-        return [
-            { label: "PCI", value: formatNumber(indicators.pci, 0), unit: "kcal/kg", icon: Thermometer },
-            { label: "Chlorures", value: formatNumber(indicators.chlorine, 3), unit: "%", icon: Wind },
-            { label: "Taux Pneus", value: formatNumber(indicators.tireRate, 2), unit: "%", icon: BarChart },
-            { label: "Cendres", value: formatNumber(indicators.ash, 2), unit: "%", icon: Percent },
-            { label: "H₂O", value: formatNumber(indicators.humidity, 2), unit: "%", icon: Droplets },
-        ];
+        return {
+            pci: { label: "PCI", value: formatNumber(indicators.pci, 0), unit: "kcal/kg", icon: Thermometer },
+            chlore: { label: "Chlorures", value: formatNumber(indicators.chlorine, 3), unit: "%", icon: Wind },
+            tireRate: { label: "Taux Pneus", value: formatNumber(indicators.tireRate, 2), unit: "%", icon: BarChart },
+            ash: { label: "Cendres", value: formatNumber(indicators.ash, 2), unit: "%", icon: Percent },
+            humidity: { label: "H₂O", value: formatNumber(indicators.humidity, 2), unit: "%", icon: Droplets },
+        };
     }, [mixtureSession]);
     
     const impactData: ImpactData[] | null = useMemo(() => {
@@ -212,7 +211,7 @@ export function MainDashboard() {
     if (loading) {
         return (
             <div className="p-4 md:p-6 space-y-6">
-                <Skeleton className="h-32 w-full" />
+                <Skeleton className="h-10 w-1/3" />
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                     <Skeleton className="h-64" />
                     <Skeleton className="h-64" />
@@ -224,8 +223,7 @@ export function MainDashboard() {
     
     return (
         <div className="p-4 md:p-6 lg:p-8 space-y-6">
-            <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-3">
-                <LayoutDashboard className="h-8 w-8" />
+            <h1 className="text-3xl font-bold tracking-tight text-white">
                 Tableau de Bord
             </h1>
 
@@ -236,7 +234,7 @@ export function MainDashboard() {
                         <CardHeader>
                             <div className="flex justify-between items-center">
                                 <div>
-                                    <CardTitle className="flex items-center gap-2">Moyenne par Combustible</CardTitle>
+                                    <CardTitle>Moyenne par Combustible</CardTitle>
                                     <CardDescription>Moyenne des 7 derniers jours</CardDescription>
                                 </div>
                                 <Select value={chartMetric} onValueChange={(value: ChartMetric) => setChartMetric(value)}>
@@ -284,7 +282,7 @@ export function MainDashboard() {
                     <Card>
                         <CardHeader><CardTitle className="flex items-center gap-2"><Flame /> Indicateurs du Mélange</CardTitle></CardHeader>
                         <CardContent className="grid gap-4 grid-cols-2">
-                             {mixtureIndicators ? mixtureIndicators.map(ind => (
+                             {mixtureIndicators ? Object.values(mixtureIndicators).map(ind => (
                                 <div key={ind.label} className="p-3 rounded-lg bg-brand-muted/70">
                                     <p className="text-xs text-muted-foreground">{ind.label}</p>
                                     <p className="text-xl font-bold">{ind.value}<span className="text-xs ml-1">{ind.unit}</span></p>
