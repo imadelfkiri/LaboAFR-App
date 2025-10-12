@@ -1,7 +1,7 @@
-
 // src/lib/firebase.ts
 import { initializeApp, getApp, getApps, type FirebaseApp } from "firebase/app";
 import { getFirestore, Firestore } from "firebase/firestore";
+import { getAuth, Auth } from "firebase/auth";
 import { initializeAppCheck, ReCaptchaV3Provider, AppCheck } from "firebase/app-check";
 
 const firebaseConfig = {
@@ -16,6 +16,8 @@ const firebaseConfig = {
 // Initialize Firebase
 const app: FirebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db: Firestore = getFirestore(app);
+const auth: Auth = getAuth(app);
+
 let appCheck: AppCheck | null = null;
 
 if (typeof window !== 'undefined') {
@@ -27,4 +29,4 @@ if (typeof window !== 'undefined') {
     });
 }
 
-export { db };
+export { db, auth };
