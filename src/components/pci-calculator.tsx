@@ -18,7 +18,6 @@ import {
   Form,
   FormControl,
   FormField,
-  FormItem,
   FormMessage,
   FormLabel,
 } from "@/components/ui/form";
@@ -55,9 +54,10 @@ import {
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator";
 import { calculerPCI } from '@/lib/pci';
-import { getFuelTypes, type FuelType, getFuelSupplierMap, addSupplierToFuel, SPEC_MAP, getSpecifications, addFuelType, getFuelData, FuelData, getUniqueFuelTypes, UserProfile } from '@/lib/data';
+import { getFuelTypes, type FuelType, getFuelSupplierMap, addSupplierToFuel, SPEC_MAP, getSpecifications, addFuelType, getFuelData, FuelData, getUniqueFuelTypes } from '@/lib/data';
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from './ui/skeleton';
+import { useAuth } from '@/context/auth-provider';
 
 const formSchema = z.object({
   date_arrivage: z.date({
@@ -103,11 +103,8 @@ const fuelOrder = [
     "Mélange"
 ];
 
-interface PciCalculatorProps {
-    userProfile?: UserProfile | null;
-}
-
-export function PciCalculator({ userProfile }: PciCalculatorProps) {
+export function PciCalculator() {
+  const { userProfile } = useAuth();
   const [pciResult, setPciResult] = useState<number | null>(null);
   const [hValue, setHValue] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
