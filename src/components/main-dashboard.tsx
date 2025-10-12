@@ -5,7 +5,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getLatestIndicatorData, getMixtureSessions, getStocks, Stock, getAverageAnalysisForFuels as getAverageAnalysisForFuelTypes, AverageAnalysis, getUniqueFuelTypes } from '@/lib/data';
 import { Skeleton } from "@/components/ui/skeleton";
-import { Droplets, Wind, Percent, BarChart, Thermometer, Flame, TrendingUp, Activity, Archive, LayoutDashboard } from 'lucide-react';
+import { Droplets, Wind, Percent, BarChart, Thermometer, Flame, TrendingUp, Activity, Archive, LayoutDashboard, ChevronDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { KeyIndicatorCard } from './cards/KeyIndicatorCard';
 import { FlowRateCard, FlowData } from './cards/FlowRateCard';
@@ -13,6 +13,8 @@ import { ImpactCard, ImpactData } from './cards/ImpactCard';
 import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell, LabelList } from 'recharts';
 import { subDays, format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 
 // Hook to read from localStorage without causing hydration issues
 function usePersistentValue<T>(key: string, defaultValue: T): T {
@@ -74,12 +76,15 @@ const CustomHistoryTooltip = ({ active, payload, label }: any) => {
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658'];
 
+type ChartMetric = 'pci' | 'chlore';
+
 export function MainDashboard() {
     const [loading, setLoading] = useState(true);
     const [mixtureSession, setMixtureSession] = useState<MixtureSession | null>(null);
     const [latestImpact, setLatestImpact] = useState<ImpactAnalysis | null>(null);
     const [keyIndicators, setKeyIndicators] = useState<{ tsr: number; } | null>(null);
     const [weeklyAverages, setWeeklyAverages] = useState<Record<string, AverageAnalysis>>({});
+    const [chartMetric, setChartMetric] = useState<ChartMetric>('pci');
     const debitClinker = usePersistentValue<number>('debitClinker', 0);
 
 
@@ -229,45 +234,38 @@ export function MainDashboard() {
                 <div className="lg:col-span-2 space-y-6">
                     <Card>
                         <CardHeader>
-                            <CardTitle className="flex items-center gap-2"><Flame /> Moyenne PCI par Combustible</CardTitle>
-                            <CardDescription>Moyenne des 7 derniers jours</CardDescription>
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <CardTitle className="flex items-center gap-2">Moyenne par Combustible</CardTitle>
+                                    <CardDescription>Moyenne des 7 derniers jours</CardDescription>
+                                </div>
+                                <Select value={chartMetric} onValueChange={(value: ChartMetric) => setChartMetric(value)}>
+                                    <SelectTrigger className="w-[180px]">
+                                        <SelectValue placeholder="Choisir un indicateur" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="pci">PCI (kcal/kg)</SelectItem>
+                                        <SelectItem value="chlore">Chlore (%)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </CardHeader>
                         <CardContent>
-                             <ResponsiveContainer width="100%" height={300}>
+                             <ResponsiveContainer width="100%" height={350}>
                                 {chartData.length > 0 ? (
                                     <RechartsBarChart data={chartData}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                                         <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
                                         <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
                                         <Tooltip content={<CustomHistoryTooltip />} />
-                                        <Bar dataKey="pci" name="PCI (kcal/kg)">
-                                            <LabelList dataKey="pci" position="top" formatter={(value: number) => Math.round(value)} fontSize={12} fill="hsl(var(--foreground))" />
-                                            {chartData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                            ))}
-                                        </Bar>
-                                    </RechartsBarChart>
-                                ) : (
-                                    <div className="flex items-center justify-center h-full text-muted-foreground">Aucune donnée pour la période.</div>
-                                )}
-                            </ResponsiveContainer>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2"><Wind /> Moyenne Chlore par Combustible</CardTitle>
-                            <CardDescription>Moyenne des 7 derniers jours</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                             <ResponsiveContainer width="100%" height={300}>
-                                {chartData.length > 0 ? (
-                                    <RechartsBarChart data={chartData}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                                        <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                                        <Tooltip content={<CustomHistoryTooltip />} />
-                                        <Bar dataKey="chlore" name="Chlore (%)">
-                                             <LabelList dataKey="chlore" position="top" formatter={(value: number) => value.toFixed(2)} fontSize={12} fill="hsl(var(--foreground))" />
+                                        <Bar dataKey={chartMetric} name={chartMetric === 'pci' ? 'PCI (kcal/kg)' : 'Chlore (%)'}>
+                                            <LabelList 
+                                                dataKey={chartMetric} 
+                                                position="top" 
+                                                formatter={(value: number) => chartMetric === 'pci' ? Math.round(value) : value.toFixed(2)}
+                                                fontSize={12} 
+                                                fill="hsl(var(--foreground))" 
+                                            />
                                             {chartData.map((entry, index) => (
                                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                             ))}
