@@ -79,7 +79,6 @@ export function MainDashboard() {
     const [mixtureSession, setMixtureSession] = useState<MixtureSession | null>(null);
     const [latestImpact, setLatestImpact] = useState<ImpactAnalysis | null>(null);
     const [keyIndicators, setKeyIndicators] = useState<{ tsr: number; } | null>(null);
-    const [stocks, setStocks] = useState<Stock[]>([]);
     const [weeklyAverages, setWeeklyAverages] = useState<Record<string, AverageAnalysis>>({});
     const debitClinker = usePersistentValue<number>('debitClinker', 0);
 
@@ -89,11 +88,10 @@ export function MainDashboard() {
             const sevenDaysAgo = subDays(new Date(), 7);
             const today = new Date();
 
-            const [sessionData, impactAnalyses, indicatorData, stockData, uniqueFuels] = await Promise.all([
+            const [sessionData, impactAnalyses, indicatorData, uniqueFuels] = await Promise.all([
                 getLatestMixtureSession(),
                 getImpactAnalyses(),
                 getLatestIndicatorData(),
-                getStocks(),
                 getUniqueFuelTypes(),
             ]);
 
@@ -104,7 +102,6 @@ export function MainDashboard() {
             setMixtureSession(sessionData);
             setLatestImpact(impactAnalyses.length > 0 ? impactAnalyses[0] : null);
             setKeyIndicators(indicatorData);
-            setStocks(stockData);
             setWeeklyAverages(weeklyAvgsData);
         } catch (error) {
             console.error("Error fetching dashboard data:", error);
@@ -130,17 +127,6 @@ export function MainDashboard() {
         ];
     }, [mixtureSession]);
     
-    const flowData: FlowData[] | null = useMemo(() => {
-        if (!mixtureSession) return null;
-        return [
-          { label: 'AF', value: (mixtureSession.hallAF?.flowRate || 0) + (mixtureSession.ats?.flowRate || 0) },
-          { label: 'GO1', value: mixtureSession.directInputs?.['Grignons GO1']?.flowRate || 0 },
-          { label: 'GO2', value: mixtureSession.directInputs?.['Grignons GO2']?.flowRate || 0 },
-          { label: 'Pet-Coke Preca', value: mixtureSession.directInputs?.['Pet-Coke Preca']?.flowRate || 0 },
-          { label: 'Pet-Coke Tuyère', value: mixtureSession.directInputs?.['Pet-Coke Tuyere']?.flowRate || 0 },
-        ];
-    }, [mixtureSession]);
-
     const impactData: ImpactData[] | null = useMemo(() => {
         if (!latestImpact) return null;
         const { results } = latestImpact;
@@ -216,17 +202,6 @@ export function MainDashboard() {
                 chlore: data.chlore,
             }));
     }, [weeklyAverages]);
-    
-    const stockChartData = useMemo(() => {
-        if (!stocks || stocks.length === 0) return [];
-        return stocks
-            .filter(s => s.stock_actuel_tonnes > 0)
-            .map(s => ({
-                name: s.nom_combustible,
-                tonnage: s.stock_actuel_tonnes
-            }))
-            .sort((a, b) => b.tonnage - a.tonnage);
-    }, [stocks]);
 
 
     if (loading) {
@@ -322,38 +297,6 @@ export function MainDashboard() {
                      <ImpactCard title="Impact sur le Clinker" data={impactData} lastUpdate={latestImpact?.createdAt.toDate()} />
                 </div>
 
-            </section>
-            
-            <section className="grid gap-6 lg:grid-cols-3">
-                 <div className="lg:col-span-2">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2"><Archive /> Répartition du Stock</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <ResponsiveContainer width="100%" height={350}>
-                                {stockChartData.length > 0 ? (
-                                    <RechartsBarChart data={stockChartData} layout="vertical" margin={{ left: 20, right: 20 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                                        <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                                        <YAxis type="category" dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} width={100} />
-                                        <Tooltip cursor={{ fill: 'hsl(var(--muted))' }} contentStyle={{background: 'hsl(var(--background))', border: '1px solid hsl(var(--border))'}}/>
-                                        <Bar dataKey="tonnage" name="Tonnage">
-                                            {stockChartData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                            ))}
-                                        </Bar>
-                                    </RechartsBarChart>
-                                ) : (
-                                    <div className="flex items-center justify-center h-full text-muted-foreground">Aucune donnée de stock.</div>
-                                )}
-                            </ResponsiveContainer>
-                        </CardContent>
-                    </Card>
-                 </div>
-                 <div className="lg:col-span-1">
-                    <FlowRateCard title="Débits Actuels" flows={flowData} />
-                 </div>
             </section>
         </div>
     );
