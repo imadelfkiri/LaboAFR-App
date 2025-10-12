@@ -104,7 +104,7 @@ const fuelOrder = [
 ];
 
 interface PciCalculatorProps {
-    userProfile?: UserProfile;
+    userProfile?: UserProfile | null;
 }
 
 export function PciCalculator({ userProfile }: PciCalculatorProps) {
@@ -415,7 +415,7 @@ export function PciCalculator({ userProfile }: PciCalculatorProps) {
 
   return (
     <>
-    <div className="w-full max-w-5xl space-y-4 mx-auto px-6 pt-6 pb-24">
+    <div className="w-full max-w-5xl space-y-4 mx-auto pb-24">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">

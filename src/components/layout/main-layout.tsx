@@ -143,9 +143,9 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                  </Button>
             </div>
         </header>
-        <div style={{marginTop: '20px'}}>
+        <main className="p-6">
             {user ? childrenWithProps : null}
-        </div>
+        </main>
       </SidebarInset>
     </SidebarProvider>
   );
