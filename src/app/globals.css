@@ -46,6 +46,7 @@
     --positive: 145 63% 42%;
     --warning: 38 92% 50%;
     --danger: 0 84% 60%;
+    --unauthorized-bg: 222 47% 11%;
   }
 
   .dark {
