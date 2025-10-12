@@ -26,6 +26,15 @@ export interface Specification {
     tireRate_max?: number | null;
 }
 
+export interface UserProfile {
+    id?: string;
+    uid: string;
+    email: string;
+    role: 'admin' | 'technician' | 'viewer';
+    active: boolean;
+    createdAt: Timestamp;
+}
+
 export interface AverageAnalysis {
     pci_brut: number;
     h2o: number;
@@ -935,4 +944,18 @@ export async function updateChlorineTrackingEntry(id: string, data: Partial<Omit
 export async function deleteChlorineTrackingEntry(id: string): Promise<void> {
     const entryRef = doc(db, 'chlorine_tracking', id);
     await deleteDoc(entryRef);
+}
+
+// --- User Management ---
+
+export async function getAllUsers(): Promise<UserProfile[]> {
+    const usersCollection = collection(db, 'users');
+    const snapshot = await getDocs(usersCollection);
+    if (snapshot.empty) return [];
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserProfile));
+}
+
+export async function updateUserRole(uid: string, role: 'admin' | 'technician' | 'viewer'): Promise<void> {
+    const userRef = doc(db, 'users', uid);
+    await updateDoc(userRef, { role });
 }
