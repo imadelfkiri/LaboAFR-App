@@ -1,3 +1,4 @@
+
 // src/lib/data.ts
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, arrayUnion, orderBy, Timestamp, setDoc,getCountFromServer, limit } from 'firebase/firestore';
 import { db } from './firebase';
@@ -211,7 +212,6 @@ export const roleAccess: Record<string, string[]> = {
     '/calculateur',
     '/resultats',
     '/statistiques',
-    '/specifications',
     '/analyses-cendres',
     '/donnees-combustibles',
     '/calcul-melange',
@@ -229,6 +229,12 @@ export const roleAccess: Record<string, string[]> = {
   ],
 };
 
+export const getAllowedRoutesForRole = async (role: string): Promise<string[]> => {
+    // For now, we use the hardcoded object.
+    // This can be replaced with a Firestore call later to make it dynamic.
+    return roleAccess[role] || [];
+};
+
 
 export const SPEC_MAP = new Map<string, Specification>();
 
@@ -237,7 +243,7 @@ export async function getUserProfile(user: User): Promise<UserProfile | null> {
     const userDocRef = doc(db, 'users', user.uid);
     const userDoc = await getDoc(userDocRef);
     if (userDoc.exists()) {
-        return { id: userDoc.id, ...userDoc.data() } as UserProfile;
+        return { id: userDoc.id, uid: user.uid, ...userDoc.data() } as UserProfile;
     }
     return null;
 }

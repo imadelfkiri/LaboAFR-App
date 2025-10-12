@@ -4,8 +4,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { useRouter } from 'next/navigation';
-import { auth, db } from '@/lib/firebase';
+import { auth, db, functions } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import {
   Table,
   TableBody,
@@ -49,7 +50,7 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { getAllUsers, updateUserRole, createUser, type UserProfile } from '@/lib/data';
+import { getAllUsers, updateUserRole, type UserProfile } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -144,7 +145,9 @@ export function UserManagementTable() {
 
     const onCreateUserSubmit = async (values: z.infer<typeof newUserSchema>) => {
         try {
-            await createUser(values);
+            const adminCreateUser = httpsCallable(functions, 'adminCreateUser');
+            await adminCreateUser(values);
+
             toast({ title: "Utilisateur créé !", description: `Le compte pour ${values.email} a été créé avec succès.` });
             setIsCreateModalOpen(false);
             form.reset();
@@ -152,7 +155,7 @@ export function UserManagementTable() {
         } catch (error: any) {
             console.error("Error creating user:", error);
             let errorMessage = "Une erreur est survenue lors de la création de l'utilisateur.";
-            if (error.message.includes('EMAIL_EXISTS')) {
+            if (error.message.includes('already-exists')) {
                 errorMessage = "Cette adresse email est déjà utilisée par un autre compte.";
             } else if (error.message.includes('permission-denied')) {
                 errorMessage = "Vous n'avez pas les permissions pour effectuer cette action.";

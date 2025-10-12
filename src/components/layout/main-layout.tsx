@@ -17,7 +17,7 @@ import { Fuel, PlusCircle, LogOut } from 'lucide-react';
 import { SidebarNav } from './sidebar-nav';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/lib/firebase';
-import { getUserProfile, roleAccess, UserProfile } from '@/lib/data';
+import { getUserProfile, roleAccess, UserProfile, getAllowedRoutesForRole } from '@/lib/data';
 import { Skeleton } from '../ui/skeleton';
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
@@ -26,6 +26,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const [user, authLoading, authError] = useAuthState(auth);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [allowedRoutes, setAllowedRoutes] = useState<string[]>([]);
 
   const isLoginPage = pathname === '/login';
   const isUnauthorizedPage = pathname === '/unauthorized';
@@ -54,13 +55,15 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         const profile = await getUserProfile(user);
         setUserProfile(profile);
 
+        const routes = await getAllowedRoutesForRole(profile?.role || 'viewer');
+        setAllowedRoutes(routes);
+
         // Check for access rights
-        const allowedRoutes = roleAccess[profile?.role || 'viewer'] || [];
-        if (!allowedRoutes.includes(pathname) && !isUnauthorizedPage && !isLoginPage) {
+        if (!routes.includes(pathname) && !isUnauthorizedPage && !isLoginPage && pathname !== '/') {
             router.push('/unauthorized');
         }
       } catch (error) {
-          console.error("Error fetching user profile:", error);
+          console.error("Error fetching user profile or roles:", error);
           router.push('/unauthorized');
       } finally {
           setLoading(false);
@@ -70,11 +73,6 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     checkAuthAndProfile();
   }, [user, authLoading, router, pathname, isLoginPage, isUnauthorizedPage]);
   
-  const allowedRoutes = useMemo(() => {
-    return roleAccess[userProfile?.role || 'viewer'] || [];
-  }, [userProfile]);
-
-
   if (loading || authLoading) {
     if (isLoginPage || isUnauthorizedPage) {
         return <>{children}</>;
@@ -106,8 +104,8 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
       <Sidebar>
         <SidebarHeader className="p-4">
           <div className="flex items-center gap-3">
-            <div className='flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar-primary'>
-                <Fuel className="h-6 w-6 text-sidebar-primary-foreground" />
+            <div className='flex h-10 w-10 items-center justify-center rounded-lg bg-primary'>
+                <Fuel className="h-6 w-6 text-primary-foreground" />
             </div>
             <div className="flex flex-col">
                 <h2 className="text-lg font-bold tracking-tight text-sidebar-primary-foreground">
