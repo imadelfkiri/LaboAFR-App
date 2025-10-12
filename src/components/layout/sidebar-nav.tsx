@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
 import { Flame, Database, BarChart3, ClipboardCheck, Beaker, TrendingUp, Activity, DollarSign, Archive, Cog, FlaskConical, ClipboardList, Book, LayoutDashboard, Wind, BookOpen, Users } from 'lucide-react';
 
-const links = [
+const allLinks = [
   { href: '/', label: 'Tableau de Bord', icon: LayoutDashboard },
   { href: '/rapport-synthese', label: 'Rapport Synthèse', icon: BookOpen },
   { href: '/calculateur', label: 'Calculateur PCI', icon: Flame },
@@ -26,12 +26,14 @@ const links = [
   { href: '/gestion-utilisateurs', label: 'Gestion Utilisateurs', icon: Users },
 ];
 
-export function SidebarNav() {
+export function SidebarNav({ allowedRoutes }: { allowedRoutes: string[] }) {
   const pathname = usePathname();
+  
+  const visibleLinks = allLinks.filter(link => allowedRoutes.includes(link.href));
 
   return (
     <SidebarMenu>
-      {links.map((link) => (
+      {visibleLinks.map((link) => (
         <SidebarMenuItem key={link.href}>
           <SidebarMenuButton
             asChild

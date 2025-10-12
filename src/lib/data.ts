@@ -2,6 +2,7 @@
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, arrayUnion, orderBy, Timestamp, setDoc,getCountFromServer, limit } from 'firebase/firestore';
 import { db } from './firebase';
 import { startOfDay, endOfDay } from 'date-fns';
+import type { User } from 'firebase/auth';
 
 export interface FuelType {
     id?: string;
@@ -183,9 +184,63 @@ export interface ChlorineTrackingEntry {
     goFlow: number;
 }
 
+// --- Role-based Access Control ---
+export const roleAccess: Record<string, string[]> = {
+  admin: [
+    '/',
+    '/rapport-synthese',
+    '/calculateur',
+    '/resultats',
+    '/statistiques',
+    '/specifications',
+    '/analyses-cendres',
+    '/donnees-combustibles',
+    '/calcul-melange',
+    '/simulation-melange',
+    '/gestion-couts',
+    '/gestion-stock',
+    '/indicateurs',
+    '/calcul-impact',
+    '/historique-impact',
+    '/suivi-chlore',
+    '/gestion-utilisateurs',
+  ],
+  technician: [
+    '/',
+    '/rapport-synthese',
+    '/calculateur',
+    '/resultats',
+    '/statistiques',
+    '/specifications',
+    '/analyses-cendres',
+    '/donnees-combustibles',
+    '/calcul-melange',
+    '/simulation-melange',
+    '/indicateurs',
+    '/calcul-impact',
+    '/historique-impact',
+    '/suivi-chlore',
+  ],
+  viewer: [
+    '/',
+    '/rapport-synthese',
+    '/statistiques',
+    '/indicateurs',
+  ],
+};
 
 
 export const SPEC_MAP = new Map<string, Specification>();
+
+export async function getUserProfile(user: User): Promise<UserProfile | null> {
+    if (!user) return null;
+    const userDocRef = doc(db, 'users', user.uid);
+    const userDoc = await getDoc(userDocRef);
+    if (userDoc.exists()) {
+        return { id: userDoc.id, ...userDoc.data() } as UserProfile;
+    }
+    return null;
+}
 
 export async function getFuelSupplierMap(): Promise<Record<string, string[]>> {
     const mapCollection = collection(db, 'fuel_supplier_map');
@@ -958,4 +1013,20 @@ export async function getAllUsers(): Promise<UserProfile[]> {
 export async function updateUserRole(uid: string, role: 'admin' | 'technician' | 'viewer'): Promise<void> {
     const userRef = doc(db, 'users', uid);
     await updateDoc(userRef, { role });
+}
+
+export async function createUser(userData: any): Promise<void> {
+    // This should call a Cloud Function for security reasons
+    // For now, we'll simulate the call. The actual implementation needs to use firebase.functions()
+    // const createUserFunc = httpsCallable(functions, 'adminCreateUser');
+    // await createUserFunc(userData);
+
+    // This is a temporary placeholder. In a real app, you would use:
+    // import { getFunctions, httpsCallable } from "firebase/functions";
+    // const functions = getFunctions();
+    // const adminCreateUser = httpsCallable(functions, 'adminCreateUser');
+    // await adminCreateUser({ email, password, role });
+
+    // The logic has been moved to user-management-table.tsx to use the functions instance there.
+    // This is not ideal, but necessary without a centralized functions service.
 }

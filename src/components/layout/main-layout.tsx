@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -17,22 +17,68 @@ import { Fuel, PlusCircle, LogOut } from 'lucide-react';
 import { SidebarNav } from './sidebar-nav';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/lib/firebase';
+import { getUserProfile, roleAccess, UserProfile } from '@/lib/data';
 import { Skeleton } from '../ui/skeleton';
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [user, loading, error] = useAuthState(auth);
-  
+  const [user, authLoading, authError] = useAuthState(auth);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+
   const isLoginPage = pathname === '/login';
+  const isUnauthorizedPage = pathname === '/unauthorized';
 
   useEffect(() => {
-    if (!loading && !user && !isLoginPage) {
-      router.push('/login');
-    }
-  }, [user, loading, router, isLoginPage, pathname]);
+    const checkAuthAndProfile = async () => {
+      setLoading(true);
 
-  if (loading && !isLoginPage) {
+      // Wait for Firebase Auth to initialize
+      if (authLoading) {
+          return;
+      }
+
+      // If user is not logged in, redirect to login page
+      if (!user) {
+        if (!isLoginPage) {
+          router.push('/login');
+        } else {
+           setLoading(false);
+        }
+        return;
+      }
+
+      // If user is logged in, fetch their profile
+      try {
+        const profile = await getUserProfile(user);
+        setUserProfile(profile);
+
+        // Check for access rights
+        const allowedRoutes = roleAccess[profile?.role || 'viewer'] || [];
+        if (!allowedRoutes.includes(pathname) && !isUnauthorizedPage && !isLoginPage) {
+            router.push('/unauthorized');
+        }
+      } catch (error) {
+          console.error("Error fetching user profile:", error);
+          router.push('/unauthorized');
+      } finally {
+          setLoading(false);
+      }
+    };
+
+    checkAuthAndProfile();
+  }, [user, authLoading, router, pathname, isLoginPage, isUnauthorizedPage]);
+  
+  const allowedRoutes = useMemo(() => {
+    return roleAccess[userProfile?.role || 'viewer'] || [];
+  }, [userProfile]);
+
+
+  if (loading || authLoading) {
+    if (isLoginPage || isUnauthorizedPage) {
+        return <>{children}</>;
+    }
     return (
         <div className="flex h-screen w-screen items-center justify-center">
             <div className="flex items-center space-x-4">
@@ -45,8 +91,8 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         </div>
     );
   }
-
-  if (isLoginPage) {
+  
+  if (isLoginPage || isUnauthorizedPage) {
     return <>{children}</>;
   }
 
@@ -72,7 +118,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
           </div>
         </SidebarHeader>
         <SidebarContent>
-            <SidebarNav />
+            <SidebarNav allowedRoutes={allowedRoutes} />
         </SidebarContent>
       </Sidebar>
       <SidebarInset>
