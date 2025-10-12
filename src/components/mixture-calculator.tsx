@@ -1,9 +1,8 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { BrainCircuit, Calendar as CalendarIcon, Save, Settings, ChevronDown, CheckCircle, AlertTriangle, Copy, Mail, Flame, X } from 'lucide-react';
+import { BrainCircuit, Calendar as CalendarIcon, Save, Settings, ChevronDown, CheckCircle, AlertTriangle, Copy, Mail, Flame, X, LineChart as LineChartIcon } from 'lucide-react';
 import { DateRange } from "react-day-picker";
 import { format, subDays, startOfDay, endOfDay, parseISO, isValid } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -83,6 +82,7 @@ const defaultThresholds: MixtureThresholds = {
 };
 
 type IndicatorStatus = 'alert' | 'conform' | 'neutral';
+type IndicatorKey = 'pci' | 'humidity' | 'ash' | 'chlorine' | 'tireRate';
 
 const ThresholdSettingsModal = ({
   isOpen,
@@ -158,13 +158,16 @@ const ThresholdSettingsModal = ({
     );
 };
 
-function IndicatorCard({ title, value, unit, tooltipText, status = 'neutral' }: { title: string; value: string | number; unit?: string; tooltipText?: string, status?: IndicatorStatus }) {
+function IndicatorCard({ title, value, unit, tooltipText, status = 'neutral', onDoubleClick }: { title: string; value: string | number; unit?: string; tooltipText?: string, status?: IndicatorStatus, onDoubleClick?: () => void }) {
   const cardContent = (
-     <Card className={cn(
-        "text-center transition-colors rounded-xl",
-        status === 'alert' && "border-red-500/30 bg-red-500/10 text-red-300",
-        status === 'conform' && "border-green-500/30 bg-green-500/10 text-green-300",
-        status === 'neutral' && "border-brand-line/60 bg-brand-surface/60"
+     <Card 
+        onDoubleClick={onDoubleClick}
+        className={cn(
+            "text-center transition-colors rounded-xl",
+            status === 'alert' && "border-red-500/30 bg-red-500/10 text-red-300",
+            status === 'conform' && "border-green-500/30 bg-green-500/10 text-green-300",
+            status === 'neutral' && "border-brand-line/60 bg-brand-surface/60",
+            onDoubleClick && "cursor-pointer hover:bg-brand-muted/50"
         )}>
       <CardHeader className="p-2 pb-1">
         <CardTitle className={cn("text-xs font-medium", status === 'neutral' ? 'text-muted-foreground' : 'text-inherit')}>
@@ -388,6 +391,8 @@ export function MixtureCalculator() {
   const [historySessions, setHistorySessions] = useState<MixtureSession[]>([]);
   const [historyDateRange, setHistoryDateRange] = useState<DateRange | undefined>({ from: subDays(new Date(), 30), to: new Date() });
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [historyChartIndicator, setHistoryChartIndicator] = useState<{key: IndicatorKey; name: string} | null>(null);
+
 
   // Global date range for fuel analysis
   const [analysisDateRange, setAnalysisDateRange] = useState<DateRange | undefined>({ from: subDays(new Date(), 7), to: new Date() });
@@ -593,17 +598,21 @@ export function MixtureCalculator() {
   const { globalIndicators, globalFuelWeights } = useMixtureCalculations(hallAF, ats, directInputs, availableFuels, fuelData, fuelCosts, thresholds);
 
   const historyChartData = useMemo(() => {
-    if (!historySessions || historySessions.length === 0) return [];
-    return historySessions.map(session => ({
-        date: session.timestamp.toDate(), 
-        'PCI': session.globalIndicators.pci,
-        'Chlorures': session.globalIndicators.chlorine,
-    })).sort((a,b) => a.date.valueOf() - b.date.valueOf()) 
-     .map(session => ({ 
-         ...session,
-         date: format(session.date, 'dd/MM HH:mm'),
-     }));
-  }, [historySessions]);
+    if (!historySessions || historySessions.length === 0 || !historyChartIndicator) return [];
+    
+    return historySessions
+        .map(session => ({
+            date: session.timestamp.toDate(),
+            value: session.globalIndicators[historyChartIndicator.key]
+        }))
+        .filter(item => typeof item.value === 'number')
+        .sort((a, b) => a.date.valueOf() - b.date.valueOf())
+        .map(item => ({
+            date: format(item.date, 'dd/MM HH:mm'),
+            value: item.value
+        }));
+}, [historySessions, historyChartIndicator]);
+
 
   const handleInputChange = (setter: React.Dispatch<React.SetStateAction<InstallationState>>, fuelName: string, value: string) => {
     const buckets = parseInt(value, 10);
@@ -958,6 +967,9 @@ export function MixtureCalculator() {
     return null;
   };
 
+  const handleIndicatorDoubleClick = (key: IndicatorKey, name: string) => {
+    setHistoryChartIndicator({key, name});
+  };
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6">
@@ -1021,14 +1033,41 @@ export function MixtureCalculator() {
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
           <IndicatorCard title="Débit des AFs" value={globalIndicators.flow.toFixed(2)} unit="t/h" />
-          <IndicatorCard title="PCI moy" value={globalIndicators.pci.toFixed(0)} unit="kcal/kg" status={globalIndicators.status.pci} />
-          <IndicatorCard title="% Humidité moy" value={globalIndicators.humidity.toFixed(2)} unit="%" status={globalIndicators.status.humidity} />
-          <IndicatorCard title="% Cendres moy" value={globalIndicators.ash.toFixed(2)} unit="%" status={globalIndicators.status.ash} />
-          <IndicatorCard title="% Chlorures" value={globalIndicators.chlorine.toFixed(3)} unit="%" status={globalIndicators.status.chlorine} />
-          <IndicatorCard title="Taux de pneus" value={globalIndicators.tireRate.toFixed(2)} unit="%" status={globalIndicators.status.tireRate} />
+          <IndicatorCard title="PCI moy" value={globalIndicators.pci.toFixed(0)} unit="kcal/kg" status={globalIndicators.status.pci} onDoubleClick={() => handleIndicatorDoubleClick('pci', 'PCI Moyen')} />
+          <IndicatorCard title="% Humidité moy" value={globalIndicators.humidity.toFixed(2)} unit="%" status={globalIndicators.status.humidity} onDoubleClick={() => handleIndicatorDoubleClick('humidity', '% Humidité Moyenne')} />
+          <IndicatorCard title="% Cendres moy" value={globalIndicators.ash.toFixed(2)} unit="%" status={globalIndicators.status.ash} onDoubleClick={() => handleIndicatorDoubleClick('ash', '% Cendres Moyennes')} />
+          <IndicatorCard title="% Chlorures" value={globalIndicators.chlorine.toFixed(3)} unit="%" status={globalIndicators.status.chlorine} onDoubleClick={() => handleIndicatorDoubleClick('chlorine', '% Chlorures')} />
+          <IndicatorCard title="Taux de pneus" value={globalIndicators.tireRate.toFixed(2)} unit="%" status={globalIndicators.status.tireRate} onDoubleClick={() => handleIndicatorDoubleClick('tireRate', 'Taux de Pneus')} />
           <IndicatorCard title="Coût du Mélange" value={globalIndicators.cost.toFixed(2) } unit="MAD/t" />
         </div>
       </div>
+
+      <Dialog open={!!historyChartIndicator} onOpenChange={(open) => !open && setHistoryChartIndicator(null)}>
+        <DialogContent className="max-w-4xl">
+            <DialogHeader>
+                <DialogTitle>Historique de l'Indicateur : {historyChartIndicator?.name}</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+                 <ResponsiveContainer width="100%" height={400}>
+                        {isHistoryLoading ? (
+                            <Skeleton className="h-full w-full" />
+                        ) : historyChartData.length > 0 ? (
+                            <LineChart data={historyChartData}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                                <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} domain={['dataMin', 'auto']} />
+                                <RechartsTooltip content={<CustomHistoryTooltip />} />
+                                <Line type="monotone" dataKey="value" name={historyChartIndicator?.name} stroke="hsl(var(--primary))" dot={false} strokeWidth={2} />
+                            </LineChart>
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-muted-foreground">
+                                Aucune donnée historique pour cet indicateur dans la période sélectionnée.
+                            </div>
+                        )}
+                    </ResponsiveContainer>
+            </div>
+        </DialogContent>
+      </Dialog>
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="shadow-md rounded-xl lg:col-span-1">
