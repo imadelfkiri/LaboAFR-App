@@ -1,4 +1,5 @@
 
+
 // src/lib/data.ts
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, arrayUnion, orderBy, Timestamp, setDoc,getCountFromServer, limit } from 'firebase/firestore';
 import { db } from './firebase';
@@ -203,7 +204,7 @@ const defaultRoleAccess: Record<string, string[]> = {
     '/analyses-cendres',
     '/donnees-combustibles',
     '/calcul-melange',
-    '/simulation-melange',
+    '/simulation-de-melange',
     '/gestion-couts',
     '/gestion-stock',
     '/indicateurs',
@@ -221,7 +222,7 @@ const defaultRoleAccess: Record<string, string[]> = {
     '/analyses-cendres',
     '/donnees-combustibles',
     '/calcul-melange',
-    '/simulation-melange',
+    '/simulation-de-melange',
     '/indicateurs',
     '/calcul-impact',
     '/historique-impact',
@@ -412,15 +413,14 @@ export async function deleteSpecification(id: string) {
 
 export async function getAverageAnalysisForFuels(
   fuelNames: string[],
-  dateRange: { from: Date; to: Date }
+  dateRanges: Record<string, { from: Date; to: Date } | undefined>
 ): Promise<Record<string, AverageAnalysis>> {
   if (!fuelNames || fuelNames.length === 0) return {};
 
   const analyses: Record<string, AverageAnalysis> = {};
-  
-  // Fetch all documents for the given fuel names in one go.
+
   const allResultsQuery = query(
-    collection(db, 'resultats'), 
+    collection(db, 'resultats'),
     where('type_combustible', 'in', fuelNames),
     where('type_analyse', '==', 'Arrivage')
   );
@@ -428,39 +428,41 @@ export async function getAverageAnalysisForFuels(
   const allResults = allResultsSnapshot.docs.map(doc => doc.data());
 
   for (const fuelName of fuelNames) {
-      let resultsForFuel = allResults.filter(r => r.type_combustible === fuelName);
-      
-      // Then filter by date in the code. This avoids composite indexes.
-      let resultsToAverage = resultsForFuel.filter(r => {
-          const date = r.date_arrivage.toDate();
-          return date >= startOfDay(dateRange.from) && date <= endOfDay(dateRange.to);
-      });
+    const dateRange = dateRanges[fuelName];
+    let resultsForFuel = allResults.filter(r => r.type_combustible === fuelName);
+    
+    let resultsToAverage = resultsForFuel;
+    if (dateRange) {
+        resultsToAverage = resultsForFuel.filter(r => {
+            const date = r.date_arrivage.toDate();
+            return date >= startOfDay(dateRange.from) && date <= endOfDay(dateRange.to);
+        });
+    }
+    
+    if (resultsToAverage.length === 0 && resultsForFuel.length > 0) {
+        resultsForFuel.sort((a, b) => b.date_arrivage.toMillis() - a.date_arrivage.toMillis());
+        resultsToAverage = [resultsForFuel[0]];
+    }
 
-      // Fallback to the most recent if no results in the date range
-      if (resultsToAverage.length === 0 && resultsForFuel.length > 0) {
-          resultsForFuel.sort((a, b) => b.date_arrivage.toMillis() - a.date_arrivage.toMillis());
-          resultsToAverage = [resultsForFuel[0]];
-      }
-      
-      const getAverage = (key: 'pci_brut' | 'h2o' | 'chlore' | 'cendres' | 'taux_metal') => {
-          const values = resultsToAverage
-            .map(r => r[key])
-            .filter((v): v is number => typeof v === 'number' && isFinite(v));
-          
-          if (values.length === 0) return 0;
-          
-          const sum = values.reduce((acc, curr) => acc + curr, 0);
-          return sum / values.length;
-      };
-      
-      analyses[fuelName] = {
-          pci_brut: getAverage('pci_brut'),
-          h2o: getAverage('h2o'),
-          chlore: getAverage('chlore'),
-          cendres: getAverage('cendres'),
-          taux_metal: getAverage('taux_metal'),
-          count: resultsToAverage.length,
-      };
+    const getAverage = (key: 'pci_brut' | 'h2o' | 'chlore' | 'cendres' | 'taux_metal') => {
+        const values = resultsToAverage
+          .map(r => r[key])
+          .filter((v): v is number => typeof v === 'number' && isFinite(v));
+        
+        if (values.length === 0) return 0;
+        
+        const sum = values.reduce((acc, curr) => acc + curr, 0);
+        return sum / values.length;
+    };
+
+    analyses[fuelName] = {
+        pci_brut: getAverage('pci_brut'),
+        h2o: getAverage('h2o'),
+        chlore: getAverage('chlore'),
+        cendres: getAverage('cendres'),
+        taux_metal: getAverage('taux_metal'),
+        count: resultsToAverage.length,
+    };
   }
 
   return analyses;

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -436,7 +437,7 @@ export function MixtureCalculator() {
     }
   }
 
- const fetchData = useCallback(async (globalDateRange: DateRange, individualFuelRanges: Record<string, DateRange | undefined>) => {
+ const fetchData = useCallback(async () => {
     setLoading(true);
     try {
         const [allFuelData, costs, allStocks, globalSpec] = await Promise.all([
@@ -448,27 +449,24 @@ export function MixtureCalculator() {
         
         const allPossibleFuelNames = new Set(allStocks.map(s => s.nom_combustible));
         ['Grignons', 'Pet-Coke'].forEach(name => allPossibleFuelNames.add(name));
-
         const fuelNamesArray = Array.from(allPossibleFuelNames);
 
-        // Fetch analyses based on global or individual date ranges
-        const analysisPromises = fuelNamesArray.map(fuelName => {
-            const specificRange = individualFuelRanges[fuelName];
-            const range = (specificRange?.from && specificRange?.to) ? specificRange : globalDateRange;
-            return getAverageAnalysisForFuels([fuelName], range).then(res => ({ [fuelName]: res[fuelName] }));
+        const dateRanges: Record<string, DateRange> = {};
+        fuelNamesArray.forEach(fuelName => {
+            const individualRange = hallAF.fuels[fuelName]?.dateRange || ats.fuels[fuelName]?.dateRange;
+            dateRanges[fuelName] = (individualRange?.from && individualRange.to) ? individualRange : analysisDateRange!;
         });
-
-        const analysesResults = await Promise.all(analysisPromises);
-        const fuelsAnalysis = Object.assign({}, ...analysesResults);
         
-        const extendedAnalyses = {...fuelsAnalysis};
-        extendedAnalyses['Grignons GO1'] = fuelsAnalysis['Grignons'];
-        extendedAnalyses['Grignons GO2'] = fuelsAnalysis['Grignons'];
-        extendedAnalyses['Pet-Coke Preca'] = fuelsAnalysis['Pet-Coke'];
-        extendedAnalyses['Pet-Coke Tuyere'] = fuelsAnalysis['Pet-Coke'];
+        const analysesResults = await getAverageAnalysisForFuels(fuelNamesArray, dateRanges);
+
+        const extendedAnalyses = {...analysesResults};
+        extendedAnalyses['Grignons GO1'] = analysesResults['Grignons'];
+        extendedAnalyses['Grignons GO2'] = analysesResults['Grignons'];
+        extendedAnalyses['Pet-Coke Preca'] = analysesResults['Pet-Coke'];
+        extendedAnalyses['Pet-Coke Tuyere'] = analysesResults['Pet-Coke'];
 
         setAvailableFuels(extendedAnalyses);
-
+        
         if (globalSpec) {
              setThresholds({
                 pci_min: globalSpec.pci_min ?? defaultThresholds.pci_min,
@@ -489,11 +487,11 @@ export function MixtureCalculator() {
     } finally {
         setLoading(false);
     }
-  }, [toast]);
+  }, [toast, analysisDateRange, hallAF.fuels, ats.fuels]);
   
   const updateFuelAnalysis = useCallback(async (fuelName: string, dateRange: DateRange) => {
     try {
-        const analysis = await getAverageAnalysisForFuels([fuelName], dateRange);
+        const analysis = await getAverageAnalysisForFuels([fuelName], {[fuelName]: dateRange});
         setAvailableFuels(prev => ({
             ...prev,
             [fuelName]: analysis[fuelName],
@@ -559,13 +557,6 @@ export function MixtureCalculator() {
             setAts(initialAtsState);
             setDirectInputs(initialDirectInputs);
             
-            const individualRanges = {
-                ...Object.fromEntries(Object.entries(initialHallState.fuels).map(([k, v]) => [k, v.dateRange])),
-                ...Object.fromEntries(Object.entries(initialAtsState.fuels).map(([k, v]) => [k, v.dateRange]))
-            };
-
-            await fetchData(dateRangeToUse, individualRanges);
-            
         } catch (error) {
              console.error("Error on initial load:", error);
         } finally {
@@ -574,19 +565,15 @@ export function MixtureCalculator() {
     };
 
     loadInitialData();
-  }, [fetchData, toast]);
+  }, [toast]); // Removed fetchData dependency here to control it manually
 
 
   // Effect to refetch data when global date ranges change
   useEffect(() => {
     if (analysisDateRange?.from && analysisDateRange.to) {
-        const individualRanges = {
-            ...Object.fromEntries(Object.entries(hallAF.fuels).map(([k, v]) => [k, v.dateRange])),
-            ...Object.fromEntries(Object.entries(ats.fuels).map(([k, v]) => [k, v.dateRange]))
-        };
-        fetchData(analysisDateRange, individualRanges);
+        fetchData();
     }
-  }, [analysisDateRange, fetchData, hallAF.fuels, ats.fuels]);
+  }, [analysisDateRange, fetchData]);
 
 
   const fetchHistoryData = useCallback(async () => {
@@ -735,10 +722,11 @@ export function MixtureCalculator() {
             newFuels[fuelName] = { ...newFuels[fuelName], dateRange: dateRange };
             return { ...prev, fuels: newFuels };
         });
-        
-        const rangeToFetch = (dateRange?.from && dateRange.to) ? dateRange : analysisDateRange;
-        if (rangeToFetch?.from && rangeToFetch?.to) {
-            updateFuelAnalysis(fuelName, rangeToFetch);
+        // This will trigger the main useEffect to refetch all data
+        if (dateRange) {
+           updateFuelAnalysis(fuelName, dateRange);
+        } else {
+           fetchData(); // Refetch all with global date range for this fuel
         }
     };
 
