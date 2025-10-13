@@ -4,71 +4,71 @@
 
 @layer base {
   :root {
-    /* Nouveau thème Slate & Green */
-    --background: 222 47% 11%; /* Slate-900 */
-    --foreground: 210 40% 98%;
+    /* Thème sombre industriel premium */
+    --background: 220 41% 9%; /* #0B1220 */
+    --foreground: 210 20% 90%; /* #e2e8f0 */
 
-    --card: 222 47% 14%; /* Un peu plus clair que le fond */
-    --card-foreground: 210 40% 98%;
+    --card: 215 39% 14%; /* #1E293B */
+    --card-foreground: 210 20% 90%;
 
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 216 34% 11%; /* #0f172a */
+    --popover-foreground: 210 20% 90%;
 
-    --primary: 142 71% 45%; /* Vert émeraude */
+    --primary: 167 100% 36%; /* #00b894 */
     --primary-foreground: 210 40% 98%;
 
     --secondary: 217 33% 17%;
     --secondary-foreground: 210 40% 98%;
 
-    --muted: 217 33% 25%;
+    --muted: 215 28% 17%;
     --muted-foreground: 215 20% 65%;
 
     --accent: 217 33% 25%;
     --accent-foreground: 210 40% 98%;
 
-    --destructive: 0 63% 31%;
+    --destructive: 0 84% 60%; /* #EF4444 */
     --destructive-foreground: 210 40% 98%;
 
     --border: 217 33% 20%;
     --input: 217 33% 20%;
-    --ring: 142 71% 45%;
+    --ring: 166 84% 40%; /* #10B981 */
 
     --radius: 0.75rem;
 
     /* Couleurs custom pour le branding */
-    --brand-bg: 222 47% 11%;
-    --brand-surface: 222 47% 14%;
-    --brand-accent: 142 71% 45%;
+    --brand-bg: 220 41% 9%;
+    --brand-surface: 215 39% 14%;
+    --brand-accent: 167 100% 36%;
     --brand-muted: 217 33% 25%;
     --brand-line: 217 33% 20%;
-    --brand-text: 210 40% 98%;
+    --brand-text: 210 20% 90%;
 
     --positive: 145 63% 42%;
     --warning: 38 92% 50%;
     --danger: 0 84% 60%;
-    --unauthorized-bg: 222 47% 11%;
+    --unauthorized-bg: 220 41% 9%;
   }
 
   .dark {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
-    --card: 222 47% 14%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 142 71% 45%;
+    --background: 220 41% 9%; /* #0B1220 */
+    --foreground: 210 20% 90%; /* #e2e8f0 */
+    --card: 215 39% 14%; /* #1E293B */
+    --card-foreground: 210 20% 90%;
+    --popover: 216 34% 11%; /* #0f172a */
+    --popover-foreground: 210 20% 90%;
+    --primary: 167 100% 36%; /* #00b894 */
     --primary-foreground: 210 40% 98%;
     --secondary: 217 33% 17%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 25%;
+    --muted: 215 28% 17%;
     --muted-foreground: 215 20% 65%;
     --accent: 217 33% 25%;
     --accent-foreground: 210 40% 98%;
-    --destructive: 0 63% 31%;
+    --destructive: 0 84% 60%; /* #EF4444 */
     --destructive-foreground: 210 40% 98%;
     --border: 217 33% 20%;
     --input: 217 33% 20%;
-    --ring: 142 71% 45%;
+    --ring: 166 84% 40%; /* #10B981 */
   }
 }
  

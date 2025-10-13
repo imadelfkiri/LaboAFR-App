@@ -14,17 +14,6 @@ const config = {
         sans: ["var(--font-sans)", "system-ui", "ui-sans-serif", "Segoe UI", "Roboto", "Arial", "sans-serif"],
       },
       colors: {
-        brand: {
-          bg: "#0B0F0E",
-          surface: "#111516",
-          accent: "#00C853",
-          muted: "#1A1F20",
-          line: "#212728",
-          text: "#E7F6EE",
-        },
-        positive: "#16A34A",
-        warning: "#F59E0B",
-        danger: "#EF4444",
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
@@ -58,6 +47,19 @@ const config = {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
+        // Brand colors
+        brand: {
+          bg: 'hsl(var(--brand-bg))',
+          surface: 'hsl(var(--brand-surface))',
+          accent: 'hsl(var(--brand-accent))',
+          muted: 'hsl(var(--brand-muted))',
+          line: 'hsl(var(--brand-line))',
+          text: 'hsl(var(--brand-text))',
+        },
+        positive: 'hsl(var(--positive))',
+        warning: 'hsl(var(--warning))',
+        danger: 'hsl(var(--danger))',
+        'unauthorized-bg': 'hsl(var(--unauthorized-bg))',
       },
       borderRadius: {
         lg: 'var(--radius)',

@@ -95,7 +95,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         <SidebarHeader className="p-4">
           <div className="flex items-center gap-3">
             <div className='flex h-10 w-10 items-center justify-center rounded-lg bg-primary'>
-                <Fuel className="h-6 w-6 text-primary-foreground" />
+                <Fuel className="h-6 w-6 text-background" />
             </div>
             <div className="flex flex-col">
                 <h2 className="text-lg font-bold tracking-tight text-sidebar-primary-foreground">
@@ -110,24 +110,24 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         </SidebarContent>
       </Sidebar>
       <SidebarInset>
-        <header className="flex h-[60px] items-center justify-between gap-4 border-b bg-slate-900 px-6 sticky top-0 z-30 text-white">
-            <div className="text-lg font-bold">⚡ FuelTrack AFR Monitoring</div>
+        <header className="flex h-[70px] items-center justify-between gap-4 border-b border-border bg-card px-6 sticky top-0 z-30">
+            <div className="font-semibold text-lg text-foreground/90">FuelTrack AFR Monitoring</div>
             <div className="flex items-center gap-4">
                 {user && (
-                    <span className="text-sm text-slate-300">👋 {user.email}</span>
+                    <span className="text-sm text-muted-foreground">👋 {user.email}</span>
                 )}
                  <Button
                     variant="destructive"
                     size="sm"
                     onClick={handleLogout}
-                    className="bg-red-500 hover:bg-red-600 rounded-lg font-bold"
+                    className="rounded-lg font-semibold"
                  >
                     Déconnexion
                  </Button>
             </div>
         </header>
         <main className="p-6">
-            {user ? children : null}
+            {children}
         </main>
       </SidebarInset>
     </SidebarProvider>

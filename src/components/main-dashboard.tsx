@@ -7,8 +7,6 @@ import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type I
 import { Skeleton } from "@/components/ui/skeleton";
 import { Droplets, Wind, Percent, BarChart, Thermometer, Flame, TrendingUp, Activity, Archive, LayoutDashboard, ChevronDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { KeyIndicatorCard } from './cards/KeyIndicatorCard';
-import { ImpactCard, type ImpactData } from './cards/ImpactCard';
 import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell, LabelList } from 'recharts';
 import { subDays, format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -39,12 +37,11 @@ function usePersistentValue<T>(key: string, defaultValue: T): T {
 // Simplified StatCard for local use
 function StatCard({ label, value, icon: Icon, unit }: { label: string; value: string; icon: React.ElementType, unit?: string }) {
   return (
-    <div className="rounded-2xl bg-brand-surface/60 border border-brand-line/60 p-4 shadow-soft">
+    <div className="rounded-xl p-4 bg-gradient-to-br from-card to-background border-l-4 border-primary">
       <div className="flex items-start justify-between">
-        <span className="text-sm text-neutral-300">{label}</span>
-        {Icon ? <div className="opacity-70"><Icon className="h-5 w-5"/></div> : null}
+        <span className="text-sm text-muted-foreground font-medium">{label}</span>
       </div>
-      <div className="mt-2 text-3xl font-bold text-white">{value}<span className="text-lg text-muted-foreground ml-1">{unit}</span></div>
+      <div className="mt-2 text-3xl font-bold text-primary">{value}<span className="text-xl text-primary/80 ml-1">{unit}</span></div>
     </div>
   );
 }
@@ -73,8 +70,7 @@ const CustomHistoryTooltip = ({ active, payload, label }: any) => {
     return null;
   };
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658'];
-
+const COLORS = ['#00B894', '#10B981', '#34D399', '#6EE7B7', '#A7F3D0'];
 type ChartMetric = 'pci' | 'chlore';
 
 export function MainDashboard() {
@@ -118,31 +114,6 @@ export function MainDashboard() {
     useEffect(() => {
         fetchData();
     }, [fetchData]);
-
-    const mixtureIndicators = useMemo(() => {
-        if (!mixtureSession?.globalIndicators) return null;
-        const indicators = mixtureSession.globalIndicators;
-        return {
-            pci: { label: "PCI", value: formatNumber(indicators.pci, 0), unit: "kcal/kg", icon: Thermometer },
-            chlore: { label: "Chlorures", value: formatNumber(indicators.chlorine, 3), unit: "%", icon: Wind },
-            tireRate: { label: "Taux Pneus", value: formatNumber(indicators.tireRate, 2), unit: "%", icon: BarChart },
-            ash: { label: "Cendres", value: formatNumber(indicators.ash, 2), unit: "%", icon: Percent },
-            humidity: { label: "H₂O", value: formatNumber(indicators.humidity, 2), unit: "%", icon: Droplets },
-        };
-    }, [mixtureSession]);
-    
-    const impactData: ImpactData[] | null = useMemo(() => {
-        if (!latestImpact) return null;
-        const { results } = latestImpact;
-        const delta = (a?: number | null, b?: number | null) => (a ?? 0) - (b ?? 0);
-        return [
-            { label: "% Fe2O3", value: delta(results.clinkerWithAsh.fe2o3, results.clinkerWithoutAsh.fe2o3) },
-            { label: "LSF", value: delta(results.modulesAvec.lsf, results.modulesSans.lsf) },
-            { label: "C3S", value: delta(results.c3sAvec, results.c3sSans) },
-            { label: "MS", value: delta(results.modulesAvec.ms, results.modulesSans.ms) },
-            { label: "AF", value: delta(results.modulesAvec.af, results.modulesSans.af) },
-        ];
-    }, [latestImpact]);
 
     const calorificConsumption = useMemo(() => {
         if (!mixtureSession || !debitClinker || debitClinker === 0 || !mixtureSession.availableFuels) return 0;
@@ -212,88 +183,74 @@ export function MainDashboard() {
         return (
             <div className="p-4 md:p-6 space-y-6">
                 <Skeleton className="h-10 w-1/3" />
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                    <Skeleton className="h-64" />
-                    <Skeleton className="h-64" />
-                    <Skeleton className="h-64" />
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                    <Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" />
+                </div>
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-1">
+                    <Skeleton className="h-96" />
                 </div>
             </div>
         );
     }
     
     return (
-        <div className="p-4 md:p-6 lg:p-8 space-y-6">
-            <h1 className="text-3xl font-bold tracking-tight text-white">
+        <div className="space-y-6">
+            <h1 className="text-3xl font-bold tracking-tight text-primary">
                 Tableau de Bord
             </h1>
 
-            <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                
-                <div className="lg:col-span-2 space-y-6">
-                    <Card>
-                        <CardHeader>
-                            <div className="flex justify-between items-center">
-                                <div>
-                                    <CardTitle>Moyenne par Combustible</CardTitle>
-                                    <CardDescription>Moyenne des 7 derniers jours</CardDescription>
-                                </div>
-                                <Select value={chartMetric} onValueChange={(value: ChartMetric) => setChartMetric(value)}>
-                                    <SelectTrigger className="w-[180px]">
-                                        <SelectValue placeholder="Choisir un indicateur" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="pci">PCI (kcal/kg)</SelectItem>
-                                        <SelectItem value="chlore">Chlore (%)</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                             <ResponsiveContainer width="100%" height={350}>
-                                {chartData.length > 0 ? (
-                                    <RechartsBarChart data={chartData}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                                        <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                                        <Tooltip content={<CustomHistoryTooltip />} />
-                                        <Bar dataKey={chartMetric} name={chartMetric === 'pci' ? 'PCI (kcal/kg)' : 'Chlore (%)'}>
-                                            <LabelList 
-                                                dataKey={chartMetric} 
-                                                position="top" 
-                                                formatter={(value: number) => chartMetric === 'pci' ? Math.round(value) : value.toFixed(2)}
-                                                fontSize={12} 
-                                                fill="hsl(var(--foreground))" 
-                                            />
-                                            {chartData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                            ))}
-                                        </Bar>
-                                    </RechartsBarChart>
-                                ) : (
-                                    <div className="flex items-center justify-center h-full text-muted-foreground">Aucune donnée pour la période.</div>
-                                )}
-                            </ResponsiveContainer>
-                        </CardContent>
-                    </Card>
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                <StatCard label="Taux de Substitution" value={formatNumber(keyIndicators?.tsr, 2)} unit="%" icon={TrendingUp} />
+                <StatCard label="Consommation Calorifique" value={formatNumber(calorificConsumption, 0)} unit="kcal/kg" icon={Flame} />
+                <StatCard label="PCI du Mélange" value={formatNumber(mixtureSession?.globalIndicators?.pci, 0)} unit="kcal/kg" icon={Thermometer} />
+                <StatCard label="% H₂O" value={formatNumber(mixtureSession?.globalIndicators?.humidity, 2)} unit="%" icon={Droplets} />
+            </div>
 
-                <div className="lg:col-span-1 space-y-6">
-                    <KeyIndicatorCard tsr={keyIndicators?.tsr} consumption={calorificConsumption} />
-                    <Card>
-                        <CardHeader><CardTitle className="flex items-center gap-2"><Flame /> Indicateurs du Mélange</CardTitle></CardHeader>
-                        <CardContent className="grid gap-4 grid-cols-2">
-                             {mixtureIndicators ? Object.values(mixtureIndicators).map(ind => (
-                                <div key={ind.label} className="p-3 rounded-lg bg-brand-muted/70">
-                                    <p className="text-xs text-muted-foreground">{ind.label}</p>
-                                    <p className="text-xl font-bold">{ind.value}<span className="text-xs ml-1">{ind.unit}</span></p>
-                                </div>
-                            )) : <p className="col-span-2 text-center text-muted-foreground p-4">Aucune session de mélange.</p>}
-                        </CardContent>
-                    </Card>
-                     <ImpactCard title="Impact sur le Clinker" data={impactData} lastUpdate={latestImpact?.createdAt.toDate()} />
-                </div>
+            <Card className="rounded-2xl">
+                <CardHeader>
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <CardTitle>Moyenne par Combustible (7 derniers jours)</CardTitle>
+                        </div>
+                        <Select value={chartMetric} onValueChange={(value: ChartMetric) => setChartMetric(value)}>
+                            <SelectTrigger className="w-[180px]">
+                                <SelectValue placeholder="Choisir un indicateur" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="pci">PCI (kcal/kg)</SelectItem>
+                                <SelectItem value="chlore">Chlore (%)</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                     <ResponsiveContainer width="100%" height={350}>
+                        {chartData.length > 0 ? (
+                            <RechartsBarChart data={chartData}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                                <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                                <Tooltip content={<CustomHistoryTooltip />} cursor={{ fill: 'hsl(var(--muted))' }}/>
+                                <Bar dataKey={chartMetric} name={chartMetric === 'pci' ? 'PCI (kcal/kg)' : 'Chlore (%)'}>
+                                    <LabelList 
+                                        dataKey={chartMetric} 
+                                        position="top" 
+                                        formatter={(value: number) => chartMetric === 'pci' ? Math.round(value) : value.toFixed(2)}
+                                        fontSize={12} 
+                                        fill="hsl(var(--foreground))" 
+                                    />
+                                    {chartData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    ))}
+                                </Bar>
+                            </RechartsBarChart>
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-muted-foreground">Aucune donnée pour la période.</div>
+                        )}
+                    </ResponsiveContainer>
+                </CardContent>
+            </Card>
 
-            </section>
         </div>
     );
 }
