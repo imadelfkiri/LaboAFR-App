@@ -178,9 +178,9 @@ export function MainDashboard() {
         const indicators = mixtureSession.globalIndicators;
         return [
             { label: "PCI", value: indicators.pci, unit: "kcal/kg", icon: Thermometer, decimals: 0 },
-            { label: "Humidité", value: indicators.humidity, unit: "%", icon: Droplets, decimals: 2 },
-            { label: "Cendres", value: indicators.ash, unit: "%", icon: Percent, decimals: 2 },
-            { label: "Chlorures", value: indicators.chlorine, unit: "%", icon: Wind, decimals: 3 },
+            { label: "Humidité", value: indicators.humidity, unit: "%", icon: Droplets, decimals: 1 },
+            { label: "Cendres", value: indicators.ash, unit: "%", icon: Percent, decimals: 1 },
+            { label: "Chlorures", value: indicators.chlorine, unit: "%", icon: Wind, decimals: 2 },
         ];
     }, [mixtureSession]);
 

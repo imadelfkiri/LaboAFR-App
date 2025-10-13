@@ -19,7 +19,7 @@ export function KeyIndicatorCard({ tsr, consumption }: { tsr?: number, consumpti
         <div className="rounded-lg bg-primary/10 border border-primary/20 p-4 text-center">
             <p className="text-sm font-medium text-primary">Taux de Substitution Énergétique</p>
             <p className="text-5xl font-bold tracking-tighter text-white">
-                <CountUp end={tsr || 0} decimals={2} duration={1.5} />
+                <CountUp end={tsr || 0} decimals={0} duration={1.5} />
                 <span className="text-4xl text-primary/80">%</span>
             </p>
         </div>
