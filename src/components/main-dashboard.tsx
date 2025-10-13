@@ -12,6 +12,7 @@ import { fr } from 'date-fns/locale';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { KeyIndicatorCard } from './cards/KeyIndicatorCard';
 import { ImpactCard, ImpactData } from './cards/ImpactCard';
+import CountUp from 'react-countup';
 
 
 // Hook to read from localStorage without causing hydration issues
@@ -172,10 +173,10 @@ export function MainDashboard() {
         if (!mixtureSession?.globalIndicators) return null;
         const indicators = mixtureSession.globalIndicators;
         return [
-            { label: "PCI", value: formatNumber(indicators.pci, 0), unit: "kcal/kg", icon: Thermometer },
-            { label: "Humidité", value: formatNumber(indicators.humidity, 2), unit: "%", icon: Droplets },
-            { label: "Cendres", value: formatNumber(indicators.ash, 2), unit: "%", icon: Percent },
-            { label: "Chlorures", value: formatNumber(indicators.chlorine, 3), unit: "%", icon: Wind },
+            { label: "PCI", value: indicators.pci, unit: "kcal/kg", icon: Thermometer, decimals: 0 },
+            { label: "Humidité", value: indicators.humidity, unit: "%", icon: Droplets, decimals: 2 },
+            { label: "Cendres", value: indicators.ash, unit: "%", icon: Percent, decimals: 2 },
+            { label: "Chlorures", value: indicators.chlorine, unit: "%", icon: Wind, decimals: 3 },
         ];
     }, [mixtureSession]);
 
@@ -224,7 +225,7 @@ export function MainDashboard() {
              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 <KeyIndicatorCard tsr={keyIndicators?.tsr} consumption={calorificConsumption} />
                 
-                <Card className="bg-brand-surface border-brand-line">
+                <Card>
                     <CardHeader>
                         <CardTitle className="text-lg flex items-center gap-2 text-white">
                             <Recycle className="text-green-400 h-5 w-5" />
@@ -235,7 +236,10 @@ export function MainDashboard() {
                         {mixtureIndicators?.map(ind => (
                             <div key={ind.label} className="p-3 rounded-lg bg-brand-muted border border-brand-line/50">
                                 <p className="text-sm text-muted-foreground flex items-center gap-1.5"><ind.icon className="h-4 w-4" />{ind.label}</p>
-                                <p className="text-xl font-bold">{ind.value}<span className="text-xs ml-1 opacity-80">{ind.unit}</span></p>
+                                <p className="text-xl font-bold">
+                                    <CountUp end={ind.value} decimals={ind.decimals} duration={1.5} />
+                                    <span className="text-xs ml-1 opacity-80">{ind.unit}</span>
+                                </p>
                             </div>
                         ))}
                     </CardContent>
@@ -244,7 +248,7 @@ export function MainDashboard() {
                 <ImpactCard title="Impact sur le Clinker" data={impactIndicators} lastUpdate={latestImpact?.createdAt.toDate()} />
             </div>
 
-            <Card className="rounded-2xl chart-container">
+            <Card className="chart-container">
                 <CardHeader>
                     <div className="flex justify-between items-center">
                         <div>
