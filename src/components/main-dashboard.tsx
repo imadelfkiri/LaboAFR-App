@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -11,6 +10,7 @@ import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, T
 import { subDays, format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { StatCard } from '@/components/cards/StatCard';
 
 
 // Hook to read from localStorage without causing hydration issues
@@ -32,18 +32,6 @@ function usePersistentValue<T>(key: string, defaultValue: T): T {
     }, [key]);
     
     return state;
-}
-
-// Simplified StatCard for local use
-function StatCard({ label, value, icon: Icon, unit }: { label: string; value: string; icon: React.ElementType, unit?: string }) {
-  return (
-    <div className="rounded-xl p-4 bg-gradient-to-br from-card to-background border-l-4 border-primary">
-      <div className="flex items-start justify-between">
-        <span className="text-sm text-muted-foreground font-medium">{label}</span>
-      </div>
-      <div className="mt-2 text-3xl font-bold text-primary">{value}<span className="text-xl text-primary/80 ml-1">{unit}</span></div>
-    </div>
-  );
 }
 
 const formatNumber = (num: number | null | undefined, digits: number = 2) => {
@@ -70,7 +58,7 @@ const CustomHistoryTooltip = ({ active, payload, label }: any) => {
     return null;
   };
 
-const COLORS = ['#00B894', '#10B981', '#34D399', '#6EE7B7', '#A7F3D0'];
+const COLORS = ["#10b981", "#22c55e", "#3b82f6", "#8b5cf6", "#facc15", "#ef4444", "#0ea5e9"];
 type ChartMetric = 'pci' | 'chlore';
 
 export function MainDashboard() {
@@ -181,7 +169,7 @@ export function MainDashboard() {
 
     if (loading) {
         return (
-            <div className="p-4 md:p-6 space-y-6">
+            <div className="space-y-6">
                 <Skeleton className="h-10 w-1/3" />
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                     <Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" />
@@ -194,26 +182,26 @@ export function MainDashboard() {
     }
     
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 animate-slideUp">
             <h1 className="text-3xl font-bold tracking-tight text-primary">
                 Tableau de Bord
             </h1>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-                <StatCard label="Taux de Substitution" value={formatNumber(keyIndicators?.tsr, 2)} unit="%" icon={TrendingUp} />
-                <StatCard label="Consommation Calorifique" value={formatNumber(calorificConsumption, 0)} unit="kcal/kg" icon={Flame} />
-                <StatCard label="PCI du Mélange" value={formatNumber(mixtureSession?.globalIndicators?.pci, 0)} unit="kcal/kg" icon={Thermometer} />
-                <StatCard label="% H₂O" value={formatNumber(mixtureSession?.globalIndicators?.humidity, 2)} unit="%" icon={Droplets} />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 stats">
+                <StatCard label="Taux de Substitution" value={`${formatNumber(keyIndicators?.tsr, 2)}%`} icon={TrendingUp} />
+                <StatCard label="Consommation Calorifique" value={`${formatNumber(calorificConsumption, 0)} kcal/kg`} icon={Flame} />
+                <StatCard label="PCI du Mélange" value={`${formatNumber(mixtureSession?.globalIndicators?.pci, 0)} kcal/kg`} icon={Thermometer} />
+                <StatCard label="% H₂O" value={`${formatNumber(mixtureSession?.globalIndicators?.humidity, 2)}%`} icon={Droplets} />
             </div>
 
-            <Card className="rounded-2xl">
+            <Card className="rounded-2xl chart-container">
                 <CardHeader>
                     <div className="flex justify-between items-center">
                         <div>
-                            <CardTitle>Moyenne par Combustible (7 derniers jours)</CardTitle>
+                            <CardTitle className="text-white">Moyenne par Combustible (7 derniers jours)</CardTitle>
                         </div>
                         <Select value={chartMetric} onValueChange={(value: ChartMetric) => setChartMetric(value)}>
-                            <SelectTrigger className="w-[180px]">
+                            <SelectTrigger className="w-[180px] bg-brand-muted border-brand-line">
                                 <SelectValue placeholder="Choisir un indicateur" />
                             </SelectTrigger>
                             <SelectContent>
@@ -231,7 +219,7 @@ export function MainDashboard() {
                                 <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
                                 <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
                                 <Tooltip content={<CustomHistoryTooltip />} cursor={{ fill: 'hsl(var(--muted))' }}/>
-                                <Bar dataKey={chartMetric} name={chartMetric === 'pci' ? 'PCI (kcal/kg)' : 'Chlore (%)'}>
+                                <Bar dataKey={chartMetric} name={chartMetric === 'pci' ? 'PCI (kcal/kg)' : 'Chlore (%)'} radius={[10, 10, 0, 0]}>
                                     <LabelList 
                                         dataKey={chartMetric} 
                                         position="top" 

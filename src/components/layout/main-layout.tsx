@@ -91,14 +91,14 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider>
-      <Sidebar>
+      <Sidebar className="shadow-lg">
         <SidebarHeader className="p-4">
           <div className="flex items-center gap-3">
-            <div className='flex h-10 w-10 items-center justify-center rounded-lg bg-primary'>
-                <Fuel className="h-6 w-6 text-background" />
+            <div className='flex h-12 w-12 items-center justify-center rounded-lg bg-primary'>
+                <Fuel className="h-7 w-7 text-background" />
             </div>
             <div className="flex flex-col">
-                <h2 className="text-lg font-bold tracking-tight text-sidebar-primary-foreground">
+                <h2 className="text-xl font-bold tracking-tight text-sidebar-primary-foreground">
                     FuelTrack
                 </h2>
                 <p className="text-xs text-sidebar-foreground/80">AFR Monitoring</p>
@@ -108,10 +108,13 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         <SidebarContent>
             <SidebarNav allowedRoutes={allowedRoutes} />
         </SidebarContent>
+         <SidebarContent className="mt-auto mb-4 text-center text-xs text-muted-foreground">
+            © 2025 FuelTrack AFR
+        </SidebarContent>
       </Sidebar>
       <SidebarInset>
-        <header className="flex h-[70px] items-center justify-between gap-4 border-b border-border bg-card px-6 sticky top-0 z-30">
-            <div className="font-semibold text-lg text-foreground/90">FuelTrack AFR Monitoring</div>
+        <header className="flex h-[70px] items-center justify-between gap-4 border-b border-brand-line bg-card px-6 sticky top-0 z-30 animate-fadeDown shadow-lg">
+            <div className="font-semibold text-lg text-primary">FuelTrack AFR Monitoring</div>
             <div className="flex items-center gap-4">
                 {user && (
                     <span className="text-sm text-muted-foreground">👋 {user.email}</span>
@@ -120,13 +123,13 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                     variant="destructive"
                     size="sm"
                     onClick={handleLogout}
-                    className="rounded-lg font-semibold"
+                    className="rounded-lg font-semibold hover:scale-105 transition-transform"
                  >
                     Déconnexion
                  </Button>
             </div>
         </header>
-        <main className="p-6">
+        <main className="p-6 animate-fadeIn">
             {children}
         </main>
       </SidebarInset>

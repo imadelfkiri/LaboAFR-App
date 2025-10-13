@@ -56,10 +56,9 @@ const config = {
           line: 'hsl(var(--brand-line))',
           text: 'hsl(var(--brand-text))',
         },
-        positive: 'hsl(var(--positive))',
-        warning: 'hsl(var(--warning))',
-        danger: 'hsl(var(--danger))',
-        'unauthorized-bg': 'hsl(var(--unauthorized-bg))',
+        unauthorized: {
+          bg: 'hsl(var(--unauthorized-bg))',
+        }
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -81,14 +80,29 @@ const config = {
           from: {height: 'var(--radix-accordion-content-height)'},
           to: {height: '0'},
         },
+        fadeIn: {
+          from: { opacity: '0', transform: 'translateY(20px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        fadeDown: {
+          from: { opacity: '0', transform: 'translateY(-10px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        slideUp: {
+          from: { opacity: '0', transform: 'translateY(15px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+        'fadeIn': 'fadeIn 0.8s ease',
+        'fadeDown': 'fadeDown 0.6s ease',
+        'slideUp': 'slideUp 0.8s ease',
       },
     },
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [require('tailwindcss-animate')]
 } satisfies Config;
 
 export default config;
