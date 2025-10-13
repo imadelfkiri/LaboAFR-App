@@ -4,13 +4,15 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getLatestIndicatorData, getAverageAnalysisForFuels as getAverageAnalysisForFuelTypes, type AverageAnalysis, getUniqueFuelTypes } from '@/lib/data';
 import { Skeleton } from "@/components/ui/skeleton";
-import { Droplets, Wind, Percent, BarChart, Thermometer, Flame, TrendingUp, Activity, Archive, LayoutDashboard, ChevronDown } from 'lucide-react';
+import { Droplets, Wind, Percent, BarChart, Thermometer, Flame, TrendingUp, Activity, Archive, LayoutDashboard, ChevronDown, Recycle, Leaf } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell, LabelList } from 'recharts';
 import { subDays, format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { StatCard } from '@/components/cards/StatCard';
+import { KeyIndicatorCard } from './cards/KeyIndicatorCard';
+import { FlowRateCard, FlowData } from './cards/FlowRateCard';
+import { ImpactCard, ImpactData } from './cards/ImpactCard';
 
 
 // Hook to read from localStorage without causing hydration issues
@@ -165,16 +167,51 @@ export function MainDashboard() {
                 chlore: data.chlore,
             }));
     }, [weeklyAverages]);
+    
+    const flowRates = useMemo<FlowData[] | null>(() => {
+        if (!mixtureSession) return null;
+        return [
+            { label: 'Débit des AFs', value: (mixtureSession.hallAF?.flowRate || 0) + (mixtureSession.ats?.flowRate || 0) },
+            { label: 'Débit Grignons', value: (mixtureSession.directInputs?.['Grignons GO1']?.flowRate || 0) + (mixtureSession.directInputs?.['Grignons GO2']?.flowRate || 0) },
+            { label: 'Débit Pet-Coke', value: (mixtureSession.directInputs?.['Pet-Coke Preca']?.flowRate || 0) + (mixtureSession.directInputs?.['Pet-Coke Tuyere']?.flowRate || 0) }
+        ].filter(f => f.value > 0);
+    }, [mixtureSession]);
+
+    const mixtureIndicators = useMemo(() => {
+        if (!mixtureSession?.globalIndicators) return null;
+        const indicators = mixtureSession.globalIndicators;
+        return [
+            { label: "PCI", value: formatNumber(indicators.pci, 0), unit: "kcal/kg", icon: Thermometer },
+            { label: "Humidité", value: formatNumber(indicators.humidity, 2), unit: "%", icon: Droplets },
+            { label: "Cendres", value: formatNumber(indicators.ash, 2), unit: "%", icon: Percent },
+            { label: "Chlorures", value: formatNumber(indicators.chlorine, 3), unit: "%", icon: Wind },
+        ];
+    }, [mixtureSession]);
+
+    const impactIndicators = useMemo<ImpactData[] | null>(() => {
+        if (!latestImpact) return null;
+        const { results } = latestImpact;
+        const delta = (a?: number | null, b?: number | null) => (a ?? 0) - (b ?? 0);
+        return [
+            { label: 'LSF', value: delta(results.modulesAvec.lsf, results.modulesSans.lsf) },
+            { label: 'C3S', value: delta(results.c3sAvec, results.c3sSans) },
+            { label: 'MS', value: delta(results.modulesAvec.ms, results.modulesSans.ms) },
+            { label: 'AF', value: delta(results.modulesAvec.af, results.modulesSans.af) },
+        ];
+    }, [latestImpact]);
 
 
     if (loading) {
         return (
             <div className="space-y-6">
                 <Skeleton className="h-10 w-1/3" />
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-                    <Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" />
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    <Skeleton className="h-40" />
+                    <Skeleton className="h-40" />
+                    <Skeleton className="h-40" />
+                    <Skeleton className="h-40" />
                 </div>
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-1">
+                <div className="grid gap-6 md:grid-cols-1">
                     <Skeleton className="h-96" />
                 </div>
             </div>
@@ -183,15 +220,39 @@ export function MainDashboard() {
     
     return (
         <div className="space-y-6 animate-slideUp">
-            <h1 className="text-3xl font-bold tracking-tight text-primary">
-                Tableau de Bord
-            </h1>
+             <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+                <h1 className="text-3xl font-bold tracking-tight text-primary">
+                    Tableau de Bord
+                </h1>
+                 {mixtureSession?.timestamp && (
+                    <p className="text-sm text-muted-foreground">
+                        Données de la session du {format(mixtureSession.timestamp.toDate(), "d MMMM yyyy 'à' HH:mm", { locale: fr })}
+                    </p>
+                )}
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 stats">
-                <StatCard label="Taux de Substitution" value={`${formatNumber(keyIndicators?.tsr, 2)}%`} icon={TrendingUp} />
-                <StatCard label="Consommation Calorifique" value={`${formatNumber(calorificConsumption, 0)} kcal/kg`} icon={Flame} />
-                <StatCard label="PCI du Mélange" value={`${formatNumber(mixtureSession?.globalIndicators?.pci, 0)} kcal/kg`} icon={Thermometer} />
-                <StatCard label="% H₂O" value={`${formatNumber(mixtureSession?.globalIndicators?.humidity, 2)}%`} icon={Droplets} />
+             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                <KeyIndicatorCard tsr={keyIndicators?.tsr} consumption={calorificConsumption} />
+                
+                <Card className="bg-brand-surface border-brand-line">
+                    <CardHeader>
+                        <CardTitle className="text-lg flex items-center gap-2 text-white">
+                            <Recycle className="text-green-400 h-5 w-5" />
+                            Indicateurs du Mélange
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-2 gap-4">
+                        {mixtureIndicators?.map(ind => (
+                            <div key={ind.label} className="p-3 rounded-lg bg-brand-muted border border-brand-line/50">
+                                <p className="text-sm text-muted-foreground flex items-center gap-1.5"><ind.icon className="h-4 w-4" />{ind.label}</p>
+                                <p className="text-xl font-bold">{ind.value}<span className="text-xs ml-1 opacity-80">{ind.unit}</span></p>
+                            </div>
+                        ))}
+                    </CardContent>
+                </Card>
+
+                <FlowRateCard title="Débits Actuels" flows={flowRates} />
+                <ImpactCard title="Impact sur le Clinker" data={impactIndicators} lastUpdate={latestImpact?.createdAt.toDate()} />
             </div>
 
             <Card className="rounded-2xl chart-container">
