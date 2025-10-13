@@ -410,6 +410,7 @@ export function MixtureCalculator() {
   const [mixtureSummary, setMixtureSummary] = useState<MixtureSummary | null>(null);
 
   const { toast } = useToast();
+  const isInitialMount = useRef(true);
 
   const handleSaveThresholds = async (newThresholds: MixtureThresholds) => {
     try {
@@ -556,6 +557,7 @@ export function MixtureCalculator() {
              console.error("Error on initial load:", error);
         } finally {
             setLoading(false);
+            isInitialMount.current = false;
         }
     };
 
@@ -571,6 +573,7 @@ export function MixtureCalculator() {
 
   // Effect to refetch data when date ranges change
   useEffect(() => {
+    if (isInitialMount.current) return;
       if (analysisDateRange?.from && analysisDateRange.to) {
           fetchData(analysisDateRange, JSON.parse(individualDateRanges));
       }
