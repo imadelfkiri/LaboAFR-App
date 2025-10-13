@@ -58,6 +58,12 @@ const config = {
         },
         unauthorized: {
           bg: 'hsl(var(--unauthorized-bg))',
+        },
+        danger: {
+          DEFAULT: 'hsl(0 84% 60%)',
+        },
+        positive: {
+          DEFAULT: 'hsl(142 84% 40%)',
         }
       },
       borderRadius: {
@@ -100,6 +106,9 @@ const config = {
         'fadeDown': 'fadeDown 0.6s ease',
         'slideUp': 'slideUp 0.8s ease',
       },
+      backdropBlur: {
+        lg: '10px',
+      }
     },
   },
   plugins: [require('tailwindcss-animate')]
