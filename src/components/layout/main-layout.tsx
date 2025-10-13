@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useMemo } from 'react';
@@ -17,6 +16,7 @@ import { auth } from '@/lib/firebase';
 import { getAllowedRoutesForRole } from '@/lib/data';
 import { Skeleton } from '../ui/skeleton';
 import { useAuth } from '@/context/auth-provider';
+import { ThemeToggleButton } from './theme-toggle-button';
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -113,16 +113,17 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         </SidebarContent>
       </Sidebar>
       <SidebarInset>
-        <header className="flex justify-between items-center px-6 py-4 bg-[#0f1626] border-b border-gray-800 shadow-md">
+        <header className="flex justify-between items-center px-6 py-4 bg-background/80 backdrop-blur-lg sticky top-0 z-20 border-b border-border/60 shadow-sm">
             <div className="flex items-center gap-2">
                 <span className="text-green-400 text-2xl">⚡</span>
-                <h1 className="text-xl font-bold text-white">FuelTrack AFR</h1>
+                <h1 className="text-xl font-bold text-foreground">FuelTrack AFR</h1>
             </div>
-            <div className="flex items-center gap-4 text-gray-400">
+            <div className="flex items-center gap-4 text-muted-foreground">
                 {user && (
-                    <span>{user.email}</span>
+                    <span className="text-sm">{user.email}</span>
                 )}
-                <button onClick={handleLogout} className="px-3 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg">
+                <ThemeToggleButton />
+                <button onClick={handleLogout} className="px-3 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-sm font-medium transition-colors">
                     Déconnexion
                 </button>
             </div>
