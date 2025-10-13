@@ -113,20 +113,18 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         </SidebarContent>
       </Sidebar>
       <SidebarInset>
-        <header className="flex h-[70px] items-center justify-between gap-4 border-b border-brand-line bg-card px-6 sticky top-0 z-30 animate-fadeDown shadow-lg">
-            <div className="font-semibold text-lg text-primary">FuelTrack AFR Monitoring</div>
-            <div className="flex items-center gap-4">
+        <header className="flex justify-between items-center px-6 py-4 bg-[#0f1626] border-b border-gray-800 shadow-md">
+            <div className="flex items-center gap-2">
+                <span className="text-green-400 text-2xl">⚡</span>
+                <h1 className="text-xl font-bold text-white">FuelTrack AFR</h1>
+            </div>
+            <div className="flex items-center gap-4 text-gray-400">
                 {user && (
-                    <span className="text-sm text-muted-foreground">👋 {user.email}</span>
+                    <span>{user.email}</span>
                 )}
-                 <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={handleLogout}
-                    className="rounded-lg font-semibold hover:scale-105 transition-transform"
-                 >
+                <button onClick={handleLogout} className="px-3 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg">
                     Déconnexion
-                 </Button>
+                </button>
             </div>
         </header>
         <main className="p-6 animate-fadeIn">
