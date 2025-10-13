@@ -246,7 +246,12 @@ export function MainDashboard() {
                             <div key={ind.label} className="p-3 rounded-lg bg-brand-muted border border-brand-line/50">
                                 <p className="text-sm text-muted-foreground flex items-center gap-1.5"><ind.icon className="h-4 w-4" />{ind.label}</p>
                                 <p className="text-xl font-bold">
-                                    <CountUp end={ind.value} decimals={ind.decimals} duration={1.5} />
+                                    <CountUp
+                                        end={ind.value}
+                                        decimals={ind.decimals}
+                                        duration={1.5}
+                                        useGrouping={ind.label !== 'PCI'}
+                                    />
                                     <span className="text-xs ml-1 opacity-80">{ind.unit}</span>
                                 </p>
                             </div>
