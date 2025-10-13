@@ -11,7 +11,6 @@ import { subDays, format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { KeyIndicatorCard } from './cards/KeyIndicatorCard';
-import { FlowRateCard, FlowData } from './cards/FlowRateCard';
 import { ImpactCard, ImpactData } from './cards/ImpactCard';
 
 
@@ -168,14 +167,6 @@ export function MainDashboard() {
             }));
     }, [weeklyAverages]);
     
-    const flowRates = useMemo<FlowData[] | null>(() => {
-        if (!mixtureSession) return null;
-        return [
-            { label: 'Débit des AFs', value: (mixtureSession.hallAF?.flowRate || 0) + (mixtureSession.ats?.flowRate || 0) },
-            { label: 'Débit Grignons', value: (mixtureSession.directInputs?.['Grignons GO1']?.flowRate || 0) + (mixtureSession.directInputs?.['Grignons GO2']?.flowRate || 0) },
-            { label: 'Débit Pet-Coke', value: (mixtureSession.directInputs?.['Pet-Coke Preca']?.flowRate || 0) + (mixtureSession.directInputs?.['Pet-Coke Tuyere']?.flowRate || 0) }
-        ].filter(f => f.value > 0);
-    }, [mixtureSession]);
 
     const mixtureIndicators = useMemo(() => {
         if (!mixtureSession?.globalIndicators) return null;
@@ -205,8 +196,7 @@ export function MainDashboard() {
         return (
             <div className="space-y-6">
                 <Skeleton className="h-10 w-1/3" />
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    <Skeleton className="h-40" />
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
                     <Skeleton className="h-40" />
                     <Skeleton className="h-40" />
                     <Skeleton className="h-40" />
@@ -231,7 +221,7 @@ export function MainDashboard() {
                 )}
             </div>
 
-             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 <KeyIndicatorCard tsr={keyIndicators?.tsr} consumption={calorificConsumption} />
                 
                 <Card className="bg-brand-surface border-brand-line">
@@ -251,7 +241,6 @@ export function MainDashboard() {
                     </CardContent>
                 </Card>
 
-                <FlowRateCard title="Débits Actuels" flows={flowRates} />
                 <ImpactCard title="Impact sur le Clinker" data={impactIndicators} lastUpdate={latestImpact?.createdAt.toDate()} />
             </div>
 
@@ -303,3 +292,5 @@ export function MainDashboard() {
         </div>
     );
 }
+
+    
