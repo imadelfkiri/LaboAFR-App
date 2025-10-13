@@ -189,6 +189,8 @@ export function MainDashboard() {
         const { results } = latestImpact;
         const delta = (a?: number | null, b?: number | null) => (a ?? 0) - (b ?? 0);
         return [
+            { label: 'Fe2O3', value: delta(results.clinkerWithAsh.fe2o3, results.clinkerWithoutAsh.fe2o3)},
+            { label: 'CaO', value: delta(results.clinkerWithAsh.cao, results.clinkerWithoutAsh.cao)},
             { label: 'LSF', value: delta(results.modulesAvec.lsf, results.modulesSans.lsf) },
             { label: 'C3S', value: delta(results.c3sAvec, results.c3sSans) },
             { label: 'MS', value: delta(results.modulesAvec.ms, results.modulesSans.ms) },
