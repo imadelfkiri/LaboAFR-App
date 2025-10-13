@@ -48,10 +48,10 @@
   .light {
     /* Thème clair */
     --background: 210 40% 98%; /* #f8fafc */
-    --foreground: 222 84% 4%; /* #020817 */
+    --foreground: 224 71% 4%; /* #111827 */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222 84% 4%;
+    --card: 0 0% 100%; /* #ffffff */
+    --card-foreground: 224 71% 4%; /* #111827 */
 
     --popover: 0 0% 100%;
     --popover-foreground: 222 84% 4%;
