@@ -33,6 +33,7 @@ import { Separator } from './ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { handleGenerateSuggestion } from '@/lib/actions';
 import { ScrollArea } from './ui/scroll-area';
+import { useAuth } from '@/context/auth-provider';
 
 
 interface FuelState {
@@ -89,11 +90,13 @@ const ThresholdSettingsModal = ({
   onOpenChange,
   thresholds,
   onSave,
+  isReadOnly,
 }: {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   thresholds: MixtureThresholds;
   onSave: (newThresholds: MixtureThresholds) => void;
+  isReadOnly: boolean;
 }) => {
     const [currentThresholds, setCurrentThresholds] = useState(thresholds);
 
@@ -116,7 +119,7 @@ const ThresholdSettingsModal = ({
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" disabled={isReadOnly}>
                     <Settings className="h-5 w-5" />
                 </Button>
             </DialogTrigger>
@@ -130,28 +133,28 @@ const ThresholdSettingsModal = ({
                 <div className="grid grid-cols-2 gap-4 py-4">
                     <div className="space-y-2">
                         <Label htmlFor="pci_min">PCI Moyen (min)</Label>
-                        <Input id="pci_min" type="number" value={currentThresholds.pci_min} onChange={e => handleChange('pci_min', e.target.value)} />
+                        <Input id="pci_min" type="number" value={currentThresholds.pci_min} onChange={e => handleChange('pci_min', e.target.value)} readOnly={isReadOnly}/>
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="humidity_max">Humidité Moyenne (max %)</Label>
-                        <Input id="humidity_max" type="number" value={currentThresholds.humidity_max} onChange={e => handleChange('humidity_max', e.target.value)} />
+                        <Input id="humidity_max" type="number" value={currentThresholds.humidity_max} onChange={e => handleChange('humidity_max', e.target.value)} readOnly={isReadOnly}/>
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="ash_max">Cendres Moyennes (max %)</Label>
-                        <Input id="ash_max" type="number" value={currentThresholds.ash_max} onChange={e => handleChange('ash_max', e.target.value)} />
+                        <Input id="ash_max" type="number" value={currentThresholds.ash_max} onChange={e => handleChange('ash_max', e.target.value)} readOnly={isReadOnly}/>
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="chlorine_max">Chlorures Moyens (max %)</Label>
-                        <Input id="chlorine_max" type="number" value={currentThresholds.chlorine_max} onChange={e => handleChange('chlorine_max', e.target.value)} />
+                        <Input id="chlorine_max" type="number" value={currentThresholds.chlorine_max} onChange={e => handleChange('chlorine_max', e.target.value)} readOnly={isReadOnly}/>
                     </div>
                      <div className="space-y-2">
                         <Label htmlFor="tireRate_max">Taux de Pneus (max %)</Label>
-                        <Input id="tireRate_max" type="number" value={currentThresholds.tireRate_max} onChange={e => handleChange('tireRate_max', e.target.value)} />
+                        <Input id="tireRate_max" type="number" value={currentThresholds.tireRate_max} onChange={e => handleChange('tireRate_max', e.target.value)} readOnly={isReadOnly}/>
                     </div>
                 </div>
                 <DialogFooter>
                     <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>Annuler</Button>
-                    <Button type="button" onClick={handleSave}>Enregistrer les seuils</Button>
+                    {!isReadOnly && <Button type="button" onClick={handleSave}>Enregistrer les seuils</Button>}
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -373,6 +376,8 @@ const fuelOrder = [
 
 
 export function MixtureCalculator() {
+  const { userProfile } = useAuth();
+  const isReadOnly = userProfile?.role === 'viewer';
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [availableFuels, setAvailableFuels] = useState<Record<string, AverageAnalysis>>({});
@@ -410,9 +415,9 @@ export function MixtureCalculator() {
   const [mixtureSummary, setMixtureSummary] = useState<MixtureSummary | null>(null);
 
   const { toast } = useToast();
-  const isInitialMount = useRef(true);
 
   const handleSaveThresholds = async (newThresholds: MixtureThresholds) => {
+    if (isReadOnly) return;
     try {
         const specToSave: Partial<Specification> = {
             pci_min: newThresholds.pci_min,
@@ -431,9 +436,7 @@ export function MixtureCalculator() {
     }
   }
 
- const fetchData = useCallback(async (dateRangeToUse: DateRange, individualFuelRanges: Record<string, DateRange | undefined>) => {
-    if (!dateRangeToUse?.from || !dateRangeToUse?.to) return;
-
+ const fetchData = useCallback(async (globalDateRange: DateRange, individualFuelRanges: Record<string, DateRange | undefined>) => {
     setLoading(true);
     try {
         const [allFuelData, costs, allStocks, globalSpec] = await Promise.all([
@@ -451,7 +454,7 @@ export function MixtureCalculator() {
         // Fetch analyses based on global or individual date ranges
         const analysisPromises = fuelNamesArray.map(fuelName => {
             const specificRange = individualFuelRanges[fuelName];
-            const range = (specificRange?.from && specificRange?.to) ? specificRange : dateRangeToUse;
+            const range = (specificRange?.from && specificRange?.to) ? specificRange : globalDateRange;
             return getAverageAnalysisForFuels([fuelName], range).then(res => ({ [fuelName]: res[fuelName] }));
         });
 
@@ -487,6 +490,18 @@ export function MixtureCalculator() {
         setLoading(false);
     }
   }, [toast]);
+  
+  const updateFuelAnalysis = useCallback(async (fuelName: string, dateRange: DateRange) => {
+    try {
+        const analysis = await getAverageAnalysisForFuels([fuelName], dateRange);
+        setAvailableFuels(prev => ({
+            ...prev,
+            [fuelName]: analysis[fuelName],
+        }));
+    } catch (error) {
+        toast({ variant: "destructive", title: "Erreur", description: `Impossible de mettre à jour l'analyse pour ${fuelName}.` });
+    }
+  }, [toast]);
 
   // Initial data load effect
   useEffect(() => {
@@ -494,15 +509,15 @@ export function MixtureCalculator() {
         setLoading(true);
         try {
             const latestSession = await getLatestMixtureSession();
-            let dateRangeToUse = analysisDateRange;
+            let dateRangeToUse = { from: subDays(new Date(), 7), to: new Date() };
             if (latestSession?.analysisDateRange?.from && latestSession.analysisDateRange.to) {
                 const fromDate = latestSession.analysisDateRange.from.toDate();
                 const toDate = latestSession.analysisDateRange.to.toDate();
                 if (isValid(fromDate) && isValid(toDate)) {
                     dateRangeToUse = { from: fromDate, to: toDate };
-                    setAnalysisDateRange(dateRangeToUse);
                 }
             }
+            setAnalysisDateRange(dateRangeToUse);
             
             const [allFuelData, allStocks] = await Promise.all([getFuelData(), getStocks()]);
             const allPossibleFuelNames = new Set(allStocks.map(s => s.nom_combustible));
@@ -549,35 +564,29 @@ export function MixtureCalculator() {
                 ...Object.fromEntries(Object.entries(initialAtsState.fuels).map(([k, v]) => [k, v.dateRange]))
             };
 
-            if (dateRangeToUse) {
-                await fetchData(dateRangeToUse, individualRanges);
-            }
+            await fetchData(dateRangeToUse, individualRanges);
             
         } catch (error) {
              console.error("Error on initial load:", error);
         } finally {
             setLoading(false);
-            isInitialMount.current = false;
         }
     };
 
     loadInitialData();
-  }, []); // Run only once on mount
+  }, [fetchData, toast]);
 
-  const individualDateRanges = useMemo(() => {
-    return JSON.stringify({
-        ...Object.fromEntries(Object.entries(hallAF.fuels).map(([k, v]) => [k, v.dateRange])),
-        ...Object.fromEntries(Object.entries(ats.fuels).map(([k, v]) => [k, v.dateRange]))
-    });
-  }, [hallAF.fuels, ats.fuels]);
 
-  // Effect to refetch data when date ranges change
+  // Effect to refetch data when global date ranges change
   useEffect(() => {
-    if (isInitialMount.current) return;
-      if (analysisDateRange?.from && analysisDateRange.to) {
-          fetchData(analysisDateRange, JSON.parse(individualDateRanges));
-      }
-  }, [analysisDateRange, individualDateRanges, fetchData]);
+    if (analysisDateRange?.from && analysisDateRange.to) {
+        const individualRanges = {
+            ...Object.fromEntries(Object.entries(hallAF.fuels).map(([k, v]) => [k, v.dateRange])),
+            ...Object.fromEntries(Object.entries(ats.fuels).map(([k, v]) => [k, v.dateRange]))
+        };
+        fetchData(analysisDateRange, individualRanges);
+    }
+  }, [analysisDateRange, fetchData, hallAF.fuels, ats.fuels]);
 
 
   const fetchHistoryData = useCallback(async () => {
@@ -640,6 +649,7 @@ export function MixtureCalculator() {
   }
 
   const handlePrepareSave = () => {
+    if (isReadOnly) return;
     const directInputBaseNames = [...new Set(Object.keys(directInputs).map(name => name.split(" ")[0].toLowerCase()))];
 
     const mixtureFuelWeights: Record<string, number> = {};
@@ -674,6 +684,7 @@ export function MixtureCalculator() {
   };
   
   const handleConfirmSave = async () => {
+    if (isReadOnly) return;
     setIsSaving(true);
     setIsSaveModalOpen(false);
     try {
@@ -724,6 +735,11 @@ export function MixtureCalculator() {
             newFuels[fuelName] = { ...newFuels[fuelName], dateRange: dateRange };
             return { ...prev, fuels: newFuels };
         });
+        
+        const rangeToFetch = (dateRange?.from && dateRange.to) ? dateRange : analysisDateRange;
+        if (rangeToFetch?.from && rangeToFetch?.to) {
+            updateFuelAnalysis(fuelName, rangeToFetch);
+        }
     };
 
     return (
@@ -742,6 +758,7 @@ export function MixtureCalculator() {
                             variant={'ghost'}
                             size="icon"
                             className={cn("h-8 w-8", specificDateRange && "text-primary hover:text-primary")}
+                            disabled={isReadOnly}
                         >
                             <CalendarIcon className="h-4 w-4" />
                         </Button>
@@ -755,10 +772,11 @@ export function MixtureCalculator() {
                             onSelect={(range) => handleIndividualDateChange(fuelName, range)}
                             numberOfMonths={1}
                             locale={fr}
+                            disabled={isReadOnly}
                         />
                         {specificDateRange && (
                            <div className="p-2 border-t text-center">
-                             <Button variant="ghost" size="sm" onClick={() => handleIndividualDateChange(fuelName, undefined)}>
+                             <Button variant="ghost" size="sm" onClick={() => handleIndividualDateChange(fuelName, undefined)} disabled={isReadOnly}>
                                 Réinitialiser
                              </Button>
                            </div>
@@ -774,6 +792,7 @@ export function MixtureCalculator() {
                     value={fuelState?.buckets || ''}
                     onChange={(e) => handleInputChange(setInstallationState, fuelName, e.target.value)}
                     min="0"
+                    readOnly={isReadOnly}
                 />
             </div>
         )})}
@@ -986,6 +1005,7 @@ export function MixtureCalculator() {
                     onOpenChange={setIsThresholdModalOpen}
                     thresholds={thresholds}
                     onSave={handleSaveThresholds}
+                    isReadOnly={isReadOnly}
                 />
               </div>
                <Popover>
@@ -997,6 +1017,7 @@ export function MixtureCalculator() {
                               "w-[300px] justify-start text-left font-normal",
                               !analysisDateRange && "text-muted-foreground"
                           )}
+                          disabled={isReadOnly}
                       >
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {analysisDateRange?.from ? (
@@ -1022,12 +1043,13 @@ export function MixtureCalculator() {
                           onSelect={setAnalysisDateRange}
                           numberOfMonths={2}
                           locale={fr}
+                          disabled={isReadOnly}
                       />
                   </PopoverContent>
               </Popover>
             </div>
             <div className="flex items-center gap-2">
-                <Button disabled={isSaving} onClick={handlePrepareSave}>
+                <Button disabled={isSaving || isReadOnly} onClick={handlePrepareSave}>
                     <Save className="mr-2 h-4 w-4" />
                     {isSaving ? "Enregistrement..." : "Enregistrer la Session"}
                 </Button>
@@ -1078,7 +1100,7 @@ export function MixtureCalculator() {
             <CardTitle>Hall des AF</CardTitle>
             <div className="flex items-center gap-2">
                 <Label htmlFor="flow-hall" className="text-sm text-gray-600">Débit (t/h)</Label>
-                <Input id="flow-hall" type="number" className="w-32 h-9" value={hallAF.flowRate || ''} onChange={(e) => handleFlowRateChange(setHallAF, e.target.value)} />
+                <Input id="flow-hall" type="number" className="w-32 h-9" value={hallAF.flowRate || ''} onChange={(e) => handleFlowRateChange(setHallAF, e.target.value)} readOnly={isReadOnly}/>
             </div>
           </CardHeader>
           <CardContent className="space-y-4 p-6">
@@ -1091,7 +1113,7 @@ export function MixtureCalculator() {
             <CardTitle>ATS</CardTitle>
             <div className="flex items-center gap-2">
                 <Label htmlFor="flow-ats" className="text-sm text-gray-600">Débit (t/h)</Label>
-                <Input id="flow-ats" type="number" className="w-32 h-9" value={ats.flowRate || ''} onChange={(e) => handleFlowRateChange(setAts, e.target.value)} />
+                <Input id="flow-ats" type="number" className="w-32 h-9" value={ats.flowRate || ''} onChange={(e) => handleFlowRateChange(setAts, e.target.value)} readOnly={isReadOnly}/>
             </div>
           </CardHeader>
           <CardContent className="space-y-4 p-6">
@@ -1118,6 +1140,7 @@ export function MixtureCalculator() {
                             className="w-32 h-9" 
                             value={directInputs[fuelName].flowRate || ''} 
                             onChange={(e) => handleDirectInputChange(fuelName, e.target.value)}
+                            readOnly={isReadOnly}
                         />
                         <span className="text-sm text-muted-foreground w-8">t/h</span>
                     </div>
