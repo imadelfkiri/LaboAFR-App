@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getLatestIndicatorData, getAverageAnalysisForFuels as getAverageAnalysisForFuelTypes, type AverageAnalysis, getUniqueFuelTypes } from '@/lib/data';
+import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getLatestIndicatorData, getAverageAnalysisForFuels as getAverageAnalysisForFuelTypes, type AverageAnalysis, getUniqueFuelTypes, getSpecifications, type Specification } from '@/lib/data';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Droplets, Wind, Percent, BarChart, Thermometer, Flame, Activity, Archive, LayoutDashboard, ChevronDown, Recycle, Leaf } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -72,6 +72,7 @@ export function MainDashboard() {
     const [latestImpact, setLatestImpact] = useState<ImpactAnalysis | null>(null);
     const [keyIndicators, setKeyIndicators] = useState<{ tsr: number; } | null>(null);
     const [weeklyAverages, setWeeklyAverages] = useState<Record<string, AverageAnalysis>>({});
+    const [specifications, setSpecifications] = useState<Record<string, Specification>>({});
     const [selectedChartMetric, setChartMetric] = useState<ChartMetric>('pci');
     const debitClinker = usePersistentValue<number>('debitClinker', 0);
 
@@ -82,17 +83,25 @@ export function MainDashboard() {
             const sevenDaysAgo = subDays(new Date(), 7);
             const today = new Date();
 
-            const [sessionData, impactAnalyses, indicatorData, uniqueFuels] = await Promise.all([
+            const [sessionData, impactAnalyses, indicatorData, uniqueFuels, specs] = await Promise.all([
                 getLatestMixtureSession(),
                 getImpactAnalyses(),
                 getLatestIndicatorData(),
                 getUniqueFuelTypes(),
+                getSpecifications(),
             ]);
 
             const fuelNames = uniqueFuels.filter(name => name.toLowerCase() !== 'grignons' && name.toLowerCase() !== 'pet-coke');
 
             const weeklyAvgsData = await getAverageAnalysisForFuelTypes(fuelNames, { from: sevenDaysAgo, to: today });
 
+            const specsMap: Record<string, Specification> = {};
+            specs.forEach(spec => {
+                const key = `${spec.type_combustible}|${spec.fournisseur}`;
+                specsMap[key] = spec;
+            });
+            
+            setSpecifications(specsMap);
             setMixtureSession(sessionData);
             setLatestImpact(impactAnalyses.length > 0 ? impactAnalyses[0] : null);
             setKeyIndicators(indicatorData);
@@ -165,12 +174,26 @@ export function MainDashboard() {
     const chartData = useMemo(() => {
         return Object.entries(weeklyAverages)
             .filter(([, data]) => data && data.count > 0)
-            .map(([name, data]) => ({
-                name,
-                pci: data.pci_brut,
-                chlore: data.chlore,
-            }));
-    }, [weeklyAverages]);
+            .map(([name, data]) => {
+                const spec = Object.values(specifications).find(s => s.type_combustible === name);
+                let isConform = true;
+                if (spec) {
+                    if (selectedChartMetric === 'pci' && spec.PCI_min != null && data.pci_brut < spec.PCI_min) {
+                        isConform = false;
+                    }
+                    if (selectedChartMetric === 'chlore' && spec.Cl_max != null && data.chlore > spec.Cl_max) {
+                        isConform = false;
+                    }
+                }
+                
+                return {
+                    name,
+                    pci: data.pci_brut,
+                    chlore: data.chlore,
+                    isConform: spec ? isConform : null, // null if no spec
+                }
+            });
+    }, [weeklyAverages, specifications, selectedChartMetric]);
     
 
     const mixtureIndicators = useMemo(() => {
@@ -286,7 +309,15 @@ export function MainDashboard() {
                         {chartData.length > 0 ? (
                             <RechartsBarChart data={chartData}>
                                 <defs>
-                                    <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                                    <linearGradient id="chartGradientConform" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="rgba(16, 185, 129, 0.8)" />
+                                        <stop offset="100%" stopColor="rgba(16, 185, 129, 0.1)" />
+                                    </linearGradient>
+                                     <linearGradient id="chartGradientNonConform" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="rgba(239, 68, 68, 0.8)" />
+                                        <stop offset="100%" stopColor="rgba(239, 68, 68, 0.1)" />
+                                    </linearGradient>
+                                     <linearGradient id="chartGradientNeutral" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="0%" stopColor="rgba(0,224,161,0.8)" />
                                         <stop offset="100%" stopColor="rgba(0,224,161,0.1)" />
                                     </linearGradient>
@@ -295,7 +326,18 @@ export function MainDashboard() {
                                 <XAxis dataKey="name" stroke="#A0AEC0" fontSize={12} />
                                 <YAxis stroke="#A0AEC0" fontSize={12} />
                                 <Tooltip content={<CustomHistoryTooltip />} cursor={{ fill: 'hsl(var(--brand-muted))' }}/>
-                                <Bar dataKey={selectedChartMetric} name={selectedChartMetric === 'pci' ? 'PCI (kcal/kg)' : 'Chlore (%)'} fill="url(#chartGradient)" radius={8}>
+                                <Bar dataKey={selectedChartMetric} name={selectedChartMetric === 'pci' ? 'PCI (kcal/kg)' : 'Chlore (%)'} radius={8}>
+                                    {chartData.map((entry, index) => {
+                                        let fillUrl;
+                                        if (entry.isConform === true) {
+                                            fillUrl = "url(#chartGradientConform)";
+                                        } else if (entry.isConform === false) {
+                                            fillUrl = "url(#chartGradientNonConform)";
+                                        } else {
+                                            fillUrl = "url(#chartGradientNeutral)";
+                                        }
+                                        return <Cell key={`cell-${index}`} fill={fillUrl} />;
+                                    })}
                                     <LabelList 
                                         dataKey={selectedChartMetric} 
                                         position="top" 
