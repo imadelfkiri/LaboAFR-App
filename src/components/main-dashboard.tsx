@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getLatestIndicatorData, getAverageAnalysisForFuels as getAverageAnalysisForFuelTypes, type AverageAnalysis, getUniqueFuelTypes } from '@/lib/data';
 import { Skeleton } from "@/components/ui/skeleton";
-import { Droplets, Wind, Percent, BarChart, Thermometer, Flame, TrendingUp, Activity, Archive, LayoutDashboard, ChevronDown, Recycle, Leaf } from 'lucide-react';
+import { Droplets, Wind, Percent, BarChart, Thermometer, Flame, Activity, Archive, LayoutDashboard, ChevronDown, Recycle, Leaf } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell, LabelList } from 'recharts';
 import { subDays, format } from 'date-fns';
@@ -47,11 +47,12 @@ const formatNumber = (num: number | null | undefined, digits: number = 2) => {
 const CustomHistoryTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
         return (
-            <div className="bg-background/80 backdrop-blur-sm border border-border rounded-lg shadow-lg p-3 text-xs">
-                <p className="font-bold text-foreground">{label}</p>
+            <div className="bg-brand-surface border border-brand-accent rounded-lg shadow-lg p-3 text-xs">
+                <p className="font-bold text-brand-accent mb-2">{label}</p>
                 {payload.map((pld: any) => (
-                    <div key={pld.dataKey} style={{ color: pld.color }}>
-                        {`${pld.name}: ${pld.value.toFixed(2)}`}
+                    <div key={pld.dataKey} className="text-brand-text">
+                        {`${pld.name}: `}
+                        <span className="font-bold">{pld.value.toLocaleString('fr-FR', { minimumFractionDigits: chartMetric === 'pci' ? 0 : 2, maximumFractionDigits: chartMetric === 'pci' ? 0 : 2 })}</span>
                     </div>
                 ))}
             </div>
@@ -62,6 +63,7 @@ const CustomHistoryTooltip = ({ active, payload, label }: any) => {
 
 const COLORS = ["#10b981", "#22c55e", "#3b82f6", "#8b5cf6", "#facc15", "#ef4444", "#0ea5e9"];
 type ChartMetric = 'pci' | 'chlore';
+let chartMetric: ChartMetric = 'pci';
 
 export function MainDashboard() {
     const [loading, setLoading] = useState(true);
@@ -69,9 +71,10 @@ export function MainDashboard() {
     const [latestImpact, setLatestImpact] = useState<ImpactAnalysis | null>(null);
     const [keyIndicators, setKeyIndicators] = useState<{ tsr: number; } | null>(null);
     const [weeklyAverages, setWeeklyAverages] = useState<Record<string, AverageAnalysis>>({});
-    const [chartMetric, setChartMetric] = useState<ChartMetric>('pci');
+    const [selectedChartMetric, setChartMetric] = useState<ChartMetric>('pci');
     const debitClinker = usePersistentValue<number>('debitClinker', 0);
 
+    chartMetric = selectedChartMetric;
 
     const fetchData = useCallback(async () => {
         try {
@@ -254,7 +257,7 @@ export function MainDashboard() {
                         <div>
                             <CardTitle className="text-white">Moyenne par Combustible (7 derniers jours)</CardTitle>
                         </div>
-                        <Select value={chartMetric} onValueChange={(value: ChartMetric) => setChartMetric(value)}>
+                        <Select value={selectedChartMetric} onValueChange={(value: ChartMetric) => setChartMetric(value)}>
                             <SelectTrigger className="w-[180px] bg-brand-muted border-brand-line">
                                 <SelectValue placeholder="Choisir un indicateur" />
                             </SelectTrigger>
@@ -269,21 +272,24 @@ export function MainDashboard() {
                      <ResponsiveContainer width="100%" height={350}>
                         {chartData.length > 0 ? (
                             <RechartsBarChart data={chartData}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                                <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                                <Tooltip content={<CustomHistoryTooltip />} cursor={{ fill: 'hsl(var(--muted))' }}/>
-                                <Bar dataKey={chartMetric} name={chartMetric === 'pci' ? 'PCI (kcal/kg)' : 'Chlore (%)'} radius={[10, 10, 0, 0]}>
+                                <defs>
+                                    <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="rgba(0,224,161,0.8)" />
+                                        <stop offset="100%" stopColor="rgba(0,224,161,0.1)" />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#141C2F" />
+                                <XAxis dataKey="name" stroke="#A0AEC0" fontSize={12} />
+                                <YAxis stroke="#A0AEC0" fontSize={12} />
+                                <Tooltip content={<CustomHistoryTooltip />} cursor={{ fill: 'hsl(var(--brand-muted))' }}/>
+                                <Bar dataKey={selectedChartMetric} name={selectedChartMetric === 'pci' ? 'PCI (kcal/kg)' : 'Chlore (%)'} fill="url(#chartGradient)" radius={8}>
                                     <LabelList 
-                                        dataKey={chartMetric} 
+                                        dataKey={selectedChartMetric} 
                                         position="top" 
-                                        formatter={(value: number) => chartMetric === 'pci' ? Math.round(value) : value.toFixed(2)}
+                                        formatter={(value: number) => selectedChartMetric === 'pci' ? Math.round(value) : value.toFixed(2)}
                                         fontSize={12} 
                                         fill="hsl(var(--foreground))" 
                                     />
-                                    {chartData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                    ))}
                                 </Bar>
                             </RechartsBarChart>
                         ) : (
@@ -296,5 +302,7 @@ export function MainDashboard() {
         </div>
     );
 }
+
+    
 
     
