@@ -1,7 +1,7 @@
 
 // components/cards/KeyIndicatorCard.tsx
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Zap, TrendingUp } from 'lucide-react';
+import { Zap, Activity } from 'lucide-react';
 import CountUp from 'react-countup';
 
 export function KeyIndicatorCard({ tsr, consumption }: { tsr?: number, consumption?: number }) {
