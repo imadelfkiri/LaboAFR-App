@@ -1,4 +1,6 @@
 
+"use client";
+
 // components/cards/KeyIndicatorCard.tsx
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Zap, Activity } from 'lucide-react';
