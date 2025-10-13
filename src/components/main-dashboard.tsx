@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { KeyIndicatorCard } from './cards/KeyIndicatorCard';
 import { ImpactCard, ImpactData } from './cards/ImpactCard';
 import CountUp from 'react-countup';
+import { motion } from "framer-motion";
 
 
 // Hook to read from localStorage without causing hydration issues
@@ -213,7 +214,12 @@ export function MainDashboard() {
     }
     
     return (
-        <div className="space-y-6 animate-slideUp">
+        <motion.div
+            className="space-y-6"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+        >
              <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
                 <h1 className="text-3xl font-bold tracking-tight text-primary">
                     Tableau de Bord
@@ -251,7 +257,7 @@ export function MainDashboard() {
                 <ImpactCard title="Impact sur le Clinker" data={impactIndicators} lastUpdate={latestImpact?.createdAt.toDate()} />
             </div>
 
-            <Card className="chart-container">
+            <Card>
                 <CardHeader>
                     <div className="flex justify-between items-center">
                         <div>
@@ -299,10 +305,6 @@ export function MainDashboard() {
                 </CardContent>
             </Card>
 
-        </div>
+        </motion.div>
     );
 }
-
-    
-
-    
