@@ -54,11 +54,18 @@ interface DirectInputState {
 
 
 interface MixtureThresholds {
-    pci_min: number;
-    humidity_max: number;
-    ash_max: number;
-    chlorine_max: number;
-    tireRate_max: number;
+    pci_min?: number | null;
+    pci_max?: number | null;
+    pci_vert_min?: number | null;
+    pci_vert_max?: number | null;
+    chlorure_vert_max?: number | null;
+    chlorure_jaune_max?: number | null;
+    cendre_vert_max?: number | null;
+    cendre_jaune_max?: number | null;
+    h2o_vert_max?: number | null;
+    h2o_jaune_max?: number | null;
+    pneus_vert_max?: number | null;
+    pneus_jaune_max?: number | null;
 }
 
 interface MixtureSummary {
@@ -74,17 +81,23 @@ interface MixtureSummary {
     }
 }
 
-
 const defaultThresholds: MixtureThresholds = {
     pci_min: 5000,
-    humidity_max: 8,
-    ash_max: 20,
-    chlorine_max: 0.8,
-    tireRate_max: 60,
+    pci_max: 6500,
+    pci_vert_min: 5500,
+    pci_vert_max: 6000,
+    chlorure_vert_max: 0.5,
+    chlorure_jaune_max: 0.8,
+    cendre_vert_max: 15,
+    cendre_jaune_max: 20,
+    h2o_vert_max: 5,
+    h2o_jaune_max: 8,
+    pneus_vert_max: 50,
+    pneus_jaune_max: 60
 };
 
 type IndicatorStatus = 'alert' | 'warning' | 'conform' | 'neutral';
-type IndicatorKey = 'pci' | 'humidity' | 'ash' | 'chlorine' | 'tireRate';
+type IndicatorKey = 'pci' | 'humidity' | 'ash' | 'chlorine' | 'tireRate' | 'cost' | 'flow';
 
 const ThresholdSettingsModal = ({
   isOpen,
@@ -109,13 +122,28 @@ const ThresholdSettingsModal = ({
         const numValue = parseFloat(value);
         setCurrentThresholds(prev => ({
             ...prev,
-            [key]: isNaN(numValue) ? defaultThresholds[key] : numValue
+            [key]: isNaN(numValue) ? null : numValue
         }));
     };
 
     const handleSave = () => {
         onSave(currentThresholds);
     };
+    
+    const thresholdFields: {key: keyof MixtureThresholds; label: string}[] = [
+        { key: 'pci_min', label: 'PCI - Alerte (Min)' },
+        { key: 'pci_max', label: 'PCI - Alerte (Max)' },
+        { key: 'pci_vert_min', label: 'PCI - Vert (Min)' },
+        { key: 'pci_vert_max', label: 'PCI - Vert (Max)' },
+        { key: 'chlorure_vert_max', label: 'Chlorures - Vert (Max)' },
+        { key: 'chlorure_jaune_max', label: 'Chlorures - Jaune (Max)' },
+        { key: 'cendre_vert_max', label: 'Cendres - Vert (Max)' },
+        { key: 'cendre_jaune_max', label: 'Cendres - Jaune (Max)' },
+        { key: 'h2o_vert_max', label: 'H2O - Vert (Max)' },
+        { key: 'h2o_jaune_max', label: 'H2O - Jaune (Max)' },
+        { key: 'pneus_vert_max', label: 'Pneus - Vert (Max)' },
+        { key: 'pneus_jaune_max', label: 'Pneus - Jaune (Max)' },
+    ];
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -124,34 +152,20 @@ const ThresholdSettingsModal = ({
                     <Settings className="h-5 w-5" />
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>Définir les seuils d'alerte</DialogTitle>
                     <DialogDescription>
                         Les indicateurs changeront de couleur si ces seuils sont dépassés.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="grid grid-cols-2 gap-4 py-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="pci_min">PCI Moyen (min)</Label>
-                        <Input id="pci_min" type="number" value={currentThresholds.pci_min} onChange={e => handleChange('pci_min', e.target.value)} readOnly={isReadOnly}/>
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="humidity_max">Humidité Moyenne (max %)</Label>
-                        <Input id="humidity_max" type="number" value={currentThresholds.humidity_max} onChange={e => handleChange('humidity_max', e.target.value)} readOnly={isReadOnly}/>
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="ash_max">Cendres Moyennes (max %)</Label>
-                        <Input id="ash_max" type="number" value={currentThresholds.ash_max} onChange={e => handleChange('ash_max', e.target.value)} readOnly={isReadOnly}/>
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="chlorine_max">Chlorures Moyens (max %)</Label>
-                        <Input id="chlorine_max" type="number" value={currentThresholds.chlorine_max} onChange={e => handleChange('chlorine_max', e.target.value)} readOnly={isReadOnly}/>
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="tireRate_max">Taux de Pneus (max %)</Label>
-                        <Input id="tireRate_max" type="number" value={currentThresholds.tireRate_max} onChange={e => handleChange('tireRate_max', e.target.value)} readOnly={isReadOnly}/>
-                    </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 py-4 max-h-[60vh] overflow-y-auto">
+                    {thresholdFields.map(({key, label}) => (
+                         <div key={key} className="space-y-2">
+                            <Label htmlFor={key}>{label}</Label>
+                            <Input id={key} type="number" value={currentThresholds[key] ?? ''} onChange={e => handleChange(key, e.target.value)} readOnly={isReadOnly}/>
+                        </div>
+                    ))}
                 </div>
                 <DialogFooter>
                     <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>Annuler</Button>
@@ -162,44 +176,43 @@ const ThresholdSettingsModal = ({
     );
 };
 
-export function IndicatorCard({ data }: { data: Record<string, number> }) {
-  const getColorClass = (key: string, value: number) => {
+export function IndicatorCard({ data, thresholds }: { data: Record<string, number>, thresholds: MixtureThresholds }) {
+  const getColorClass = (key: string, value: number): IndicatorStatus => {
+    if(!thresholds) return 'neutral';
+
     switch (key) {
       case "PCI":
-        if (value < 5000 || value > 6500)
-          return "bg-red-900/40 border-red-500 text-red-300";
-        if (value >= 5500 && value <= 6000)
-          return "bg-green-900/40 border-green-500 text-green-300";
-        return "bg-yellow-900/40 border-yellow-400 text-yellow-300";
+        if ((thresholds.pci_min != null && value < thresholds.pci_min) || (thresholds.pci_max != null && value > thresholds.pci_max)) return 'alert';
+        if ((thresholds.pci_vert_min != null && value >= thresholds.pci_vert_min) && (thresholds.pci_vert_max != null && value <= thresholds.pci_vert_max)) return 'conform';
+        return 'warning';
       case "Chlorures":
-        if (value > 0.8)
-          return "bg-red-900/40 border-red-500 text-red-300";
-        if (value > 0.5)
-          return "bg-yellow-900/40 border-yellow-400 text-yellow-300";
-        return "bg-green-900/40 border-green-500 text-green-300";
+        if (thresholds.chlorure_jaune_max != null && value > thresholds.chlorure_jaune_max) return 'alert';
+        if (thresholds.chlorure_vert_max != null && value > thresholds.chlorure_vert_max) return 'warning';
+        return 'conform';
       case "Cendres":
-        if (value > 20)
-          return "bg-red-900/40 border-red-500 text-red-300";
-        if (value > 15)
-          return "bg-yellow-900/40 border-yellow-400 text-yellow-300";
-        return "bg-green-900/40 border-green-500 text-green-300";
+        if (thresholds.cendre_jaune_max != null && value > thresholds.cendre_jaune_max) return 'alert';
+        if (thresholds.cendre_vert_max != null && value > thresholds.cendre_vert_max) return 'warning';
+        return 'conform';
       case "Humidité":
-        if (value > 8)
-          return "bg-red-900/40 border-red-500 text-red-300";
-        if (value > 5)
-          return "bg-yellow-900/40 border-yellow-400 text-yellow-300";
-        return "bg-green-900/40 border-green-500 text-green-300";
+        if (thresholds.h2o_jaune_max != null && value > thresholds.h2o_jaune_max) return 'alert';
+        if (thresholds.h2o_vert_max != null && value > thresholds.h2o_vert_max) return 'warning';
+        return 'conform';
       case "TauxPneus":
-        if (value > 60)
-          return "bg-red-900/40 border-red-500 text-red-300";
-        if (value > 50)
-            return "bg-yellow-900/40 border-yellow-400 text-yellow-300";
-        return "bg-green-900/40 border-green-500 text-green-300";
+         if (thresholds.pneus_jaune_max != null && value > thresholds.pneus_jaune_max) return 'alert';
+        if (thresholds.pneus_vert_max != null && value > thresholds.pneus_vert_max) return 'warning';
+        return 'conform';
       default:
-        return "bg-gray-800/40 border-gray-600 text-gray-300";
+        return 'neutral';
     }
   };
   
+    const statusClasses: Record<IndicatorStatus, string> = {
+        alert: "bg-red-900/40 border-red-500 text-red-300",
+        warning: "bg-yellow-900/40 border-yellow-400 text-yellow-300",
+        conform: "bg-green-900/40 border-green-500 text-green-300",
+        neutral: "border-brand-line/60 bg-brand-surface/60",
+    }
+
   return (
     <Card className="bg-brand-surface border-brand-line h-full">
         <CardHeader>
@@ -219,7 +232,7 @@ export function IndicatorCard({ data }: { data: Record<string, number> }) {
                     transition={{ type: "spring", stiffness: 250 }}
                     className={cn(
                         "flex flex-col items-center justify-center rounded-xl border py-3 px-2 font-medium",
-                        getColorClass(key, value)
+                        statusClasses[getColorClass(key, value)]
                     )}
                 >
                     <span className="text-xs opacity-80">{key === 'TauxPneus' ? 'Taux Pneus' : key}</span>
@@ -244,7 +257,7 @@ function useMixtureCalculations(
     directInputs: Record<string, DirectInputState>,
     availableFuels: Record<string, AverageAnalysis>, 
     fuelData: Record<string, FuelData>, 
-    fuelCosts: Record<string, FuelCost>, 
+    fuelCosts: Record<string, FuelCost>,
     thresholds: MixtureThresholds
 ) {
    return useMemo(() => {
@@ -341,26 +354,27 @@ function useMixtureCalculations(
 
 
     const getStatus = (value: number, key: IndicatorKey): IndicatorStatus => {
+       if(!thresholds) return 'neutral';
        switch (key) {
         case 'pci':
-            if (value < 5000 || value > 6500) return 'alert';
-            if (value >= 5500 && value <= 6000) return 'conform';
+            if ((thresholds.pci_min != null && value < thresholds.pci_min) || (thresholds.pci_max != null && value > thresholds.pci_max)) return 'alert';
+            if ((thresholds.pci_vert_min != null && value >= thresholds.pci_vert_min) && (thresholds.pci_vert_max != null && value <= thresholds.pci_vert_max)) return 'conform';
             return 'warning';
         case 'chlorine':
-            if (value > 0.8) return 'alert';
-            if (value > 0.5) return 'warning';
+            if (thresholds.chlorure_jaune_max != null && value > thresholds.chlorure_jaune_max) return 'alert';
+            if (thresholds.chlorure_vert_max != null && value > thresholds.chlorure_vert_max) return 'warning';
             return 'conform';
         case 'ash':
-            if (value > 20) return 'alert';
-            if (value > 15) return 'warning';
+            if (thresholds.cendre_jaune_max != null && value > thresholds.cendre_jaune_max) return 'alert';
+            if (thresholds.cendre_vert_max != null && value > thresholds.cendre_vert_max) return 'warning';
             return 'conform';
         case 'humidity':
-            if (value > 8) return 'alert';
-            if (value > 5) return 'warning';
+            if (thresholds.h2o_jaune_max != null && value > thresholds.h2o_jaune_max) return 'alert';
+            if (thresholds.h2o_vert_max != null && value > thresholds.h2o_vert_max) return 'warning';
             return 'conform';
         case 'tireRate':
-            if (value > 60) return 'alert';
-            if (value > 50) return 'warning';
+            if (thresholds.pneus_jaune_max != null && value > thresholds.pneus_jaune_max) return 'alert';
+            if (thresholds.pneus_vert_max != null && value > thresholds.pneus_vert_max) return 'warning';
             return 'conform';
         default:
             return 'neutral';
@@ -466,14 +480,7 @@ export function MixtureCalculator() {
   const handleSaveThresholds = async (newThresholds: MixtureThresholds) => {
     if (isReadOnly) return;
     try {
-        const specToSave: Partial<Specification> = {
-            pci_min: newThresholds.pci_min,
-            humidity_max: newThresholds.humidity_max,
-            ash_max: newThresholds.ash_max,
-            chlorine_max: newThresholds.chlorine_max,
-            tireRate_max: newThresholds.tireRate_max,
-        }
-        await saveGlobalMixtureSpecification(specToSave);
+        await saveGlobalMixtureSpecification(newThresholds);
         setThresholds(newThresholds);
         toast({ title: "Succès", description: "Les seuils d'alerte ont été enregistrés."});
         setIsThresholdModalOpen(false);
@@ -501,7 +508,7 @@ export function MixtureCalculator() {
         ['Grignons', 'Pet-Coke'].forEach(name => allPossibleFuelNames.add(name));
         const fuelNamesArray = Array.from(allPossibleFuelNames);
         
-        const analysesResults = await getAverageAnalysisForFuels(fuelNamesArray, analysisDateRange.from, analysisDateRange.to);
+        const analysesResults = await getAverageAnalysisForFuels(fuelNamesArray, { from: analysisDateRange.from, to: analysisDateRange.to });
 
         const extendedAnalyses = {...analysesResults};
         extendedAnalyses['Grignons GO1'] = analysesResults['Grignons'];
@@ -512,13 +519,7 @@ export function MixtureCalculator() {
         setAvailableFuels(extendedAnalyses);
         
         if (globalSpec) {
-             setThresholds({
-                pci_min: globalSpec.pci_min ?? defaultThresholds.pci_min,
-                humidity_max: globalSpec.humidity_max ?? defaultThresholds.humidity_max,
-                ash_max: globalSpec.ash_max ?? defaultThresholds.ash_max,
-                chlorine_max: globalSpec.chlorine_max ?? defaultThresholds.chlorine_max,
-                tireRate_max: globalSpec.tireRate_max ?? defaultThresholds.tireRate_max,
-            });
+             setThresholds(globalSpec);
         }
         const fuelDataMap = allFuelData.reduce((acc, fd) => { acc[fd.nom_combustible] = fd; return acc; }, {} as Record<string, FuelData>);
         setFuelData(fuelDataMap);

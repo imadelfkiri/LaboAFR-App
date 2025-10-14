@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { usePathname } from 'next/navigation';
-import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getAverageAnalysisForFuels, type AverageAnalysis, getUniqueFuelTypes, getSpecifications, type Specification, getLatestIndicatorData } from '@/lib/data';
+import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getAverageAnalysisForFuels, type AverageAnalysis, getUniqueFuelTypes, getSpecifications, type Specification, getLatestIndicatorData, getGlobalMixtureSpecification } from '@/lib/data';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Recycle, Leaf, LayoutDashboard } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -75,6 +75,7 @@ export function MainDashboard() {
     const [keyIndicators, setKeyIndicators] = useState<{ tsr: number; } | null>(null);
     const [weeklyAverages, setWeeklyAverages] = useState<Record<string, AverageAnalysis>>({});
     const [specifications, setSpecifications] = useState<Record<string, Specification>>({});
+    const [thresholds, setThresholds] = useState<any>({});
     const [selectedChartMetric, setChartMetric] = useState<ChartMetric>('pci');
     const debitClinker = usePersistentValue<number>('debitClinker', 0);
     const pathname = usePathname();
@@ -89,12 +90,13 @@ export function MainDashboard() {
                 const startOfCurrentWeek = startOfWeek(today, { locale: fr });
                 const endOfCurrentWeek = endOfWeek(today, { locale: fr });
 
-                const [sessionData, impactAnalyses, indicatorData, uniqueFuels, specs] = await Promise.all([
+                const [sessionData, impactAnalyses, indicatorData, uniqueFuels, specs, globalSpec] = await Promise.all([
                     getLatestMixtureSession(),
                     getImpactAnalyses(),
                     getLatestIndicatorData(),
                     getUniqueFuelTypes(),
                     getSpecifications(),
+                    getGlobalMixtureSpecification(),
                 ]);
                 
                 const fuelNames = uniqueFuels.filter(name => name.toLowerCase() !== 'grignons' && name.toLowerCase() !== 'pet-coke');
@@ -117,6 +119,7 @@ export function MainDashboard() {
                 setLatestImpact(impactAnalyses.length > 0 ? impactAnalyses[0] : null);
                 setKeyIndicators(indicatorData);
                 setWeeklyAverages(weeklyAvgsData);
+                if(globalSpec) setThresholds(globalSpec);
             } catch (error) {
                 console.error("Error fetching dashboard data:", error);
             } finally {
@@ -231,7 +234,7 @@ export function MainDashboard() {
             'CaO': delta(results.clinkerWithAsh.cao, results.clinkerWithoutAsh.cao),
             'LSF': delta(results.modulesAvec.lsf, results.modulesSans.lsf),
             'C3S': delta(results.c3sAvec, results.c3sSans),
-            'MS': delta(results.modulesAvec.ms, results.modulesSans.ms),
+            'MS': delta(results.modulesAvec.ms, results.clinkerWithoutAsh.ms),
             'AF': delta(results.modulesAvec.af, results.modulesSans.af),
         };
     }, [latestImpact]);
@@ -275,7 +278,7 @@ export function MainDashboard() {
                 <KeyIndicatorCard tsr={keyIndicators?.tsr} consumption={calorificConsumption} />
                 
                  {mixtureIndicators ? (
-                    <IndicatorCard data={mixtureIndicators} />
+                    <IndicatorCard data={mixtureIndicators} thresholds={thresholds} />
                 ) : (
                     <Card>
                         <CardHeader>

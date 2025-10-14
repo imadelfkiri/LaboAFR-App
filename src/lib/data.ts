@@ -1,5 +1,3 @@
-
-
 // src/lib/data.ts
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, arrayUnion, orderBy, Timestamp, setDoc,getCountFromServer, limit } from 'firebase/firestore';
 import { db } from './firebase';
@@ -23,6 +21,17 @@ export interface Specification {
     Soufre_max?: number | null;
     // Adding new fields for global mixture spec
     pci_min?: number | null;
+    pci_max?: number | null;
+    pci_vert_min?: number | null;
+    pci_vert_max?: number | null;
+    chlorure_vert_max?: number | null;
+    chlorure_jaune_max?: number | null;
+    cendre_vert_max?: number | null;
+    cendre_jaune_max?: number | null;
+    h2o_vert_max?: number | null;
+    h2o_jaune_max?: number | null;
+    pneus_vert_max?: number | null;
+    pneus_jaune_max?: number | null;
     humidity_max?: number | null;
     ash_max?: number | null;
     chlorine_max?: number | null;
@@ -51,6 +60,7 @@ export interface AverageAnalysis {
     cendres: number;
     taux_metal?: number;
     count: number;
+    fournisseur?: string;
 }
 
 export interface MixtureSession {
@@ -413,7 +423,7 @@ export async function deleteSpecification(id: string) {
 
 export async function getAverageAnalysisForFuels(
   fuelNames: string[],
-  dateRanges: Record<string, { from: Date; to: Date } | undefined>
+  dateRanges?: Record<string, { from: Date; to: Date } | undefined>
 ): Promise<Record<string, AverageAnalysis>> {
   if (!fuelNames || fuelNames.length === 0) return {};
 
@@ -425,44 +435,53 @@ export async function getAverageAnalysisForFuels(
     where('type_analyse', '==', 'Arrivage')
   );
   const allResultsSnapshot = await getDocs(allResultsQuery);
-  const allResults = allResultsSnapshot.docs.map(doc => doc.data());
+  const allResults = allResultsSnapshot.docs.map(doc => ({...doc.data(), id: doc.id}));
 
   for (const fuelName of fuelNames) {
-    const dateRange = dateRanges[fuelName];
+    const dateRange = dateRanges ? dateRanges[fuelName] : undefined;
     let resultsForFuel = allResults.filter(r => r.type_combustible === fuelName);
     
-    let resultsToAverage = resultsForFuel;
-    if (dateRange) {
-        resultsToAverage = resultsForFuel.filter(r => {
-            const date = r.date_arrivage.toDate();
-            return date >= startOfDay(dateRange.from) && date <= endOfDay(dateRange.to);
-        });
-    }
+    // Group by supplier
+    const suppliers = [...new Set(resultsForFuel.map(r => r.fournisseur))];
     
-    if (resultsToAverage.length === 0 && resultsForFuel.length > 0) {
-        resultsForFuel.sort((a, b) => b.date_arrivage.toMillis() - a.date_arrivage.toMillis());
-        resultsToAverage = [resultsForFuel[0]];
+    for (const supplier of suppliers) {
+      let resultsForSupplier = resultsForFuel.filter(r => r.fournisseur === supplier);
+      let resultsToAverage = resultsForSupplier;
+      
+      if (dateRange) {
+          resultsToAverage = resultsForSupplier.filter(r => {
+              const date = (r.date_arrivage as Timestamp).toDate();
+              return date >= startOfDay(dateRange.from) && date <= endOfDay(dateRange.to);
+          });
+      }
+      
+      if (resultsToAverage.length === 0 && resultsForSupplier.length > 0) {
+          resultsForSupplier.sort((a, b) => (b.date_arrivage as Timestamp).toMillis() - (a.date_arrivage as Timestamp).toMillis());
+          resultsToAverage = [resultsForSupplier[0]];
+      }
+
+      const getAverage = (key: 'pci_brut' | 'h2o' | 'chlore' | 'cendres' | 'taux_metal') => {
+          const values = resultsToAverage
+            .map(r => r[key])
+            .filter((v): v is number => typeof v === 'number' && isFinite(v));
+          
+          if (values.length === 0) return 0;
+          
+          const sum = values.reduce((acc, curr) => acc + curr, 0);
+          return sum / values.length;
+      };
+
+      const analysisKey = `${fuelName}|${supplier}`;
+      analyses[analysisKey] = {
+          pci_brut: getAverage('pci_brut'),
+          h2o: getAverage('h2o'),
+          chlore: getAverage('chlore'),
+          cendres: getAverage('cendres'),
+          taux_metal: getAverage('taux_metal'),
+          count: resultsToAverage.length,
+          fournisseur: supplier
+      };
     }
-
-    const getAverage = (key: 'pci_brut' | 'h2o' | 'chlore' | 'cendres' | 'taux_metal') => {
-        const values = resultsToAverage
-          .map(r => r[key])
-          .filter((v): v is number => typeof v === 'number' && isFinite(v));
-        
-        if (values.length === 0) return 0;
-        
-        const sum = values.reduce((acc, curr) => acc + curr, 0);
-        return sum / values.length;
-    };
-
-    analyses[fuelName] = {
-        pci_brut: getAverage('pci_brut'),
-        h2o: getAverage('h2o'),
-        chlore: getAverage('chlore'),
-        cendres: getAverage('cendres'),
-        taux_metal: getAverage('taux_metal'),
-        count: resultsToAverage.length,
-    };
   }
 
   return analyses;
@@ -714,19 +733,36 @@ export async function getGlobalMixtureSpecification(): Promise<Specification | n
     if (docSnap.exists()) {
         return { id: docSnap.id, ...docSnap.data() } as Specification;
     } else {
-        console.log("No global mixture specification found.");
-        return null;
+        // If it doesn't exist, create it with default values.
+        console.log("No global mixture specification found, creating with defaults.");
+        const defaultSpec: Partial<Specification> = {
+            pci_min: 5000,
+            pci_max: 6500,
+            pci_vert_min: 5500,
+            pci_vert_max: 6000,
+            chlorure_vert_max: 0.5,
+            chlorure_jaune_max: 0.8,
+            cendre_vert_max: 15,
+            cendre_jaune_max: 20,
+            h2o_vert_max: 5,
+            h2o_jaune_max: 8,
+            pneus_vert_max: 50,
+            pneus_jaune_max: 60,
+        };
+        await saveGlobalMixtureSpecification(defaultSpec);
+        const newDocSnap = await getDoc(specRef);
+        return { id: newDocSnap.id, ...newDocSnap.data() } as Specification;
     }
 }
 
 export async function saveGlobalMixtureSpecification(spec: Partial<Specification>): Promise<void> {
     const specRef = doc(db, 'specifications', GLOBAL_MIXTURE_SPEC_ID);
-    // Use setDoc with merge to create the document if it doesn't exist, or update it if it does.
     await setDoc(specRef, {
         ...spec,
-        type_combustible: "Mélange Global", // Add identifiers to distinguish it
+        type_combustible: "Mélange Global",
         fournisseur: "Système"
     }, { merge: true });
+    await updateSpecMap();
 }
 
 // --- Mixture Scenarios (for simulator) ---
