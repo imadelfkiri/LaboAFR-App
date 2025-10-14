@@ -7,13 +7,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Droplets, Wind, Percent, BarChart, Thermometer, Flame, Activity, Archive, LayoutDashboard, ChevronDown, Recycle, Leaf } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell, LabelList } from 'recharts';
-import { subDays, format } from 'date-fns';
+import { subDays, format, startOfWeek, endOfWeek } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { KeyIndicatorCard } from './cards/KeyIndicatorCard';
 import { ImpactCard, ImpactData } from './cards/ImpactCard';
 import CountUp from 'react-countup';
 import { motion } from "framer-motion";
+import { usePathname } from 'next/navigation';
 
 
 // Hook to read from localStorage without causing hydration issues
@@ -75,13 +76,16 @@ export function MainDashboard() {
     const [specifications, setSpecifications] = useState<Record<string, Specification>>({});
     const [selectedChartMetric, setChartMetric] = useState<ChartMetric>('pci');
     const debitClinker = usePersistentValue<number>('debitClinker', 0);
+    const pathname = usePathname();
 
     chartMetric = selectedChartMetric;
 
     const fetchData = useCallback(async () => {
+        setLoading(true);
         try {
-            const sevenDaysAgo = subDays(new Date(), 7);
             const today = new Date();
+            const startOfCurrentWeek = startOfWeek(today, { locale: fr });
+            const endOfCurrentWeek = endOfWeek(today, { locale: fr });
 
             const [sessionData, impactAnalyses, indicatorData, uniqueFuels, specs] = await Promise.all([
                 getLatestMixtureSession(),
@@ -92,8 +96,7 @@ export function MainDashboard() {
             ]);
 
             const fuelNames = uniqueFuels.filter(name => name.toLowerCase() !== 'grignons' && name.toLowerCase() !== 'pet-coke');
-
-            const weeklyAvgsData = await getAverageAnalysisForFuelTypes(fuelNames, { from: sevenDaysAgo, to: today });
+            const weeklyAvgsData = await getAverageAnalysisForFuelTypes(fuelNames, { from: startOfCurrentWeek, to: endOfCurrentWeek });
 
             const specsMap: Record<string, Specification> = {};
             specs.forEach(spec => {
@@ -116,7 +119,7 @@ export function MainDashboard() {
 
     useEffect(() => {
         fetchData();
-    }, [fetchData]);
+    }, [fetchData, pathname]);
 
     const calorificConsumption = useMemo(() => {
         if (!mixtureSession || !debitClinker || debitClinker === 0 || !mixtureSession.availableFuels) return 0;
@@ -267,7 +270,7 @@ export function MainDashboard() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="grid grid-cols-2 gap-4">
-                        {mixtureIndicators?.map(ind => (
+                        {mixtureIndicators ? mixtureIndicators.map(ind => (
                             <div key={ind.label} className="p-3 rounded-lg bg-brand-muted border border-brand-line/50">
                                 <p className="text-sm text-muted-foreground flex items-center gap-1.5"><ind.icon className="h-4 w-4" />{ind.label}</p>
                                 <p className="text-xl font-bold">
@@ -280,7 +283,7 @@ export function MainDashboard() {
                                     <span className="text-xs ml-1 opacity-80">{ind.unit}</span>
                                 </p>
                             </div>
-                        ))}
+                        )) : <p className="text-muted-foreground text-center p-4 col-span-2">Aucune session de mélange.</p>}
                     </CardContent>
                 </Card>
 
@@ -291,7 +294,7 @@ export function MainDashboard() {
                 <CardHeader>
                     <div className="flex justify-between items-center">
                         <div>
-                            <CardTitle className="text-white">Moyenne par Combustible (7 derniers jours)</CardTitle>
+                            <CardTitle className="text-white">Moyenne par Combustible (Semaine en cours)</CardTitle>
                         </div>
                         <Select value={selectedChartMetric} onValueChange={(value: ChartMetric) => setChartMetric(value)}>
                             <SelectTrigger className="w-[180px] bg-brand-muted border-brand-line">

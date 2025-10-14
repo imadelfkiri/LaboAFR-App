@@ -1,27 +1,47 @@
 
 // components/cards/ImpactCard.tsx
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Activity } from 'lucide-react';
+import { Activity, AlertTriangle, CheckCircle, MinusCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { DeltaPill } from "../badges/DeltaPill";
 
 export interface ImpactData {
     label: string;
     value: number;
 }
 
-const DeltaPill = ({ delta }: { delta: number }) => {
-  const color =
-    delta > 0.001 ? "bg-red-500/20 text-red-300 ring-red-500/30"
-    : delta < -0.001 ? "bg-green-500/20 text-green-300 ring-green-500/30"
-    : "bg-neutral-700/30 text-neutral-300 ring-neutral-600/30"
-  const sign = delta > 0 ? "+" : ""
-  return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-sm font-semibold tabular-nums ring-1 ring-inset ${color}`}>
-      {sign}{delta.toFixed(2)}
-    </span>
-  )
-}
+type DeltaPillProps = {
+  color: "positive" | "danger" | "warning" | "neutral";
+  icon: React.ElementType;
+};
+
+const getDeltaPillProps = (key: string, value: number): DeltaPillProps => {
+    switch (key) {
+        case "Fe2O3":
+            if (value >= 0.7) return { color: "danger", icon: AlertTriangle };
+            if (value >= 0.5) return { color: "warning", icon: AlertTriangle };
+            return { color: "positive", icon: CheckCircle };
+        case "LSF":
+            if (value <= -2.5) return { color: "danger", icon: AlertTriangle };
+            if (value <= -2) return { color: "warning", icon: AlertTriangle };
+            return { color: "positive", icon: CheckCircle };
+        case "C3S":
+            if (value <= -9) return { color: "danger", icon: AlertTriangle };
+            if (value <= -7) return { color: "warning", icon: AlertTriangle };
+            return { color: "positive", icon: CheckCircle };
+        case "MS":
+            if (value <= -0.25) return { color: "danger", icon: AlertTriangle };
+            if (value <= -0.2) return { color: "warning", icon: AlertTriangle };
+            return { color: "positive", icon: CheckCircle };
+        case "AF":
+            if (value <= -0.35) return { color: "danger", icon: AlertTriangle };
+            if (value <= -0.3) return { color: "warning", icon: AlertTriangle };
+            return { color: "positive", icon: CheckCircle };
+        default:
+            return { color: "neutral", icon: MinusCircle };
+    }
+};
 
 
 export function ImpactCard({ title, data, lastUpdate }: { title: string, data: ImpactData[] | null, lastUpdate?: Date }) {
@@ -37,12 +57,15 @@ export function ImpactCard({ title, data, lastUpdate }: { title: string, data: I
       <CardContent>
         {data && data.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {data.map(item => (
-                    <div key={item.label} className="flex flex-col items-center justify-center p-4 rounded-lg bg-brand-muted border border-brand-line/50">
-                        <dt className="text-sm text-muted-foreground mb-1">{item.label}</dt>
-                        <dd><DeltaPill delta={item.value} /></dd>
-                    </div>
-                ))}
+                {data.map(item => {
+                    const { color, icon } = getDeltaPillProps(item.label, item.value);
+                    return (
+                        <div key={item.label} className="flex flex-col items-center justify-center p-4 rounded-lg bg-brand-muted border border-brand-line/50">
+                            <dt className="text-sm text-muted-foreground mb-1">{item.label}</dt>
+                            <dd><DeltaPill delta={item.value} color={color} icon={icon} /></dd>
+                        </div>
+                    )
+                })}
             </div>
         ) : (
             <p className="text-muted-foreground text-center p-8">Aucune donnée d'impact disponible.</p>
