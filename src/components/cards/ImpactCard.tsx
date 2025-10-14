@@ -60,13 +60,13 @@ export function ImpactCard({ title, data, thresholds, lastUpdate }: { title: str
                     transition={{ type: "spring", stiffness: 300 }}
                     className={cn(
                       "flex flex-col items-center justify-center rounded-xl border py-3 px-2 font-medium",
-                      getColorClass(key, value)
+                      getColorClass(key, value as number)
                     )}
                   >
                     <span className="text-xs opacity-80">{key}</span>
                     <span className="text-base font-semibold">
-                      {value > 0 ? "+" : ""}
-                      {value.toFixed(2)}
+                      {(value as number) > 0 ? "+" : ""}
+                      {(value as number).toFixed(2)}
                     </span>
                   </motion.div>
                 ))}

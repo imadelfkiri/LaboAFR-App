@@ -1,4 +1,3 @@
-
 // src/lib/data.ts
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, arrayUnion, orderBy, Timestamp, setDoc,getCountFromServer, limit } from 'firebase/firestore';
 import { db } from './firebase';
@@ -744,34 +743,22 @@ export async function getUniqueFuelTypesFromResultats(): Promise<string[]> {
 }
 
 export async function getThresholds(): Promise<Thresholds> {
-    const melangeRef = doc(db, "seuils", "melange");
-    const impactRef = doc(db, "seuils", "impact");
-
-    const [melangeSnap, impactSnap] = await Promise.all([
-        getDoc(melangeRef),
-        getDoc(impactRef),
-    ]);
-    
-    return {
-        melange: melangeSnap.exists() ? melangeSnap.data() as MixtureThresholds : undefined,
-        impact: impactSnap.exists() ? impactSnap.data() as ImpactThresholds : undefined,
+    const docRef = doc(db, "seuils", "qualite");
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return docSnap.data() as Thresholds;
     }
+    return {};
 }
 
 export async function saveThresholds(thresholds: Thresholds): Promise<void> {
-    const batch = writeBatch(db);
-    
-    if (thresholds.melange) {
-        const melangeRef = doc(db, "seuils", "melange");
-        batch.set(melangeRef, thresholds.melange, { merge: true });
-    }
-    
-    if (thresholds.impact) {
-        const impactRef = doc(db, "seuils", "impact");
-        batch.set(impactRef, thresholds.impact, { merge: true });
-    }
-
-    await batch.commit();
+    const docRef = doc(db, "seuils", "qualite");
+    const dataToSave = {
+        melange: thresholds.melange || null,
+        impact: thresholds.impact || null,
+        updatedAt: serverTimestamp()
+    };
+    await setDoc(docRef, dataToSave, { merge: true });
 }
 
 

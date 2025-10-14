@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -216,14 +215,14 @@ export function IndicatorCard({ data, thresholds }: { data: Record<string, numbe
                     transition={{ type: "spring", stiffness: 250 }}
                     className={cn(
                         "flex flex-col items-center justify-center rounded-xl border py-3 px-2 font-medium",
-                        statusClasses[getColorClass(key, value)]
+                        statusClasses[getColorClass(key, value as number)]
                     )}
                 >
                     <span className="text-xs opacity-80">{key === 'TauxPneus' ? 'Taux Pneus' : key}</span>
                     <span className="text-base font-semibold">
                     {key === "PCI"
-                        ? `${value.toFixed(0)}`
-                        : `${value.toFixed(key === 'Chlorures' ? 3 : 2)}%`
+                        ? `${(value as number).toFixed(0)}`
+                        : `${(value as number).toFixed(key === 'Chlorures' ? 3 : 2)}%`
                     }
                     </span>
                 </motion.div>

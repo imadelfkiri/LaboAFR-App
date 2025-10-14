@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -12,6 +11,37 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { SlidersHorizontal } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+const defaultThresholds: Thresholds = {
+    melange: {
+      pci_min: 5000,
+      pci_max: 6500,
+      pci_vert_min: 5500,
+      pci_vert_max: 6000,
+      chlorure_vert_max: 0.5,
+      chlorure_jaune_max: 0.8,
+      cendre_vert_max: 15,
+      cendre_jaune_max: 20,
+      h2o_vert_max: 5,
+      h2o_jaune_max: 8,
+      pneus_vert_max: 50,
+      pneus_jaune_max: 60
+    },
+    impact: {
+      fe2o3_vert_max: 0.5,
+      fe2o3_jaune_max: 0.7,
+      lsf_vert_min: -2,
+      lsf_jaune_min: -2.5,
+      c3s_vert_min: -7,
+      c3s_jaune_min: -9,
+      ms_vert_min: -0.2,
+      ms_jaune_min: -0.25,
+      af_vert_min: -0.3,
+      af_jaune_min: -0.35,
+    },
+};
+
 
 export default function GestionSeuils() {
   const { user, loading: authLoading } = useAuth();
@@ -26,10 +56,14 @@ export default function GestionSeuils() {
     setLoading(true);
     try {
         const fetchedThresholds = await getThresholds();
-        setThresholds(fetchedThresholds);
+        setThresholds({
+            melange: fetchedThresholds.melange || defaultThresholds.melange,
+            impact: fetchedThresholds.impact || defaultThresholds.impact
+        });
     } catch (e) {
         console.error(e);
         toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les seuils." });
+        setThresholds(defaultThresholds);
     } finally {
         setLoading(false);
     }
@@ -41,20 +75,29 @@ export default function GestionSeuils() {
         router.push('/login');
         return;
     }
-    // We should also check for admin role here if available from useAuth()
-    // For now, we assume if user is logged in they can see the page,
-    // security is enforced in the save function for now.
-    fetchInitialData();
+     if (user) {
+        // This logic will be simplified once userProfile is available in useAuth
+         const fetchProfileAndCheckRole = async () => {
+            const token = await user.getIdTokenResult();
+            if (token.claims.role !== 'admin') {
+                router.push('/unauthorized');
+            } else {
+                fetchInitialData();
+            }
+         }
+         fetchProfileAndCheckRole();
+    }
   }, [user, authLoading, router, fetchInitialData]);
 
   const handleChange = (section: 'melange' | 'impact', key: string, value: string) => {
     setThresholds((prev) => {
         if (!prev) return null;
+        const numValue = value === '' ? null : Number(value);
         return {
             ...prev,
             [section]: {
-                ...prev[section],
-                [key]: value === '' ? null : Number(value)
+                ...(prev[section] as any),
+                [key]: numValue,
             }
         };
     });
@@ -87,15 +130,15 @@ export default function GestionSeuils() {
   const renderSection = (title: string, section: 'melange' | 'impact', icon: React.ReactNode, data?: MixtureThresholds | ImpactThresholds) => {
     if (!data) return null;
     return (
-        <section>
-            <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-3">
-                {icon} {title}
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+       <Card className="bg-brand-surface/80 border-brand-line/60">
+            <CardHeader>
+              <CardTitle className="text-lg text-emerald-400 flex items-center gap-2">{icon}{title}</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {Object.keys(data).map((key) => (
-                    <div key={key} className="bg-brand-surface/70 p-4 rounded-xl border border-brand-line">
-                        <Label htmlFor={key} className="block text-sm text-muted-foreground mb-1">
-                            {key.replaceAll("_", " ").replace(/\b\w/g, l => l.toUpperCase())}
+                    <div key={key} className="space-y-2">
+                        <Label htmlFor={key} className="text-sm text-muted-foreground">
+                            {key.replaceAll("_", " ").replace('pneus', 'Taux Pneus').replace('chlorures', 'Chlorures').replace('cendres','Cendres').replace('humidite', 'Humidité').replace(/\b\w/g, l => l.toUpperCase())}
                         </Label>
                         <Input
                             id={key}
@@ -103,40 +146,40 @@ export default function GestionSeuils() {
                             step="any"
                             value={(data as any)[key] ?? ''}
                             onChange={(e) => handleChange(section, key, e.target.value)}
-                            className="w-full p-2 rounded-md bg-brand-bg text-white border-brand-line focus:border-primary focus:outline-none"
+                            className="w-full h-10 bg-brand-bg text-white border-brand-line focus:border-primary focus:outline-none"
                         />
                     </div>
                 ))}
-            </div>
-        </section>
+            </CardContent>
+        </Card>
     );
   };
 
   return (
     <motion.div
-      className="p-8 bg-brand-bg text-gray-200 rounded-2xl max-w-7xl mx-auto space-y-10"
+      className="p-8 max-w-7xl mx-auto space-y-10"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
         <div>
-            <h2 className="text-3xl font-bold text-primary mb-2 flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-primary mb-2 flex items-center gap-3">
                 <SlidersHorizontal />
                 Gestion des Seuils de Qualité
-            </h2>
+            </h1>
             <p className="text-muted-foreground">
-                Configurez les seuils de couleur (vert, jaune, rouge) pour les indicateurs de l'application.
+                Configurez les seuils (vert, jaune, rouge) pour les indicateurs de l'application.
             </p>
         </div>
-
+        
         {renderSection("🔬 Indicateurs du Mélange", "melange", null, thresholds.melange)}
         {renderSection("🧱 Impact sur le Clinker (Δ)", "impact", null, thresholds.impact)}
 
-      <div className="flex justify-end">
+      <div className="flex justify-end mt-8">
         <Button
           onClick={handleSaveChanges}
           disabled={saving}
-          className="mt-6 px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl transition"
+          className="px-6 py-3 text-base"
         >
           {saving ? "💾 Enregistrement..." : "💾 Sauvegarder les changements"}
         </Button>
