@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/context/auth-provider";
 import { useRouter } from "next/navigation";
-import { getThresholds, saveThresholds, type Thresholds, type MixtureThresholds, type ImpactThresholds } from "@/lib/data";
+import { getThresholds, saveThresholds, type Thresholds, type MixtureThresholds, type ImpactThresholds } from '@/lib/data';
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,7 +44,7 @@ const defaultThresholds: Thresholds = {
 
 
 export default function GestionSeuils() {
-  const { user, loading: authLoading } = useAuth();
+  const { userProfile, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -71,23 +71,16 @@ export default function GestionSeuils() {
   
   useEffect(() => {
     if (authLoading) return;
-    if (!user) {
+    if (!userProfile) {
         router.push('/login');
         return;
     }
-     if (user) {
-        // This logic will be simplified once userProfile is available in useAuth
-         const fetchProfileAndCheckRole = async () => {
-            const token = await user.getIdTokenResult();
-            if (token.claims.role !== 'admin') {
-                router.push('/unauthorized');
-            } else {
-                fetchInitialData();
-            }
-         }
-         fetchProfileAndCheckRole();
+    if (userProfile.role !== 'admin') {
+        router.push('/unauthorized');
+        return;
     }
-  }, [user, authLoading, router, fetchInitialData]);
+    fetchInitialData();
+  }, [userProfile, authLoading, router, fetchInitialData]);
 
   const handleChange = (section: 'melange' | 'impact', key: string, value: string) => {
     setThresholds((prev) => {

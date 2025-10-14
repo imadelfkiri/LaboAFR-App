@@ -3,10 +3,9 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useAuthState } from 'react-firebase-hooks/auth';
+import { useAuth } from '@/context/auth-provider';
 import { useRouter } from 'next/navigation';
-import { auth, db, functions } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { functions } from '@/lib/firebase';
 import { httpsCallable } from 'firebase/functions';
 import {
   Table,
@@ -152,7 +151,7 @@ const RolePermissionsModal = ({ role, onSave, allPages }: { role: Role; onSave: 
 
 
 export function UserManagementTable() {
-    const [user, authLoading] = useAuthState(auth);
+    const { userProfile, loading: authLoading } = useAuth();
     const router = useRouter();
     const { toast } = useToast();
 
@@ -187,28 +186,17 @@ export function UserManagementTable() {
     }, [toast]);
 
     useEffect(() => {
-        const checkPermissionsAndFetch = async () => {
-            if (authLoading) return;
-            if (!user) {
-                router.push('/login');
-                return;
-            }
-
-            try {
-                const userDocRef = doc(db, 'users', user.uid);
-                const userDoc = await getDoc(userDocRef);
-                if (userDoc.exists() && userDoc.data().role === 'admin') {
-                    fetchAllData();
-                } else {
-                    router.push('/unauthorized');
-                }
-            } catch (error) {
-                 console.error("Error checking permissions:", error);
-                 router.push('/unauthorized');
-            }
-        };
-        checkPermissionsAndFetch();
-    }, [user, authLoading, router, fetchAllData]);
+        if (authLoading) return;
+        if (!userProfile) {
+            router.push('/login');
+            return;
+        }
+        if (userProfile.role !== 'admin') {
+            router.push('/unauthorized');
+            return;
+        }
+        fetchAllData();
+    }, [userProfile, authLoading, router, fetchAllData]);
 
     const handleRoleChange = async (userId: string, newRole: 'admin' | 'technician' | 'viewer') => {
         try {
@@ -320,7 +308,7 @@ export function UserManagementTable() {
                                         <Select 
                                             defaultValue={u.role} 
                                             onValueChange={(newRole) => handleRoleChange(u.id!, newRole as any)}
-                                            disabled={u.id === user?.uid} // Admin cannot change their own role
+                                            disabled={u.uid === userProfile?.uid} // Admin cannot change their own role
                                         >
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Changer le rôle..." />
