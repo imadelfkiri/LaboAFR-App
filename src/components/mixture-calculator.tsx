@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -35,6 +34,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { handleGenerateSuggestion } from '@/lib/actions';
 import { ScrollArea } from './ui/scroll-area';
 import { useAuth } from '@/context/auth-provider';
+import { motion } from 'framer-motion';
 
 
 interface FuelState {
@@ -76,14 +76,14 @@ interface MixtureSummary {
 
 
 const defaultThresholds: MixtureThresholds = {
-    pci_min: 0,
-    humidity_max: 100,
-    ash_max: 100,
-    chlorine_max: 100,
-    tireRate_max: 100,
+    pci_min: 5000,
+    humidity_max: 8,
+    ash_max: 20,
+    chlorine_max: 0.8,
+    tireRate_max: 60,
 };
 
-type IndicatorStatus = 'alert' | 'conform' | 'neutral';
+type IndicatorStatus = 'alert' | 'warning' | 'conform' | 'neutral';
 type IndicatorKey = 'pci' | 'humidity' | 'ash' | 'chlorine' | 'tireRate';
 
 const ThresholdSettingsModal = ({
@@ -162,45 +162,81 @@ const ThresholdSettingsModal = ({
     );
 };
 
-function IndicatorCard({ title, value, unit, tooltipText, status = 'neutral', onDoubleClick }: { title: string; value: string | number; unit?: string; tooltipText?: string, status?: IndicatorStatus, onDoubleClick?: () => void }) {
-  const cardContent = (
-     <Card 
-        onDoubleClick={onDoubleClick}
-        className={cn(
-            "text-center transition-colors rounded-xl",
-            status === 'alert' && "border-red-500/30 bg-red-500/10 text-red-300",
-            status === 'conform' && "border-green-500/30 bg-green-500/10 text-green-300",
-            status === 'neutral' && "border-brand-line/60 bg-brand-surface/60",
-            onDoubleClick && "cursor-pointer hover:bg-brand-muted/50"
-        )}>
-      <CardHeader className="p-2 pb-1">
-        <CardTitle className={cn("text-xs font-medium", status === 'neutral' ? 'text-muted-foreground' : 'text-inherit')}>
-          <div className="flex items-center justify-center gap-1.5">
-            {status === 'alert' && <AlertTriangle className="h-3 w-3" />}
-            {status === 'conform' && <CheckCircle className="h-3 w-3" />}
-            {title}
-          </div>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-2 pt-0">
-        <p className={cn("text-xl font-bold", status === 'neutral' ? 'text-white' : 'text-inherit')}>
-          {value} <span className="text-base opacity-70">{unit}</span>
-        </p>
-      </CardContent>
+export function IndicatorCard({ data }: { data: Record<string, number> }) {
+  const getColorClass = (key: string, value: number) => {
+    switch (key) {
+      case "PCI":
+        if (value < 5000 || value > 6500)
+          return "bg-red-900/40 border-red-500 text-red-300";
+        if (value >= 5500 && value <= 6000)
+          return "bg-green-900/40 border-green-500 text-green-300";
+        return "bg-yellow-900/40 border-yellow-400 text-yellow-300";
+      case "Chlorures":
+        if (value > 0.8)
+          return "bg-red-900/40 border-red-500 text-red-300";
+        if (value > 0.5)
+          return "bg-yellow-900/40 border-yellow-400 text-yellow-300";
+        return "bg-green-900/40 border-green-500 text-green-300";
+      case "Cendres":
+        if (value > 20)
+          return "bg-red-900/40 border-red-500 text-red-300";
+        if (value > 15)
+          return "bg-yellow-900/40 border-yellow-400 text-yellow-300";
+        return "bg-green-900/40 border-green-500 text-green-300";
+      case "Humidité":
+        if (value > 8)
+          return "bg-red-900/40 border-red-500 text-red-300";
+        if (value > 5)
+          return "bg-yellow-900/40 border-yellow-400 text-yellow-300";
+        return "bg-green-900/40 border-green-500 text-green-300";
+      case "TauxPneus":
+        if (value > 60)
+          return "bg-red-900/40 border-red-500 text-red-300";
+        if (value > 50)
+            return "bg-yellow-900/40 border-yellow-400 text-yellow-300";
+        return "bg-green-900/40 border-green-500 text-green-300";
+      default:
+        return "bg-gray-800/40 border-gray-600 text-gray-300";
+    }
+  };
+  
+  return (
+    <Card className="bg-brand-surface border-brand-line h-full">
+        <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2 text-white">
+                <span>⚗️</span> Indicateurs du Mélange
+            </CardTitle>
+            <CardDescription>
+                Basé sur le dernier calcul ou la dernière analyse
+            </CardDescription>
+        </CardHeader>
+        <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 gap-3">
+                {Object.entries(data).map(([key, value]) => (
+                <motion.div
+                    key={key}
+                    whileHover={{ scale: 1.07 }}
+                    transition={{ type: "spring", stiffness: 250 }}
+                    className={cn(
+                        "flex flex-col items-center justify-center rounded-xl border py-3 px-2 font-medium",
+                        getColorClass(key, value)
+                    )}
+                >
+                    <span className="text-xs opacity-80">{key === 'TauxPneus' ? 'Taux Pneus' : key}</span>
+                    <span className="text-base font-semibold">
+                    {key === "PCI"
+                        ? `${value.toFixed(0)}`
+                        : `${value.toFixed(key === 'Chlorures' ? 3 : 2)}%`
+                    }
+                    </span>
+                </motion.div>
+                ))}
+            </div>
+        </CardContent>
     </Card>
   );
-
-  if (!tooltipText) return cardContent;
-
-  return (
-    <TooltipProvider>
-        <Tooltip>
-            <TooltipTrigger asChild>{cardContent}</TooltipTrigger>
-            <TooltipContent><p>{tooltipText}</p></TooltipContent>
-        </Tooltip>
-    </TooltipProvider>
-  )
 }
+
 
 function useMixtureCalculations(
     hallAF: InstallationState, 
@@ -297,36 +333,46 @@ function useMixtureCalculations(
     const cost = weightedAvg('cost');
 
     let tireRate = 0;
-    if (totalAfFlow > 0) {
-        const hallWeightProportion = hallAF.flowRate / totalAfFlow;
-        const atsWeightProportion = ats.flowRate / totalAfFlow;
-
-        const hallTireWeight = hallIndicators.tireWeight;
-        const atsTireWeight = atsIndicators.tireWeight;
-
-        const totalTireWeightInMixture = (hallTireWeight * hallWeightProportion) + (atsTireWeight * atsWeightProportion);
-        const totalAfWeightInMixture = (hallIndicators.weight * hallWeightProportion) + (atsIndicators.weight * atsWeightProportion);
-        
-        if (totalAfWeightInMixture > 0) {
-            tireRate = (totalTireWeightInMixture / totalAfWeightInMixture) * 100;
-        }
+    const totalWeightInMixture = (hallIndicators.weight * (hallAF.flowRate / totalAfFlow)) + (atsIndicators.weight * (ats.flowRate / totalAfFlow));
+    if (totalAfFlow > 0 && totalWeightInMixture > 0) {
+        const totalTireWeightInMixture = (hallIndicators.tireWeight * (hallAF.flowRate / totalAfFlow)) + (atsIndicators.tireWeight * (ats.flowRate / totalAfFlow));
+        tireRate = (totalTireWeightInMixture / totalWeightInMixture) * 100;
     }
 
 
-    const getStatus = (value: number, min: number | undefined, max: number | undefined): IndicatorStatus => {
-        if (min === undefined && max === undefined) return 'neutral';
-        if (value === 0) return 'neutral';
-        if (min !== undefined && value < min) return 'alert';
-        if (max !== undefined && value > max) return 'alert';
-        return 'conform';
+    const getStatus = (value: number, key: IndicatorKey): IndicatorStatus => {
+       switch (key) {
+        case 'pci':
+            if (value < 5000 || value > 6500) return 'alert';
+            if (value >= 5500 && value <= 6000) return 'conform';
+            return 'warning';
+        case 'chlorine':
+            if (value > 0.8) return 'alert';
+            if (value > 0.5) return 'warning';
+            return 'conform';
+        case 'ash':
+            if (value > 20) return 'alert';
+            if (value > 15) return 'warning';
+            return 'conform';
+        case 'humidity':
+            if (value > 8) return 'alert';
+            if (value > 5) return 'warning';
+            return 'conform';
+        case 'tireRate':
+            if (value > 60) return 'alert';
+            if (value > 50) return 'warning';
+            return 'conform';
+        default:
+            return 'neutral';
+       }
     };
 
     const status = {
-        pci: getStatus(pci, thresholds.pci_min > 0 ? thresholds.pci_min : undefined, undefined),
-        humidity: getStatus(humidity, undefined, thresholds.humidity_max < 100 ? thresholds.humidity_max : undefined),
-        ash: getStatus(ash, undefined, thresholds.ash_max < 100 ? thresholds.ash_max : undefined),
-        chlorine: getStatus(chlorine, undefined, thresholds.chlorine_max < 100 ? thresholds.chlorine_max : undefined),
-        tireRate: getStatus(tireRate, undefined, thresholds.tireRate_max < 100 ? thresholds.tireRate_max : undefined),
+        pci: getStatus(pci, 'pci'),
+        humidity: getStatus(humidity, 'humidity'),
+        ash: getStatus(ash, 'ash'),
+        chlorine: getStatus(chlorine, 'chlorine'),
+        tireRate: getStatus(tireRate, 'tireRate'),
     };
 
     const globalFuelWeights: Record<string, number> = {};
@@ -440,6 +486,10 @@ export function MixtureCalculator() {
  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
+        if (!analysisDateRange?.from || !analysisDateRange?.to) {
+            throw new Error("Période d'analyse non définie");
+        }
+
         const [allFuelData, costs, allStocks, globalSpec] = await Promise.all([
             getFuelData(),
             getFuelCosts(),
@@ -450,14 +500,8 @@ export function MixtureCalculator() {
         const allPossibleFuelNames = new Set(allStocks.map(s => s.nom_combustible));
         ['Grignons', 'Pet-Coke'].forEach(name => allPossibleFuelNames.add(name));
         const fuelNamesArray = Array.from(allPossibleFuelNames);
-
-        const dateRanges: Record<string, DateRange> = {};
-        fuelNamesArray.forEach(fuelName => {
-            const individualRange = hallAF.fuels[fuelName]?.dateRange || ats.fuels[fuelName]?.dateRange;
-            dateRanges[fuelName] = (individualRange?.from && individualRange.to) ? individualRange : analysisDateRange!;
-        });
         
-        const analysesResults = await getAverageAnalysisForFuels(fuelNamesArray, dateRanges);
+        const analysesResults = await getAverageAnalysisForFuels(fuelNamesArray, analysisDateRange.from, analysisDateRange.to);
 
         const extendedAnalyses = {...analysesResults};
         extendedAnalyses['Grignons GO1'] = analysesResults['Grignons'];
@@ -487,19 +531,8 @@ export function MixtureCalculator() {
     } finally {
         setLoading(false);
     }
-  }, [toast, analysisDateRange, hallAF.fuels, ats.fuels]);
+  }, [toast, analysisDateRange]);
   
-  const updateFuelAnalysis = useCallback(async (fuelName: string, dateRange: DateRange) => {
-    try {
-        const analysis = await getAverageAnalysisForFuels([fuelName], {[fuelName]: dateRange});
-        setAvailableFuels(prev => ({
-            ...prev,
-            [fuelName]: analysis[fuelName],
-        }));
-    } catch (error) {
-        toast({ variant: "destructive", title: "Erreur", description: `Impossible de mettre à jour l'analyse pour ${fuelName}.` });
-    }
-  }, [toast]);
 
   // Initial data load effect
   useEffect(() => {
@@ -716,62 +749,16 @@ export function MixtureCalculator() {
             return a.localeCompare(b);
         });
         
-    const handleIndividualDateChange = (fuelName: string, dateRange: DateRange | undefined) => {
-        setInstallationState(prev => {
-            const newFuels = { ...prev.fuels };
-            newFuels[fuelName] = { ...newFuels[fuelName], dateRange: dateRange };
-            return { ...prev, fuels: newFuels };
-        });
-        // This will trigger the main useEffect to refetch all data
-        if (dateRange) {
-           updateFuelAnalysis(fuelName, dateRange);
-        } else {
-           fetchData(); // Refetch all with global date range for this fuel
-        }
-    };
 
     return (
         <div className="space-y-3">
         {sortedFuelNames.map(fuelName => {
             const fuelState = installationState.fuels[fuelName];
-            const specificDateRange = fuelState?.dateRange;
             
             return (
             <div key={fuelName} className="flex items-center gap-2">
                 <Label htmlFor={`${installationName}-${fuelName}`} className="flex-1 text-sm">{fuelName}</Label>
                 
-                 <Popover>
-                    <PopoverTrigger asChild>
-                        <Button
-                            variant={'ghost'}
-                            size="icon"
-                            className={cn("h-8 w-8", specificDateRange && "text-primary hover:text-primary")}
-                            disabled={isReadOnly}
-                        >
-                            <CalendarIcon className="h-4 w-4" />
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                            initialFocus
-                            mode="range"
-                            defaultMonth={specificDateRange?.from}
-                            selected={specificDateRange}
-                            onSelect={(range) => handleIndividualDateChange(fuelName, range)}
-                            numberOfMonths={1}
-                            locale={fr}
-                            disabled={isReadOnly}
-                        />
-                        {specificDateRange && (
-                           <div className="p-2 border-t text-center">
-                             <Button variant="ghost" size="sm" onClick={() => handleIndividualDateChange(fuelName, undefined)} disabled={isReadOnly}>
-                                Réinitialiser
-                             </Button>
-                           </div>
-                        )}
-                    </PopoverContent>
-                </Popover>
-
                 <Input
                     id={`${installationName}-${fuelName}`}
                     type="number"
@@ -981,6 +968,41 @@ export function MixtureCalculator() {
     setHistoryChartIndicator({key, name});
   };
 
+  const IndicatorDisplay = ({ title, value, unit, status, indicatorKey, name }: { title: string; value: string | number; unit?: string; status: IndicatorStatus, indicatorKey: IndicatorKey, name: string }) => {
+    
+    const statusClasses: Record<IndicatorStatus, string> = {
+        alert: "bg-red-900/40 border-red-500 text-red-300",
+        warning: "bg-yellow-900/40 border-yellow-400 text-yellow-300",
+        conform: "bg-green-900/40 border-green-500 text-green-300",
+        neutral: "border-brand-line/60 bg-brand-surface/60",
+    }
+    
+    return (
+        <Card 
+            onDoubleClick={() => handleIndicatorDoubleClick(indicatorKey, name)}
+            className={cn(
+                "text-center transition-colors rounded-xl cursor-pointer hover:bg-brand-muted/50",
+                statusClasses[status]
+            )}>
+            <CardHeader className="p-2 pb-1">
+                <CardTitle className={cn("text-xs font-medium", status === 'neutral' ? 'text-muted-foreground' : 'text-inherit')}>
+                <div className="flex items-center justify-center gap-1.5">
+                    {status === 'alert' && <AlertTriangle className="h-3 w-3" />}
+                    {status === 'conform' && <CheckCircle className="h-3 w-3" />}
+                    {title}
+                </div>
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="p-2 pt-0">
+                <p className={cn("text-xl font-bold", status === 'neutral' ? 'text-white' : 'text-inherit')}>
+                {value} <span className="text-base opacity-70">{unit}</span>
+                </p>
+            </CardContent>
+        </Card>
+    );
+  };
+
+
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6">
       <div className="sticky top-0 z-10 bg-brand-bg/95 backdrop-blur-sm py-4 space-y-4 -mx-4 -mt-4 px-4 pt-4">
@@ -1045,13 +1067,13 @@ export function MixtureCalculator() {
             </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-          <IndicatorCard title="Débit des AFs" value={globalIndicators.flow.toFixed(2)} unit="t/h" />
-          <IndicatorCard title="PCI moy" value={globalIndicators.pci.toFixed(0)} unit="kcal/kg" status={globalIndicators.status.pci} onDoubleClick={() => handleIndicatorDoubleClick('pci', 'PCI Moyen')} />
-          <IndicatorCard title="% Humidité moy" value={globalIndicators.humidity.toFixed(2)} unit="%" status={globalIndicators.status.humidity} onDoubleClick={() => handleIndicatorDoubleClick('humidity', '% Humidité Moyenne')} />
-          <IndicatorCard title="% Cendres moy" value={globalIndicators.ash.toFixed(2)} unit="%" status={globalIndicators.status.ash} onDoubleClick={() => handleIndicatorDoubleClick('ash', '% Cendres Moyennes')} />
-          <IndicatorCard title="% Chlorures" value={globalIndicators.chlorine.toFixed(3)} unit="%" status={globalIndicators.status.chlorine} onDoubleClick={() => handleIndicatorDoubleClick('chlorine', '% Chlorures')} />
-          <IndicatorCard title="Taux de pneus" value={globalIndicators.tireRate.toFixed(2)} unit="%" status={globalIndicators.status.tireRate} onDoubleClick={() => handleIndicatorDoubleClick('tireRate', 'Taux de Pneus')} />
-          <IndicatorCard title="Coût du Mélange" value={globalIndicators.cost.toFixed(2) } unit="MAD/t" />
+          <IndicatorDisplay title="Débit des AFs" value={globalIndicators.flow.toFixed(2)} unit="t/h" status='neutral' indicatorKey="flow" name="Débit"/>
+          <IndicatorDisplay title="PCI moy" value={globalIndicators.pci.toFixed(0)} unit="kcal/kg" status={globalIndicators.status.pci} indicatorKey="pci" name="PCI Moyen"/>
+          <IndicatorDisplay title="% Humidité moy" value={globalIndicators.humidity.toFixed(2)} unit="%" status={globalIndicators.status.humidity} indicatorKey="humidity" name="Humidité Moyenne"/>
+          <IndicatorDisplay title="% Cendres moy" value={globalIndicators.ash.toFixed(2)} unit="%" status={globalIndicators.status.ash} indicatorKey="ash" name="Cendres Moyennes"/>
+          <IndicatorDisplay title="% Chlorures" value={globalIndicators.chlorine.toFixed(3)} unit="%" status={globalIndicators.status.chlorine} indicatorKey="chlorine" name="Chlorures Moyens"/>
+          <IndicatorDisplay title="Taux de pneus" value={globalIndicators.tireRate.toFixed(2)} unit="%" status={globalIndicators.status.tireRate} indicatorKey="tireRate" name="Taux de Pneus"/>
+          <IndicatorDisplay title="Coût du Mélange" value={globalIndicators.cost.toFixed(2) } unit="MAD/t" status='neutral' indicatorKey="cost" name="Coût du Mélange"/>
         </div>
       </div>
 

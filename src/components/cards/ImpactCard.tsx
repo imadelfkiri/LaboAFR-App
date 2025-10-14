@@ -12,35 +12,33 @@ export interface ImpactData {
     [key: string]: number;
 }
 
-const getColorClass = (key: string, value: number) => {
+export function ImpactCard({ title, data, lastUpdate }: { title: string, data: ImpactData | null, lastUpdate?: Date }) {
+  const getColorClass = (key: string, value: number) => {
     switch (key) {
       case "Fe2O3":
-        if (value >= 0.7) return "bg-red-900/40 border-red-500 text-red-300";
-        if (value >= 0.5) return "bg-yellow-900/40 border-yellow-400 text-yellow-300";
+        if (value > 0.7) return "bg-red-900/40 border-red-500 text-red-300";
+        if (value > 0.5) return "bg-yellow-900/40 border-yellow-400 text-yellow-300";
         return "bg-green-900/40 border-green-500 text-green-300";
       case "LSF":
-        if (value <= -2.5) return "bg-red-900/40 border-red-500 text-red-300";
-        if (value <= -2) return "bg-yellow-900/40 border-yellow-400 text-yellow-300";
+        if (value < -2.5) return "bg-red-900/40 border-red-500 text-red-300";
+        if (value < -2) return "bg-yellow-900/40 border-yellow-400 text-yellow-300";
         return "bg-green-900/40 border-green-500 text-green-300";
       case "C3S":
-        if (value <= -9) return "bg-red-900/40 border-red-500 text-red-300";
-        if (value <= -7) return "bg-yellow-900/40 border-yellow-400 text-yellow-300";
+        if (value < -9) return "bg-red-900/40 border-red-500 text-red-300";
+        if (value < -7) return "bg-yellow-900/40 border-yellow-400 text-yellow-300";
         return "bg-green-900/40 border-green-500 text-green-300";
       case "MS":
-        if (value <= -0.25) return "bg-red-900/40 border-red-500 text-red-300";
-        if (value <= -0.2) return "bg-yellow-900/40 border-yellow-400 text-yellow-300";
+        if (value < -0.25) return "bg-red-900/40 border-red-500 text-red-300";
+        if (value < -0.2) return "bg-yellow-900/40 border-yellow-400 text-yellow-300";
         return "bg-green-900/40 border-green-500 text-green-300";
       case "AF":
-        if (value <= -0.35) return "bg-red-900/40 border-red-500 text-red-300";
-        if (value <= -0.3) return "bg-yellow-900/40 border-yellow-400 text-yellow-300";
+        if (value < -0.35) return "bg-red-900/40 border-red-500 text-red-300";
+        if (value < -0.3) return "bg-yellow-900/40 border-yellow-400 text-yellow-300";
         return "bg-green-900/40 border-green-500 text-green-300";
       default:
         return "bg-gray-800/40 border-gray-600 text-gray-300"; // ex: CaO pas de condition
     }
-};
-
-
-export function ImpactCard({ title, data, lastUpdate }: { title: string, data: ImpactData | null, lastUpdate?: Date }) {
+  };
   return (
     <Card className="bg-brand-surface border-brand-line h-full">
       <CardHeader>

@@ -2,19 +2,20 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getLatestIndicatorData, getAverageAnalysisForFuels as getAverageAnalysisForFuelTypes, type AverageAnalysis, getUniqueFuelTypes, getSpecifications, type Specification } from '@/lib/data';
+import { usePathname } from 'next/navigation';
+import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getAverageAnalysisForFuels, type AverageAnalysis, getUniqueFuelTypes, getSpecifications, type Specification, getLatestIndicatorData } from '@/lib/data';
 import { Skeleton } from "@/components/ui/skeleton";
-import { Droplets, Wind, Percent, BarChart, Thermometer, Flame, Activity, Archive, LayoutDashboard, ChevronDown, Recycle, Leaf } from 'lucide-react';
+import { Recycle, Leaf, LayoutDashboard } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell, LabelList } from 'recharts';
-import { subDays, format, startOfWeek, endOfWeek } from 'date-fns';
+import { startOfWeek, endOfWeek, format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { KeyIndicatorCard } from './cards/KeyIndicatorCard';
 import { ImpactCard, ImpactData } from './cards/ImpactCard';
+import { IndicatorCard } from './mixture-calculator';
 import CountUp from 'react-countup';
 import { motion } from "framer-motion";
-import { usePathname } from 'next/navigation';
 
 
 // Hook to read from localStorage without causing hydration issues
@@ -96,8 +97,8 @@ export function MainDashboard() {
             ]);
 
             const fuelNames = uniqueFuels.filter(name => name.toLowerCase() !== 'grignons' && name.toLowerCase() !== 'pet-coke');
-            const weeklyAvgsData = await getAverageAnalysisForFuelTypes(fuelNames, { from: startOfCurrentWeek, to: endOfCurrentWeek });
-
+            const weeklyAvgsData = await getAverageAnalysisForFuels(fuelNames, startOfCurrentWeek, endOfCurrentWeek);
+            
             const specsMap: Record<string, Specification> = {};
             specs.forEach(spec => {
                 const key = `${spec.type_combustible}|${spec.fournisseur}`;
@@ -116,10 +117,9 @@ export function MainDashboard() {
         }
     }, []);
 
-
     useEffect(() => {
         fetchData();
-    }, [fetchData, pathname]);
+    }, [pathname, fetchData]);
 
     const calorificConsumption = useMemo(() => {
         if (!mixtureSession || !debitClinker || debitClinker === 0 || !mixtureSession.availableFuels) return 0;
@@ -176,9 +176,10 @@ export function MainDashboard() {
 
     const chartData = useMemo(() => {
         return Object.entries(weeklyAverages)
-            .filter(([, data]) => data && data.count > 0)
-            .map(([name, data]) => {
-                const spec = Object.values(specifications).find(s => s.type_combustible === name);
+            .filter(([name, data]) => data && data.count > 0 && data.fournisseur)
+            .map(([key, data]) => {
+                const [fuelName, supplierName] = key.split('|');
+                const spec = specifications[`${fuelName}|${supplierName}`];
                 let isConform = true;
                 if (spec) {
                     if (selectedChartMetric === 'pci' && spec.PCI_min != null && data.pci_brut < spec.PCI_min) {
@@ -190,7 +191,7 @@ export function MainDashboard() {
                 }
                 
                 return {
-                    name,
+                    name: `${fuelName} - ${supplierName}`,
                     pci: data.pci_brut,
                     chlore: data.chlore,
                     isConform: spec ? isConform : null, // null if no spec
@@ -202,12 +203,13 @@ export function MainDashboard() {
     const mixtureIndicators = useMemo(() => {
         if (!mixtureSession?.globalIndicators) return null;
         const indicators = mixtureSession.globalIndicators;
-        return [
-            { label: "PCI", value: indicators.pci, unit: "kcal/kg", icon: Thermometer, decimals: 0 },
-            { label: "Humidité", value: indicators.humidity, unit: "%", icon: Droplets, decimals: 1 },
-            { label: "Cendres", value: indicators.ash, unit: "%", icon: Percent, decimals: 1 },
-            { label: "Chlorures", value: indicators.chlorine, unit: "%", icon: Wind, decimals: 2 },
-        ];
+        return {
+          'PCI': indicators.pci,
+          'Chlorures': indicators.chlorine,
+          'Cendres': indicators.ash,
+          'Humidité': indicators.humidity,
+          'TauxPneus': indicators.tireRate,
+        };
     }, [mixtureSession]);
 
     const impactIndicators = useMemo<ImpactData | null>(() => {
@@ -220,7 +222,7 @@ export function MainDashboard() {
             'LSF': delta(results.modulesAvec.lsf, results.modulesSans.lsf),
             'C3S': delta(results.c3sAvec, results.c3sSans),
             'MS': delta(results.modulesAvec.ms, results.modulesSans.ms),
-            'AF': delta(results.modulesAvec.af, results.modulesSans.af),
+            'AF': delta(results.modulesAvec.af, modulesSans.af),
         };
     }, [latestImpact]);
 
@@ -262,30 +264,22 @@ export function MainDashboard() {
              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 <KeyIndicatorCard tsr={keyIndicators?.tsr} consumption={calorificConsumption} />
                 
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-lg flex items-center gap-2 text-white">
-                            <Recycle className="text-green-400 h-5 w-5" />
-                            Indicateurs du Mélange
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="grid grid-cols-2 gap-4">
-                        {mixtureIndicators ? mixtureIndicators.map(ind => (
-                            <div key={ind.label} className="p-3 rounded-lg bg-brand-muted border border-brand-line/50">
-                                <p className="text-sm text-muted-foreground flex items-center gap-1.5"><ind.icon className="h-4 w-4" />{ind.label}</p>
-                                <p className="text-xl font-bold">
-                                    <CountUp
-                                        end={ind.value}
-                                        decimals={ind.decimals}
-                                        duration={1.5}
-                                        useGrouping={ind.label !== 'PCI'}
-                                    />
-                                    <span className="text-xs ml-1 opacity-80">{ind.unit}</span>
-                                </p>
-                            </div>
-                        )) : <p className="text-muted-foreground text-center p-4 col-span-2">Aucune session de mélange.</p>}
-                    </CardContent>
-                </Card>
+                 {mixtureIndicators ? (
+                    <IndicatorCard data={mixtureIndicators} />
+                ) : (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-lg flex items-center gap-2 text-white">
+                                <Recycle className="text-green-400 h-5 w-5" />
+                                Indicateurs du Mélange
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                             <p className="text-muted-foreground text-center p-8">Aucune session de mélange.</p>
+                        </CardContent>
+                    </Card>
+                )}
+
 
                 <ImpactCard title="Impact sur le Clinker" data={impactIndicators} lastUpdate={latestImpact?.createdAt.toDate()} />
             </div>
@@ -294,7 +288,7 @@ export function MainDashboard() {
                 <CardHeader>
                     <div className="flex justify-between items-center">
                         <div>
-                            <CardTitle className="text-white">Moyenne par Combustible (Semaine en cours)</CardTitle>
+                            <CardTitle className="text-white">Moyenne par Fournisseur (Semaine en cours)</CardTitle>
                         </div>
                         <Select value={selectedChartMetric} onValueChange={(value: ChartMetric) => setChartMetric(value)}>
                             <SelectTrigger className="w-[180px] bg-brand-muted border-brand-line">
@@ -326,7 +320,7 @@ export function MainDashboard() {
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#141C2F" />
-                                <XAxis dataKey="name" stroke="#A0AEC0" fontSize={12} />
+                                <XAxis dataKey="name" stroke="#A0AEC0" fontSize={10} interval={0} angle={-30} textAnchor="end" height={80} />
                                 <YAxis stroke="#A0AEC0" fontSize={12} />
                                 <Tooltip content={<CustomHistoryTooltip />} cursor={{ fill: 'hsl(var(--brand-muted))' }}/>
                                 <Bar dataKey={selectedChartMetric} name={selectedChartMetric === 'pci' ? 'PCI (kcal/kg)' : 'Chlore (%)'} radius={8}>
