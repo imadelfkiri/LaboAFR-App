@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -97,6 +98,7 @@ const allPages = [
   { id: '/historique-impact', label: 'Historique Impact' },
   { id: '/suivi-chlore', label: 'Suivi Chlore' },
   { id: '/gestion-utilisateurs', label: 'Gestion Utilisateurs' },
+  { id: '/gestion-seuils', label: 'Gestion des Seuils' },
 ];
 
 const RolePermissionsModal = ({ role, onSave, allPages }: { role: Role; onSave: (access: string[]) => void; allPages: {id: string, label: string}[] }) => {
