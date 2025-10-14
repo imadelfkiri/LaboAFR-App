@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
-import { Flame, Database, BarChart3, ClipboardCheck, Beaker, TrendingUp, Activity, DollarSign, Archive, Cog, FlaskConical, ClipboardList, Book, LayoutDashboard, Wind, BookOpen, Users } from 'lucide-react';
+import { Flame, Database, BarChart3, ClipboardCheck, Beaker, TrendingUp, Activity, DollarSign, Archive, Cog, FlaskConical, ClipboardList, Book, LayoutDashboard, Wind, BookOpen, Users, SlidersHorizontal } from 'lucide-react';
 
 const allLinks = [
   { href: '/', label: 'Tableau de Bord', icon: LayoutDashboard },
@@ -24,6 +24,7 @@ const allLinks = [
   { href: '/historique-impact', label: "Historique Impact", icon: Book },
   { href: '/suivi-chlore', label: 'Suivi Chlore', icon: Wind },
   { href: '/gestion-utilisateurs', label: 'Gestion Utilisateurs', icon: Users },
+  { href: '/gestion-seuils', label: 'Gestion des Seuils', icon: SlidersHorizontal },
 ];
 
 export function SidebarNav({ allowedRoutes }: { allowedRoutes: string[] }) {

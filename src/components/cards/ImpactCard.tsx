@@ -1,4 +1,3 @@
-
 // components/cards/ImpactCard.tsx
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Activity } from 'lucide-react';
@@ -6,39 +5,42 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
-
+import type { ImpactThresholds } from "@/lib/data";
 
 export interface ImpactData {
     [key: string]: number;
 }
 
-export function ImpactCard({ title, data, lastUpdate }: { title: string, data: ImpactData | null, lastUpdate?: Date }) {
+export function ImpactCard({ title, data, thresholds, lastUpdate }: { title: string, data: ImpactData | null, thresholds?: ImpactThresholds, lastUpdate?: Date }) {
   const getColorClass = (key: string, value: number) => {
+    if (!thresholds) return "bg-gray-800/40 border-gray-600 text-gray-300";
+
     switch (key) {
       case "Fe2O3":
-        if (value > 0.7) return "bg-red-900/40 border-red-500 text-red-300";
-        if (value > 0.5) return "bg-yellow-900/40 border-yellow-400 text-yellow-300";
+        if (thresholds.fe2o3_jaune_max != null && value > thresholds.fe2o3_jaune_max) return "bg-red-900/40 border-red-500 text-red-300";
+        if (thresholds.fe2o3_vert_max != null && value > thresholds.fe2o3_vert_max) return "bg-yellow-900/40 border-yellow-400 text-yellow-300";
         return "bg-green-900/40 border-green-500 text-green-300";
       case "LSF":
-        if (value < -2.5) return "bg-red-900/40 border-red-500 text-red-300";
-        if (value < -2) return "bg-yellow-900/40 border-yellow-400 text-yellow-300";
+        if (thresholds.lsf_jaune_min != null && value < thresholds.lsf_jaune_min) return "bg-red-900/40 border-red-500 text-red-300";
+        if (thresholds.lsf_vert_min != null && value < thresholds.lsf_vert_min) return "bg-yellow-900/40 border-yellow-400 text-yellow-300";
         return "bg-green-900/40 border-green-500 text-green-300";
       case "C3S":
-        if (value < -9) return "bg-red-900/40 border-red-500 text-red-300";
-        if (value < -7) return "bg-yellow-900/40 border-yellow-400 text-yellow-300";
+        if (thresholds.c3s_jaune_min != null && value < thresholds.c3s_jaune_min) return "bg-red-900/40 border-red-500 text-red-300";
+        if (thresholds.c3s_vert_min != null && value < thresholds.c3s_vert_min) return "bg-yellow-900/40 border-yellow-400 text-yellow-300";
         return "bg-green-900/40 border-green-500 text-green-300";
       case "MS":
-        if (value < -0.25) return "bg-red-900/40 border-red-500 text-red-300";
-        if (value < -0.2) return "bg-yellow-900/40 border-yellow-400 text-yellow-300";
+        if (thresholds.ms_jaune_min != null && value < thresholds.ms_jaune_min) return "bg-red-900/40 border-red-500 text-red-300";
+        if (thresholds.ms_vert_min != null && value < thresholds.ms_vert_min) return "bg-yellow-900/40 border-yellow-400 text-yellow-300";
         return "bg-green-900/40 border-green-500 text-green-300";
       case "AF":
-        if (value < -0.35) return "bg-red-900/40 border-red-500 text-red-300";
-        if (value < -0.3) return "bg-yellow-900/40 border-yellow-400 text-yellow-300";
+        if (thresholds.af_jaune_min != null && value < thresholds.af_jaune_min) return "bg-red-900/40 border-red-500 text-red-300";
+        if (thresholds.af_vert_min != null && value < thresholds.af_vert_min) return "bg-yellow-900/40 border-yellow-400 text-yellow-300";
         return "bg-green-900/40 border-green-500 text-green-300";
       default:
-        return "bg-gray-800/40 border-gray-600 text-gray-300"; // ex: CaO pas de condition
+        return "bg-gray-800/40 border-gray-600 text-gray-300";
     }
   };
+
   return (
     <Card className="bg-brand-surface border-brand-line h-full">
       <CardHeader>

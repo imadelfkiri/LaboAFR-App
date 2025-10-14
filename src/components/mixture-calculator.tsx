@@ -18,7 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getAverageAnalysisForFuels, saveMixtureSession, getMixtureSessions, MixtureSession, getFuelCosts, FuelCost, getLatestMixtureSession, getStocks, getFuelData, FuelData, getGlobalMixtureSpecification, saveGlobalMixtureSpecification, Specification } from '@/lib/data';
+import { getAverageAnalysisForFuels, saveMixtureSession, getMixtureSessions, MixtureSession, getFuelCosts, FuelCost, getLatestMixtureSession, getStocks, getFuelData, FuelData, getThresholds, saveThresholds, Specification, MixtureThresholds } from '@/lib/data';
 import type { AverageAnalysis } from '@/lib/data';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -50,22 +50,6 @@ interface InstallationState {
 
 interface DirectInputState {
     flowRate: number;
-}
-
-
-interface MixtureThresholds {
-    pci_min?: number | null;
-    pci_max?: number | null;
-    pci_vert_min?: number | null;
-    pci_vert_max?: number | null;
-    chlorure_vert_max?: number | null;
-    chlorure_jaune_max?: number | null;
-    cendre_vert_max?: number | null;
-    cendre_jaune_max?: number | null;
-    h2o_vert_max?: number | null;
-    h2o_jaune_max?: number | null;
-    pneus_vert_max?: number | null;
-    pneus_jaune_max?: number | null;
 }
 
 interface MixtureSummary {
@@ -176,7 +160,7 @@ const ThresholdSettingsModal = ({
     );
 };
 
-export function IndicatorCard({ data, thresholds }: { data: Record<string, number>, thresholds: MixtureThresholds }) {
+export function IndicatorCard({ data, thresholds }: { data: Record<string, number>, thresholds?: MixtureThresholds }) {
   const getColorClass = (key: string, value: number): IndicatorStatus => {
     if(!thresholds) return 'neutral';
 
@@ -258,7 +242,7 @@ function useMixtureCalculations(
     availableFuels: Record<string, AverageAnalysis>, 
     fuelData: Record<string, FuelData>, 
     fuelCosts: Record<string, FuelCost>,
-    thresholds: MixtureThresholds
+    thresholds?: MixtureThresholds
 ) {
    return useMemo(() => {
     const processInstallation = (state: InstallationState) => {
@@ -468,7 +452,7 @@ export function MixtureCalculator() {
   const [fuelCosts, setFuelCosts] = useState<Record<string, FuelCost>>({});
   
   // Thresholds state
-  const [thresholds, setThresholds] = useState<MixtureThresholds>(defaultThresholds);
+  const [thresholds, setThresholds] = useState<MixtureThresholds | undefined>(undefined);
   const [isThresholdModalOpen, setIsThresholdModalOpen] = useState(false);
   
   // Save confirmation modal state
@@ -480,7 +464,7 @@ export function MixtureCalculator() {
   const handleSaveThresholds = async (newThresholds: MixtureThresholds) => {
     if (isReadOnly) return;
     try {
-        await saveGlobalMixtureSpecification(newThresholds);
+        await saveThresholds({ melange: newThresholds });
         setThresholds(newThresholds);
         toast({ title: "Succès", description: "Les seuils d'alerte ont été enregistrés."});
         setIsThresholdModalOpen(false);
@@ -497,11 +481,11 @@ export function MixtureCalculator() {
             throw new Error("Période d'analyse non définie");
         }
 
-        const [allFuelData, costs, allStocks, globalSpec] = await Promise.all([
+        const [allFuelData, costs, allStocks, thresholdsData] = await Promise.all([
             getFuelData(),
             getFuelCosts(),
             getStocks(),
-            getGlobalMixtureSpecification(),
+            getThresholds(),
         ]);
         
         const allPossibleFuelNames = new Set(allStocks.map(s => s.nom_combustible));
@@ -518,8 +502,10 @@ export function MixtureCalculator() {
 
         setAvailableFuels(extendedAnalyses);
         
-        if (globalSpec) {
-             setThresholds(globalSpec);
+        if (thresholdsData.melange) {
+             setThresholds(thresholdsData.melange);
+        } else {
+            setThresholds(defaultThresholds);
         }
         const fuelDataMap = allFuelData.reduce((acc, fd) => { acc[fd.nom_combustible] = fd; return acc; }, {} as Record<string, FuelData>);
         setFuelData(fuelDataMap);
@@ -1011,13 +997,15 @@ export function MixtureCalculator() {
             <div className="flex items-center gap-4">
               <div className='flex items-center gap-2'>
                 <h1 className="text-2xl font-bold text-white">Indicateurs Globaux</h1>
-                <ThresholdSettingsModal 
-                    isOpen={isThresholdModalOpen}
-                    onOpenChange={setIsThresholdModalOpen}
-                    thresholds={thresholds}
-                    onSave={handleSaveThresholds}
-                    isReadOnly={isReadOnly}
-                />
+                {thresholds && (
+                    <ThresholdSettingsModal 
+                        isOpen={isThresholdModalOpen}
+                        onOpenChange={setIsThresholdModalOpen}
+                        thresholds={thresholds}
+                        onSave={handleSaveThresholds}
+                        isReadOnly={isReadOnly}
+                    />
+                )}
               </div>
                <Popover>
                   <PopoverTrigger asChild>

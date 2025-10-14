@@ -19,7 +19,14 @@ export interface Specification {
     Cl_max?: number | null;
     Cendres_max?: number | null;
     Soufre_max?: number | null;
-    // Adding new fields for global mixture spec
+}
+
+export interface Thresholds {
+    melange?: MixtureThresholds;
+    impact?: ImpactThresholds;
+}
+
+export interface MixtureThresholds {
     pci_min?: number | null;
     pci_max?: number | null;
     pci_vert_min?: number | null;
@@ -32,11 +39,21 @@ export interface Specification {
     h2o_jaune_max?: number | null;
     pneus_vert_max?: number | null;
     pneus_jaune_max?: number | null;
-    humidity_max?: number | null;
-    ash_max?: number | null;
-    chlorine_max?: number | null;
-    tireRate_max?: number | null;
 }
+
+export interface ImpactThresholds {
+    fe2o3_vert_max?: number | null;
+    fe2o3_jaune_max?: number | null;
+    lsf_vert_min?: number | null;
+    lsf_jaune_min?: number | null;
+    c3s_vert_min?: number | null;
+    c3s_jaune_min?: number | null;
+    ms_vert_min?: number | null;
+    ms_jaune_min?: number | null;
+    af_vert_min?: number | null;
+    af_jaune_min?: number | null;
+}
+
 
 export interface UserProfile {
     id?: string;
@@ -222,6 +239,7 @@ const defaultRoleAccess: Record<string, string[]> = {
     '/historique-impact',
     '/suivi-chlore',
     '/gestion-utilisateurs',
+    '/gestion-seuils',
   ],
   technician: [
     '/',
@@ -724,46 +742,37 @@ export async function getUniqueFuelTypesFromResultats(): Promise<string[]> {
     return [...new Set(fuelTypes)];
 }
 
-const GLOBAL_MIXTURE_SPEC_ID = "_GLOBAL_MIXTURE_";
+export async function getThresholds(): Promise<Thresholds> {
+    const melangeRef = doc(db, "seuils", "melange");
+    const impactRef = doc(db, "seuils", "impact");
 
-export async function getGlobalMixtureSpecification(): Promise<Specification | null> {
-    const specRef = doc(db, 'specifications', GLOBAL_MIXTURE_SPEC_ID);
-    const docSnap = await getDoc(specRef);
-
-    if (docSnap.exists()) {
-        return { id: docSnap.id, ...docSnap.data() } as Specification;
-    } else {
-        // If it doesn't exist, create it with default values.
-        console.log("No global mixture specification found, creating with defaults.");
-        const defaultSpec: Partial<Specification> = {
-            pci_min: 5000,
-            pci_max: 6500,
-            pci_vert_min: 5500,
-            pci_vert_max: 6000,
-            chlorure_vert_max: 0.5,
-            chlorure_jaune_max: 0.8,
-            cendre_vert_max: 15,
-            cendre_jaune_max: 20,
-            h2o_vert_max: 5,
-            h2o_jaune_max: 8,
-            pneus_vert_max: 50,
-            pneus_jaune_max: 60,
-        };
-        await saveGlobalMixtureSpecification(defaultSpec);
-        const newDocSnap = await getDoc(specRef);
-        return { id: newDocSnap.id, ...newDocSnap.data() } as Specification;
+    const [melangeSnap, impactSnap] = await Promise.all([
+        getDoc(melangeRef),
+        getDoc(impactRef),
+    ]);
+    
+    return {
+        melange: melangeSnap.exists() ? melangeSnap.data() as MixtureThresholds : undefined,
+        impact: impactSnap.exists() ? impactSnap.data() as ImpactThresholds : undefined,
     }
 }
 
-export async function saveGlobalMixtureSpecification(spec: Partial<Specification>): Promise<void> {
-    const specRef = doc(db, 'specifications', GLOBAL_MIXTURE_SPEC_ID);
-    await setDoc(specRef, {
-        ...spec,
-        type_combustible: "Mélange Global",
-        fournisseur: "Système"
-    }, { merge: true });
-    await updateSpecMap();
+export async function saveThresholds(thresholds: Thresholds): Promise<void> {
+    const batch = writeBatch(db);
+    
+    if (thresholds.melange) {
+        const melangeRef = doc(db, "seuils", "melange");
+        batch.set(melangeRef, thresholds.melange, { merge: true });
+    }
+    
+    if (thresholds.impact) {
+        const impactRef = doc(db, "seuils", "impact");
+        batch.set(impactRef, thresholds.impact, { merge: true });
+    }
+
+    await batch.commit();
 }
+
 
 // --- Mixture Scenarios (for simulator) ---
 
