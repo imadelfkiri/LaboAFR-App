@@ -81,40 +81,50 @@ export function MainDashboard() {
 
     chartMetric = selectedChartMetric;
 
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(() => {
         setLoading(true);
-        try {
-            const today = new Date();
-            const startOfCurrentWeek = startOfWeek(today, { locale: fr });
-            const endOfCurrentWeek = endOfWeek(today, { locale: fr });
+        const fetchAndSetData = async () => {
+            try {
+                const today = new Date();
+                const startOfCurrentWeek = startOfWeek(today, { locale: fr });
+                const endOfCurrentWeek = endOfWeek(today, { locale: fr });
 
-            const [sessionData, impactAnalyses, indicatorData, uniqueFuels, specs] = await Promise.all([
-                getLatestMixtureSession(),
-                getImpactAnalyses(),
-                getLatestIndicatorData(),
-                getUniqueFuelTypes(),
-                getSpecifications(),
-            ]);
+                const [sessionData, impactAnalyses, indicatorData, uniqueFuels, specs] = await Promise.all([
+                    getLatestMixtureSession(),
+                    getImpactAnalyses(),
+                    getLatestIndicatorData(),
+                    getUniqueFuelTypes(),
+                    getSpecifications(),
+                ]);
+                
+                const fuelNames = uniqueFuels.filter(name => name.toLowerCase() !== 'grignons' && name.toLowerCase() !== 'pet-coke');
+                
+                const dateRanges: Record<string, { from: Date; to: Date }> = {};
+                fuelNames.forEach(name => {
+                  dateRanges[name] = { from: startOfCurrentWeek, to: endOfCurrentWeek };
+                });
 
-            const fuelNames = uniqueFuels.filter(name => name.toLowerCase() !== 'grignons' && name.toLowerCase() !== 'pet-coke');
-            const weeklyAvgsData = await getAverageAnalysisForFuels(fuelNames, startOfCurrentWeek, endOfCurrentWeek);
-            
-            const specsMap: Record<string, Specification> = {};
-            specs.forEach(spec => {
-                const key = `${spec.type_combustible}|${spec.fournisseur}`;
-                specsMap[key] = spec;
-            });
-            
-            setSpecifications(specsMap);
-            setMixtureSession(sessionData);
-            setLatestImpact(impactAnalyses.length > 0 ? impactAnalyses[0] : null);
-            setKeyIndicators(indicatorData);
-            setWeeklyAverages(weeklyAvgsData);
-        } catch (error) {
-            console.error("Error fetching dashboard data:", error);
-        } finally {
-            setLoading(false);
-        }
+                const weeklyAvgsData = await getAverageAnalysisForFuels(fuelNames, dateRanges);
+                
+                const specsMap: Record<string, Specification> = {};
+                specs.forEach(spec => {
+                    const key = `${spec.type_combustible}|${spec.fournisseur}`;
+                    specsMap[key] = spec;
+                });
+                
+                setSpecifications(specsMap);
+                setMixtureSession(sessionData);
+                setLatestImpact(impactAnalyses.length > 0 ? impactAnalyses[0] : null);
+                setKeyIndicators(indicatorData);
+                setWeeklyAverages(weeklyAvgsData);
+            } catch (error) {
+                console.error("Error fetching dashboard data:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchAndSetData();
     }, []);
 
     useEffect(() => {
@@ -222,7 +232,7 @@ export function MainDashboard() {
             'LSF': delta(results.modulesAvec.lsf, results.modulesSans.lsf),
             'C3S': delta(results.c3sAvec, results.c3sSans),
             'MS': delta(results.modulesAvec.ms, results.modulesSans.ms),
-            'AF': delta(results.modulesAvec.af, modulesSans.af),
+            'AF': delta(results.modulesAvec.af, results.modulesSans.af),
         };
     }, [latestImpact]);
 
