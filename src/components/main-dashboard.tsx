@@ -87,42 +87,45 @@ export function MainDashboard() {
         const data: Record<string, Partial<Specification>> = {};
         snap.docs.forEach((doc) => {
             const d = doc.data();
-            const fournisseur = d.Fournisseur || d.fournisseur || "Inconnu";
-            data[fournisseur] = {
-                PCI_min: d["PCI Min (kcal/kg)"] || d.PCImin,
-                H2O_max: d["H2O Max (%)"] || d.H2Omax,
-                Cl_max: d["Cl- Max (%)"] || d.Clmax,
-                Cendres_max: d["Cendres Max (%)"] || d.Cendresmax,
+            const key = `${d["Type Combustible"]}—${d["Fournisseur"]}`.trim();
+            data[key] = {
+                pci_min: Number(d["PCI Min (kcal/kg)"]) || null,
+                h2o_max: Number(d["H2O Max (%)"]) || null,
+                cl_max: Number(d["Cl- Max (%)"]) || null,
+                cendres_max: Number(d["Cendres Max (%)"]) || null,
             };
         });
         setSpecs(data);
     };
 
-    const getColor = (fournisseur: string, value: number) => {
-        const s = specs[fournisseur];
-        if (!s || !showColors) return "#38BDF8"; // bleu neutre
+    const getColor = (combustible: string, fournisseur: string, value: number) => {
+        if (!showColors) return "#38BDF8"; // neutre
+
+        const key = `${combustible}—${fournisseur}`;
+        const seuils = specs[key];
+
+        if (!seuils) return "#6B7280"; // gris si pas de données
 
         switch (indicator) {
-            case "pci":
-                if (s.PCI_min != null) {
-                    return value >= s.PCI_min ? "#10B981" : "#EF4444";
-                }
-                return "#6B7280"; // Gris si pas de spec
-            case "chlorures":
-                if (s.Cl_max != null) {
-                    return value <= s.Cl_max ? "#10B981" : "#EF4444";
-                }
-                return "#6B7280";
+            case "pci": {
+                const min = seuils.pci_min || 0;
+                if (value < min) return "#EF4444"; // rouge : PCI inférieur au contrat
+                if (value >= min && value <= min + 500) return "#10B981"; // vert : conforme ±500
+                if (value > min + 500) return "#FACC15"; // jaune : PCI trop haut
+                break;
+            }
             case "h2o":
-                 if (s.H2O_max != null) {
-                    return value <= s.H2O_max ? "#10B981" : "#EF4444";
-                }
-                return "#6B7280";
+                if (value <= seuils.h2o_max) return "#10B981";
+                if (value > seuils.h2o_max && value <= seuils.h2o_max + 2) return "#FACC15";
+                return "#EF4444";
+            case "chlorures":
+                if (value <= seuils.cl_max) return "#10B981";
+                if (value > seuils.cl_max && value <= seuils.cl_max + 0.2) return "#FACC15";
+                return "#EF4444";
             case "cendres":
-                if (s.Cendres_max != null) {
-                    return value <= s.Cendres_max ? "#10B981" : "#EF4444";
-                }
-                return "#6B7280";
+                if (value <= seuils.cendres_max) return "#10B981";
+                if (value > seuils.cendres_max && value <= seuils.cendres_max + 3) return "#FACC15";
+                return "#EF4444";
             default:
                 return "#6B7280";
         }
@@ -434,12 +437,12 @@ export function MainDashboard() {
                                     position: "top",
                                     fill: "#e5e7eb",
                                     fontSize: 11,
-                                    formatter: (value: number) => value.toFixed(0),
+                                    formatter: (value: number) => value.toFixed(0)
                                     }}
                                 >
                                     {chartData.map((entry, index) => {
-                                        const [combustible, fournisseur] = entry.name.split(' — ');
-                                        return <Cell key={`cell-${index}`} fill={getColor(fournisseur, entry.value)} />
+                                        const [combustible, fournisseur] = entry.name.split(" — ");
+                                        return <Cell key={`cell-${index}`} fill={getColor(combustible.trim(), fournisseur.trim(), entry.value)} />
                                     })}
                                 </Bar>
                             </RechartsBarChart>
@@ -459,4 +462,3 @@ export function MainDashboard() {
         </motion.div>
     );
 }
-
