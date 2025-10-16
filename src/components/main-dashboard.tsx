@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -420,7 +421,7 @@ export function MainDashboard() {
                             <div className="flex items-center justify-center h-full text-muted-foreground">Aucune donnée pour la période.</div>
                         )}
                     </ResponsiveContainer>
-                     {periode !== "derniere_analyse" && computedRange?.from && (
+                     {periode !== "derniere_analyse" && computedRange?.from && computedRange?.to && (
                         <div className="text-gray-400 text-sm mt-3 text-right">
                            Période :{" "}
                            {format(computedRange.from, "dd MMM yyyy", { locale: fr })} →{" "}
