@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -24,6 +23,8 @@ import { motion } from 'framer-motion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getDocs, query, collection, where, Timestamp, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { Switch } from "@/components/ui/switch";
+import { Label as UILabel } from "@/components/ui/label";
 
 
 // Hook to read from localStorage without causing hydration issues
@@ -62,50 +63,61 @@ export function MainDashboard() {
     const [keyIndicators, setKeyIndicators] = useState<{ tsr: number; } | null>(null);
     
     const [chartData, setChartData] = useState<any[]>([]);
-    const [chartIndicator, setChartIndicator] = useState('pci_brut');
-    const [specifications, setSpecifications] = useState<Record<string, Partial<Specification>>>({});
+    const [indicator, setIndicator] = useState("pci");
+    const [showColors, setShowColors] = useState(true);
+
+    const [dateRange, setDateRange] = useState({
+        from: startOfWeek(new Date(), { weekStartsOn: 1 }),
+        to: endOfWeek(new Date(), { weekStartsOn: 1 }),
+    });
+
+    const [specs, setSpecs] = useState<Record<string, Partial<Specification>>>({});
 
     const [thresholds, setThresholds] = useState<{ melange?: MixtureThresholds, impact?: ImpactThresholds }>({});
     const debitClinker = usePersistentValue<number>('debitClinker', 0);
     const pathname = usePathname();
     
-    const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: startOfWeek(new Date(), { weekStartsOn: 1 }), to: endOfWeek(new Date(), { weekStartsOn: 1 }) });
     const [openCalendar, setOpenCalendar] = useState(false);
     const cache = useRef(new Map());
+
 
     const fetchSpecs = async () => {
         const snap = await getDocs(collection(db, "specifications"));
         const data: Record<string, Partial<Specification>> = {};
         snap.docs.forEach((doc) => {
             const d = doc.data();
-            const fournisseur = d.fournisseur || "Inconnu";
+            const fournisseur = d.Fournisseur || d.fournisseur || "Inconnu";
             data[fournisseur] = {
-                PCI_min: d.PCI_min ?? null,
-                H2O_max: d.H2O_max ?? null,
-                Cl_max: d.Cl_max ?? null,
-                Cendres_max: d.Cendres_max ?? null,
+                PCI_min: d["PCI Min (kcal/kg)"] || d.PCImin,
+                H2O_max: d["H2O Max (%)"] || d.H2Omax,
+                Cl_max: d["Cl- Max (%)"] || d.Clmax,
+                Cendres_max: d["Cendres Max (%)"] || d.Cendresmax,
             };
         });
-        setSpecifications(data);
+        setSpecs(data);
     };
 
     const getColor = (fournisseur: string, value: number) => {
-        const s = specifications[fournisseur];
-        if (!s) return "#6B7280";
+        const s = specs[fournisseur];
+        if (!s || !showColors) return "#38BDF8"; // bleu neutre
 
-        switch (chartIndicator) {
-            case "pci_brut":
-                if (s.PCI_min == null) return "#6B7280";
-                return value >= s.PCI_min ? "#10B981" : "#EF4444";
+        switch (indicator) {
+            case "pci":
+                if (value < 5000 || value > 6500) return "#EF4444"; // rouge
+                if (value >= 5500 && value <= 6000) return "#10B981"; // vert
+                return "#FACC15"; // jaune
+            case "chlorures":
+                if (value < 0.5) return "#10B981";
+                if (value >= 0.5 && value <= 0.8) return "#FACC15";
+                return "#EF4444";
             case "h2o":
-                if (s.H2O_max == null) return "#6B7280";
-                return value <= s.H2O_max ? "#10B981" : "#EF4444";
-            case "chlore":
-                if (s.Cl_max == null) return "#6B7280";
-                return value <= s.Cl_max ? "#10B981" : "#EF4444";
+                if (value < 5) return "#10B981";
+                if (value >= 5 && value <= 8) return "#FACC15";
+                return "#EF4444";
             case "cendres":
-                if (s.Cendres_max == null) return "#6B7280";
-                return value <= s.Cendres_max ? "#10B981" : "#EF4444";
+                if (value < 15) return "#10B981";
+                if (value > 20) return "#EF4444";
+                return "#FACC15";
             default:
                 return "#6B7280";
         }
@@ -114,7 +126,7 @@ export function MainDashboard() {
     const fetchChartData = useCallback(async () => {
         if (!dateRange?.from || !dateRange?.to) return;
         
-        const key = `${chartIndicator}_${dateRange.from.toISOString()}_${dateRange.to.toISOString()}`;
+        const key = `${indicator}_${dateRange.from.toISOString()}_${dateRange.to.toISOString()}`;
         if (cache.current.has(key)) {
             setChartData(cache.current.get(key));
             return;
@@ -132,22 +144,26 @@ export function MainDashboard() {
 
         const grouped = docs.reduce((acc: any, d: any) => {
             const fournisseur = d.fournisseur || "Inconnu";
-            if (!acc[fournisseur]) {
-                acc[fournisseur] = { fournisseur, total: 0, count: 0 };
+            const combustible = d.type_combustible || "N/A";
+            const key = `${combustible} — ${fournisseur}`;
+
+            if (!acc[key]) {
+                acc[key] = { name: key, total: 0, count: 0 };
             }
-            acc[fournisseur].total += d[chartIndicator] || 0;
-            acc[fournisseur].count++;
+            const indicatorKey = indicator === 'chlorures' ? 'chlore' : indicator;
+            acc[key].total += d[indicatorKey] || 0;
+            acc[key].count++;
             return acc;
         }, {});
 
         const results = Object.values(grouped).map((f: any) => ({
-            name: f.fournisseur,
+            name: f.name,
             value: f.total / f.count || 0,
         }));
         
         cache.current.set(key, results);
         setChartData(results);
-    }, [dateRange, chartIndicator]);
+    }, [dateRange, indicator]);
 
 
     useEffect(() => {
@@ -326,19 +342,29 @@ export function MainDashboard() {
             <Card className="bg-[#0B101A]/80 border border-gray-800 p-6 rounded-xl shadow-lg">
                 <CardHeader>
                     <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-3">
-                        <h2 className="text-lg font-semibold text-white">
-                           📊 Moyenne {chartIndicator.toUpperCase()} par Fournisseur
+                         <h2 className="text-lg font-semibold text-white">
+                            📊 Moyenne {indicator.toUpperCase()} par Fournisseur
                         </h2>
-                        <div className="flex items-center gap-3">
-                           <Select value={chartIndicator} onValueChange={setChartIndicator}>
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center space-x-2">
+                                <Switch
+                                id="color-toggle"
+                                checked={showColors}
+                                onCheckedChange={setShowColors}
+                                />
+                                <UILabel htmlFor="color-toggle" className="text-gray-300 text-sm">
+                                Mise en forme conditionnelle
+                                </UILabel>
+                            </div>
+                           <Select value={indicator} onValueChange={setIndicator}>
                                 <SelectTrigger className="w-[180px] bg-[#1A2233] text-gray-300 border-gray-700">
                                     <SelectValue placeholder="Indicateur" />
                                 </SelectTrigger>
                                 <SelectContent className="bg-[#0B101A] text-gray-300">
-                                    <SelectItem value="pci_brut">🔥 PCI (kcal/kg)</SelectItem>
-                                    <SelectItem value="chlore">🧪 Chlorures (%)</SelectItem>
-                                    <SelectItem value="h2o">💧 H₂O (%)</SelectItem>
-                                    <SelectItem value="cendres">⚱️ Cendres (%)</SelectItem>
+                                    <SelectItem value="pci">🔥 PCI</SelectItem>
+                                    <SelectItem value="chlorures">🧪 Chlorures</SelectItem>
+                                    <SelectItem value="h2o">💧 H₂O</SelectItem>
+                                    <SelectItem value="cendres">⚱️ Cendres</SelectItem>
                                 </SelectContent>
                             </Select>
 
@@ -358,7 +384,7 @@ export function MainDashboard() {
                                     <Calendar
                                     mode="range"
                                     selected={dateRange}
-                                    onSelect={setDateRange}
+                                    onSelect={setDateRange as any}
                                     numberOfMonths={2}
                                     locale={fr}
                                     className="text-gray-300"
@@ -369,28 +395,39 @@ export function MainDashboard() {
                     </div>
                 </CardHeader>
                 <CardContent>
-                     <ResponsiveContainer width="100%" height={350}>
+                     <ResponsiveContainer width="100%" height={330}>
                         {chartData.length > 0 ? (
                             <RechartsBarChart data={chartData}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#141C2F" />
-                                <XAxis dataKey="name" stroke="#A0AEC0" fontSize={10} interval={0} angle={-30} textAnchor="end" height={80} />
-                                <YAxis stroke="#A0AEC0" fontSize={12} />
+                                 <XAxis
+                                    dataKey="name"
+                                    stroke="#aaa"
+                                    fontSize={11}
+                                    angle={-25}
+                                    textAnchor="end"
+                                    height={70}
+                                    tick={{ fill: "#ccc" }}
+                                />
                                 <Tooltip
                                     contentStyle={{
                                     backgroundColor: "#1A2233",
                                     borderRadius: 8,
                                     color: "#fff",
                                     }}
-                                     formatter={(value: number) =>
-                                        chartIndicator === "pci_brut"
-                                        ? `${value.toFixed(0)} kcal/kg`
-                                        : `${value.toFixed(2)} %`
-                                    }
+                                    formatter={(v:number) => v.toFixed(2)}
                                 />
-                                <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-                                    {chartData.map((entry, index) => (
-                                     <Cell key={`cell-${index}`} fill={getColor(entry.name, entry.value)} />
-                                    ))}
+                                <Bar
+                                    dataKey="value"
+                                    radius={[8, 8, 0, 0]}
+                                    label={{
+                                    position: "top",
+                                    fill: "#e5e7eb",
+                                    fontSize: 11,
+                                    }}
+                                >
+                                    {chartData.map((entry, index) => {
+                                        const [combustible, fournisseur] = entry.name.split(' — ');
+                                        return <Cell key={`cell-${index}`} fill={getColor(fournisseur, entry.value)} />
+                                    })}
                                 </Bar>
                             </RechartsBarChart>
                         ) : (
@@ -406,8 +443,6 @@ export function MainDashboard() {
                     )}
                 </CardContent>
             </Card>
-
         </motion.div>
     );
 }
-
