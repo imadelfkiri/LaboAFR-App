@@ -150,8 +150,15 @@ export function MainDashboard() {
             if (!acc[key]) {
                 acc[key] = { name: key, total: 0, count: 0 };
             }
-            const indicatorKey = indicator === 'chlorures' ? 'chlore' : indicator;
-            acc[key].total += d[indicatorKey] || 0;
+            
+            let value = 0;
+            if (indicator === "pci") value = d["pci_brut"] || d.pci || 0;
+            if (indicator === "chlorures") value = d["chlore"] || d.chlorures || 0;
+            if (indicator === "h2o") value = d["h2o"] || 0;
+            if (indicator === "cendres") value = d["cendres"] || 0;
+            value = Number(value) || 0;
+
+            acc[key].total += value;
             acc[key].count++;
             return acc;
         }, {});
@@ -422,6 +429,7 @@ export function MainDashboard() {
                                     position: "top",
                                     fill: "#e5e7eb",
                                     fontSize: 11,
+                                    formatter: (value: number) => value.toFixed(0),
                                     }}
                                 >
                                     {chartData.map((entry, index) => {
