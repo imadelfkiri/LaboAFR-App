@@ -3,6 +3,7 @@ import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, que
 import { db } from './firebase';
 import { startOfDay, endOfDay } from 'date-fns';
 import type { User } from 'firebase/auth';
+import { DateRange } from 'react-day-picker';
 
 export interface FuelType {
     id?: string;
@@ -229,29 +230,12 @@ interface Result {
 }
 
 export async function getResultsForPeriod(
-  dateRange: { from: Date; to: Date } | null,
-  latestOnly: boolean
+  dateRange?: DateRange
 ): Promise<Result[]> {
   const resultsCollection = collection(db, 'resultats');
   let q;
-
-  if (latestOnly) {
-    const allResultsSnapshot = await getDocs(query(resultsCollection, orderBy('date_arrivage', 'desc')));
-    const latestResultsMap = new Map<string, Result>();
-
-    allResultsSnapshot.docs.forEach(doc => {
-      const data = doc.data() as Result;
-      data.id = doc.id;
-      const key = `${data.type_combustible}|${data.fournisseur}`;
-      if (!latestResultsMap.has(key)) {
-        latestResultsMap.set(key, data);
-      }
-    });
-
-    return Array.from(latestResultsMap.values());
-  }
   
-  if (dateRange) {
+  if (dateRange && dateRange.from && dateRange.to) {
     q = query(
       resultsCollection,
       where('date_arrivage', '>=', Timestamp.fromDate(dateRange.from)),

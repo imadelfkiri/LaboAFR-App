@@ -1,17 +1,20 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { usePathname } from 'next/navigation';
 import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getAverageAnalysisForFuels, type AverageAnalysis, getUniqueFuelTypes, getSpecifications, type Specification, getLatestIndicatorData, getThresholds, ImpactThresholds, MixtureThresholds, getResultsForPeriod } from '@/lib/data';
 import { Skeleton } from "@/components/ui/skeleton";
-import { Recycle, Leaf, LayoutDashboard } from 'lucide-react';
+import { Recycle, Leaf, LayoutDashboard, CalendarIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell, LabelList } from 'recharts';
-import { startOfWeek, endOfWeek, format, subWeeks, startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { startOfWeek, endOfWeek, format, subDays } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { DateRange } from "react-day-picker";
+import { cn } from "@/lib/utils";
 import { KeyIndicatorCard } from './cards/KeyIndicatorCard';
 import { ImpactCard, ImpactData } from './cards/ImpactCard';
 import { IndicatorCard } from './mixture-calculator';
@@ -78,39 +81,19 @@ export function MainDashboard() {
     const [specifications, setSpecifications] = useState<Record<string, Specification>>({});
     const [thresholds, setThresholds] = useState<{ melange?: MixtureThresholds, impact?: ImpactThresholds }>({});
     const [selectedChartMetric, setChartMetric] = useState<ChartMetric>('pci');
-    const [periode, setPeriode] = useState('semaine_courante');
+    const [dateRange, setDateRange] = useState<DateRange | undefined>({
+      from: subDays(new Date(), 7),
+      to: new Date(),
+    });
     const debitClinker = usePersistentValue<number>('debitClinker', 0);
     const pathname = usePathname();
 
     chartMetric = selectedChartMetric;
 
     const fetchChartData = useCallback(async () => {
-        const today = new Date();
-        const getDatesRange = () => {
-            const startOfCurrentWeek = startOfWeek(today, { locale: fr });
-            const endOfCurrentWeek = endOfWeek(today, { locale: fr });
-
-            switch (periode) {
-                case "derniere_analyse":
-                    return null;
-                case "semaine_courante":
-                    return { from: startOfCurrentWeek, to: endOfCurrentWeek };
-                case "semaine_derniere":
-                    const lastWeekStart = startOfWeek(subWeeks(today, 1), { locale: fr });
-                    const lastWeekEnd = endOfWeek(subWeeks(today, 1), { locale: fr });
-                    return { from: lastWeekStart, to: lastWeekEnd };
-                case "mois_courant":
-                    return { from: startOfMonth(today), to: endOfMonth(today) };
-                case "mois_precedent":
-                    const lastMonth = subMonths(today, 1);
-                    return { from: startOfMonth(lastMonth), to: endOfMonth(lastMonth) };
-                default:
-                    return { from: startOfCurrentWeek, to: endOfCurrentWeek };
-            }
-        };
-
+        if (!dateRange?.from || !dateRange.to) return;
         try {
-            const results = await getResultsForPeriod(getDatesRange(), periode === 'derniere_analyse');
+            const results = await getResultsForPeriod(dateRange);
             
             const groupedBySupplier = results.reduce((acc, d) => {
                 const supplier = d.fournisseur || "Inconnu";
@@ -131,11 +114,11 @@ export function MainDashboard() {
         } catch (error) {
             console.error("Error fetching chart data:", error);
         }
-    }, [periode]);
+    }, [dateRange]);
     
     useEffect(() => {
         fetchChartData();
-    }, [periode, fetchChartData]);
+    }, [dateRange, fetchChartData]);
 
     const fetchData = useCallback(() => {
         setLoading(true);
@@ -263,14 +246,6 @@ export function MainDashboard() {
         return "#facc15"; // yellow
     };
 
-    const periodeLabels: Record<string, string> = {
-        derniere_analyse: 'Dernière analyse',
-        semaine_courante: 'Semaine en cours',
-        semaine_derniere: 'Semaine dernière',
-        mois_courant: 'Mois en cours',
-        mois_precedent: 'Mois précédent',
-    };
-
     if (loading) {
         return (
             <div className="space-y-6">
@@ -332,30 +307,46 @@ export function MainDashboard() {
                 <CardHeader>
                     <div className="flex justify-between items-center">
                         <div>
-                            <CardTitle className="text-white">Moyenne par Fournisseur ({periodeLabels[periode]})</CardTitle>
+                            <CardTitle className="text-white">Moyenne par Fournisseur</CardTitle>
                         </div>
                         <div className='flex items-center gap-2'>
-                            <Select value={selectedChartMetric} onValueChange={(value: ChartMetric) => setChartMetric(value)}>
-                                <SelectTrigger className="w-[180px] bg-brand-muted border-brand-line">
-                                    <SelectValue placeholder="Choisir un indicateur" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="pci">PCI (kcal/kg)</SelectItem>
-                                    <SelectItem value="chlore">Chlore (%)</SelectItem>
-                                </SelectContent>
-                            </Select>
-                             <Select value={periode} onValueChange={setPeriode}>
-                                <SelectTrigger className="w-[240px] bg-brand-muted border-brand-line">
-                                    <SelectValue placeholder="Choisir la période" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="derniere_analyse">🧪 Dernière analyse</SelectItem>
-                                    <SelectItem value="semaine_courante">📅 Semaine en cours</SelectItem>
-                                    <SelectItem value="semaine_derniere">⏮️ Semaine dernière</SelectItem>
-                                    <SelectItem value="mois_courant">📆 Mois en cours</SelectItem>
-                                    <SelectItem value="mois_precedent">🗓️ Mois précédent</SelectItem>
-                                </SelectContent>
-                            </Select>
+                           <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    id="date"
+                                    variant={"outline"}
+                                    className={cn(
+                                        "w-[300px] justify-start text-left font-normal bg-brand-muted border-brand-line",
+                                        !dateRange && "text-muted-foreground"
+                                    )}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {dateRange?.from ? (
+                                        dateRange.to ? (
+                                            <>
+                                                {format(dateRange.from, "dd MMM", {locale: fr})} -{" "}
+                                                {format(dateRange.to, "dd MMM yyyy", {locale: fr})}
+                                            </>
+                                        ) : (
+                                            format(dateRange.from, "PPP", {locale: fr})
+                                        )
+                                    ) : (
+                                        <span>Choisir une période</span>
+                                    )}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0 bg-brand-surface border-brand-line" align="end">
+                                <Calendar
+                                    initialFocus
+                                    mode="range"
+                                    defaultMonth={dateRange?.from}
+                                    selected={dateRange}
+                                    onSelect={setDateRange}
+                                    numberOfMonths={2}
+                                    locale={fr}
+                                />
+                            </PopoverContent>
+                        </Popover>
                         </div>
                     </div>
                 </CardHeader>
@@ -384,9 +375,16 @@ export function MainDashboard() {
                             <div className="flex items-center justify-center h-full text-muted-foreground">Aucune donnée pour la période.</div>
                         )}
                     </ResponsiveContainer>
+                     {dateRange?.from && dateRange.to && (
+                        <div className="text-gray-400 text-sm mt-3 text-right">
+                            Période : {format(dateRange.from, "dd MMM yyyy", { locale: fr })} →{" "}
+                            {format(dateRange.to, "dd MMM yyyy", { locale: fr })}
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 
         </motion.div>
     );
 }
+
