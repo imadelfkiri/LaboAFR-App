@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Recycle, Leaf, LayoutDashboard, CalendarIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell, LabelList } from 'recharts';
-import { startOfWeek, endOfWeek, format, subDays, startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { startOfWeek, endOfWeek, format, subDays, startOfMonth, endOfMonth, subMonths, subWeeks } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
@@ -67,62 +67,104 @@ export function MainDashboard() {
     const debitClinker = usePersistentValue<number>('debitClinker', 0);
     const pathname = usePathname();
     
-    const [dateRange, setDateRange] = useState<DateRange | undefined>({
-        from: new Date(new Date().setDate(new Date().getDate() - 7)),
-        to: new Date(),
-    });
-    const [open, setOpen] = useState(false);
+    const [periode, setPeriode] = useState("semaine_courante");
+    const [dateRange, setDateRange] = useState<{ from: Date | null, to: Date | null }>({ from: null, to: null });
+    const [openCalendar, setOpenCalendar] = useState(false);
     const cache = useRef(new Map());
 
 
     const getColor = (pci: number) => {
         if (!thresholds.melange) return "#10B981"; // Default green
         const {pci_min, pci_max, pci_vert_min, pci_vert_max} = thresholds.melange;
-        if ((pci_min != null && pci < pci_min) || (pci_max != null && pci > pci_max)) return "#EF4444"; // red
-        if ((pci_vert_min != null && pci >= pci_vert_min) && (pci_vert_max != null && pci <= pci_vert_max)) return "#10B981"; // green
-        return "#FBBF24"; // yellow
+        if (pci < 5000 || pci > 6500) return "#EF4444"; // rouge
+        if (pci >= 5500 && pci <= 6000) return "#10B981"; // vert
+        return "#FBBF24"; // jaune
     };
 
-    const fetchAveragePCI = async (from: Date, to: Date) => {
-        const key = `${from.toISOString()}_${to.toISOString()}`;
+    const computeDateRange = (type: string) => {
+        const today = new Date();
+        switch (type) {
+            case "derniere_analyse":
+                return null;
+            case "semaine_courante":
+                return { from: startOfWeek(today, { weekStartsOn: 1 }), to: endOfWeek(today, { weekStartsOn: 1 }) };
+            case "semaine_derniere":
+                const lastWeek = subWeeks(today, 1);
+                return { from: startOfWeek(lastWeek, { weekStartsOn: 1 }), to: endOfWeek(lastWeek, { weekStartsOn: 1 }) };
+            case "mois_courant":
+                return { from: startOfMonth(today), to: endOfMonth(today) };
+            case "mois_precedent":
+                const lastMonth = subMonths(today, 1);
+                return { from: startOfMonth(lastMonth), to: endOfMonth(lastMonth) };
+            default:
+                return dateRange; // pour “personnalisée”
+        }
+    };
+
+    const fetchAveragePCI = async (from: Date | null, to: Date | null) => {
+        const key = `${periode}_${from?.toISOString() || "none"}_${to?.toISOString() || "none"}`;
         if (cache.current.has(key)) {
-            console.log("🧠 Chargé depuis le cache mémoire :", key);
+             console.log("🧠 Données chargées depuis le cache");
             return cache.current.get(key);
         }
-        console.log("🔥 Nouvelle requête Firestore :", key);
 
-        const q = query(
-            collection(db, "resultats"),
-            where("date_arrivage", ">=", Timestamp.fromDate(from)),
-            where("date_arrivage", "<=", Timestamp.fromDate(to)),
-            orderBy("date_arrivage", "asc")
-        );
+        console.log("🔥 Nouvelle requête Firestore");
+        let q;
+        if (periode === "derniere_analyse") {
+          q = query(collection(db, "resultats"), orderBy("date_arrivage", "desc"));
+        } else if (from && to) {
+            q = query(
+                collection(db, "resultats"),
+                where("date_arrivage", ">=", Timestamp.fromDate(from)),
+                where("date_arrivage", "<=", Timestamp.fromDate(to)),
+                orderBy("date_arrivage", "asc")
+            );
+        }
+
+        if (!q) return [];
 
         const snap = await getDocs(q);
         const docs = snap.docs.map((d) => d.data());
 
-        const grouped = docs.reduce((acc: any, d: any) => {
-            const fournisseur = d.fournisseur || "Inconnu";
-            if (!acc[fournisseur]) acc[fournisseur] = { fournisseur, totalPCI: 0, count: 0 };
-            acc[fournisseur].totalPCI += d.pci_brut || 0;
-            acc[fournisseur].count++;
-            return acc;
-        }, {});
-
-        const results = Object.values(grouped).map((f: any) => ({
-            name: f.fournisseur,
-            pci: f.totalPCI / f.count || 0,
-        }));
+        let grouped;
+        if (periode === "derniere_analyse") {
+            const last: {[key: string]: any} = {};
+            docs.forEach((d) => {
+                const fournisseur = d.fournisseur || "Inconnu";
+                if (!last[fournisseur] || d.date_arrivage.toMillis() > last[fournisseur].date_arrivage.toMillis()) {
+                    last[fournisseur] = d;
+                }
+            });
+            grouped = Object.values(last).map((f: any) => ({
+                name: f.fournisseur,
+                pci: f.pci_brut || 0,
+            }));
+        } else {
+            const acc = docs.reduce((a: any, d: any) => {
+                const f = d.fournisseur || "Inconnu";
+                if (!a[f]) a[f] = { fournisseur: f, total: 0, n: 0 };
+                a[f].total += d.pci_brut || 0;
+                a[f].n++;
+                return a;
+            }, {});
+            grouped = Object.values(acc).map((f: any) => ({
+                name: f.fournisseur,
+                pci: f.total / f.n || 0,
+            }));
+        }
         
-        cache.current.set(key, results);
-        return results;
+        cache.current.set(key, grouped);
+        return grouped;
     };
 
     const fetchChartData = useCallback(async () => {
-       if (!dateRange?.from || !dateRange.to) return;
-        const res = await fetchAveragePCI(dateRange.from, dateRange.to);
-        setChartData(res);
-    }, [dateRange]);
+        const range = computeDateRange(periode);
+        if (periode !== "personnalisee" || (dateRange.from && dateRange.to)) {
+            const res = await fetchAveragePCI(range?.from, range?.to);
+            setChartData(res);
+        }
+    }, [periode, dateRange]);
+
 
     useEffect(() => {
         fetchChartData();
@@ -262,6 +304,8 @@ export function MainDashboard() {
         );
     }
     
+    const computedRange = computeDateRange(periode);
+    
     return (
         <motion.div
             className="space-y-6"
@@ -309,34 +353,47 @@ export function MainDashboard() {
                         <h2 className="text-lg font-semibold text-white">
                             📊 Moyenne PCI par Fournisseur
                         </h2>
-                        <Popover open={open} onOpenChange={setOpen}>
-                        <PopoverTrigger asChild>
-                            <Button
-                            variant="outline"
-                            className="bg-[#1A2233] text-gray-300 border-gray-700 hover:bg-[#24304b]"
-                            >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {dateRange?.from && dateRange.to ? (
-                                <>
-                                {format(dateRange.from, "dd MMM", { locale: fr })} →{" "}
-                                {format(dateRange.to, "dd MMM yyyy", { locale: fr })}
-                                </>
-                            ) : (
-                                "Choisir une période"
+                        <div className="flex items-center gap-3">
+                            <Select value={periode} onValueChange={setPeriode}>
+                                <SelectTrigger className="w-[220px] bg-[#1A2233] text-gray-300 border-gray-700">
+                                <SelectValue placeholder="Choisir période" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-[#0B101A] text-gray-300">
+                                    <SelectItem value="derniere_analyse">🧪 Dernière analyse</SelectItem>
+                                    <SelectItem value="semaine_courante">📅 Semaine en cours</SelectItem>
+                                    <SelectItem value="semaine_derniere">⏮️ Semaine dernière</SelectItem>
+                                    <SelectItem value="mois_courant">📆 Mois en cours</SelectItem>
+                                    <SelectItem value="mois_precedent">🗓️ Mois précédent</SelectItem>
+                                    <SelectItem value="personnalisee">🪄 Personnalisée</SelectItem>
+                                </SelectContent>
+                            </Select>
+
+                            {periode === "personnalisee" && (
+                                <Popover open={openCalendar} onOpenChange={setOpenCalendar}>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                    variant="outline"
+                                    className="bg-[#1A2233] text-gray-300 border-gray-700 hover:bg-[#24304b]"
+                                    >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {dateRange.from && dateRange.to
+                                        ? `${format(dateRange.from, "dd MMM", { locale: fr })} → ${format(dateRange.to, "dd MMM yyyy", { locale: fr })}`
+                                        : "Choisir une période"}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="p-0 bg-[#0B101A] border border-gray-800">
+                                    <Calendar
+                                    mode="range"
+                                    selected={dateRange as DateRange}
+                                    onSelect={(range) => setDateRange(range || { from: null, to: null })}
+                                    numberOfMonths={2}
+                                    locale={fr}
+                                    className="text-gray-300"
+                                    />
+                                </PopoverContent>
+                                </Popover>
                             )}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="p-0 bg-[#0B101A] border border-gray-800">
-                            <Calendar
-                            mode="range"
-                            selected={dateRange}
-                            onSelect={setDateRange}
-                            numberOfMonths={2}
-                            locale={fr}
-                            className="text-gray-300"
-                            />
-                        </PopoverContent>
-                        </Popover>
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -363,10 +420,11 @@ export function MainDashboard() {
                             <div className="flex items-center justify-center h-full text-muted-foreground">Aucune donnée pour la période.</div>
                         )}
                     </ResponsiveContainer>
-                     {dateRange?.from && dateRange.to && (
+                     {periode !== "derniere_analyse" && computedRange?.from && (
                         <div className="text-gray-400 text-sm mt-3 text-right">
-                            Période : {format(dateRange.from, "dd MMM yyyy", { locale: fr })} →{" "}
-                            {format(dateRange.to, "dd MMM yyyy", { locale: fr })}
+                           Période :{" "}
+                           {format(computedRange.from, "dd MMM yyyy", { locale: fr })} →{" "}
+                           {format(computedRange.to, "dd MMM yyyy", { locale: fr })}
                         </div>
                     )}
                 </CardContent>
@@ -375,3 +433,4 @@ export function MainDashboard() {
         </motion.div>
     );
 }
+
