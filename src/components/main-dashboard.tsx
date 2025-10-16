@@ -1,14 +1,14 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getAverageAnalysisForFuels, type AverageAnalysis, getUniqueFuelTypes, getSpecifications, type Specification, getLatestIndicatorData, getThresholds, ImpactThresholds, MixtureThresholds, getResultsForPeriod } from '@/lib/data';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Recycle, Leaf, LayoutDashboard, CalendarIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell, LabelList } from 'recharts';
-import { startOfWeek, endOfWeek, format, subDays } from 'date-fns';
+import { startOfWeek, endOfWeek, format, subDays, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
@@ -20,6 +20,9 @@ import { ImpactCard, ImpactData } from './cards/ImpactCard';
 import { IndicatorCard } from './mixture-calculator';
 import CountUp from 'react-countup';
 import { motion } from 'framer-motion';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getDocs, query, collection, where, Timestamp, orderBy } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 
 // Hook to read from localStorage without causing hydration issues
@@ -51,26 +54,7 @@ const formatNumber = (num: number | null | undefined, digits: number = 2) => {
     });
 };
 
-const CustomHistoryTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-        return (
-            <div className="bg-brand-surface border border-brand-accent rounded-lg shadow-lg p-3 text-xs">
-                <p className="font-bold text-brand-accent mb-2">{label}</p>
-                {payload.map((pld: any) => (
-                    <div key={pld.dataKey} className="text-brand-text">
-                        {`${pld.name}: `}
-                        <span className="font-bold">{pld.value.toLocaleString('fr-FR', { minimumFractionDigits: chartMetric === 'pci' ? 0 : 2, maximumFractionDigits: chartMetric === 'pci' ? 0 : 2 })}</span>
-                    </div>
-                ))}
-            </div>
-        );
-    }
-    return null;
-  };
-
-const COLORS = ["#10b981", "#22c55e", "#3b82f6", "#8b5cf6", "#facc15", "#ef4444", "#0ea5e9"];
-type ChartMetric = 'pci' | 'chlore';
-let chartMetric: ChartMetric = 'pci';
+let chartMetric: 'pci' | 'chlore' = 'pci';
 
 export function MainDashboard() {
     const [loading, setLoading] = useState(true);
@@ -80,45 +64,84 @@ export function MainDashboard() {
     const [chartData, setChartData] = useState<any[]>([]);
     const [specifications, setSpecifications] = useState<Record<string, Specification>>({});
     const [thresholds, setThresholds] = useState<{ melange?: MixtureThresholds, impact?: ImpactThresholds }>({});
-    const [selectedChartMetric, setChartMetric] = useState<ChartMetric>('pci');
-    const [dateRange, setDateRange] = useState<DateRange | undefined>({
-      from: subDays(new Date(), 7),
-      to: new Date(),
-    });
     const debitClinker = usePersistentValue<number>('debitClinker', 0);
     const pathname = usePathname();
+    
+    const [range1, setRange1] = useState<DateRange | undefined>({
+        from: subDays(new Date(), 14),
+        to: subDays(new Date(), 7),
+    });
+    const [range2, setRange2] = useState<DateRange | undefined>({
+        from: subDays(new Date(), 7),
+        to: new Date(),
+    });
+    const [open1, setOpen1] = useState(false);
+    const [open2, setOpen2] = useState(false);
+    const cache = useRef(new Map());
 
-    chartMetric = selectedChartMetric;
+    const getColor = (pci: number) => {
+        const pciSeuils = thresholds.melange;
+        if (!pciSeuils) return "#10B981"; // Default green
+        if ((pciSeuils.pci_min != null && pci < pciSeuils.pci_min) || (pciSeuils.pci_max != null && pci > pciSeuils.pci_max)) return "#ef4444"; // red
+        if ((pciSeuils.pci_vert_min != null && pci >= pciSeuils.pci_vert_min) && (pciSeuils.pci_vert_max != null && pci <= pciSeuils.pci_vert_max)) return "#10b981"; // green
+        return "#facc15"; // yellow
+    };
+
+    const fetchAveragePCI = async (from: Date, to: Date) => {
+        const key = `${from.toISOString()}_${to.toISOString()}`;
+        if (cache.current.has(key)) {
+            console.log("🧠 Chargé depuis le cache mémoire :", key);
+            return cache.current.get(key);
+        }
+        console.log("🔥 Nouvelle requête Firestore :", key);
+
+        const q = query(
+            collection(db, "resultats"),
+            where("date_arrivage", ">=", Timestamp.fromDate(from)),
+            where("date_arrivage", "<=", Timestamp.fromDate(to)),
+            orderBy("date_arrivage", "asc")
+        );
+
+        const snap = await getDocs(q);
+        const docs = snap.docs.map((d) => d.data());
+
+        const grouped = docs.reduce((acc: any, d: any) => {
+            const fournisseur = d.fournisseur || "Inconnu";
+            if (!acc[fournisseur]) acc[fournisseur] = { fournisseur, totalPCI: 0, count: 0 };
+            acc[fournisseur].totalPCI += d.pci_brut || 0;
+            acc[fournisseur].count++;
+            return acc;
+        }, {});
+
+        const results = Object.values(grouped).map((f: any) => ({
+            name: f.fournisseur,
+            pci: f.totalPCI / f.count || 0,
+        }));
+        
+        cache.current.set(key, results);
+        return results;
+    };
 
     const fetchChartData = useCallback(async () => {
-        if (!dateRange?.from || !dateRange.to) return;
-        try {
-            const results = await getResultsForPeriod(dateRange);
-            
-            const groupedBySupplier = results.reduce((acc, d) => {
-                const supplier = d.fournisseur || "Inconnu";
-                if (!acc[supplier]) acc[supplier] = { pciList: [], clList: [] };
-                if (d.pci_brut) acc[supplier].pciList.push(d.pci_brut);
-                if (d.chlore) acc[supplier].clList.push(d.chlore);
-                return acc;
-            }, {} as Record<string, { pciList: number[], clList: number[] }>);
+        if (!range1?.from || !range1.to || !range2?.from || !range2.to) return;
+        
+        const data1 = await fetchAveragePCI(range1.from, range1.to);
+        const data2 = await fetchAveragePCI(range2.from, range2.to);
 
-            const chartResults = Object.entries(groupedBySupplier).map(([supplier, data]) => {
-                const avgPci = data.pciList.length > 0 ? data.pciList.reduce((a, b) => a + b, 0) / data.pciList.length : 0;
-                const avgChlore = data.clList.length > 0 ? data.clList.reduce((a, b) => a + b, 0) / data.clList.length : 0;
-                return { name: supplier, pci: avgPci, chlore: avgChlore };
-            });
-            
-            setChartData(chartResults);
+        const fournisseurs = [...new Set([...data1.map((d: any) => d.name), ...data2.map((d: any) => d.name)])];
 
-        } catch (error) {
-            console.error("Error fetching chart data:", error);
-        }
-    }, [dateRange]);
-    
+        const merged = fournisseurs.map((f) => {
+            const v1 = data1.find((d: any) => d.name === f)?.pci || 0;
+            const v2 = data2.find((d: any) => d.name === f)?.pci || 0;
+            return { name: f, periode1: v1, periode2: v2 };
+        });
+
+        setChartData(merged);
+    }, [range1, range2]);
+
     useEffect(() => {
         fetchChartData();
-    }, [dateRange, fetchChartData]);
+    }, [fetchChartData]);
 
     const fetchData = useCallback(() => {
         setLoading(true);
@@ -238,14 +261,6 @@ export function MainDashboard() {
         };
     }, [latestImpact]);
 
-    const getBarColor = (pci: number) => {
-        const pciSeuils = thresholds.melange;
-        if (!pciSeuils) return "#10B981"; // Default green
-        if ((pciSeuils.pci_min != null && pci < pciSeuils.pci_min) || (pciSeuils.pci_max != null && pci > pciSeuils.pci_max)) return "#ef4444"; // red
-        if ((pciSeuils.pci_vert_min != null && pci >= pciSeuils.pci_vert_min) && (pciSeuils.pci_vert_max != null && pci <= pciSeuils.pci_vert_max)) return "#10b981"; // green
-        return "#facc15"; // yellow
-    };
-
     if (loading) {
         return (
             <div className="space-y-6">
@@ -305,48 +320,67 @@ export function MainDashboard() {
 
             <Card>
                 <CardHeader>
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <CardTitle className="text-white">Moyenne par Fournisseur</CardTitle>
-                        </div>
-                        <div className='flex items-center gap-2'>
-                           <Popover>
-                            <PopoverTrigger asChild>
+                    <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-3">
+                        <h2 className="text-lg font-semibold text-white">
+                            📊 Comparaison par Fournisseur (2 périodes)
+                        </h2>
+                        <div className="flex gap-3">
+                            <Popover open={open1} onOpenChange={setOpen1}>
+                                <PopoverTrigger asChild>
                                 <Button
-                                    id="date"
-                                    variant={"outline"}
-                                    className={cn(
-                                        "w-[300px] justify-start text-left font-normal bg-brand-muted border-brand-line",
-                                        !dateRange && "text-muted-foreground"
-                                    )}
+                                    variant="outline"
+                                    className="bg-[#1A2233] text-gray-300 border-gray-700"
                                 >
                                     <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {dateRange?.from ? (
-                                        dateRange.to ? (
-                                            <>
-                                                {format(dateRange.from, "dd MMM", {locale: fr})} -{" "}
-                                                {format(dateRange.to, "dd MMM yyyy", {locale: fr})}
-                                            </>
-                                        ) : (
-                                            format(dateRange.from, "PPP", {locale: fr})
-                                        )
+                                    {range1?.from && range1.to ? (
+                                    <>
+                                        {format(range1.from, "dd MMM", { locale: fr })} →{" "}
+                                        {format(range1.to, "dd MMM", { locale: fr })}
+                                    </>
                                     ) : (
-                                        <span>Choisir une période</span>
+                                    "Période 1"
                                     )}
                                 </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0 bg-brand-surface border-brand-line" align="end">
+                                </PopoverTrigger>
+                                <PopoverContent className="p-0 bg-[#0B101A] border border-gray-800">
                                 <Calendar
-                                    initialFocus
                                     mode="range"
-                                    defaultMonth={dateRange?.from}
-                                    selected={dateRange}
-                                    onSelect={setDateRange}
+                                    selected={range1}
+                                    onSelect={setRange1}
                                     numberOfMonths={2}
                                     locale={fr}
+                                    className="text-gray-300"
                                 />
-                            </PopoverContent>
-                        </Popover>
+                                </PopoverContent>
+                            </Popover>
+                            <Popover open={open2} onOpenChange={setOpen2}>
+                                <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    className="bg-[#1A2233] text-gray-300 border-gray-700"
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {range2?.from && range2.to ? (
+                                    <>
+                                        {format(range2.from, "dd MMM", { locale: fr })} →{" "}
+                                        {format(range2.to, "dd MMM", { locale: fr })}
+                                    </>
+                                    ) : (
+                                    "Période 2"
+                                    )}
+                                </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="p-0 bg-[#0B101A] border border-gray-800">
+                                <Calendar
+                                    mode="range"
+                                    selected={range2}
+                                    onSelect={setRange2}
+                                    numberOfMonths={2}
+                                    locale={fr}
+                                    className="text-gray-300"
+                                />
+                                </PopoverContent>
+                            </Popover>
                         </div>
                     </div>
                 </CardHeader>
@@ -357,34 +391,32 @@ export function MainDashboard() {
                                 <CartesianGrid strokeDasharray="3 3" stroke="#141C2F" />
                                 <XAxis dataKey="name" stroke="#A0AEC0" fontSize={10} interval={0} angle={-30} textAnchor="end" height={80} />
                                 <YAxis stroke="#A0AEC0" fontSize={12} />
-                                <Tooltip content={<CustomHistoryTooltip />} cursor={{ fill: 'hsl(var(--brand-muted))' }}/>
-                                <Bar dataKey={selectedChartMetric} name={selectedChartMetric === 'pci' ? 'PCI (kcal/kg)' : 'Chlore (%)'} radius={8}>
+                                <Tooltip
+                                    contentStyle={{
+                                    backgroundColor: "#1A2233",
+                                    borderRadius: 8,
+                                    color: "#fff",
+                                    }}
+                                />
+                                <Legend />
+                                <Bar dataKey="periode1" name="Période 1" radius={[8, 8, 0, 0]}>
                                     {chartData.map((entry, index) => (
-                                         <Cell key={`cell-${index}`} fill={getBarColor(entry.pci)} />
+                                    <Cell key={`cell1-${index}`} fill={getColor(entry.periode1)} />
                                     ))}
-                                    <LabelList 
-                                        dataKey={selectedChartMetric} 
-                                        position="top" 
-                                        formatter={(value: number) => selectedChartMetric === 'pci' ? Math.round(value) : value.toFixed(2)}
-                                        fontSize={12} 
-                                        fill="hsl(var(--foreground))" 
-                                    />
+                                </Bar>
+                                <Bar dataKey="periode2" name="Période 2" radius={[8, 8, 0, 0]}>
+                                    {chartData.map((entry, index) => (
+                                    <Cell key={`cell2-${index}`} fill={getColor(entry.periode2)} />
+                                    ))}
                                 </Bar>
                             </RechartsBarChart>
                         ) : (
                             <div className="flex items-center justify-center h-full text-muted-foreground">Aucune donnée pour la période.</div>
                         )}
                     </ResponsiveContainer>
-                     {dateRange?.from && dateRange.to && (
-                        <div className="text-gray-400 text-sm mt-3 text-right">
-                            Période : {format(dateRange.from, "dd MMM yyyy", { locale: fr })} →{" "}
-                            {format(dateRange.to, "dd MMM yyyy", { locale: fr })}
-                        </div>
-                    )}
                 </CardContent>
             </Card>
 
         </motion.div>
     );
 }
-
