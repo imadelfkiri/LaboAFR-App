@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -103,21 +104,25 @@ export function MainDashboard() {
 
         switch (indicator) {
             case "pci":
-                if (value < 5000 || value > 6500) return "#EF4444"; // rouge
-                if (value >= 5500 && value <= 6000) return "#10B981"; // vert
-                return "#FACC15"; // jaune
+                if (s.PCI_min != null) {
+                    return value >= s.PCI_min ? "#10B981" : "#EF4444";
+                }
+                return "#6B7280"; // Gris si pas de spec
             case "chlorures":
-                if (value < 0.5) return "#10B981";
-                if (value >= 0.5 && value <= 0.8) return "#FACC15";
-                return "#EF4444";
+                if (s.Cl_max != null) {
+                    return value <= s.Cl_max ? "#10B981" : "#EF4444";
+                }
+                return "#6B7280";
             case "h2o":
-                if (value < 5) return "#10B981";
-                if (value >= 5 && value <= 8) return "#FACC15";
-                return "#EF4444";
+                 if (s.H2O_max != null) {
+                    return value <= s.H2O_max ? "#10B981" : "#EF4444";
+                }
+                return "#6B7280";
             case "cendres":
-                if (value < 15) return "#10B981";
-                if (value > 20) return "#EF4444";
-                return "#FACC15";
+                if (s.Cendres_max != null) {
+                    return value <= s.Cendres_max ? "#10B981" : "#EF4444";
+                }
+                return "#6B7280";
             default:
                 return "#6B7280";
         }
@@ -454,3 +459,4 @@ export function MainDashboard() {
         </motion.div>
     );
 }
+
