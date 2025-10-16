@@ -1,3 +1,4 @@
+
 // src/lib/data.ts
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, arrayUnion, orderBy, Timestamp, setDoc,getCountFromServer, limit, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
@@ -230,12 +231,12 @@ interface Result {
 }
 
 export async function getResultsForPeriod(
-  dateRange?: DateRange
+  dateRange: DateRange
 ): Promise<Result[]> {
   const resultsCollection = collection(db, 'resultats');
   let q;
   
-  if (dateRange && dateRange.from && dateRange.to) {
+  if (dateRange.from && dateRange.to) {
     q = query(
       resultsCollection,
       where('date_arrivage', '>=', Timestamp.fromDate(dateRange.from)),
@@ -473,45 +474,33 @@ export async function deleteSpecification(id: string) {
 
 export async function getAverageAnalysisForFuels(
   fuelNames: string[],
-  dateRanges?: Record<string, { from: Date; to: Date } | undefined>
+  dateRanges?: { from: Date; to: Date }
 ): Promise<Record<string, AverageAnalysis>> {
   if (!fuelNames || fuelNames.length === 0) return {};
 
   const analyses: Record<string, AverageAnalysis> = {};
+  
+  const qConstraints = [
+      where('type_combustible', 'in', fuelNames),
+      where('type_analyse', '==', 'Arrivage')
+  ];
 
-  const allResultsQuery = query(
-    collection(db, 'resultats'),
-    where('type_combustible', 'in', fuelNames),
-    where('type_analyse', '==', 'Arrivage')
-  );
+  if(dateRanges?.from && dateRanges?.to) {
+      qConstraints.push(where('date_arrivage', '>=', Timestamp.fromDate(dateRanges.from)));
+      qConstraints.push(where('date_arrivage', '<=', Timestamp.fromDate(dateRanges.to)));
+  }
+
+  const allResultsQuery = query(collection(db, 'resultats'), ...qConstraints);
   const allResultsSnapshot = await getDocs(allResultsQuery);
   const allResults = allResultsSnapshot.docs.map(doc => ({...doc.data(), id: doc.id}));
 
   for (const fuelName of fuelNames) {
-    const dateRange = dateRanges ? dateRanges[fuelName] : undefined;
-    let resultsForFuel = allResults.filter(r => r.type_combustible === fuelName);
+    const resultsForFuel = allResults.filter(r => r.type_combustible === fuelName);
     
-    // Group by supplier
-    const suppliers = [...new Set(resultsForFuel.map(r => r.fournisseur))];
-    
-    for (const supplier of suppliers) {
-      let resultsForSupplier = resultsForFuel.filter(r => r.fournisseur === supplier);
-      let resultsToAverage = resultsForSupplier;
-      
-      if (dateRange) {
-          resultsToAverage = resultsForSupplier.filter(r => {
-              const date = (r.date_arrivage as Timestamp).toDate();
-              return date >= startOfDay(dateRange.from) && date <= endOfDay(dateRange.to);
-          });
-      }
-      
-      if (resultsToAverage.length === 0 && resultsForSupplier.length > 0) {
-          resultsForSupplier.sort((a, b) => (b.date_arrivage as Timestamp).toMillis() - (a.date_arrivage as Timestamp).toMillis());
-          resultsToAverage = [resultsForSupplier[0]];
-      }
+    if(resultsForFuel.length === 0) continue;
 
       const getAverage = (key: 'pci_brut' | 'h2o' | 'chlore' | 'cendres' | 'taux_metal') => {
-          const values = resultsToAverage
+          const values = resultsForFuel
             .map(r => r[key])
             .filter((v): v is number => typeof v === 'number' && isFinite(v));
           
@@ -521,17 +510,14 @@ export async function getAverageAnalysisForFuels(
           return sum / values.length;
       };
 
-      const analysisKey = `${fuelName}|${supplier}`;
-      analyses[analysisKey] = {
+      analyses[fuelName] = {
           pci_brut: getAverage('pci_brut'),
           h2o: getAverage('h2o'),
           chlore: getAverage('chlore'),
           cendres: getAverage('cendres'),
           taux_metal: getAverage('taux_metal'),
-          count: resultsToAverage.length,
-          fournisseur: supplier
+          count: resultsForFuel.length,
       };
-    }
   }
 
   return analyses;

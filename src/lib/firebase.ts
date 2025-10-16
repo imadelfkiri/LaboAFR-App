@@ -1,3 +1,4 @@
+
 // src/lib/firebase.ts
 import { initializeApp, getApp, getApps, type FirebaseApp } from "firebase/app";
 import { getFirestore, Firestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";

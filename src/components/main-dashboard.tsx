@@ -67,24 +67,20 @@ export function MainDashboard() {
     const debitClinker = usePersistentValue<number>('debitClinker', 0);
     const pathname = usePathname();
     
-    const [range1, setRange1] = useState<DateRange | undefined>({
-        from: subDays(new Date(), 14),
-        to: subDays(new Date(), 7),
-    });
-    const [range2, setRange2] = useState<DateRange | undefined>({
-        from: subDays(new Date(), 7),
+    const [dateRange, setDateRange] = useState<DateRange | undefined>({
+        from: new Date(new Date().setDate(new Date().getDate() - 7)),
         to: new Date(),
     });
-    const [open1, setOpen1] = useState(false);
-    const [open2, setOpen2] = useState(false);
+    const [open, setOpen] = useState(false);
     const cache = useRef(new Map());
 
+
     const getColor = (pci: number) => {
-        const pciSeuils = thresholds.melange;
-        if (!pciSeuils) return "#10B981"; // Default green
-        if ((pciSeuils.pci_min != null && pci < pciSeuils.pci_min) || (pciSeuils.pci_max != null && pci > pciSeuils.pci_max)) return "#ef4444"; // red
-        if ((pciSeuils.pci_vert_min != null && pci >= pciSeuils.pci_vert_min) && (pciSeuils.pci_vert_max != null && pci <= pciSeuils.pci_vert_max)) return "#10b981"; // green
-        return "#facc15"; // yellow
+        if (!thresholds.melange) return "#10B981"; // Default green
+        const {pci_min, pci_max, pci_vert_min, pci_vert_max} = thresholds.melange;
+        if ((pci_min != null && pci < pci_min) || (pci_max != null && pci > pci_max)) return "#EF4444"; // red
+        if ((pci_vert_min != null && pci >= pci_vert_min) && (pci_vert_max != null && pci <= pci_vert_max)) return "#10B981"; // green
+        return "#FBBF24"; // yellow
     };
 
     const fetchAveragePCI = async (from: Date, to: Date) => {
@@ -123,21 +119,10 @@ export function MainDashboard() {
     };
 
     const fetchChartData = useCallback(async () => {
-        if (!range1?.from || !range1.to || !range2?.from || !range2.to) return;
-        
-        const data1 = await fetchAveragePCI(range1.from, range1.to);
-        const data2 = await fetchAveragePCI(range2.from, range2.to);
-
-        const fournisseurs = [...new Set([...data1.map((d: any) => d.name), ...data2.map((d: any) => d.name)])];
-
-        const merged = fournisseurs.map((f) => {
-            const v1 = data1.find((d: any) => d.name === f)?.pci || 0;
-            const v2 = data2.find((d: any) => d.name === f)?.pci || 0;
-            return { name: f, periode1: v1, periode2: v2 };
-        });
-
-        setChartData(merged);
-    }, [range1, range2]);
+       if (!dateRange?.from || !dateRange.to) return;
+        const res = await fetchAveragePCI(dateRange.from, dateRange.to);
+        setChartData(res);
+    }, [dateRange]);
 
     useEffect(() => {
         fetchChartData();
@@ -318,70 +303,40 @@ export function MainDashboard() {
                 <ImpactCard title="Impact sur le Clinker" data={impactIndicators} thresholds={thresholds.impact} lastUpdate={latestImpact?.createdAt.toDate()} />
             </div>
 
-            <Card>
+            <Card className="bg-[#0B101A]/80 border border-gray-800 p-6 rounded-xl shadow-lg">
                 <CardHeader>
                     <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-3">
                         <h2 className="text-lg font-semibold text-white">
-                            📊 Comparaison par Fournisseur (2 périodes)
+                            📊 Moyenne PCI par Fournisseur
                         </h2>
-                        <div className="flex gap-3">
-                            <Popover open={open1} onOpenChange={setOpen1}>
-                                <PopoverTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    className="bg-[#1A2233] text-gray-300 border-gray-700"
-                                >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {range1?.from && range1.to ? (
-                                    <>
-                                        {format(range1.from, "dd MMM", { locale: fr })} →{" "}
-                                        {format(range1.to, "dd MMM", { locale: fr })}
-                                    </>
-                                    ) : (
-                                    "Période 1"
-                                    )}
-                                </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="p-0 bg-[#0B101A] border border-gray-800">
-                                <Calendar
-                                    mode="range"
-                                    selected={range1}
-                                    onSelect={setRange1}
-                                    numberOfMonths={2}
-                                    locale={fr}
-                                    className="text-gray-300"
-                                />
-                                </PopoverContent>
-                            </Popover>
-                            <Popover open={open2} onOpenChange={setOpen2}>
-                                <PopoverTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    className="bg-[#1A2233] text-gray-300 border-gray-700"
-                                >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {range2?.from && range2.to ? (
-                                    <>
-                                        {format(range2.from, "dd MMM", { locale: fr })} →{" "}
-                                        {format(range2.to, "dd MMM", { locale: fr })}
-                                    </>
-                                    ) : (
-                                    "Période 2"
-                                    )}
-                                </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="p-0 bg-[#0B101A] border border-gray-800">
-                                <Calendar
-                                    mode="range"
-                                    selected={range2}
-                                    onSelect={setRange2}
-                                    numberOfMonths={2}
-                                    locale={fr}
-                                    className="text-gray-300"
-                                />
-                                </PopoverContent>
-                            </Popover>
-                        </div>
+                        <Popover open={open} onOpenChange={setOpen}>
+                        <PopoverTrigger asChild>
+                            <Button
+                            variant="outline"
+                            className="bg-[#1A2233] text-gray-300 border-gray-700 hover:bg-[#24304b]"
+                            >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {dateRange?.from && dateRange.to ? (
+                                <>
+                                {format(dateRange.from, "dd MMM", { locale: fr })} →{" "}
+                                {format(dateRange.to, "dd MMM yyyy", { locale: fr })}
+                                </>
+                            ) : (
+                                "Choisir une période"
+                            )}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="p-0 bg-[#0B101A] border border-gray-800">
+                            <Calendar
+                            mode="range"
+                            selected={dateRange}
+                            onSelect={setDateRange}
+                            numberOfMonths={2}
+                            locale={fr}
+                            className="text-gray-300"
+                            />
+                        </PopoverContent>
+                        </Popover>
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -398,15 +353,9 @@ export function MainDashboard() {
                                     color: "#fff",
                                     }}
                                 />
-                                <Legend />
-                                <Bar dataKey="periode1" name="Période 1" radius={[8, 8, 0, 0]}>
+                                <Bar dataKey="pci" radius={[8, 8, 0, 0]}>
                                     {chartData.map((entry, index) => (
-                                    <Cell key={`cell1-${index}`} fill={getColor(entry.periode1)} />
-                                    ))}
-                                </Bar>
-                                <Bar dataKey="periode2" name="Période 2" radius={[8, 8, 0, 0]}>
-                                    {chartData.map((entry, index) => (
-                                    <Cell key={`cell2-${index}`} fill={getColor(entry.periode2)} />
+                                    <Cell key={`cell-${index}`} fill={getColor(entry.pci)} />
                                     ))}
                                 </Bar>
                             </RechartsBarChart>
@@ -414,6 +363,12 @@ export function MainDashboard() {
                             <div className="flex items-center justify-center h-full text-muted-foreground">Aucune donnée pour la période.</div>
                         )}
                     </ResponsiveContainer>
+                     {dateRange?.from && dateRange.to && (
+                        <div className="text-gray-400 text-sm mt-3 text-right">
+                            Période : {format(dateRange.from, "dd MMM yyyy", { locale: fr })} →{" "}
+                            {format(dateRange.to, "dd MMM yyyy", { locale: fr })}
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 
