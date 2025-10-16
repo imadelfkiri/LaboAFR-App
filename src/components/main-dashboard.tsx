@@ -6,7 +6,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { usePathname } from 'next/navigation';
 import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getAverageAnalysisForFuels, type AverageAnalysis, getUniqueFuelTypes, getSpecifications, type Specification, getLatestIndicatorData, getThresholds, ImpactThresholds, MixtureThresholds, getResultsForPeriod } from '@/lib/data';
 import { Skeleton } from "@/components/ui/skeleton";
-import { Recycle, Leaf, LayoutDashboard, CalendarIcon } from 'lucide-react';
+import { Recycle, Leaf, LayoutDashboard, CalendarIcon, Flame, Droplets, Percent, Wind } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell, LabelList } from 'recharts';
 import { startOfWeek, endOfWeek, format, subDays, startOfMonth, endOfMonth, subMonths, subWeeks } from 'date-fns';
@@ -55,119 +55,107 @@ const formatNumber = (num: number | null | undefined, digits: number = 2) => {
     });
 };
 
-let chartMetric: 'pci' | 'chlore' = 'pci';
-
 export function MainDashboard() {
     const [loading, setLoading] = useState(true);
     const [mixtureSession, setMixtureSession] = useState<MixtureSession | null>(null);
     const [latestImpact, setLatestImpact] = useState<ImpactAnalysis | null>(null);
     const [keyIndicators, setKeyIndicators] = useState<{ tsr: number; } | null>(null);
+    
     const [chartData, setChartData] = useState<any[]>([]);
-    const [specifications, setSpecifications] = useState<Record<string, Specification>>({});
+    const [chartIndicator, setChartIndicator] = useState('pci_brut');
+    const [specifications, setSpecifications] = useState<Record<string, Partial<Specification>>>({});
+
     const [thresholds, setThresholds] = useState<{ melange?: MixtureThresholds, impact?: ImpactThresholds }>({});
     const debitClinker = usePersistentValue<number>('debitClinker', 0);
     const pathname = usePathname();
     
-    const [periode, setPeriode] = useState("semaine_courante");
-    const [dateRange, setDateRange] = useState<{ from: Date | null, to: Date | null }>({ from: null, to: null });
+    const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: startOfWeek(new Date(), { weekStartsOn: 1 }), to: endOfWeek(new Date(), { weekStartsOn: 1 }) });
     const [openCalendar, setOpenCalendar] = useState(false);
     const cache = useRef(new Map());
 
-
-    const getColor = (pci: number) => {
-        if (!thresholds.melange) return "#10B981"; // Default green
-        const {pci_min, pci_max, pci_vert_min, pci_vert_max} = thresholds.melange;
-        if (pci < 5000 || pci > 6500) return "#EF4444"; // rouge
-        if (pci >= 5500 && pci <= 6000) return "#10B981"; // vert
-        return "#FBBF24"; // jaune
+    const fetchSpecs = async () => {
+        const snap = await getDocs(collection(db, "specifications"));
+        const data: Record<string, Partial<Specification>> = {};
+        snap.docs.forEach((doc) => {
+            const d = doc.data();
+            const fournisseur = d.fournisseur || "Inconnu";
+            data[fournisseur] = {
+                PCI_min: d.PCI_min ?? null,
+                H2O_max: d.H2O_max ?? null,
+                Cl_max: d.Cl_max ?? null,
+                Cendres_max: d.Cendres_max ?? null,
+            };
+        });
+        setSpecifications(data);
     };
 
-    const computeDateRange = (type: string) => {
-        const today = new Date();
-        switch (type) {
-            case "derniere_analyse":
-                return null;
-            case "semaine_courante":
-                return { from: startOfWeek(today, { weekStartsOn: 1 }), to: endOfWeek(today, { weekStartsOn: 1 }) };
-            case "semaine_derniere":
-                const lastWeek = subWeeks(today, 1);
-                return { from: startOfWeek(lastWeek, { weekStartsOn: 1 }), to: endOfWeek(lastWeek, { weekStartsOn: 1 }) };
-            case "mois_courant":
-                return { from: startOfMonth(today), to: endOfMonth(today) };
-            case "mois_precedent":
-                const lastMonth = subMonths(today, 1);
-                return { from: startOfMonth(lastMonth), to: endOfMonth(lastMonth) };
+    const getColor = (fournisseur: string, value: number) => {
+        const s = specifications[fournisseur];
+        if (!s) return "#6B7280";
+
+        switch (chartIndicator) {
+            case "pci_brut":
+                if (s.PCI_min == null) return "#6B7280";
+                return value >= s.PCI_min ? "#10B981" : "#EF4444";
+            case "h2o":
+                if (s.H2O_max == null) return "#6B7280";
+                return value <= s.H2O_max ? "#10B981" : "#EF4444";
+            case "chlore":
+                if (s.Cl_max == null) return "#6B7280";
+                return value <= s.Cl_max ? "#10B981" : "#EF4444";
+            case "cendres":
+                if (s.Cendres_max == null) return "#6B7280";
+                return value <= s.Cendres_max ? "#10B981" : "#EF4444";
             default:
-                return dateRange; // pour “personnalisée”
+                return "#6B7280";
         }
     };
-
-    const fetchAveragePCI = async (from: Date | null, to: Date | null) => {
-        const key = `${periode}_${from?.toISOString() || "none"}_${to?.toISOString() || "none"}`;
+    
+    const fetchChartData = useCallback(async () => {
+        if (!dateRange?.from || !dateRange?.to) return;
+        
+        const key = `${chartIndicator}_${dateRange.from.toISOString()}_${dateRange.to.toISOString()}`;
         if (cache.current.has(key)) {
-             console.log("🧠 Données chargées depuis le cache");
-            return cache.current.get(key);
+            setChartData(cache.current.get(key));
+            return;
         }
 
-        console.log("🔥 Nouvelle requête Firestore");
-        let q;
-        if (periode === "derniere_analyse") {
-          q = query(collection(db, "resultats"), orderBy("date_arrivage", "desc"));
-        } else if (from && to) {
-            q = query(
-                collection(db, "resultats"),
-                where("date_arrivage", ">=", Timestamp.fromDate(from)),
-                where("date_arrivage", "<=", Timestamp.fromDate(to)),
-                orderBy("date_arrivage", "asc")
-            );
-        }
-
-        if (!q) return [];
+        const q = query(
+            collection(db, "resultats"),
+            where("date_arrivage", ">=", Timestamp.fromDate(dateRange.from)),
+            where("date_arrivage", "<=", Timestamp.fromDate(dateRange.to)),
+            orderBy("date_arrivage", "asc")
+        );
 
         const snap = await getDocs(q);
         const docs = snap.docs.map((d) => d.data());
 
-        let grouped;
-        if (periode === "derniere_analyse") {
-            const last: {[key: string]: any} = {};
-            docs.forEach((d) => {
-                const fournisseur = d.fournisseur || "Inconnu";
-                if (!last[fournisseur] || d.date_arrivage.toMillis() > last[fournisseur].date_arrivage.toMillis()) {
-                    last[fournisseur] = d;
-                }
-            });
-            grouped = Object.values(last).map((f: any) => ({
-                name: f.fournisseur,
-                pci: f.pci_brut || 0,
-            }));
-        } else {
-            const acc = docs.reduce((a: any, d: any) => {
-                const f = d.fournisseur || "Inconnu";
-                if (!a[f]) a[f] = { fournisseur: f, total: 0, n: 0 };
-                a[f].total += d.pci_brut || 0;
-                a[f].n++;
-                return a;
-            }, {});
-            grouped = Object.values(acc).map((f: any) => ({
-                name: f.fournisseur,
-                pci: f.total / f.n || 0,
-            }));
-        }
-        
-        cache.current.set(key, grouped);
-        return grouped;
-    };
+        const grouped = docs.reduce((acc: any, d: any) => {
+            const fournisseur = d.fournisseur || "Inconnu";
+            if (!acc[fournisseur]) {
+                acc[fournisseur] = { fournisseur, total: 0, count: 0 };
+            }
+            acc[fournisseur].total += d[chartIndicator] || 0;
+            acc[fournisseur].count++;
+            return acc;
+        }, {});
 
-    const fetchChartData = useCallback(async () => {
-        const range = computeDateRange(periode);
-        if (periode !== "personnalisee" || (dateRange.from && dateRange.to)) {
-            const res = await fetchAveragePCI(range?.from, range?.to);
-            setChartData(res);
-        }
-    }, [periode, dateRange]);
+        const results = Object.values(grouped).map((f: any) => ({
+            name: f.fournisseur,
+            value: f.total / f.count || 0,
+        }));
+        
+        cache.current.set(key, results);
+        setChartData(results);
+    }, [dateRange, chartIndicator]);
 
 
     useEffect(() => {
+        fetchData();
+        fetchSpecs();
+    }, [pathname]);
+
+     useEffect(() => {
         fetchChartData();
     }, [fetchChartData]);
 
@@ -183,18 +171,10 @@ export function MainDashboard() {
                     getThresholds(),
                 ]);
                 
-                const specsMap: Record<string, Specification> = {};
-                specs.forEach(spec => {
-                    const key = `${spec.type_combustible}|${spec.fournisseur}`;
-                    specsMap[key] = spec;
-                });
-                
-                setSpecifications(specsMap);
                 setMixtureSession(sessionData);
                 setLatestImpact(impactAnalyses.length > 0 ? impactAnalyses[0] : null);
                 setKeyIndicators(indicatorData);
                 setThresholds(thresholdsData);
-                await fetchChartData();
 
             } catch (error) {
                 console.error("Error fetching dashboard data:", error);
@@ -204,11 +184,8 @@ export function MainDashboard() {
         };
 
         fetchAndSetData();
-    }, [fetchChartData]);
+    }, []);
 
-    useEffect(() => {
-        fetchData();
-    }, [pathname, fetchData]);
 
     const calorificConsumption = useMemo(() => {
         if (!mixtureSession || !debitClinker || debitClinker === 0 || !mixtureSession.availableFuels) return 0;
@@ -305,8 +282,6 @@ export function MainDashboard() {
         );
     }
     
-    const computedRange = computeDateRange(periode);
-    
     return (
         <motion.div
             className="space-y-6"
@@ -352,32 +327,29 @@ export function MainDashboard() {
                 <CardHeader>
                     <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-3">
                         <h2 className="text-lg font-semibold text-white">
-                            📊 Moyenne PCI par Fournisseur
+                           📊 Moyenne {chartIndicator.toUpperCase()} par Fournisseur
                         </h2>
                         <div className="flex items-center gap-3">
-                            <Select value={periode} onValueChange={setPeriode}>
-                                <SelectTrigger className="w-[220px] bg-[#1A2233] text-gray-300 border-gray-700">
-                                <SelectValue placeholder="Choisir période" />
+                           <Select value={chartIndicator} onValueChange={setChartIndicator}>
+                                <SelectTrigger className="w-[180px] bg-[#1A2233] text-gray-300 border-gray-700">
+                                    <SelectValue placeholder="Indicateur" />
                                 </SelectTrigger>
                                 <SelectContent className="bg-[#0B101A] text-gray-300">
-                                    <SelectItem value="derniere_analyse">🧪 Dernière analyse</SelectItem>
-                                    <SelectItem value="semaine_courante">📅 Semaine en cours</SelectItem>
-                                    <SelectItem value="semaine_derniere">⏮️ Semaine dernière</SelectItem>
-                                    <SelectItem value="mois_courant">📆 Mois en cours</SelectItem>
-                                    <SelectItem value="mois_precedent">🗓️ Mois précédent</SelectItem>
-                                    <SelectItem value="personnalisee">🪄 Personnalisée</SelectItem>
+                                    <SelectItem value="pci_brut">🔥 PCI (kcal/kg)</SelectItem>
+                                    <SelectItem value="chlore">🧪 Chlorures (%)</SelectItem>
+                                    <SelectItem value="h2o">💧 H₂O (%)</SelectItem>
+                                    <SelectItem value="cendres">⚱️ Cendres (%)</SelectItem>
                                 </SelectContent>
                             </Select>
 
-                            {periode === "personnalisee" && (
-                                <Popover open={openCalendar} onOpenChange={setOpenCalendar}>
+                            <Popover open={openCalendar} onOpenChange={setOpenCalendar}>
                                 <PopoverTrigger asChild>
                                     <Button
                                     variant="outline"
                                     className="bg-[#1A2233] text-gray-300 border-gray-700 hover:bg-[#24304b]"
                                     >
                                     <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {dateRange.from && dateRange.to
+                                    {dateRange?.from && dateRange?.to
                                         ? `${format(dateRange.from, "dd MMM", { locale: fr })} → ${format(dateRange.to, "dd MMM yyyy", { locale: fr })}`
                                         : "Choisir une période"}
                                     </Button>
@@ -385,15 +357,14 @@ export function MainDashboard() {
                                 <PopoverContent className="p-0 bg-[#0B101A] border border-gray-800">
                                     <Calendar
                                     mode="range"
-                                    selected={dateRange as DateRange}
-                                    onSelect={(range) => setDateRange(range || { from: null, to: null })}
+                                    selected={dateRange}
+                                    onSelect={setDateRange}
                                     numberOfMonths={2}
                                     locale={fr}
                                     className="text-gray-300"
                                     />
                                 </PopoverContent>
-                                </Popover>
-                            )}
+                            </Popover>
                         </div>
                     </div>
                 </CardHeader>
@@ -410,10 +381,15 @@ export function MainDashboard() {
                                     borderRadius: 8,
                                     color: "#fff",
                                     }}
+                                     formatter={(value: number) =>
+                                        chartIndicator === "pci_brut"
+                                        ? `${value.toFixed(0)} kcal/kg`
+                                        : `${value.toFixed(2)} %`
+                                    }
                                 />
-                                <Bar dataKey="pci" radius={[8, 8, 0, 0]}>
+                                <Bar dataKey="value" radius={[8, 8, 0, 0]}>
                                     {chartData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={getColor(entry.pci)} />
+                                     <Cell key={`cell-${index}`} fill={getColor(entry.name, entry.value)} />
                                     ))}
                                 </Bar>
                             </RechartsBarChart>
@@ -421,11 +397,11 @@ export function MainDashboard() {
                             <div className="flex items-center justify-center h-full text-muted-foreground">Aucune donnée pour la période.</div>
                         )}
                     </ResponsiveContainer>
-                     {periode !== "derniere_analyse" && computedRange?.from && computedRange?.to && (
+                     {dateRange?.from && dateRange?.to && (
                         <div className="text-gray-400 text-sm mt-3 text-right">
                            Période :{" "}
-                           {format(computedRange.from, "dd MMM yyyy", { locale: fr })} →{" "}
-                           {format(computedRange.to, "dd MMM yyyy", { locale: fr })}
+                           {format(dateRange.from, "dd MMM yyyy", { locale: fr })} →{" "}
+                           {format(dateRange.to, "dd MMM yyyy", { locale: fr })}
                         </div>
                     )}
                 </CardContent>
