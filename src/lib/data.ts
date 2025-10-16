@@ -219,6 +219,54 @@ export interface ChlorineTrackingEntry {
     goFlow: number;
 }
 
+interface Result {
+  id: string;
+  date_arrivage: Timestamp;
+  type_combustible: string;
+  fournisseur: string;
+  pci_brut?: number;
+  chlore?: number;
+}
+
+export async function getResultsForPeriod(
+  dateRange: { from: Date; to: Date } | null,
+  latestOnly: boolean
+): Promise<Result[]> {
+  const resultsCollection = collection(db, 'resultats');
+  let q;
+
+  if (latestOnly) {
+    const allResultsSnapshot = await getDocs(query(resultsCollection, orderBy('date_arrivage', 'desc')));
+    const latestResultsMap = new Map<string, Result>();
+
+    allResultsSnapshot.docs.forEach(doc => {
+      const data = doc.data() as Result;
+      data.id = doc.id;
+      const key = `${data.type_combustible}|${data.fournisseur}`;
+      if (!latestResultsMap.has(key)) {
+        latestResultsMap.set(key, data);
+      }
+    });
+
+    return Array.from(latestResultsMap.values());
+  }
+  
+  if (dateRange) {
+    q = query(
+      resultsCollection,
+      where('date_arrivage', '>=', Timestamp.fromDate(dateRange.from)),
+      where('date_arrivage', '<=', Timestamp.fromDate(dateRange.to)),
+      orderBy('date_arrivage', 'desc')
+    );
+  } else {
+    q = query(resultsCollection, orderBy('date_arrivage', 'desc'));
+  }
+
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Result));
+}
+
+
 // --- Role-based Access Control ---
 const defaultRoleAccess: Record<string, string[]> = {
   admin: [

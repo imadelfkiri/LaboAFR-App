@@ -1,14 +1,15 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { usePathname } from 'next/navigation';
-import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getAverageAnalysisForFuels, type AverageAnalysis, getUniqueFuelTypes, getSpecifications, type Specification, getLatestIndicatorData, getThresholds, ImpactThresholds, MixtureThresholds } from '@/lib/data';
+import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getAverageAnalysisForFuels, type AverageAnalysis, getUniqueFuelTypes, getSpecifications, type Specification, getLatestIndicatorData, getThresholds, ImpactThresholds, MixtureThresholds, getResultsForPeriod } from '@/lib/data';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Recycle, Leaf, LayoutDashboard } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell, LabelList } from 'recharts';
-import { startOfWeek, endOfWeek, format } from 'date-fns';
+import { startOfWeek, endOfWeek, format, subWeeks, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { KeyIndicatorCard } from './cards/KeyIndicatorCard';
@@ -73,40 +74,80 @@ export function MainDashboard() {
     const [mixtureSession, setMixtureSession] = useState<MixtureSession | null>(null);
     const [latestImpact, setLatestImpact] = useState<ImpactAnalysis | null>(null);
     const [keyIndicators, setKeyIndicators] = useState<{ tsr: number; } | null>(null);
-    const [weeklyAverages, setWeeklyAverages] = useState<Record<string, AverageAnalysis>>({});
+    const [chartData, setChartData] = useState<any[]>([]);
     const [specifications, setSpecifications] = useState<Record<string, Specification>>({});
     const [thresholds, setThresholds] = useState<{ melange?: MixtureThresholds, impact?: ImpactThresholds }>({});
     const [selectedChartMetric, setChartMetric] = useState<ChartMetric>('pci');
+    const [periode, setPeriode] = useState('semaine_courante');
     const debitClinker = usePersistentValue<number>('debitClinker', 0);
     const pathname = usePathname();
 
     chartMetric = selectedChartMetric;
 
+    const fetchChartData = useCallback(async () => {
+        const today = new Date();
+        const getDatesRange = () => {
+            const startOfCurrentWeek = startOfWeek(today, { locale: fr });
+            const endOfCurrentWeek = endOfWeek(today, { locale: fr });
+
+            switch (periode) {
+                case "derniere_analyse":
+                    return null;
+                case "semaine_courante":
+                    return { from: startOfCurrentWeek, to: endOfCurrentWeek };
+                case "semaine_derniere":
+                    const lastWeekStart = startOfWeek(subWeeks(today, 1), { locale: fr });
+                    const lastWeekEnd = endOfWeek(subWeeks(today, 1), { locale: fr });
+                    return { from: lastWeekStart, to: lastWeekEnd };
+                case "mois_courant":
+                    return { from: startOfMonth(today), to: endOfMonth(today) };
+                case "mois_precedent":
+                    const lastMonth = subMonths(today, 1);
+                    return { from: startOfMonth(lastMonth), to: endOfMonth(lastMonth) };
+                default:
+                    return { from: startOfCurrentWeek, to: endOfCurrentWeek };
+            }
+        };
+
+        try {
+            const results = await getResultsForPeriod(getDatesRange(), periode === 'derniere_analyse');
+            
+            const groupedBySupplier = results.reduce((acc, d) => {
+                const supplier = d.fournisseur || "Inconnu";
+                if (!acc[supplier]) acc[supplier] = { pciList: [], clList: [] };
+                if (d.pci_brut) acc[supplier].pciList.push(d.pci_brut);
+                if (d.chlore) acc[supplier].clList.push(d.chlore);
+                return acc;
+            }, {} as Record<string, { pciList: number[], clList: number[] }>);
+
+            const chartResults = Object.entries(groupedBySupplier).map(([supplier, data]) => {
+                const avgPci = data.pciList.length > 0 ? data.pciList.reduce((a, b) => a + b, 0) / data.pciList.length : 0;
+                const avgChlore = data.clList.length > 0 ? data.clList.reduce((a, b) => a + b, 0) / data.clList.length : 0;
+                return { name: supplier, pci: avgPci, chlore: avgChlore };
+            });
+            
+            setChartData(chartResults);
+
+        } catch (error) {
+            console.error("Error fetching chart data:", error);
+        }
+    }, [periode]);
+    
+    useEffect(() => {
+        fetchChartData();
+    }, [periode, fetchChartData]);
+
     const fetchData = useCallback(() => {
         setLoading(true);
         const fetchAndSetData = async () => {
             try {
-                const today = new Date();
-                const startOfCurrentWeek = startOfWeek(today, { locale: fr });
-                const endOfCurrentWeek = endOfWeek(today, { locale: fr });
-
-                const [sessionData, impactAnalyses, indicatorData, uniqueFuels, specs, thresholdsData] = await Promise.all([
+                const [sessionData, impactAnalyses, indicatorData, specs, thresholdsData] = await Promise.all([
                     getLatestMixtureSession(),
                     getImpactAnalyses(),
                     getLatestIndicatorData(),
-                    getUniqueFuelTypes(),
                     getSpecifications(),
                     getThresholds(),
                 ]);
-                
-                const fuelNames = uniqueFuels.filter(name => name.toLowerCase() !== 'grignons' && name.toLowerCase() !== 'pet-coke');
-                
-                const dateRanges: Record<string, { from: Date; to: Date }> = {};
-                fuelNames.forEach(name => {
-                  dateRanges[name] = { from: startOfCurrentWeek, to: endOfCurrentWeek };
-                });
-
-                const weeklyAvgsData = await getAverageAnalysisForFuels(fuelNames, dateRanges);
                 
                 const specsMap: Record<string, Specification> = {};
                 specs.forEach(spec => {
@@ -118,8 +159,9 @@ export function MainDashboard() {
                 setMixtureSession(sessionData);
                 setLatestImpact(impactAnalyses.length > 0 ? impactAnalyses[0] : null);
                 setKeyIndicators(indicatorData);
-                setWeeklyAverages(weeklyAvgsData);
                 setThresholds(thresholdsData);
+                await fetchChartData();
+
             } catch (error) {
                 console.error("Error fetching dashboard data:", error);
             } finally {
@@ -128,7 +170,7 @@ export function MainDashboard() {
         };
 
         fetchAndSetData();
-    }, []);
+    }, [fetchChartData]);
 
     useEffect(() => {
         fetchData();
@@ -187,32 +229,6 @@ export function MainDashboard() {
             : 0;
     }, [mixtureSession, debitClinker]);
 
-    const chartData = useMemo(() => {
-        return Object.entries(weeklyAverages)
-            .filter(([name, data]) => data && data.count > 0 && data.fournisseur)
-            .map(([key, data]) => {
-                const [fuelName, supplierName] = key.split('|');
-                const spec = specifications[`${fuelName}|${supplierName}`];
-                let isConform = true;
-                if (spec) {
-                    if (selectedChartMetric === 'pci' && spec.PCI_min != null && data.pci_brut < spec.PCI_min) {
-                        isConform = false;
-                    }
-                    if (selectedChartMetric === 'chlore' && spec.Cl_max != null && data.chlore > spec.Cl_max) {
-                        isConform = false;
-                    }
-                }
-                
-                return {
-                    name: `${fuelName} - ${supplierName}`,
-                    pci: data.pci_brut,
-                    chlore: data.chlore,
-                    isConform: spec ? isConform : null, // null if no spec
-                }
-            });
-    }, [weeklyAverages, specifications, selectedChartMetric]);
-    
-
     const mixtureIndicators = useMemo(() => {
         if (!mixtureSession?.globalIndicators) return null;
         const indicators = mixtureSession.globalIndicators;
@@ -239,6 +255,21 @@ export function MainDashboard() {
         };
     }, [latestImpact]);
 
+    const getBarColor = (pci: number) => {
+        const pciSeuils = thresholds.melange;
+        if (!pciSeuils) return "#10B981"; // Default green
+        if ((pciSeuils.pci_min != null && pci < pciSeuils.pci_min) || (pciSeuils.pci_max != null && pci > pciSeuils.pci_max)) return "#ef4444"; // red
+        if ((pciSeuils.pci_vert_min != null && pci >= pciSeuils.pci_vert_min) && (pciSeuils.pci_vert_max != null && pci <= pciSeuils.pci_vert_max)) return "#10b981"; // green
+        return "#facc15"; // yellow
+    };
+
+    const periodeLabels: Record<string, string> = {
+        derniere_analyse: 'Dernière analyse',
+        semaine_courante: 'Semaine en cours',
+        semaine_derniere: 'Semaine dernière',
+        mois_courant: 'Mois en cours',
+        mois_precedent: 'Mois précédent',
+    };
 
     if (loading) {
         return (
@@ -301,53 +332,45 @@ export function MainDashboard() {
                 <CardHeader>
                     <div className="flex justify-between items-center">
                         <div>
-                            <CardTitle className="text-white">Moyenne par Fournisseur (Semaine en cours)</CardTitle>
+                            <CardTitle className="text-white">Moyenne par Fournisseur ({periodeLabels[periode]})</CardTitle>
                         </div>
-                        <Select value={selectedChartMetric} onValueChange={(value: ChartMetric) => setChartMetric(value)}>
-                            <SelectTrigger className="w-[180px] bg-brand-muted border-brand-line">
-                                <SelectValue placeholder="Choisir un indicateur" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="pci">PCI (kcal/kg)</SelectItem>
-                                <SelectItem value="chlore">Chlore (%)</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <div className='flex items-center gap-2'>
+                            <Select value={selectedChartMetric} onValueChange={(value: ChartMetric) => setChartMetric(value)}>
+                                <SelectTrigger className="w-[180px] bg-brand-muted border-brand-line">
+                                    <SelectValue placeholder="Choisir un indicateur" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="pci">PCI (kcal/kg)</SelectItem>
+                                    <SelectItem value="chlore">Chlore (%)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                             <Select value={periode} onValueChange={setPeriode}>
+                                <SelectTrigger className="w-[240px] bg-brand-muted border-brand-line">
+                                    <SelectValue placeholder="Choisir la période" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="derniere_analyse">🧪 Dernière analyse</SelectItem>
+                                    <SelectItem value="semaine_courante">📅 Semaine en cours</SelectItem>
+                                    <SelectItem value="semaine_derniere">⏮️ Semaine dernière</SelectItem>
+                                    <SelectItem value="mois_courant">📆 Mois en cours</SelectItem>
+                                    <SelectItem value="mois_precedent">🗓️ Mois précédent</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent>
                      <ResponsiveContainer width="100%" height={350}>
                         {chartData.length > 0 ? (
                             <RechartsBarChart data={chartData}>
-                                <defs>
-                                    <linearGradient id="chartGradientConform" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor="rgba(16, 185, 129, 0.8)" />
-                                        <stop offset="100%" stopColor="rgba(16, 185, 129, 0.1)" />
-                                    </linearGradient>
-                                     <linearGradient id="chartGradientNonConform" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor="rgba(239, 68, 68, 0.8)" />
-                                        <stop offset="100%" stopColor="rgba(239, 68, 68, 0.1)" />
-                                    </linearGradient>
-                                     <linearGradient id="chartGradientNeutral" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor="rgba(0,224,161,0.8)" />
-                                        <stop offset="100%" stopColor="rgba(0,224,161,0.1)" />
-                                    </linearGradient>
-                                </defs>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#141C2F" />
                                 <XAxis dataKey="name" stroke="#A0AEC0" fontSize={10} interval={0} angle={-30} textAnchor="end" height={80} />
                                 <YAxis stroke="#A0AEC0" fontSize={12} />
                                 <Tooltip content={<CustomHistoryTooltip />} cursor={{ fill: 'hsl(var(--brand-muted))' }}/>
                                 <Bar dataKey={selectedChartMetric} name={selectedChartMetric === 'pci' ? 'PCI (kcal/kg)' : 'Chlore (%)'} radius={8}>
-                                    {chartData.map((entry, index) => {
-                                        let fillUrl;
-                                        if (entry.isConform === true) {
-                                            fillUrl = "url(#chartGradientConform)";
-                                        } else if (entry.isConform === false) {
-                                            fillUrl = "url(#chartGradientNonConform)";
-                                        } else {
-                                            fillUrl = "url(#chartGradientNeutral)";
-                                        }
-                                        return <Cell key={`cell-${index}`} fill={fillUrl} />;
-                                    })}
+                                    {chartData.map((entry, index) => (
+                                         <Cell key={`cell-${index}`} fill={getBarColor(entry.pci)} />
+                                    ))}
                                     <LabelList 
                                         dataKey={selectedChartMetric} 
                                         position="top" 
