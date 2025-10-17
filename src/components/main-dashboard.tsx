@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -108,41 +109,44 @@ export function MainDashboard() {
     }, []);
     
       const getColor = (combustible: string, fournisseur: string, value: number) => {
-        if (!showColors) return "#38BDF8";
-    
-        const key = `${(combustible || "").toLowerCase().trim()} ${(fournisseur || "").toLowerCase().trim()}`;
+        if (!showColors) return "#38BDF8"; // neutre
+      
+        const key = `${combustible} ${fournisseur}`
+          .toLowerCase()
+          .replace(/[\s—–-]+/g, " ")
+          .trim();
+      
         const seuils = specs[key];
-    
         if (!seuils) {
-          console.warn("Aucun seuil trouvé pour :", key);
-          return "#6B7280";
+          console.warn("⚠️ Aucun seuil trouvé pour :", key);
+          return "#6B7280"; // gris si non trouvé
         }
-    
+      
         switch (indicator) {
           case "pci": {
             const min = seuils.pci_min;
-            if (min === null || min === undefined) return "#6B7280";
-            return value >= min ? "#10B981" : "#EF4444";
+            if (min == null) return "#6B7280";
+            return value >= min ? "#10B981" : "#EF4444"; // vert sinon rouge
           }
           case "h2o": {
             const max = seuils.h2o_max;
-            if (max === null || max === undefined) return "#6B7280";
+            if (max == null) return "#6B7280";
             return value <= max ? "#10B981" : "#EF4444";
           }
           case "chlorures": {
             const max = seuils.cl_max;
-            if (max === null || max === undefined) return "#6B7280";
+            if (max == null) return "#6B7280";
             return value <= max ? "#10B981" : "#EF4444";
           }
           case "cendres": {
             const max = seuils.cendres_max;
-            if (max === null || max === undefined) return "#6B7280";
+            if (max == null) return "#6B7280";
             return value <= max ? "#10B981" : "#EF4444";
           }
           default:
             return "#6B7280";
         }
-    };
+      };
     
     const fetchChartData = useCallback(async () => {
         if (!dateRange?.from || !dateRange?.to) return;
@@ -478,5 +482,7 @@ export function MainDashboard() {
         </motion.div>
     );
 }
+
+    
 
     
