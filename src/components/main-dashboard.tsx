@@ -614,46 +614,26 @@ export function MainDashboard() {
                                         const [combustible, fournisseur] = entry.name.split("|");
                                         const key = `${combustible}|${fournisseur}`;
                                         const seuils = SPEC_MAP.get(key);
-                                        let color = "#6B7280"; // Default grey
+                                        let color = "#3b82f6"; // Blue for neutral/no spec
                                         
                                         if (showColors && seuils) {
                                             const value = entry.value;
-                                            const gradientColor = (ratio: number) => {
-                                                ratio = Math.max(0, Math.min(1, ratio));
-                                                const r = Math.round(16 + (239 - 16) * ratio);
-                                                const g = Math.round(185 + (68 - 185) * ratio);
-                                                const b = Math.round(129 + (68 - 129) * ratio);
-                                                return `rgb(${r}, ${g}, ${b})`;
-                                            };
-                                            
+                                            let isConform = true;
                                             switch (indicator) {
                                                 case "pci":
-                                                    if (seuils.PCI_min) {
-                                                        const diff = Math.max(0, seuils.PCI_min - value);
-                                                        color = gradientColor(diff / seuils.PCI_min);
-                                                    }
+                                                    if (seuils.PCI_min && value < seuils.PCI_min) isConform = false;
                                                     break;
                                                 case "h2o":
-                                                    if (seuils.H2O_max) {
-                                                        const diff = Math.max(0, value - seuils.H2O_max);
-                                                        color = gradientColor(diff / seuils.H2O_max);
-                                                    }
+                                                    if (seuils.H2O_max && value > seuils.H2O_max) isConform = false;
                                                     break;
                                                 case "chlorures":
-                                                     if (seuils.Cl_max) {
-                                                        const diff = Math.max(0, value - seuils.Cl_max);
-                                                        color = gradientColor(diff / seuils.Cl_max);
-                                                    }
+                                                     if (seuils.Cl_max && value > seuils.Cl_max) isConform = false;
                                                     break;
                                                 case "cendres":
-                                                    if (seuils.Cendres_max) {
-                                                        const diff = Math.max(0, value - seuils.Cendres_max);
-                                                        color = gradientColor(diff / seuils.Cendres_max);
-                                                    }
+                                                    if (seuils.Cendres_max && value > seuils.Cendres_max) isConform = false;
                                                     break;
                                             }
-                                        } else if (!showColors) {
-                                            color = "#38BDF8"; // Neutral blue if colors are off
+                                            color = isConform ? "#22c55e" : "#ef4444"; // Green for conform, Red for non-conform
                                         }
 
                                         return (
@@ -682,4 +662,5 @@ export function MainDashboard() {
         </motion.div>
     );
 }
+
 
