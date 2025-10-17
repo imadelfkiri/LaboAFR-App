@@ -106,8 +106,6 @@ export function MainDashboard() {
     }, []);
     
     const getColor = (combustible: string, fournisseur: string, value: number) => {
-        if (!showColors) return "#38BDF8"; // bleu neutre
-      
         const key = `${combustible} ${fournisseur}`
           .toLowerCase()
           .replace(/[\s—–-]+/g, " ")
@@ -115,7 +113,6 @@ export function MainDashboard() {
       
         const seuils = specs[key];
         if (!seuils) {
-          console.warn("⚠️ Aucun seuil trouvé pour :", key);
           return "#6B7280"; // gris si non trouvé
         }
       
@@ -315,8 +312,10 @@ export function MainDashboard() {
     const CustomTooltip = ({ active, payload, label }: any) => {
         if (active && payload && payload.length) {
             const data = payload[0].payload;
-            const [combustible, fournisseur] = data.name.split(" — ");
-             const key = `${(combustible || "").toLowerCase().replace(/[\s—–-]+/g, " ").trim()} ${(fournisseur || "").toLowerCase().replace(/[\s—–-]+/g, " ").trim()}`;
+            const [rawCombustible, rawFournisseur] = data.name.split(" — ");
+            const combustible = (rawCombustible || "").toLowerCase().replace(/[\s—–-]+/g, " ").trim();
+            const fournisseur = (rawFournisseur || "").toLowerCase().replace(/[\s—–-]+/g, " ").trim();
+            const key = `${combustible} ${fournisseur}`;
             const seuil = specs[key];
             let seuilText = "";
 
@@ -328,8 +327,8 @@ export function MainDashboard() {
             return (
                 <div className="bg-[#1A2233] border border-gray-700 rounded-lg shadow-lg p-3 text-white text-sm">
                     <p className="font-bold mb-2">{label}</p>
-                    <p><span className="font-semibold">Valeur:</span> {data.value.toFixed(2)}</p>
-                    {seuilText && <p className="text-gray-400"><span className="font-semibold">Seuil:</span> {seuilText}</p>}
+                    <p><span className="font-semibold">Valeur :</span> {data.value.toFixed(2)}</p>
+                    {seuilText && <p className="text-gray-400">{seuilText}</p>}
                 </div>
             );
         }
@@ -400,14 +399,6 @@ export function MainDashboard() {
                             📊 Moyenne {indicator.toUpperCase()} par Fournisseur
                         </h2>
                         <div className="flex items-center gap-4">
-                            <UILabel htmlFor="color-toggle" className="text-gray-300 text-sm flex items-center gap-2">
-                                <Switch
-                                id="color-toggle"
-                                checked={showColors}
-                                onCheckedChange={setShowColors}
-                                />
-                                Mise en forme conditionnelle
-                            </UILabel>
                            <Select value={indicator} onValueChange={setIndicator}>
                                 <SelectTrigger className="w-[180px] bg-[#1A2233] text-gray-300 border-gray-700">
                                     <SelectValue placeholder="Indicateur" />
@@ -479,6 +470,7 @@ export function MainDashboard() {
                                             <Cell
                                                 key={`cell-${index}`}
                                                 fill={getColor(combustible, fournisseur, entry.value)}
+                                                className="bar"
                                             />
                                         );
                                     })}

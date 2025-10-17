@@ -93,3 +93,10 @@
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 }
+
+@layer components {
+  .bar:hover {
+    filter: brightness(1.2);
+    transition: 0.2s ease-in-out;
+  }
+}
