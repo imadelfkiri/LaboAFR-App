@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -396,11 +397,70 @@ export function MainDashboard() {
         return historySessions
             .map(session => {
                 let value;
-                if(historyChartIndicator.key === 'tsr' || historyChartIndicator.key === 'consumption') {
-                    // These need to be recalculated for each session
-                    // This is simplified, a more robust solution would re-run the full calculation logic from `getLatestIndicatorData` for each session
-                    const energyAlternatives = (session.globalIndicators.pci || 0) * (session.globalIndicators.flow || 0) * (session.globalIndicators.tireRate || 0)/100; // Simplified
-                    value = historyChartIndicator.key === 'tsr' ? session.globalIndicators.tireRate : session.globalIndicators.pci * 0.8; // Simplified placeholder
+                if(historyChartIndicator.key === 'tsr') {
+                    const getPci = (fuelName: string) => session.availableFuels[fuelName]?.pci_brut || 0;
+                    const getPetCokePci = () => getPci('Pet Coke') || getPci('Pet-Coke') || getPci('Pet-Coke Preca') || getPci('Pet-Coke Tuyere');
+                    let afEnergyWeightedSum = 0;
+                     const processInstallation = (installation: any) => {
+                        if (!installation?.fuels || !installation.flowRate || installation.flowRate === 0) return;
+                        let installationTotalWeight = 0;
+                        const fuelWeights: Record<string, number> = {};
+                        for (const [fuel, data] of Object.entries(installation.fuels as Record<string, {buckets: number}>)) {
+                            const weight = (data.buckets || 0) * (session.availableFuels[fuel]?.poids_godet || 1.5);
+                            installationTotalWeight += weight;
+                            fuelWeights[fuel] = weight;
+                        }
+                        if(installationTotalWeight === 0) return;
+                        for (const [fuel, data] of Object.entries(installation.fuels as Record<string, {buckets: number}>)) {
+                            if (fuel.toLowerCase().includes('grignons') || fuel.toLowerCase().includes('pet coke')) continue;
+                            const pci = getPci(fuel);
+                            const weight = fuelWeights[fuel] || 0;
+                            const proportion = weight / installationTotalWeight;
+                            afEnergyWeightedSum += pci * proportion * installation.flowRate;
+                        }
+                    }
+                    processInstallation(session.hallAF);
+                    processInstallation(session.ats);
+                    const energyAFs = afEnergyWeightedSum / 1000;
+                    const grignonsFlow = (session.directInputs?.['Grignons GO1']?.flowRate || 0) + (session.directInputs?.['Grignons GO2']?.flowRate || 0);
+                    const energyGrignons = grignonsFlow * getPci('Grignons') / 1000;
+                    const petCokeFlow = (session.directInputs?.['Pet-Coke Preca']?.flowRate || 0) + (session.directInputs?.['Pet-Coke Tuyere']?.flowRate || 0);
+                    const energyPetCoke = petCokeFlow * getPetCokePci() / 1000;
+                    const energyTotal = energyAFs + energyGrignons + energyPetCoke;
+                    const energyAlternatives = energyAFs + energyGrignons;
+                    value = energyTotal > 0 ? (energyAlternatives / energyTotal) * 100 : 0;
+                } else if (historyChartIndicator.key === 'consumption') {
+                    if (!debitClinker || debitClinker === 0) return { date: session.timestamp.toDate(), value: 0 };
+                    const getPci = (fuelName: string) => session.availableFuels[fuelName]?.pci_brut || 0;
+                    const getPetCokePci = () => getPci('Pet Coke') || getPci('Pet-Coke') || getPci('Pet-Coke Preca') || getPci('Pet-Coke Tuyere');
+                    let afEnergyWeightedSum = 0;
+                    const processInstallation = (installation: any) => {
+                        if (!installation?.fuels || !installation.flowRate || installation.flowRate === 0) return;
+                        let installationTotalWeight = 0;
+                        const fuelWeights: Record<string, number> = {};
+                        for (const [fuel, data] of Object.entries(installation.fuels as Record<string, {buckets: number}>)) {
+                            const weight = (data.buckets || 0) * (session.availableFuels[fuel]?.poids_godet || 1.5);
+                            installationTotalWeight += weight;
+                            fuelWeights[fuel] = weight;
+                        }
+                        if(installationTotalWeight === 0) return;
+                        for (const [fuel, data] of Object.entries(installation.fuels as Record<string, {buckets: number}>)) {
+                            if (fuel.toLowerCase().includes('grignons') || fuel.toLowerCase().includes('pet coke')) continue;
+                            const pci = getPci(fuel);
+                            const weight = fuelWeights[fuel] || 0;
+                            const proportion = weight / installationTotalWeight;
+                            afEnergyWeightedSum += pci * proportion * installation.flowRate;
+                        }
+                    }
+                    processInstallation(session.hallAF);
+                    processInstallation(session.ats);
+                    const energyAFs = afEnergyWeightedSum / 1000;
+                    const grignonsFlow = (session.directInputs?.['Grignons GO1']?.flowRate || 0) + (session.directInputs?.['Grignons GO2']?.flowRate || 0);
+                    const energyGrignons = grignonsFlow * getPci('Grignons') / 1000;
+                    const petCokeFlow = (session.directInputs?.['Pet-Coke Preca']?.flowRate || 0) + (session.directInputs?.['Pet-Coke Tuyere']?.flowRate || 0);
+                    const energyPetCoke = petCokeFlow * getPetCokePci() / 1000;
+                    const energyTotalGcal = energyAFs + energyGrignons + energyPetCoke;
+                    value = (energyTotalGcal * 1000000) / (debitClinker * 1000);
                 } else {
                     value = session.globalIndicators[historyChartIndicator.key];
                 }
@@ -416,7 +476,7 @@ export function MainDashboard() {
                 date: format(item.date, 'dd/MM HH:mm'),
                 value: item.value
             }));
-    }, [historySessions, historyChartIndicator]);
+    }, [historySessions, historyChartIndicator, debitClinker]);
 
     const CustomHistoryTooltip = ({ active, payload, label }: any) => {
         if (active && payload && payload.length) {
