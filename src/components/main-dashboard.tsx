@@ -87,8 +87,7 @@ export function MainDashboard() {
         const data: Record<string, Partial<Specification>> = {};
         snap.docs.forEach((doc) => {
             const d = doc.data();
-            // Normalisation : tout en minuscules, sans espaces inutiles
-            const key = `${d["Type Combustible"]} ${d["Fournisseur"]}`
+            const key = `${d["Type Combustible"] || ''} ${d["Fournisseur"] || ''}`
                 .toLowerCase()
                 .replace(/[\s—–-]+/g, " ")
                 .trim();
@@ -105,45 +104,43 @@ export function MainDashboard() {
 
     const getColor = (combustible: string, fournisseur: string, value: number) => {
         if (!showColors) return "#38BDF8"; // neutre
-
+    
         const key = `${combustible} ${fournisseur}`
             .toLowerCase()
             .replace(/[\s—–-]+/g, " ")
             .trim();
-
+    
         const seuils = specs[key];
         
         if (!seuils) {
-            console.warn("Aucun seuil trouvé pour :", key);
             return "#6B7280"; // gris si pas de données
         }
-
+    
         switch (indicator) {
             case "pci": {
                 const min = seuils.pci_min || 0;
-                if (min === 0) return "#6B7280"; // No spec
+                if(min === 0) return "#6B7280"; // No spec
                 if (value < min) return "#EF4444"; // rouge : PCI inférieur au contrat
                 if (value >= min && value <= min + 500) return "#10B981"; // vert : conforme ±500
-                if (value > min + 500) return "#FACC15"; // jaune : PCI trop haut
-                break;
+                return "#FACC15"; // jaune : PCI trop haut
             }
             case "h2o": {
                 const max = seuils.h2o_max;
-                if (max === null) return "#6B7280";
+                if (max === null || max === undefined) return "#6B7280";
                 if (value <= max) return "#10B981";
                 if (value > max && value <= max + 2) return "#FACC15";
                 return "#EF4444";
             }
             case "chlorures": {
                 const max = seuils.cl_max;
-                if (max === null) return "#6B7280";
+                 if (max === null || max === undefined) return "#6B7280";
                 if (value <= max) return "#10B981";
                 if (value > max && value <= max + 0.2) return "#FACC15";
                 return "#EF4444";
             }
             case "cendres": {
                 const max = seuils.cendres_max;
-                if (max === null) return "#6B7280";
+                if (max === null || max === undefined) return "#6B7280";
                 if (value <= max) return "#10B981";
                 if (value > max && value <= max + 3) return "#FACC15";
                 return "#EF4444";
@@ -178,7 +175,7 @@ export function MainDashboard() {
             const key = `${combustible} — ${fournisseur}`;
 
             if (!acc[key]) {
-                acc[key] = { name: key, total: 0, count: 0 };
+                acc[key] = { name: key, total: 0, count: 0, combustible, fournisseur };
             }
             
             let value = 0;
@@ -195,6 +192,8 @@ export function MainDashboard() {
 
         const results = Object.values(grouped).map((f: any) => ({
             name: f.name,
+            combustible: f.combustible,
+            fournisseur: f.fournisseur,
             value: f.total / f.count || 0,
         }));
         
@@ -455,16 +454,16 @@ export function MainDashboard() {
                                 <Bar
                                     dataKey="value"
                                     radius={[8, 8, 0, 0]}
-                                    label={{
-                                    position: "top",
-                                    fill: "#e5e7eb",
-                                    fontSize: 11,
-                                    formatter: (value: number) => value.toFixed(0)
-                                    }}
                                 >
+                                     <LabelList 
+                                        dataKey="value" 
+                                        position="top" 
+                                        formatter={(value: number) => value.toFixed(0)}
+                                        fill="hsl(var(--foreground))"
+                                        fontSize={12}
+                                    />
                                     {chartData.map((entry, index) => {
-                                        const [combustible, fournisseur] = entry.name.split("—");
-                                        return <Cell key={`cell-${index}`} fill={getColor(combustible.trim(), fournisseur.trim(), entry.value)} />
+                                        return <Cell key={`cell-${index}`} fill={getColor(entry.combustible, entry.fournisseur, entry.value)} />
                                     })}
                                 </Bar>
                             </RechartsBarChart>
