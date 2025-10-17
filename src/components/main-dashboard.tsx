@@ -25,7 +25,7 @@ import { motion } from 'framer-motion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label as UILabel } from "@/components/ui/label";
-import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getSpecifications, type Specification, getLatestIndicatorData, getThresholds, ImpactThresholds, MixtureThresholds, getResultsForPeriod, getMixtureSessions } from '@/lib/data';
+import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getSpecifications, type Specification, getLatestIndicatorData, getThresholds, ImpactThresholds, MixtureThresholds, getResultsForPeriod, getMixtureSessions, getImpactAnalysesForPeriod } from '@/lib/data';
 import {
   Dialog,
   DialogContent,
@@ -87,8 +87,9 @@ export function MainDashboard() {
 
     // History state for modal
     const [historySessions, setHistorySessions] = useState<MixtureSession[]>([]);
+    const [historyImpacts, setHistoryImpacts] = useState<ImpactAnalysis[]>([]);
     const [isHistoryLoading, setIsHistoryLoading] = useState(false);
-    const [historyChartIndicator, setHistoryChartIndicator] = useState<{key: IndicatorKey | 'tsr' | 'consumption'; name: string} | null>(null);
+    const [historyChartIndicator, setHistoryChartIndicator] = useState<{key: IndicatorKey | 'tsr' | 'consumption' | string; name: string, type: 'mixture' | 'key' | 'impact'} | null>(null);
     const [historyDateRange, setHistoryDateRange] = useState<DateRange | undefined>({ from: subDays(new Date(), 30), to: new Date() });
 
     const fetchSpecs = useCallback(async () => {
@@ -225,17 +226,25 @@ export function MainDashboard() {
     }, [dateRange, indicator]);
 
     const fetchHistoryData = useCallback(async () => {
-        if (!historyDateRange?.from || !historyDateRange?.to) return;
+        if (!historyDateRange?.from || !historyDateRange?.to || !historyChartIndicator) return;
+        
         setIsHistoryLoading(true);
         try {
-            const sessions = await getMixtureSessions(historyDateRange.from, historyDateRange.to);
-            setHistorySessions(sessions);
+            if (historyChartIndicator.type === 'mixture' || historyChartIndicator.type === 'key') {
+                const sessions = await getMixtureSessions(historyDateRange.from, historyDateRange.to);
+                setHistorySessions(sessions);
+                setHistoryImpacts([]);
+            } else if (historyChartIndicator.type === 'impact') {
+                const impacts = await getImpactAnalysesForPeriod(historyDateRange.from, historyDateRange.to);
+                setHistoryImpacts(impacts);
+                setHistorySessions([]);
+            }
         } catch(error) {
             console.error("Error fetching history sessions:", error);
         } finally {
             setIsHistoryLoading(false);
         }
-    }, [historyDateRange]);
+    }, [historyDateRange, historyChartIndicator]);
 
     useEffect(() => {
         if (historyChartIndicator) {
@@ -387,12 +396,44 @@ export function MainDashboard() {
         return null;
     };
 
-    const handleIndicatorDoubleClick = useCallback((key: IndicatorKey | 'tsr' | 'consumption', name: string) => {
-        setHistoryChartIndicator({ key, name });
+    const handleIndicatorDoubleClick = useCallback((key: IndicatorKey | 'tsr' | 'consumption' | string, name: string) => {
+        let type: 'mixture' | 'key' | 'impact';
+        if (['pci', 'humidity', 'ash', 'chlorine', 'tireRate'].includes(key)) {
+            type = 'mixture';
+        } else if (['tsr', 'consumption'].includes(key)) {
+            type = 'key';
+        } else {
+            type = 'impact';
+        }
+        setHistoryChartIndicator({ key, name, type });
     }, []);
 
     const historyChartData = useMemo(() => {
-        if (!historySessions || historySessions.length === 0 || !historyChartIndicator) return [];
+        if (!historyChartIndicator) return [];
+
+        if (historyChartIndicator.type === 'impact') {
+            if (!historyImpacts || historyImpacts.length === 0) return [];
+            return historyImpacts
+                .map(impact => {
+                    const { results } = impact;
+                    const delta = (a?: number | null, b?: number | null) => (a ?? 0) - (b ?? 0);
+                    let value;
+                    switch(historyChartIndicator.key) {
+                        case 'Fe2O3': value = delta(results.clinkerWithAsh.fe2o3, results.clinkerWithoutAsh.fe2o3); break;
+                        case 'CaO': value = delta(results.clinkerWithAsh.cao, results.clinkerWithoutAsh.cao); break;
+                        case 'LSF': value = delta(results.modulesAvec.lsf, results.modulesSans.lsf); break;
+                        case 'C3S': value = delta(results.c3sAvec, results.c3sSans); break;
+                        case 'MS': value = delta(results.modulesAvec.ms, results.modulesSans.ms); break;
+                        case 'AF': value = delta(results.modulesAvec.af, results.modulesSans.af); break;
+                        default: value = 0;
+                    }
+                    return { date: impact.createdAt.toDate(), value };
+                })
+                .sort((a, b) => a.date.valueOf() - b.date.valueOf())
+                .map(item => ({ date: format(item.date, 'dd/MM HH:mm'), value: item.value }));
+        }
+
+        if (!historySessions || historySessions.length === 0) return [];
         
         return historySessions
             .map(session => {
@@ -462,7 +503,7 @@ export function MainDashboard() {
                     const energyTotalGcal = energyAFs + energyGrignons + energyPetCoke;
                     value = (energyTotalGcal * 1000000) / (debitClinker * 1000);
                 } else {
-                    value = session.globalIndicators[historyChartIndicator.key];
+                    value = session.globalIndicators[historyChartIndicator.key as IndicatorKey];
                 }
 
                 return {
@@ -476,7 +517,7 @@ export function MainDashboard() {
                 date: format(item.date, 'dd/MM HH:mm'),
                 value: item.value
             }));
-    }, [historySessions, historyChartIndicator, debitClinker]);
+    }, [historySessions, historyImpacts, historyChartIndicator, debitClinker]);
 
     const CustomHistoryTooltip = ({ active, payload, label }: any) => {
         if (active && payload && payload.length) {
@@ -532,11 +573,11 @@ export function MainDashboard() {
                 <KeyIndicatorCard 
                   tsr={keyIndicators?.tsr} 
                   consumption={calorificConsumption} 
-                  onIndicatorDoubleClick={handleIndicatorDoubleClick}
+                  onIndicatorDoubleClick={(key, name) => handleIndicatorDoubleClick(key, name)}
                 />
                 
                  {mixtureIndicators ? (
-                    <IndicatorCard data={mixtureIndicators} thresholds={thresholds.melange} onIndicatorDoubleClick={handleIndicatorDoubleClick} />
+                    <IndicatorCard data={mixtureIndicators} thresholds={thresholds.melange} onIndicatorDoubleClick={(key, name) => handleIndicatorDoubleClick(key, name)} />
                 ) : (
                     <Card>
                         <CardHeader>
@@ -552,7 +593,7 @@ export function MainDashboard() {
                 )}
 
 
-                <ImpactCard title="Impact sur le Clinker" data={impactIndicators} thresholds={thresholds.impact} lastUpdate={latestImpact?.createdAt.toDate()} />
+                <ImpactCard title="Impact sur le Clinker" data={impactIndicators} thresholds={thresholds.impact} lastUpdate={latestImpact?.createdAt.toDate()} onIndicatorDoubleClick={(key, name) => handleIndicatorDoubleClick(key, name)}/>
             </div>
 
              <Dialog open={!!historyChartIndicator} onOpenChange={(open) => !open && setHistoryChartIndicator(null)}>
@@ -608,7 +649,7 @@ export function MainDashboard() {
                                     className="bg-[#1A2233] text-gray-300 border-gray-700 hover:bg-[#24304b]"
                                     >
                                     <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {dateRange?.from && dateRange?.to
+                                    {dateRange?.from && dateRange.to
                                         ? `${format(dateRange.from, "dd MMM", { locale: fr })} → ${format(dateRange.to, "dd MMM yyyy", { locale: fr })}`
                                         : "Choisir une période"}
                                     </Button>

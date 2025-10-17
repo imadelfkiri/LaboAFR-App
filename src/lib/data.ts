@@ -586,7 +586,7 @@ export async function saveFuelCost(fuelName: string, cost: number): Promise<void
 export async function getStocks(): Promise<Stock[]> {
     const stocksCollection = collection(db, 'stocks');
     const q = query(stocksCollection, orderBy("nom_combustible"));
-    const snapshot = await getDocs(q);
+    const snapshot = await getDocs(stocksCollection);
     if (snapshot.empty) {
         const fuelTypes = await getUniqueFuelTypesFromResultats();
         if (fuelTypes.length === 0) return []; // No fuels to create stocks for
@@ -999,6 +999,20 @@ export async function getImpactAnalyses(): Promise<ImpactAnalysis[]> {
     if (snapshot.empty) return [];
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ImpactAnalysis));
 }
+
+export async function getImpactAnalysesForPeriod(from: Date, to: Date): Promise<ImpactAnalysis[]> {
+    const q = query(
+        collection(db, 'impact_analyses'),
+        where('createdAt', '>=', Timestamp.fromDate(from)),
+        where('createdAt', '<=', Timestamp.fromDate(to)),
+        orderBy('createdAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return [];
+
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ImpactAnalysis));
+}
+
 
 export async function deleteImpactAnalysis(id: string): Promise<void> {
     const analysisRef = doc(db, 'impact_analyses', id);

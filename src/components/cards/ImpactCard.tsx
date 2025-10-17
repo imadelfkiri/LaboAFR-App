@@ -11,7 +11,15 @@ export interface ImpactData {
     [key: string]: number;
 }
 
-export function ImpactCard({ title, data, thresholds, lastUpdate }: { title: string, data: ImpactData | null, thresholds?: ImpactThresholds, lastUpdate?: Date }) {
+export interface ImpactCardProps {
+  title: string;
+  data: ImpactData | null;
+  thresholds?: ImpactThresholds;
+  lastUpdate?: Date;
+  onIndicatorDoubleClick?: (key: string, name: string) => void;
+}
+
+export function ImpactCard({ title, data, thresholds, lastUpdate, onIndicatorDoubleClick }: ImpactCardProps) {
   const getColorClass = (key: string, value: number) => {
     if (!thresholds) return "bg-gray-800/40 border-gray-600 text-gray-300";
 
@@ -59,9 +67,10 @@ export function ImpactCard({ title, data, thresholds, lastUpdate }: { title: str
                     whileHover={{ scale: 1.08 }}
                     transition={{ type: "spring", stiffness: 300 }}
                     className={cn(
-                      "flex flex-col items-center justify-center rounded-xl border py-3 px-2 font-medium",
+                      "flex flex-col items-center justify-center rounded-xl border py-3 px-2 font-medium cursor-pointer",
                       getColorClass(key, value as number)
                     )}
+                    onDoubleClick={() => onIndicatorDoubleClick && onIndicatorDoubleClick(key, `Δ ${key}`)}
                   >
                     <span className="text-xs opacity-80">{key}</span>
                     <span className="text-base font-semibold">
