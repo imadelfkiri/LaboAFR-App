@@ -85,7 +85,6 @@ export function MainDashboard() {
         snap.docs.forEach((doc) => {
           const d = doc.data();
       
-          // 🔹 Normalisation clé (ex: "plastiques valrecette")
           const key = `${(d["type_combustible"] || "")
             .toLowerCase()
             .replace(/[\s—–-]+/g, " ")
@@ -94,13 +93,12 @@ export function MainDashboard() {
             .replace(/[\s—–-]+/g, " ")
             .trim()}`;
       
-          // 🔹 Champs Firestore réels (selon ta capture)
           data[key] = {
             pci_min: Number(d["PCI_min"]) || null,
             h2o_max: Number(d["H2O_max"]) || null,
             cl_max: Number(d["Cl_max"]) || null,
             cendres_max: Number(d["Cendres_max"]) || null,
-            soufre_max: Number(d["Soufre_max"]) || null, // en option
+            soufre_max: Number(d["Soufre_max"]) || null,
           };
         });
       
@@ -146,7 +144,7 @@ export function MainDashboard() {
           default:
             return "#6B7280";
         }
-      };
+    };
       
     const fetchChartData = useCallback(async () => {
         if (!dateRange?.from || !dateRange?.to) return;
@@ -226,7 +224,7 @@ export function MainDashboard() {
     }, [fetchSpecs]);
 
     useEffect(() => {
-        console.log("✅ Spécifications Firestore chargées :", Object.keys(specs));
+      console.log("✅ Spécifications Firestore chargées :", Object.keys(specs));
     }, [specs]);
 
      useEffect(() => {
@@ -311,6 +309,13 @@ export function MainDashboard() {
             'AF': delta(results.modulesAvec.af, results.modulesSans.af),
         };
     }, [latestImpact]);
+    
+    const valueFormatter = (value: number) => {
+        if (indicator === "chlorures") {
+            return value.toFixed(2);
+        }
+        return value.toFixed(0);
+    };
 
     if (loading) {
         return (
@@ -452,7 +457,7 @@ export function MainDashboard() {
                                      <LabelList 
                                         dataKey="value"
                                         position="top"
-                                        formatter={(value: number) => value.toFixed(0)}
+                                        formatter={valueFormatter}
                                         fill="#e5e7eb"
                                         fontSize={11}
                                     />
@@ -462,8 +467,8 @@ export function MainDashboard() {
                                         const fournisseur = (rawFournisseur || "").toLowerCase().replace(/[\s—–-]+/g, " ").trim();
                                         return (
                                             <Cell
-                                            key={`cell-${index}`}
-                                            fill={getColor(combustible, fournisseur, entry.value)}
+                                                key={`cell-${index}`}
+                                                fill={getColor(combustible, fournisseur, entry.value)}
                                             />
                                         );
                                     })}
@@ -485,5 +490,3 @@ export function MainDashboard() {
         </motion.div>
     );
 }
-
-    
