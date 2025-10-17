@@ -103,11 +103,10 @@ export function MainDashboard() {
         });
       
         setSpecs(data);
-        console.log("✅ Spécifications Firestore chargées :", data);
-      }, []);
+    }, []);
     
     const getColor = (combustible: string, fournisseur: string, value: number) => {
-        if (!showColors) return "#38BDF8"; // neutre
+        if (!showColors) return "#38BDF8"; // bleu neutre
       
         const key = `${combustible} ${fournisseur}`
           .toLowerCase()
@@ -224,10 +223,6 @@ export function MainDashboard() {
     }, [fetchSpecs]);
 
     useEffect(() => {
-      console.log("✅ Spécifications Firestore chargées :", Object.keys(specs));
-    }, [specs]);
-
-     useEffect(() => {
         fetchChartData();
     }, [fetchChartData]);
 
@@ -317,6 +312,30 @@ export function MainDashboard() {
         return value.toFixed(0);
     };
 
+    const CustomTooltip = ({ active, payload, label }: any) => {
+        if (active && payload && payload.length) {
+            const data = payload[0].payload;
+            const [combustible, fournisseur] = data.name.split(" — ");
+             const key = `${(combustible || "").toLowerCase().replace(/[\s—–-]+/g, " ").trim()} ${(fournisseur || "").toLowerCase().replace(/[\s—–-]+/g, " ").trim()}`;
+            const seuil = specs[key];
+            let seuilText = "";
+
+            if (indicator === "pci" && seuil?.pci_min != null) seuilText = `Seuil min: ${seuil.pci_min.toFixed(0)}`;
+            if (indicator === "h2o" && seuil?.h2o_max != null) seuilText = `Seuil max: ${seuil.h2o_max.toFixed(2)}`;
+            if (indicator === "chlorures" && seuil?.cl_max != null) seuilText = `Seuil max: ${seuil.cl_max.toFixed(2)}`;
+            if (indicator === "cendres" && seuil?.cendres_max != null) seuilText = `Seuil max: ${seuil.cendres_max.toFixed(2)}`;
+
+            return (
+                <div className="bg-[#1A2233] border border-gray-700 rounded-lg shadow-lg p-3 text-white text-sm">
+                    <p className="font-bold mb-2">{label}</p>
+                    <p><span className="font-semibold">Valeur:</span> {data.value.toFixed(2)}</p>
+                    {seuilText && <p className="text-gray-400"><span className="font-semibold">Seuil:</span> {seuilText}</p>}
+                </div>
+            );
+        }
+        return null;
+    };
+
     if (loading) {
         return (
             <div className="space-y-6">
@@ -381,16 +400,14 @@ export function MainDashboard() {
                             📊 Moyenne {indicator.toUpperCase()} par Fournisseur
                         </h2>
                         <div className="flex items-center gap-4">
-                            <div className="flex items-center space-x-2">
+                            <UILabel htmlFor="color-toggle" className="text-gray-300 text-sm flex items-center gap-2">
                                 <Switch
                                 id="color-toggle"
                                 checked={showColors}
                                 onCheckedChange={setShowColors}
                                 />
-                                <UILabel htmlFor="color-toggle" className="text-gray-300 text-sm">
                                 Mise en forme conditionnelle
-                                </UILabel>
-                            </div>
+                            </UILabel>
                            <Select value={indicator} onValueChange={setIndicator}>
                                 <SelectTrigger className="w-[180px] bg-[#1A2233] text-gray-300 border-gray-700">
                                     <SelectValue placeholder="Indicateur" />
@@ -442,14 +459,7 @@ export function MainDashboard() {
                                     height={70}
                                     tick={{ fill: "#ccc" }}
                                 />
-                                <Tooltip
-                                    contentStyle={{
-                                    backgroundColor: "#1A2233",
-                                    borderRadius: 8,
-                                    color: "#fff",
-                                    }}
-                                    formatter={(v:number) => v.toFixed(2)}
-                                />
+                                <Tooltip content={<CustomTooltip />} />
                                 <Bar
                                     dataKey="value"
                                     radius={[8, 8, 0, 0]}
