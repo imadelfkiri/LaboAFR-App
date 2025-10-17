@@ -4,7 +4,8 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { usePathname } from 'next/navigation';
-import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getAverageAnalysisForFuels, type AverageAnalysis, getUniqueFuelTypes, getSpecifications, type Specification, getLatestIndicatorData, getThresholds, ImpactThresholds, MixtureThresholds, getResultsForPeriod, getDocs, query, collection, where, Timestamp, orderBy } from '@/lib/data';
+import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getAverageAnalysisForFuels, type AverageAnalysis, getUniqueFuelTypes, getSpecifications, type Specification, getLatestIndicatorData, getThresholds, ImpactThresholds, MixtureThresholds, getResultsForPeriod } from '@/lib/data';
+import { getDocs, query, collection, where, Timestamp, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Recycle, Leaf, LayoutDashboard, CalendarIcon, Flame, Droplets, Percent, Wind, Switch as SwitchIcon } from 'lucide-react';
@@ -104,11 +105,7 @@ export function MainDashboard() {
     const getColor = (combustible: string, fournisseur: string, value: number) => {
         if (!showColors) return "#38BDF8";
     
-        const key = `${combustible} ${fournisseur}`
-            .toLowerCase()
-            .replace(/[\s—–-]+/g, " ")
-            .trim();
-
+        const key = `${combustible.toLowerCase().trim()} ${fournisseur.toLowerCase().trim()}`;
         const seuils = specs[key];
     
         if (!seuils) {
@@ -446,13 +443,14 @@ export function MainDashboard() {
                                 <Bar
                                     dataKey="value"
                                     radius={[8, 8, 0, 0]}
-                                     label={{
-                                        position: "top",
-                                        fill: "#e5e7eb",
-                                        fontSize: 11,
-                                        formatter: (value: number) => value.toFixed(0)
-                                    }}
                                 >
+                                    <LabelList 
+                                        dataKey="value"
+                                        position="top"
+                                        formatter={(value: number) => value.toFixed(0)}
+                                        fill="#e5e7eb"
+                                        fontSize={11}
+                                    />
                                     {chartData.map((entry, index) => {
                                         const { combustible, fournisseur, value } = entry;
                                         return <Cell key={`cell-${index}`} fill={getColor(combustible, fournisseur, value)} />
@@ -476,3 +474,6 @@ export function MainDashboard() {
     );
 }
 
+
+
+  
