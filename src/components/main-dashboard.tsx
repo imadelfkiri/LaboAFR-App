@@ -6,7 +6,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { usePathname } from 'next/navigation';
 import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getAverageAnalysisForFuels, type AverageAnalysis, getUniqueFuelTypes, getSpecifications, type Specification, getLatestIndicatorData, getThresholds, ImpactThresholds, MixtureThresholds, getResultsForPeriod } from '@/lib/data';
 import { Skeleton } from "@/components/ui/skeleton";
-import { Recycle, Leaf, LayoutDashboard, CalendarIcon, Flame, Droplets, Percent, Wind } from 'lucide-react';
+import { Recycle, Leaf, LayoutDashboard, CalendarIcon, Flame, Droplets, Percent, Wind, Switch as SwitchIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell, LabelList } from 'recharts';
 import { startOfWeek, endOfWeek, format, subDays, startOfMonth, endOfMonth, subMonths, subWeeks } from 'date-fns';
@@ -81,13 +81,12 @@ export function MainDashboard() {
     const [openCalendar, setOpenCalendar] = useState(false);
     const cache = useRef(new Map());
 
-
     const fetchSpecs = async () => {
         const snap = await getDocs(collection(db, "specifications"));
         const data: Record<string, Partial<Specification>> = {};
         snap.docs.forEach((doc) => {
             const d = doc.data();
-            const key = `${d["Type Combustible"] || ''} ${d["Fournisseur"] || ''}`
+            const key = `${d["Type Combustible"]} ${d["Fournisseur"]}`
                 .toLowerCase()
                 .replace(/[\s—–-]+/g, " ")
                 .trim();
@@ -103,50 +102,41 @@ export function MainDashboard() {
     };
 
     const getColor = (combustible: string, fournisseur: string, value: number) => {
-        if (!showColors) return "#38BDF8"; // neutre
-    
-        const key = `${combustible} ${fournisseur}`
+        if (!showColors) return "#38BDF8"; // bleu neutre si MEC désactivée
+
+        const key = `${combustible.toLowerCase().trim()} ${fournisseur
             .toLowerCase()
-            .replace(/[\s—–-]+/g, " ")
-            .trim();
-    
+            .trim()}`;
         const seuils = specs[key];
-        
+
         if (!seuils) {
-            return "#6B7280"; // gris si pas de données
+            console.warn("Aucun seuil trouvé pour :", key);
+            return "#6B7280"; // gris si non trouvé
         }
-    
+
         switch (indicator) {
             case "pci": {
-                const min = seuils.pci_min || 0;
-                if(min === 0) return "#6B7280"; // No spec
-                if (value < min) return "#EF4444"; // rouge : PCI inférieur au contrat
-                if (value >= min && value <= min + 500) return "#10B981"; // vert : conforme ±500
-                return "#FACC15"; // jaune : PCI trop haut
+            const min = seuils.pci_min;
+            if (min === null || min === undefined) return "#6B7280";
+            return value >= min ? "#10B981" : "#EF4444"; // vert sinon rouge
             }
             case "h2o": {
-                const max = seuils.h2o_max;
-                if (max === null || max === undefined) return "#6B7280";
-                if (value <= max) return "#10B981";
-                if (value > max && value <= max + 2) return "#FACC15";
-                return "#EF4444";
+            const max = seuils.h2o_max;
+            if (max === null || max === undefined) return "#6B7280";
+            return value <= max ? "#10B981" : "#EF4444";
             }
             case "chlorures": {
-                const max = seuils.cl_max;
-                 if (max === null || max === undefined) return "#6B7280";
-                if (value <= max) return "#10B981";
-                if (value > max && value <= max + 0.2) return "#FACC15";
-                return "#EF4444";
+            const max = seuils.cl_max;
+            if (max === null || max === undefined) return "#6B7280";
+            return value <= max ? "#10B981" : "#EF4444";
             }
             case "cendres": {
-                const max = seuils.cendres_max;
-                if (max === null || max === undefined) return "#6B7280";
-                if (value <= max) return "#10B981";
-                if (value > max && value <= max + 3) return "#FACC15";
-                return "#EF4444";
+            const max = seuils.cendres_max;
+            if (max === null || max === undefined) return "#6B7280";
+            return value <= max ? "#10B981" : "#EF4444";
             }
             default:
-                return "#6B7280";
+            return "#6B7280";
         }
     };
     
@@ -192,9 +182,9 @@ export function MainDashboard() {
 
         const results = Object.values(grouped).map((f: any) => ({
             name: f.name,
+            value: f.total / f.count || 0,
             combustible: f.combustible,
             fournisseur: f.fournisseur,
-            value: f.total / f.count || 0,
         }));
         
         cache.current.set(cacheKey, results);
@@ -463,7 +453,8 @@ export function MainDashboard() {
                                         fontSize={12}
                                     />
                                     {chartData.map((entry, index) => {
-                                        return <Cell key={`cell-${index}`} fill={getColor(entry.combustible, entry.fournisseur, entry.value)} />
+                                        const { combustible, fournisseur, value } = entry;
+                                        return <Cell key={`cell-${index}`} fill={getColor(combustible, fournisseur, value)} />
                                     })}
                                 </Bar>
                             </RechartsBarChart>
