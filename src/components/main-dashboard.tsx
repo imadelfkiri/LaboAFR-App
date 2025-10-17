@@ -1,10 +1,8 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { usePathname } from 'next/navigation';
-import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getAverageAnalysisForFuels, type AverageAnalysis, getUniqueFuelTypes, getSpecifications, type Specification, getLatestIndicatorData, getThresholds, ImpactThresholds, MixtureThresholds, getResultsForPeriod } from '@/lib/data';
 import { getDocs, query, collection, where, Timestamp, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,6 +24,7 @@ import { motion } from 'framer-motion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label as UILabel } from "@/components/ui/label";
+import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getSpecifications, type Specification, getLatestIndicatorData, getThresholds, ImpactThresholds, MixtureThresholds, getResultsForPeriod } from '@/lib/data';
 
 
 // Hook to read from localStorage without causing hydration issues
@@ -101,13 +100,13 @@ export function MainDashboard() {
         setSpecs(data);
     }, []);
     
-
     const getColor = (combustible: string, fournisseur: string, value: number) => {
         if (!showColors) return "#38BDF8"; // neutre
       
-        const key = `${combustible.toLowerCase().trim()} ${fournisseur
-          .toLowerCase()
-          .trim()}`;
+        const key = `${combustible} ${fournisseur}`
+            .toLowerCase()
+            .replace(/[\s—–-]+/g, " ")
+            .trim();
         const seuils = specs[key];
       
         if (!seuils) {
@@ -118,22 +117,22 @@ export function MainDashboard() {
         switch (indicator) {
           case "pci": {
             const min = seuils.pci_min;
-            if (!min) return "#6B7280";
+            if (min === null || min === undefined) return "#6B7280";
             return value >= min ? "#10B981" : "#EF4444"; // vert sinon rouge
           }
           case "h2o": {
             const max = seuils.h2o_max;
-            if (!max) return "#6B7280";
+            if (max === null || max === undefined) return "#6B7280";
             return value <= max ? "#10B981" : "#EF4444";
           }
           case "chlorures": {
             const max = seuils.cl_max;
-            if (!max) return "#6B7280";
+            if (max === null || max === undefined) return "#6B7280";
             return value <= max ? "#10B981" : "#EF4444";
           }
           case "cendres": {
             const max = seuils.cendres_max;
-            if (!max) return "#6B7280";
+            if (max === null || max === undefined) return "#6B7280";
             return value <= max ? "#10B981" : "#EF4444";
           }
           default:
@@ -463,7 +462,7 @@ export function MainDashboard() {
                             <div className="flex items-center justify-center h-full text-muted-foreground">Aucune donnée pour la période.</div>
                         )}
                     </ResponsiveContainer>
-                     {dateRange?.from && dateRange?.to && (
+                     {dateRange?.from && dateRange.to && (
                         <div className="text-gray-400 text-sm mt-3 text-right">
                            Période :{" "}
                            {format(dateRange.from, "dd MMM yyyy", { locale: fr })} →{" "}
@@ -475,7 +474,3 @@ export function MainDashboard() {
         </motion.div>
     );
 }
-
-
-
-  
