@@ -103,41 +103,43 @@ export function MainDashboard() {
     
 
     const getColor = (combustible: string, fournisseur: string, value: number) => {
-        if (!showColors) return "#38BDF8";
-    
-        const key = `${combustible.toLowerCase().trim()} ${fournisseur.toLowerCase().trim()}`;
+        if (!showColors) return "#38BDF8"; // neutre
+      
+        const key = `${combustible.toLowerCase().trim()} ${fournisseur
+          .toLowerCase()
+          .trim()}`;
         const seuils = specs[key];
-    
+      
         if (!seuils) {
-            console.warn("Aucun seuil trouvé pour :", key);
+          console.warn("Aucun seuil trouvé pour :", key);
+          return "#6B7280"; // gris si non trouvé
+        }
+      
+        switch (indicator) {
+          case "pci": {
+            const min = seuils.pci_min;
+            if (!min) return "#6B7280";
+            return value >= min ? "#10B981" : "#EF4444"; // vert sinon rouge
+          }
+          case "h2o": {
+            const max = seuils.h2o_max;
+            if (!max) return "#6B7280";
+            return value <= max ? "#10B981" : "#EF4444";
+          }
+          case "chlorures": {
+            const max = seuils.cl_max;
+            if (!max) return "#6B7280";
+            return value <= max ? "#10B981" : "#EF4444";
+          }
+          case "cendres": {
+            const max = seuils.cendres_max;
+            if (!max) return "#6B7280";
+            return value <= max ? "#10B981" : "#EF4444";
+          }
+          default:
             return "#6B7280";
         }
-    
-        switch (indicator) {
-            case "pci": {
-                const min = seuils.pci_min;
-                if(min === null || min === undefined) return "#6B7280";
-                return value >= min ? "#10B981" : "#EF4444";
-            }
-            case "h2o": {
-                const max = seuils.h2o_max;
-                if(max === null || max === undefined) return "#6B7280";
-                return value <= max ? "#10B981" : "#EF4444";
-            }
-            case "chlorures": {
-                const max = seuils.cl_max;
-                 if(max === null || max === undefined) return "#6B7280";
-                return value <= max ? "#10B981" : "#EF4444";
-            }
-            case "cendres": {
-                const max = seuils.cendres_max;
-                 if(max === null || max === undefined) return "#6B7280";
-                return value <= max ? "#10B981" : "#EF4444";
-            }
-            default:
-                return "#6B7280";
-        }
-    };
+      };
     
     const fetchChartData = useCallback(async () => {
         if (!dateRange?.from || !dateRange?.to) return;
@@ -188,7 +190,7 @@ export function MainDashboard() {
         
         cache.current.set(cacheKey, results);
         setChartData(results);
-    }, [dateRange, indicator]);
+    }, [dateRange, indicator, specs]);
 
 
     useEffect(() => {
@@ -444,7 +446,7 @@ export function MainDashboard() {
                                     dataKey="value"
                                     radius={[8, 8, 0, 0]}
                                 >
-                                    <LabelList 
+                                     <LabelList 
                                         dataKey="value"
                                         position="top"
                                         formatter={(value: number) => value.toFixed(0)}
@@ -452,8 +454,8 @@ export function MainDashboard() {
                                         fontSize={11}
                                     />
                                     {chartData.map((entry, index) => {
-                                        const { combustible, fournisseur, value } = entry;
-                                        return <Cell key={`cell-${index}`} fill={getColor(combustible, fournisseur, value)} />
+                                        const [combustible, fournisseur] = entry.name.split("—");
+                                        return <Cell key={`cell-${index}`} fill={getColor(combustible, fournisseur, entry.value)} />
                                     })}
                                 </Bar>
                             </RechartsBarChart>
