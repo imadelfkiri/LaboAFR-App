@@ -4,7 +4,8 @@
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { usePathname } from 'next/navigation';
-import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getAverageAnalysisForFuels, type AverageAnalysis, getUniqueFuelTypes, getSpecifications, type Specification, getLatestIndicatorData, getThresholds, ImpactThresholds, MixtureThresholds, getResultsForPeriod } from '@/lib/data';
+import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getAverageAnalysisForFuels, type AverageAnalysis, getUniqueFuelTypes, getSpecifications, type Specification, getLatestIndicatorData, getThresholds, ImpactThresholds, MixtureThresholds, getResultsForPeriod, getDocs, query, collection, where, Timestamp, orderBy } from '@/lib/data';
+import { db } from '@/lib/firebase';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Recycle, Leaf, LayoutDashboard, CalendarIcon, Flame, Droplets, Percent, Wind, Switch as SwitchIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -22,8 +23,6 @@ import { IndicatorCard } from './mixture-calculator';
 import CountUp from 'react-countup';
 import { motion } from 'framer-motion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getDocs, query, collection, where, Timestamp, orderBy } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { Switch } from "@/components/ui/switch";
 import { Label as UILabel } from "@/components/ui/label";
 
@@ -67,7 +66,7 @@ export function MainDashboard() {
     const [indicator, setIndicator] = useState("pci");
     const [showColors, setShowColors] = useState(true);
 
-    const [dateRange, setDateRange] = useState({
+    const [dateRange, setDateRange] = useState<DateRange | undefined>({
         from: startOfWeek(new Date(), { weekStartsOn: 1 }),
         to: endOfWeek(new Date(), { weekStartsOn: 1 }),
     });
@@ -81,15 +80,15 @@ export function MainDashboard() {
     const [openCalendar, setOpenCalendar] = useState(false);
     const cache = useRef(new Map());
 
-    const fetchSpecs = async () => {
+    const fetchSpecs = useCallback(async () => {
         const snap = await getDocs(collection(db, "specifications"));
         const data: Record<string, Partial<Specification>> = {};
         snap.docs.forEach((doc) => {
             const d = doc.data();
-            const key = `${d["Type Combustible"]} ${d["Fournisseur"]}`
-                .toLowerCase()
-                .replace(/[\s—–-]+/g, " ")
-                .trim();
+             const key = `${d["Type Combustible"]} ${d["Fournisseur"]}`
+              .toLowerCase()
+              .replace(/[\s—–-]+/g, " ")
+              .trim();
             
             data[key] = {
                 pci_min: Number(d["PCI Min (kcal/kg)"]) || null,
@@ -99,44 +98,47 @@ export function MainDashboard() {
             };
         });
         setSpecs(data);
-    };
+    }, []);
+    
 
     const getColor = (combustible: string, fournisseur: string, value: number) => {
-        if (!showColors) return "#38BDF8"; // bleu neutre si MEC désactivée
-
-        const key = `${combustible.toLowerCase().trim()} ${fournisseur
+        if (!showColors) return "#38BDF8";
+    
+        const key = `${combustible} ${fournisseur}`
             .toLowerCase()
-            .trim()}`;
-        const seuils = specs[key];
+            .replace(/[\s—–-]+/g, " ")
+            .trim();
 
+        const seuils = specs[key];
+    
         if (!seuils) {
             console.warn("Aucun seuil trouvé pour :", key);
-            return "#6B7280"; // gris si non trouvé
+            return "#6B7280";
         }
-
+    
         switch (indicator) {
             case "pci": {
-            const min = seuils.pci_min;
-            if (min === null || min === undefined) return "#6B7280";
-            return value >= min ? "#10B981" : "#EF4444"; // vert sinon rouge
+                const min = seuils.pci_min;
+                if(min === null || min === undefined) return "#6B7280";
+                return value >= min ? "#10B981" : "#EF4444";
             }
             case "h2o": {
-            const max = seuils.h2o_max;
-            if (max === null || max === undefined) return "#6B7280";
-            return value <= max ? "#10B981" : "#EF4444";
+                const max = seuils.h2o_max;
+                if(max === null || max === undefined) return "#6B7280";
+                return value <= max ? "#10B981" : "#EF4444";
             }
             case "chlorures": {
-            const max = seuils.cl_max;
-            if (max === null || max === undefined) return "#6B7280";
-            return value <= max ? "#10B981" : "#EF4444";
+                const max = seuils.cl_max;
+                 if(max === null || max === undefined) return "#6B7280";
+                return value <= max ? "#10B981" : "#EF4444";
             }
             case "cendres": {
-            const max = seuils.cendres_max;
-            if (max === null || max === undefined) return "#6B7280";
-            return value <= max ? "#10B981" : "#EF4444";
+                const max = seuils.cendres_max;
+                 if(max === null || max === undefined) return "#6B7280";
+                return value <= max ? "#10B981" : "#EF4444";
             }
             default:
-            return "#6B7280";
+                return "#6B7280";
         }
     };
     
@@ -444,14 +446,13 @@ export function MainDashboard() {
                                 <Bar
                                     dataKey="value"
                                     radius={[8, 8, 0, 0]}
+                                     label={{
+                                        position: "top",
+                                        fill: "#e5e7eb",
+                                        fontSize: 11,
+                                        formatter: (value: number) => value.toFixed(0)
+                                    }}
                                 >
-                                     <LabelList 
-                                        dataKey="value" 
-                                        position="top" 
-                                        formatter={(value: number) => value.toFixed(0)}
-                                        fill="hsl(var(--foreground))"
-                                        fontSize={12}
-                                    />
                                     {chartData.map((entry, index) => {
                                         const { combustible, fournisseur, value } = entry;
                                         return <Cell key={`cell-${index}`} fill={getColor(combustible, fournisseur, value)} />
