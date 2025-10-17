@@ -586,7 +586,7 @@ export async function saveFuelCost(fuelName: string, cost: number): Promise<void
 export async function getStocks(): Promise<Stock[]> {
     const stocksCollection = collection(db, 'stocks');
     const q = query(stocksCollection, orderBy("nom_combustible"));
-    const snapshot = await getDocs(stocksCollection);
+    const snapshot = await getDocs(q);
     if (snapshot.empty) {
         const fuelTypes = await getUniqueFuelTypesFromResultats();
         if (fuelTypes.length === 0) return []; // No fuels to create stocks for

@@ -25,7 +25,7 @@ import { motion } from 'framer-motion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label as UILabel } from "@/components/ui/label";
-import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getSpecifications, type Specification, getLatestIndicatorData, getThresholds, ImpactThresholds, MixtureThresholds, getResultsForPeriod, getMixtureSessions, getImpactAnalysesForPeriod } from '@/lib/data';
+import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getSpecifications, type Specification, getLatestIndicatorData, getThresholds, ImpactThresholds, MixtureThresholds, getResultsForPeriod, getMixtureSessions, getImpactAnalysesForPeriod, SPEC_MAP } from '@/lib/data';
 import {
   Dialog,
   DialogContent,
@@ -77,8 +77,6 @@ export function MainDashboard() {
         to: endOfWeek(new Date(), { weekStartsOn: 1 }),
     });
 
-    const [specs, setSpecs] = useState<Record<string, Partial<Specification>>>({});
-
     const [thresholds, setThresholds] = useState<{ melange?: MixtureThresholds, impact?: ImpactThresholds }>({});
     const debitClinker = usePersistentValue<number>('debitClinker', 0);
     
@@ -93,41 +91,15 @@ export function MainDashboard() {
     const [historyDateRange, setHistoryDateRange] = useState<DateRange | undefined>({ from: subDays(new Date(), 30), to: new Date() });
 
     const fetchSpecs = useCallback(async () => {
-        const snap = await getDocs(collection(db, "specifications"));
-        const data: Record<string, Partial<Specification>> = {};
-      
-        snap.docs.forEach((doc) => {
-          const d = doc.data();
-      
-          const key = `${(d["type_combustible"] || "")
-            .toLowerCase()
-            .replace(/[\s—–-]+/g, " ")
-            .trim()} ${(d["fournisseur"] || "")
-            .toLowerCase()
-            .replace(/[\s—–-]+/g, " ")
-            .trim()}`;
-      
-          data[key] = {
-            pci_min: Number(d["PCI_min"]) || null,
-            h2o_max: Number(d["H2O_max"]) || null,
-            cl_max: Number(d["Cl_max"]) || null,
-            cendres_max: Number(d["Cendres_max"]) || null,
-            soufre_max: Number(d["Soufre_max"]) || null,
-          };
-        });
-      
-        setSpecs(data);
+        await getSpecifications(); // This populates SPEC_MAP
     }, []);
     
     const getColor = (combustible: string, fournisseur: string, value: number) => {
         if (!showColors) return "#38BDF8"; // bleu neutre
 
-        const key = `${combustible} ${fournisseur}`
-            .toLowerCase()
-            .replace(/[\s—–-]+/g, " ")
-            .trim();
+        const key = `${combustible}|${fournisseur}`;
+        const seuils = SPEC_MAP.get(key);
 
-        const seuils = specs[key];
         if (!seuils) {
             console.warn("⚠️ Aucun seuil trouvé pour :", key);
             return "#6B7280"; // gris
@@ -144,28 +116,28 @@ export function MainDashboard() {
 
         switch (indicator) {
             case "pci": {
-                const min = seuils.pci_min;
+                const min = seuils.PCI_min;
                 if (!min) return "#6B7280";
                 const diff = Math.max(0, min - value); // écart négatif = conforme
                 const ratio = diff / min; // 0 → vert, 1 → rouge
                 return gradientColor(ratio);
             }
             case "h2o": {
-                const max = seuils.h2o_max;
+                const max = seuils.H2O_max;
                 if (!max) return "#6B7280";
                 const diff = Math.max(0, value - max);
                 const ratio = diff / max;
                 return gradientColor(ratio);
             }
             case "chlorures": {
-                const max = seuils.cl_max;
+                const max = seuils.Cl_max;
                 if (!max) return "#6B7280";
                 const diff = Math.max(0, value - max);
                 const ratio = diff / max;
                 return gradientColor(ratio);
             }
             case "cendres": {
-                const max = seuils.cendres_max;
+                const max = seuils.Cendres_max;
                 if (!max) return "#6B7280";
                 const diff = Math.max(0, value - max);
                 const ratio = diff / max;
@@ -373,17 +345,15 @@ export function MainDashboard() {
     const CustomTooltip = ({ active, payload, label }: any) => {
         if (active && payload && payload.length) {
             const data = payload[0].payload;
-            const [rawCombustible, rawFournisseur] = data.name.split(" — ");
-            const combustible = (rawCombustible || "").toLowerCase().replace(/[\s—–-]+/g, " ").trim();
-            const fournisseur = (rawFournisseur || "").toLowerCase().replace(/[\s—–-]+/g, " ").trim();
-            const key = `${combustible} ${fournisseur}`;
-            const seuil = specs[key];
+            const [combustible, fournisseur] = data.name.split(" — ");
+            const key = `${combustible}|${fournisseur}`;
+            const seuil = SPEC_MAP.get(key);
             let seuilText = "";
 
-            if (indicator === "pci" && seuil?.pci_min != null) seuilText = `Seuil min: ${seuil.pci_min.toFixed(0)}`;
-            if (indicator === "h2o" && seuil?.h2o_max != null) seuilText = `Seuil max: ${seuil.h2o_max.toFixed(2)}`;
-            if (indicator === "chlorures" && seuil?.cl_max != null) seuilText = `Seuil max: ${seuil.cl_max.toFixed(2)}`;
-            if (indicator === "cendres" && seuil?.cendres_max != null) seuilText = `Seuil max: ${seuil.cendres_max.toFixed(2)}`;
+            if (indicator === "pci" && seuil?.PCI_min != null) seuilText = `Seuil min: ${seuil.PCI_min.toFixed(0)}`;
+            if (indicator === "h2o" && seuil?.H2O_max != null) seuilText = `Seuil max: ${seuil.H2O_max.toFixed(2)}`;
+            if (indicator === "chlorures" && seuil?.Cl_max != null) seuilText = `Seuil max: ${seuil.Cl_max.toFixed(2)}`;
+            if (indicator === "cendres" && seuil?.Cendres_max != null) seuilText = `Seuil max: ${seuil.Cendres_max.toFixed(2)}`;
 
             return (
                 <div className="bg-[#1A2233] border border-gray-700 rounded-lg shadow-lg p-3 text-white text-sm">
@@ -694,9 +664,7 @@ export function MainDashboard() {
                                         fontSize={11}
                                     />
                                     {chartData.map((entry, index) => {
-                                        const [rawCombustible, rawFournisseur] = entry.name.split("—");
-                                        const combustible = (rawCombustible || "").toLowerCase().replace(/[\s—–-]+/g, " ").trim();
-                                        const fournisseur = (rawFournisseur || "").toLowerCase().replace(/[\s—–-]+/g, " ").trim();
+                                        const [combustible, fournisseur] = entry.name.split(" — ");
                                         return (
                                             <Cell
                                                 key={`cell-${index}`}
