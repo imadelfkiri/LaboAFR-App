@@ -3,7 +3,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { usePathname } from 'next/navigation';
 import { getDocs, query, collection, where, Timestamp, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Skeleton } from "@/components/ui/skeleton";
@@ -76,7 +75,6 @@ export function MainDashboard() {
 
     const [thresholds, setThresholds] = useState<{ melange?: MixtureThresholds, impact?: ImpactThresholds }>({});
     const debitClinker = usePersistentValue<number>('debitClinker', 0);
-    const pathname = usePathname();
     
     const [openCalendar, setOpenCalendar] = useState(false);
     const cache = useRef(new Map());
@@ -108,7 +106,8 @@ export function MainDashboard() {
       setSpecs(data);
     }, []);
     
-      const getColor = (combustible: string, fournisseur: string, value: number) => {
+    
+    const getColor = (combustible: string, fournisseur: string, value: number) => {
         if (!showColors) return "#38BDF8"; // neutre
       
         const key = `${combustible} ${fournisseur}`
@@ -173,7 +172,7 @@ export function MainDashboard() {
             const key = `${combustible} — ${fournisseur}`;
 
             if (!acc[key]) {
-                acc[key] = { name: key, total: 0, count: 0, combustible, fournisseur };
+                acc[key] = { name: key, total: 0, count: 0 };
             }
             
             let value = 0;
@@ -191,29 +190,18 @@ export function MainDashboard() {
         const results = Object.values(grouped).map((f: any) => ({
             name: f.name,
             value: f.total / f.count || 0,
-            combustible: f.combustible,
-            fournisseur: f.fournisseur,
         }));
         
         cache.current.set(cacheKey, results);
         setChartData(results);
-    }, [dateRange, indicator, specs]);
+    }, [dateRange, indicator]);
 
 
     useEffect(() => {
-        fetchData();
-        fetchSpecs();
-    }, [pathname]);
-
-     useEffect(() => {
-        fetchChartData();
-    }, [fetchChartData]);
-
-    const fetchData = useCallback(() => {
-        setLoading(true);
-        const fetchAndSetData = async () => {
+        const loadInitialData = async () => {
+            setLoading(true);
             try {
-                const [sessionData, impactAnalyses, indicatorData, specs, thresholdsData] = await Promise.all([
+                const [sessionData, impactAnalyses, indicatorData, specsData, thresholdsData] = await Promise.all([
                     getLatestMixtureSession(),
                     getImpactAnalyses(),
                     getLatestIndicatorData(),
@@ -225,6 +213,7 @@ export function MainDashboard() {
                 setLatestImpact(impactAnalyses.length > 0 ? impactAnalyses[0] : null);
                 setKeyIndicators(indicatorData);
                 setThresholds(thresholdsData);
+                await fetchSpecs();
 
             } catch (error) {
                 console.error("Error fetching dashboard data:", error);
@@ -233,9 +222,12 @@ export function MainDashboard() {
             }
         };
 
-        fetchAndSetData();
-    }, []);
+        loadInitialData();
+    }, [fetchSpecs]);
 
+     useEffect(() => {
+        fetchChartData();
+    }, [fetchChartData]);
 
     const calorificConsumption = useMemo(() => {
         if (!mixtureSession || !debitClinker || debitClinker === 0 || !mixtureSession.availableFuels) return 0;
@@ -418,7 +410,7 @@ export function MainDashboard() {
                                     <Calendar
                                     mode="range"
                                     selected={dateRange}
-                                    onSelect={setDateRange as any}
+                                    onSelect={setDateRange}
                                     numberOfMonths={2}
                                     locale={fr}
                                     className="text-gray-300"
@@ -461,8 +453,15 @@ export function MainDashboard() {
                                         fontSize={11}
                                     />
                                     {chartData.map((entry, index) => {
-                                        const [combustible, fournisseur] = entry.name.split("—");
-                                        return <Cell key={`cell-${index}`} fill={getColor(combustible, fournisseur, entry.value)} />
+                                      const [rawCombustible, rawFournisseur] = entry.name.split("—");
+                                      const combustible = (rawCombustible || "").trim();
+                                      const fournisseur = (rawFournisseur || "").trim();
+                                      return (
+                                        <Cell
+                                          key={`cell-${index}`}
+                                          fill={getColor(combustible, fournisseur, entry.value)}
+                                        />
+                                      );
                                     })}
                                 </Bar>
                             </RechartsBarChart>
@@ -482,7 +481,3 @@ export function MainDashboard() {
         </motion.div>
     );
 }
-
-    
-
-    
