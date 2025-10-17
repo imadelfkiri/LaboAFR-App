@@ -93,61 +93,7 @@ export function MainDashboard() {
     const fetchSpecs = useCallback(async () => {
         await getSpecifications(); // This populates SPEC_MAP
     }, []);
-    
-    const getColor = (combustible: string, fournisseur: string, value: number) => {
-        if (!showColors) return "#38BDF8"; // bleu neutre
 
-        const key = `${combustible}|${fournisseur}`;
-        const seuils = SPEC_MAP.get(key);
-
-        if (!seuils) {
-            console.warn("⚠️ Aucun seuil trouvé pour :", key);
-            return "#6B7280"; // gris
-        }
-
-        // Fonction utilitaire : interpolation linéaire entre vert et rouge
-        const gradientColor = (ratio: number) => {
-            ratio = Math.max(0, Math.min(1, ratio)); // clamp entre 0 et 1
-            const r = Math.round(16 + (239 - 16) * ratio); // de #10B981 → #EF4444
-            const g = Math.round(185 + (68 - 185) * ratio);
-            const b = Math.round(129 + (68 - 129) * ratio);
-            return `rgb(${r}, ${g}, ${b})`;
-        };
-
-        switch (indicator) {
-            case "pci": {
-                const min = seuils.PCI_min;
-                if (!min) return "#6B7280";
-                const diff = Math.max(0, min - value); // écart négatif = conforme
-                const ratio = diff / min; // 0 → vert, 1 → rouge
-                return gradientColor(ratio);
-            }
-            case "h2o": {
-                const max = seuils.H2O_max;
-                if (!max) return "#6B7280";
-                const diff = Math.max(0, value - max);
-                const ratio = diff / max;
-                return gradientColor(ratio);
-            }
-            case "chlorures": {
-                const max = seuils.Cl_max;
-                if (!max) return "#6B7280";
-                const diff = Math.max(0, value - max);
-                const ratio = diff / max;
-                return gradientColor(ratio);
-            }
-            case "cendres": {
-                const max = seuils.Cendres_max;
-                if (!max) return "#6B7280";
-                const diff = Math.max(0, value - max);
-                const ratio = diff / max;
-                return gradientColor(ratio);
-            }
-            default:
-                return "#6B7280";
-        }
-    };
-      
     const fetchChartData = useCallback(async () => {
         if (!dateRange?.from || !dateRange?.to) return;
         
@@ -666,10 +612,54 @@ export function MainDashboard() {
                                     />
                                     {chartData.map((entry, index) => {
                                         const [combustible, fournisseur] = entry.name.split("|");
+                                        const key = `${combustible}|${fournisseur}`;
+                                        const seuils = SPEC_MAP.get(key);
+                                        let color = "#6B7280"; // Default grey
+                                        
+                                        if (showColors && seuils) {
+                                            const value = entry.value;
+                                            const gradientColor = (ratio: number) => {
+                                                ratio = Math.max(0, Math.min(1, ratio));
+                                                const r = Math.round(16 + (239 - 16) * ratio);
+                                                const g = Math.round(185 + (68 - 185) * ratio);
+                                                const b = Math.round(129 + (68 - 129) * ratio);
+                                                return `rgb(${r}, ${g}, ${b})`;
+                                            };
+                                            
+                                            switch (indicator) {
+                                                case "pci":
+                                                    if (seuils.PCI_min) {
+                                                        const diff = Math.max(0, seuils.PCI_min - value);
+                                                        color = gradientColor(diff / seuils.PCI_min);
+                                                    }
+                                                    break;
+                                                case "h2o":
+                                                    if (seuils.H2O_max) {
+                                                        const diff = Math.max(0, value - seuils.H2O_max);
+                                                        color = gradientColor(diff / seuils.H2O_max);
+                                                    }
+                                                    break;
+                                                case "chlorures":
+                                                     if (seuils.Cl_max) {
+                                                        const diff = Math.max(0, value - seuils.Cl_max);
+                                                        color = gradientColor(diff / seuils.Cl_max);
+                                                    }
+                                                    break;
+                                                case "cendres":
+                                                    if (seuils.Cendres_max) {
+                                                        const diff = Math.max(0, value - seuils.Cendres_max);
+                                                        color = gradientColor(diff / seuils.Cendres_max);
+                                                    }
+                                                    break;
+                                            }
+                                        } else if (!showColors) {
+                                            color = "#38BDF8"; // Neutral blue if colors are off
+                                        }
+
                                         return (
                                             <Cell
                                                 key={`cell-${index}`}
-                                                fill={getColor(combustible, fournisseur, entry.value)}
+                                                fill={color}
                                                 className="bar"
                                             />
                                         );
@@ -692,3 +682,4 @@ export function MainDashboard() {
         </motion.div>
     );
 }
+
