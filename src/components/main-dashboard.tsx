@@ -8,7 +8,7 @@ import { db } from '@/lib/firebase';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Recycle, Leaf, LayoutDashboard, CalendarIcon, Flame, Droplets, Percent, Wind, Switch as SwitchIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell, LabelList } from 'recharts';
+import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell, LabelList, ReferenceLine, Label } from 'recharts';
 import { startOfWeek, endOfWeek, format, subDays, startOfMonth, endOfMonth, subMonths, subWeeks } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Button } from "@/components/ui/button";
@@ -81,44 +81,48 @@ export function MainDashboard() {
     const cache = useRef(new Map());
 
     const fetchSpecs = useCallback(async () => {
-        const snap = await getDocs(collection(db, "specifications"));
-        const data: Record<string, Partial<Specification>> = {};
-        snap.docs.forEach((doc) => {
-            const d = doc.data();
-             const key = `${d["Type Combustible"]} ${d["Fournisseur"]}`
-              .toLowerCase()
-              .replace(/[\s—–-]+/g, " ")
-              .trim();
-            
-            data[key] = {
-                pci_min: Number(d["PCI Min (kcal/kg)"]) || null,
-                h2o_max: Number(d["H2O Max (%)"]) || null,
-                cl_max: Number(d["Cl- Max (%)"]) || null,
-                cendres_max: Number(d["Cendres Max (%)"]) || null,
-            };
-        });
-        setSpecs(data);
+      const snap = await getDocs(collection(db, "specifications"));
+      const data: Record<string, Partial<Specification>> = {};
+    
+      snap.docs.forEach((doc) => {
+        const d = doc.data();
+    
+        // 🔹 Normalisation complète : tout en minuscule, sans caractères spéciaux, tirets, etc.
+        const key = `${(d["Type Combustible"] || "")
+          .toLowerCase()
+          .replace(/[\s—–-]+/g, " ")
+          .trim()} ${(d["Fournisseur"] || "")
+          .toLowerCase()
+          .replace(/[\s—–-]+/g, " ")
+          .trim()}`;
+    
+        data[key] = {
+          pci_min: Number(d["PCI Min (kcal/kg)"]) || null,
+          h2o_max: Number(d["H2O Max (%)"]) || null,
+          cl_max: Number(d["Cl- Max (%)"]) || null,
+          cendres_max: Number(d["Cendres Max (%)"]) || null,
+        };
+      });
+    
+      setSpecs(data);
     }, []);
     
-    const getColor = (combustible: string, fournisseur: string, value: number) => {
-        if (!showColors) return "#38BDF8"; // neutre
-      
-        const key = `${combustible} ${fournisseur}`
-            .toLowerCase()
-            .replace(/[\s—–-]+/g, " ")
-            .trim();
+      const getColor = (combustible: string, fournisseur: string, value: number) => {
+        if (!showColors) return "#38BDF8";
+    
+        const key = `${(combustible || "").toLowerCase().trim()} ${(fournisseur || "").toLowerCase().trim()}`;
         const seuils = specs[key];
-      
+    
         if (!seuils) {
           console.warn("Aucun seuil trouvé pour :", key);
-          return "#6B7280"; // gris si non trouvé
+          return "#6B7280";
         }
-      
+    
         switch (indicator) {
           case "pci": {
             const min = seuils.pci_min;
             if (min === null || min === undefined) return "#6B7280";
-            return value >= min ? "#10B981" : "#EF4444"; // vert sinon rouge
+            return value >= min ? "#10B981" : "#EF4444";
           }
           case "h2o": {
             const max = seuils.h2o_max;
@@ -138,7 +142,7 @@ export function MainDashboard() {
           default:
             return "#6B7280";
         }
-      };
+    };
     
     const fetchChartData = useCallback(async () => {
         if (!dateRange?.from || !dateRange?.to) return;
@@ -474,3 +478,5 @@ export function MainDashboard() {
         </motion.div>
     );
 }
+
+    
