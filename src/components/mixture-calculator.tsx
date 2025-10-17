@@ -80,7 +80,7 @@ const defaultThresholds: MixtureThresholds = {
 };
 
 type IndicatorStatus = 'alert' | 'warning' | 'conform' | 'neutral';
-type IndicatorKey = 'pci' | 'humidity' | 'ash' | 'chlorine' | 'tireRate' | 'cost' | 'flow';
+export type IndicatorKey = 'pci' | 'humidity' | 'ash' | 'chlorine' | 'tireRate' | 'cost' | 'flow';
 
 const ThresholdSettingsModal = ({
   isOpen,
@@ -159,7 +159,15 @@ const ThresholdSettingsModal = ({
     );
 };
 
-export function IndicatorCard({ data, thresholds }: { data: Record<string, number>, thresholds?: MixtureThresholds }) {
+export function IndicatorCard({ 
+    data, 
+    thresholds,
+    onIndicatorDoubleClick,
+}: { 
+    data: Record<string, number>, 
+    thresholds?: MixtureThresholds,
+    onIndicatorDoubleClick?: (key: IndicatorKey, name: string) => void,
+}) {
   const getColorClass = (key: string, value: number): IndicatorStatus => {
     if(!thresholds) return 'neutral';
 
@@ -187,6 +195,14 @@ export function IndicatorCard({ data, thresholds }: { data: Record<string, numbe
       default:
         return 'neutral';
     }
+  };
+
+  const keyMap: Record<string, { key: IndicatorKey, name: string }> = {
+    'PCI': { key: 'pci', name: 'PCI' },
+    'Chlorures': { key: 'chlorine', name: 'Chlorures' },
+    'Cendres': { key: 'ash', name: 'Cendres' },
+    'Humidité': { key: 'humidity', name: 'Humidité' },
+    'TauxPneus': { key: 'tireRate', name: 'Taux Pneus' },
   };
   
     const statusClasses: Record<IndicatorStatus, string> = {
@@ -217,6 +233,7 @@ export function IndicatorCard({ data, thresholds }: { data: Record<string, numbe
                         "flex flex-col items-center justify-center rounded-xl border py-3 px-2 font-medium",
                         statusClasses[getColorClass(key, value as number)]
                     )}
+                    onDoubleClick={() => onIndicatorDoubleClick && keyMap[key] && onIndicatorDoubleClick(keyMap[key].key, keyMap[key].name)}
                 >
                     <span className="text-xs opacity-80">{key === 'TauxPneus' ? 'Taux Pneus' : key}</span>
                     <span className="text-base font-semibold">
