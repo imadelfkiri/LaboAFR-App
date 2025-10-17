@@ -80,72 +80,71 @@ export function MainDashboard() {
     const cache = useRef(new Map());
 
     const fetchSpecs = useCallback(async () => {
-      const snap = await getDocs(collection(db, "specifications"));
-      const data: Record<string, Partial<Specification>> = {};
+        const snap = await getDocs(collection(db, "specifications"));
+        const data: Record<string, Partial<Specification>> = {};
     
-      snap.docs.forEach((doc) => {
-        const d = doc.data();
+        snap.docs.forEach((doc) => {
+            const d = doc.data();
     
-        // 🔹 Normalisation complète : tout en minuscule, sans caractères spéciaux, tirets, etc.
-        const key = `${(d["Type Combustible"] || "")
-          .toLowerCase()
-          .replace(/[\s—–-]+/g, " ")
-          .trim()} ${(d["Fournisseur"] || "")
-          .toLowerCase()
-          .replace(/[\s—–-]+/g, " ")
-          .trim()}`;
+            // 🔹 Normalisation complète : tout en minuscule, sans caractères spéciaux, tirets, etc.
+            const key = `${(d["Type Combustible"] || "")
+            .toLowerCase()
+            .replace(/[\s—–-]+/g, " ")
+            .trim()} ${(d["Fournisseur"] || "")
+            .toLowerCase()
+            .replace(/[\s—–-]+/g, " ")
+            .trim()}`;
     
-        data[key] = {
-          pci_min: Number(d["PCI Min (kcal/kg)"]) || null,
-          h2o_max: Number(d["H2O Max (%)"]) || null,
-          cl_max: Number(d["Cl- Max (%)"]) || null,
-          cendres_max: Number(d["Cendres Max (%)"]) || null,
-        };
-      });
+            data[key] = {
+            pci_min: Number(d["PCI Min (kcal/kg)"]) || null,
+            h2o_max: Number(d["H2O Max (%)"]) || null,
+            cl_max: Number(d["Cl- Max (%)"]) || null,
+            cendres_max: Number(d["Cendres Max (%)"]) || null,
+            };
+        });
     
-      setSpecs(data);
+        setSpecs(data);
     }, []);
-    
     
     const getColor = (combustible: string, fournisseur: string, value: number) => {
         if (!showColors) return "#38BDF8"; // neutre
-      
+    
         const key = `${combustible} ${fournisseur}`
-          .toLowerCase()
-          .replace(/[\s—–-]+/g, " ")
-          .trim();
-      
+            .toLowerCase()
+            .replace(/[\s—–-]+/g, " ")
+            .trim();
+    
         const seuils = specs[key];
         if (!seuils) {
-          console.warn("⚠️ Aucun seuil trouvé pour :", key);
-          return "#6B7280"; // gris si non trouvé
+            console.warn("⚠️ Aucun seuil trouvé pour :", key);
+            return "#6B7280"; // gris si non trouvé
         }
-      
+    
         switch (indicator) {
-          case "pci": {
-            const min = seuils.pci_min;
-            if (min == null) return "#6B7280";
-            return value >= min ? "#10B981" : "#EF4444"; // vert sinon rouge
-          }
-          case "h2o": {
-            const max = seuils.h2o_max;
-            if (max == null) return "#6B7280";
-            return value <= max ? "#10B981" : "#EF4444";
-          }
-          case "chlorures": {
-            const max = seuils.cl_max;
-            if (max == null) return "#6B7280";
-            return value <= max ? "#10B981" : "#EF4444";
-          }
-          case "cendres": {
-            const max = seuils.cendres_max;
-            if (max == null) return "#6B7280";
-            return value <= max ? "#10B981" : "#EF4444";
-          }
-          default:
-            return "#6B7280";
+            case "pci": {
+                const min = seuils.pci_min;
+                if (min == null) return "#6B7280";
+                return value >= min ? "#10B981" : "#EF4444"; // vert sinon rouge
+            }
+            case "h2o": {
+                const max = seuils.h2o_max;
+                if (max == null) return "#6B7280";
+                return value <= max ? "#10B981" : "#EF4444";
+            }
+            case "chlorures": {
+                const max = seuils.cl_max;
+                if (max == null) return "#6B7280";
+                return value <= max ? "#10B981" : "#EF4444";
+            }
+            case "cendres": {
+                const max = seuils.cendres_max;
+                if (max == null) return "#6B7280";
+                return value <= max ? "#10B981" : "#EF4444";
+            }
+            default:
+                return "#6B7280";
         }
-      };
+    };
     
     const fetchChartData = useCallback(async () => {
         if (!dateRange?.from || !dateRange?.to) return;
@@ -224,6 +223,10 @@ export function MainDashboard() {
 
         loadInitialData();
     }, [fetchSpecs]);
+
+    useEffect(() => {
+        console.log("✅ Spécifications Firestore chargées :", Object.keys(specs));
+      }, [specs]);
 
      useEffect(() => {
         fetchChartData();
@@ -453,15 +456,23 @@ export function MainDashboard() {
                                         fontSize={11}
                                     />
                                     {chartData.map((entry, index) => {
-                                      const [rawCombustible, rawFournisseur] = entry.name.split("—");
-                                      const combustible = (rawCombustible || "").trim();
-                                      const fournisseur = (rawFournisseur || "").trim();
-                                      return (
-                                        <Cell
-                                          key={`cell-${index}`}
-                                          fill={getColor(combustible, fournisseur, entry.value)}
-                                        />
-                                      );
+                                        // Normalisation : tout en minuscules, suppression des caractères parasites
+                                        const [rawCombustible, rawFournisseur] = entry.name.split("—");
+                                        const combustible = (rawCombustible || "")
+                                            .toLowerCase()
+                                            .replace(/[\s—–-]+/g, " ")
+                                            .trim();
+                                        const fournisseur = (rawFournisseur || "")
+                                            .toLowerCase()
+                                            .replace(/[\s—–-]+/g, " ")
+                                            .trim();
+
+                                        return (
+                                            <Cell
+                                            key={`cell-${index}`}
+                                            fill={getColor(combustible, fournisseur, entry.value)}
+                                            />
+                                        );
                                     })}
                                 </Bar>
                             </RechartsBarChart>
@@ -481,3 +492,4 @@ export function MainDashboard() {
         </motion.div>
     );
 }
+
