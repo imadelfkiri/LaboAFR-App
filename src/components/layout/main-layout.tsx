@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState } from 'react';
@@ -61,7 +62,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         
         {userProfile && <SidebarNav userRole={userProfile.role} />}
         
-        <main className={cn(
+        <div className={cn(
             "flex-1 flex flex-col overflow-hidden transition-all duration-300",
              "ml-[250px]" // This margin should be dynamic based on sidebar state
         )}>
@@ -83,11 +84,11 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                </div>
             </header>
              <ScrollArea className="flex-grow">
-                 <div className="p-6">
+                 <main className="p-6">
                     {children}
-                 </div>
+                 </main>
             </ScrollArea>
-        </main>
+        </div>
     </div>
   );
 }
