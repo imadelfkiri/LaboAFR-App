@@ -1,3 +1,4 @@
+
 // components/cards/ImpactCard.tsx
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Activity } from 'lucide-react';
