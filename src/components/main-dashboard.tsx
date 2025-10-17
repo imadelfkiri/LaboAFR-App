@@ -5,9 +5,9 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { getDocs, query, collection, where, Timestamp, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Skeleton } from "@/components/ui/skeleton";
-import { Recycle, Leaf, LayoutDashboard, CalendarIcon, Flame, Droplets, Percent, Wind, Switch as SwitchIcon } from 'lucide-react';
+import { Recycle, Leaf, LayoutDashboard, CalendarIcon, Flame, Droplets, Percent, Wind, Switch as SwitchIcon, ChevronDown, LineChart as LineChartIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell, LabelList, ReferenceLine, Label } from 'recharts';
+import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid, Cell, LabelList, ReferenceLine, Label, LineChart, Line } from 'recharts';
 import { startOfWeek, endOfWeek, format, subDays, startOfMonth, endOfMonth, subMonths, subWeeks } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Button } from "@/components/ui/button";
@@ -18,13 +18,19 @@ import { cn } from "@/lib/utils";
 import { KeyIndicatorCard } from './cards/KeyIndicatorCard';
 import { ImpactCard, ImpactData } from './cards/ImpactCard';
 import { IndicatorCard } from './mixture-calculator';
+import type { IndicatorKey } from './mixture-calculator';
 import CountUp from 'react-countup';
 import { motion } from 'framer-motion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label as UILabel } from "@/components/ui/label";
-import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getSpecifications, type Specification, getLatestIndicatorData, getThresholds, ImpactThresholds, MixtureThresholds, getResultsForPeriod } from '@/lib/data';
-
+import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getSpecifications, type Specification, getLatestIndicatorData, getThresholds, ImpactThresholds, MixtureThresholds, getResultsForPeriod, getMixtureSessions } from '@/lib/data';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 // Hook to read from localStorage without causing hydration issues
 function usePersistentValue<T>(key: string, defaultValue: T): T {
@@ -78,6 +84,12 @@ export function MainDashboard() {
     const [openCalendar, setOpenCalendar] = useState(false);
     const cache = useRef(new Map());
 
+    // History state for modal
+    const [historySessions, setHistorySessions] = useState<MixtureSession[]>([]);
+    const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+    const [historyChartIndicator, setHistoryChartIndicator] = useState<{key: IndicatorKey; name: string} | null>(null);
+    const [historyDateRange, setHistoryDateRange] = useState<DateRange | undefined>({ from: subDays(new Date(), 30), to: new Date() });
+
     const fetchSpecs = useCallback(async () => {
         const snap = await getDocs(collection(db, "specifications"));
         const data: Record<string, Partial<Specification>> = {};
@@ -106,39 +118,59 @@ export function MainDashboard() {
     }, []);
     
     const getColor = (combustible: string, fournisseur: string, value: number) => {
+        if (!showColors) return "#38BDF8"; // bleu neutre
+
         const key = `${combustible} ${fournisseur}`
-          .toLowerCase()
-          .replace(/[\s—–-]+/g, " ")
-          .trim();
-      
+            .toLowerCase()
+            .replace(/[\s—–-]+/g, " ")
+            .trim();
+
         const seuils = specs[key];
         if (!seuils) {
-          return "#6B7280"; // gris si non trouvé
+            console.warn("⚠️ Aucun seuil trouvé pour :", key);
+            return "#6B7280"; // gris
         }
-      
+
+        // Fonction utilitaire : interpolation linéaire entre vert et rouge
+        const gradientColor = (ratio: number) => {
+            ratio = Math.max(0, Math.min(1, ratio)); // clamp entre 0 et 1
+            const r = Math.round(16 + (239 - 16) * ratio); // de #10B981 → #EF4444
+            const g = Math.round(185 + (68 - 185) * ratio);
+            const b = Math.round(129 + (68 - 129) * ratio);
+            return `rgb(${r}, ${g}, ${b})`;
+        };
+
         switch (indicator) {
-          case "pci": {
-            const min = seuils.pci_min;
-            if (min == null) return "#6B7280";
-            return value >= min ? "#10B981" : "#EF4444"; // vert sinon rouge
-          }
-          case "h2o": {
-            const max = seuils.h2o_max;
-            if (max == null) return "#6B7280";
-            return value <= max ? "#10B981" : "#EF4444";
-          }
-          case "chlorures": {
-            const max = seuils.cl_max;
-            if (max == null) return "#6B7280";
-            return value <= max ? "#10B981" : "#EF4444";
-          }
-          case "cendres": {
-            const max = seuils.cendres_max;
-            if (max == null) return "#6B7280";
-            return value <= max ? "#10B981" : "#EF4444";
-          }
-          default:
-            return "#6B7280";
+            case "pci": {
+                const min = seuils.pci_min;
+                if (!min) return "#6B7280";
+                const diff = Math.max(0, min - value); // écart négatif = conforme
+                const ratio = diff / min; // 0 → vert, 1 → rouge
+                return gradientColor(ratio);
+            }
+            case "h2o": {
+                const max = seuils.h2o_max;
+                if (!max) return "#6B7280";
+                const diff = Math.max(0, value - max);
+                const ratio = diff / max;
+                return gradientColor(ratio);
+            }
+            case "chlorures": {
+                const max = seuils.cl_max;
+                if (!max) return "#6B7280";
+                const diff = Math.max(0, value - max);
+                const ratio = diff / max;
+                return gradientColor(ratio);
+            }
+            case "cendres": {
+                const max = seuils.cendres_max;
+                if (!max) return "#6B7280";
+                const diff = Math.max(0, value - max);
+                const ratio = diff / max;
+                return gradientColor(ratio);
+            }
+            default:
+                return "#6B7280";
         }
     };
       
@@ -190,6 +222,25 @@ export function MainDashboard() {
         cache.current.set(cacheKey, results);
         setChartData(results);
     }, [dateRange, indicator]);
+
+    const fetchHistoryData = useCallback(async () => {
+        if (!historyDateRange?.from || !historyDateRange?.to) return;
+        setIsHistoryLoading(true);
+        try {
+            const sessions = await getMixtureSessions(historyDateRange.from, historyDateRange.to);
+            setHistorySessions(sessions);
+        } catch(error) {
+            console.error("Error fetching history sessions:", error);
+        } finally {
+            setIsHistoryLoading(false);
+        }
+    }, [historyDateRange]);
+
+    useEffect(() => {
+        if (historyChartIndicator) {
+            fetchHistoryData();
+        }
+    }, [historyChartIndicator, fetchHistoryData]);
 
 
     useEffect(() => {
@@ -335,6 +386,42 @@ export function MainDashboard() {
         return null;
     };
 
+    const handleIndicatorDoubleClick = useCallback((key: IndicatorKey, name: string) => {
+        setHistoryChartIndicator({ key, name });
+    }, []);
+
+    const historyChartData = useMemo(() => {
+        if (!historySessions || historySessions.length === 0 || !historyChartIndicator) return [];
+        
+        return historySessions
+            .map(session => ({
+                date: session.timestamp.toDate(),
+                value: session.globalIndicators[historyChartIndicator.key]
+            }))
+            .filter(item => typeof item.value === 'number')
+            .sort((a, b) => a.date.valueOf() - b.date.valueOf())
+            .map(item => ({
+                date: format(item.date, 'dd/MM HH:mm'),
+                value: item.value
+            }));
+    }, [historySessions, historyChartIndicator]);
+
+    const CustomHistoryTooltip = ({ active, payload, label }: any) => {
+        if (active && payload && payload.length) {
+            return (
+                <div className="bg-background/80 backdrop-blur-sm border border-border rounded-lg shadow-lg p-3">
+                    <p className="font-bold text-foreground">{label}</p>
+                    {payload.map((pld: any) => (
+                        <div key={pld.dataKey} style={{ color: pld.color }}>
+                            {`${pld.name}: ${pld.value.toFixed(2)}`}
+                        </div>
+                    ))}
+                </div>
+            );
+        }
+        return null;
+    };
+
     if (loading) {
         return (
             <div className="space-y-6">
@@ -373,7 +460,7 @@ export function MainDashboard() {
                 <KeyIndicatorCard tsr={keyIndicators?.tsr} consumption={calorificConsumption} />
                 
                  {mixtureIndicators ? (
-                    <IndicatorCard data={mixtureIndicators} thresholds={thresholds.melange} />
+                    <IndicatorCard data={mixtureIndicators} thresholds={thresholds.melange} onIndicatorDoubleClick={handleIndicatorDoubleClick} />
                 ) : (
                     <Card>
                         <CardHeader>
@@ -391,6 +478,33 @@ export function MainDashboard() {
 
                 <ImpactCard title="Impact sur le Clinker" data={impactIndicators} thresholds={thresholds.impact} lastUpdate={latestImpact?.createdAt.toDate()} />
             </div>
+
+             <Dialog open={!!historyChartIndicator} onOpenChange={(open) => !open && setHistoryChartIndicator(null)}>
+                <DialogContent className="max-w-4xl">
+                    <DialogHeader>
+                        <DialogTitle>Historique de l'Indicateur : {historyChartIndicator?.name}</DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <ResponsiveContainer width="100%" height={400}>
+                                {isHistoryLoading ? (
+                                    <Skeleton className="h-full w-full" />
+                                ) : historyChartData.length > 0 ? (
+                                    <LineChart data={historyChartData}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                                        <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} domain={['dataMin', 'auto']} />
+                                        <Tooltip content={<CustomHistoryTooltip />} />
+                                        <Line type="monotone" dataKey="value" name={historyChartIndicator?.name} stroke="hsl(var(--primary))" dot={false} strokeWidth={2} />
+                                    </LineChart>
+                                ) : (
+                                    <div className="flex items-center justify-center h-full text-muted-foreground">
+                                        Aucune donnée historique pour cet indicateur dans la période sélectionnée.
+                                    </div>
+                                )}
+                            </ResponsiveContainer>
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             <Card className="bg-[#0B101A]/80 border border-gray-800 p-6 rounded-xl shadow-lg">
                 <CardHeader>
