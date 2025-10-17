@@ -170,7 +170,7 @@ export function MainDashboard() {
         const grouped = docs.reduce((acc: any, d: any) => {
             const fournisseur = d.fournisseur || "Inconnu";
             const combustible = d.type_combustible || "N/A";
-            const key = `${combustible} — ${fournisseur}`;
+            const key = `${combustible}|${fournisseur}`;
 
             if (!acc[key]) {
                 acc[key] = { name: key, total: 0, count: 0 };
@@ -345,7 +345,7 @@ export function MainDashboard() {
     const CustomTooltip = ({ active, payload, label }: any) => {
         if (active && payload && payload.length) {
             const data = payload[0].payload;
-            const [combustible, fournisseur] = data.name.split(" — ");
+            const [combustible, fournisseur] = data.name.split("|");
             const key = `${combustible}|${fournisseur}`;
             const seuil = SPEC_MAP.get(key);
             let seuilText = "";
@@ -357,7 +357,7 @@ export function MainDashboard() {
 
             return (
                 <div className="bg-[#1A2233] border border-gray-700 rounded-lg shadow-lg p-3 text-white text-sm">
-                    <p className="font-bold mb-2">{label}</p>
+                    <p className="font-bold mb-2">{combustible} - {fournisseur}</p>
                     <p><span className="font-semibold">Valeur :</span> {data.value.toFixed(2)}</p>
                     {seuilText && <p className="text-gray-400">{seuilText}</p>}
                 </div>
@@ -650,6 +650,7 @@ export function MainDashboard() {
                                     textAnchor="end"
                                     height={70}
                                     tick={{ fill: "#ccc" }}
+                                    tickFormatter={(value: string) => value.replace('|', ' - ')}
                                 />
                                 <Tooltip content={<CustomTooltip />} />
                                 <Bar
@@ -664,7 +665,7 @@ export function MainDashboard() {
                                         fontSize={11}
                                     />
                                     {chartData.map((entry, index) => {
-                                        const [combustible, fournisseur] = entry.name.split(" — ");
+                                        const [combustible, fournisseur] = entry.name.split("|");
                                         return (
                                             <Cell
                                                 key={`cell-${index}`}
