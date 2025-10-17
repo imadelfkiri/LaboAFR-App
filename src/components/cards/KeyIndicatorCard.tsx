@@ -6,7 +6,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Activity, Zap } from 'lucide-react';
 import CountUp from 'react-countup';
 
-export function KeyIndicatorCard({ tsr, consumption }: { tsr?: number, consumption?: number }) {
+export function KeyIndicatorCard({ 
+    tsr, 
+    consumption,
+    onIndicatorDoubleClick,
+}: { 
+    tsr?: number, 
+    consumption?: number,
+    onIndicatorDoubleClick?: (key: 'tsr' | 'consumption', name: string) => void,
+}) {
   return (
     <Card className="flex flex-col">
       <CardHeader>
@@ -16,14 +24,20 @@ export function KeyIndicatorCard({ tsr, consumption }: { tsr?: number, consumpti
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col flex-grow justify-around space-y-4">
-        <div className="rounded-lg bg-primary/10 border border-primary/20 p-4 text-center flex-1 flex flex-col justify-center">
+        <div 
+            className="rounded-lg bg-primary/10 border border-primary/20 p-4 text-center flex-1 flex flex-col justify-center cursor-pointer hover:bg-primary/20 transition-colors"
+            onDoubleClick={() => onIndicatorDoubleClick && onIndicatorDoubleClick('tsr', 'Taux de Substitution')}
+        >
             <p className="text-sm font-medium text-primary">Taux de Substitution Énergétique</p>
             <p className="text-5xl font-bold tracking-tighter text-white">
                 <CountUp end={tsr || 0} decimals={0} duration={1.5} />
                 <span className="text-4xl text-primary/80">%</span>
             </p>
         </div>
-         <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-4 text-center flex-1 flex flex-col justify-center">
+         <div 
+            className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-4 text-center flex-1 flex flex-col justify-center cursor-pointer hover:bg-amber-500/20 transition-colors"
+            onDoubleClick={() => onIndicatorDoubleClick && onIndicatorDoubleClick('consumption', 'Consommation Calorifique')}
+        >
             <p className="text-sm font-medium text-amber-400">Consommation Calorifique</p>
             <p className="text-5xl font-bold tracking-tighter text-white">
                 <CountUp end={consumption || 0} decimals={0} duration={1.5} />

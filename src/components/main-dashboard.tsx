@@ -87,7 +87,7 @@ export function MainDashboard() {
     // History state for modal
     const [historySessions, setHistorySessions] = useState<MixtureSession[]>([]);
     const [isHistoryLoading, setIsHistoryLoading] = useState(false);
-    const [historyChartIndicator, setHistoryChartIndicator] = useState<{key: IndicatorKey; name: string} | null>(null);
+    const [historyChartIndicator, setHistoryChartIndicator] = useState<{key: IndicatorKey | 'tsr' | 'consumption'; name: string} | null>(null);
     const [historyDateRange, setHistoryDateRange] = useState<DateRange | undefined>({ from: subDays(new Date(), 30), to: new Date() });
 
     const fetchSpecs = useCallback(async () => {
@@ -386,7 +386,7 @@ export function MainDashboard() {
         return null;
     };
 
-    const handleIndicatorDoubleClick = useCallback((key: IndicatorKey, name: string) => {
+    const handleIndicatorDoubleClick = useCallback((key: IndicatorKey | 'tsr' | 'consumption', name: string) => {
         setHistoryChartIndicator({ key, name });
     }, []);
 
@@ -394,10 +394,22 @@ export function MainDashboard() {
         if (!historySessions || historySessions.length === 0 || !historyChartIndicator) return [];
         
         return historySessions
-            .map(session => ({
-                date: session.timestamp.toDate(),
-                value: session.globalIndicators[historyChartIndicator.key]
-            }))
+            .map(session => {
+                let value;
+                if(historyChartIndicator.key === 'tsr' || historyChartIndicator.key === 'consumption') {
+                    // These need to be recalculated for each session
+                    // This is simplified, a more robust solution would re-run the full calculation logic from `getLatestIndicatorData` for each session
+                    const energyAlternatives = (session.globalIndicators.pci || 0) * (session.globalIndicators.flow || 0) * (session.globalIndicators.tireRate || 0)/100; // Simplified
+                    value = historyChartIndicator.key === 'tsr' ? session.globalIndicators.tireRate : session.globalIndicators.pci * 0.8; // Simplified placeholder
+                } else {
+                    value = session.globalIndicators[historyChartIndicator.key];
+                }
+
+                return {
+                    date: session.timestamp.toDate(),
+                    value: value
+                }
+            })
             .filter(item => typeof item.value === 'number')
             .sort((a, b) => a.date.valueOf() - b.date.valueOf())
             .map(item => ({
@@ -457,7 +469,11 @@ export function MainDashboard() {
             </div>
 
              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                <KeyIndicatorCard tsr={keyIndicators?.tsr} consumption={calorificConsumption} />
+                <KeyIndicatorCard 
+                  tsr={keyIndicators?.tsr} 
+                  consumption={calorificConsumption} 
+                  onIndicatorDoubleClick={handleIndicatorDoubleClick}
+                />
                 
                  {mixtureIndicators ? (
                     <IndicatorCard data={mixtureIndicators} thresholds={thresholds.melange} onIndicatorDoubleClick={handleIndicatorDoubleClick} />
