@@ -37,6 +37,7 @@ const allLinks = [
   { href: '/statistiques', label: 'Statistiques', icon: BarChart3 },
   { href: '/specifications', label: 'Spécifications', icon: ClipboardCheck },
   { href: '/analyses-cendres', label: 'Analyses Cendres', icon: ClipboardList },
+  { href: '/matieres-premieres', label: 'Matières Premières', icon: Factory },
   { href: '/donnees-combustibles', label: 'Données Combustibles', icon: Cog },
   { href: '/calcul-melange', label: 'Calcul de Mélange', icon: Beaker },
   { href: '/simulation-melange', label: 'Simulation de Mélange', icon: FlaskConical },
