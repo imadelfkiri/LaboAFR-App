@@ -66,7 +66,6 @@ export function MainDashboard() {
     const [loading, setLoading] = useState(true);
     const [mixtureSession, setMixtureSession] = useState<MixtureSession | null>(null);
     const [latestImpact, setLatestImpact] = useState<ImpactAnalysis | null>(null);
-    const [keyIndicators, setKeyIndicators] = useState<{ tsr: number; } | null>(null);
     
     const [chartData, setChartData] = useState<any[]>([]);
     const [indicator, setIndicator] = useState("pci");
@@ -176,21 +175,19 @@ export function MainDashboard() {
         const loadInitialData = async () => {
             setLoading(true);
             try {
-                const [sessionData, impactAnalyses, indicatorData, thresholdsData, petCokeAvg] = await Promise.all([
+                const [sessionData, impactAnalyses, thresholdsData, petCokeAvg] = await Promise.all([
                     getLatestMixtureSession(),
                     getImpactAnalyses(),
-                    getLatestIndicatorData(),
                     getThresholds(),
-                    getAverageAnalysisForFuels(['Pet-Coke', 'Pet Coke'])
+                    getAverageAnalysisForFuels(['Pet-Coke', 'Pet Coke', 'Pet-Coke Preca', 'Pet-Coke Tuyere'])
                 ]);
                 
                 setMixtureSession(sessionData);
                 setLatestImpact(impactAnalyses.length > 0 ? impactAnalyses[0] : null);
-                setKeyIndicators(indicatorData);
                 setThresholds(thresholdsData);
 
-                const petCokeData = petCokeAvg['Pet-Coke'] || petCokeAvg['Pet Coke'];
-                 if (petCokeData && petCokeData.pci_brut) {
+                const petCokeData = petCokeAvg['Pet-Coke'] || petCokeAvg['Pet Coke'] || petCokeAvg['Pet-Coke Preca'] || petCokeAvg['Pet-Coke Tuyere'];
+                if (petCokeData && petCokeData.pci_brut) {
                     setPetCokeAnalysis({ pci_brut: petCokeData.pci_brut });
                 }
                 await fetchSpecs();
@@ -209,11 +206,14 @@ export function MainDashboard() {
         fetchChartData();
     }, [fetchChartData]);
 
-    const calorificConsumption = useMemo(() => {
-        if (!mixtureSession || !debitClinker || debitClinker === 0 || !mixtureSession.availableFuels) return 0;
-        
+    const { calorificConsumption, substitutionRate } = useMemo(() => {
+        if (!mixtureSession || !mixtureSession.availableFuels) return { calorificConsumption: 0, substitutionRate: 0 };
+
         const getPci = (fuelName: string) => mixtureSession.availableFuels[fuelName]?.pci_brut || 0;
-        const getPetCokePci = () => petCokeAnalysis?.pci_brut || 0;
+        
+        const getPetCokePci = () => {
+            return petCokeAnalysis?.pci_brut || 0;
+        }
 
         let afEnergyWeightedSum = 0;
 
@@ -256,10 +256,15 @@ export function MainDashboard() {
         const energyPetCoke = petCokeFlow * getPetCokePci() / 1000;
 
         const energyTotalGcal = energyAFs + energyGrignons + energyPetCoke;
+        const energyAlternatives = energyAFs + energyGrignons;
 
-        return debitClinker > 0 
+        const tsr = energyTotalGcal > 0 ? (energyAlternatives / energyTotalGcal) * 100 : 0;
+        
+        const consumption = debitClinker > 0 
             ? (energyTotalGcal * 1000000) / (debitClinker * 1000)
             : 0;
+        
+        return { calorificConsumption: consumption, substitutionRate: tsr };
     }, [mixtureSession, debitClinker, petCokeAnalysis]);
 
     const mixtureIndicators = useMemo(() => {
@@ -494,7 +499,7 @@ export function MainDashboard() {
 
              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 <KeyIndicatorCard 
-                  tsr={keyIndicators?.tsr} 
+                  tsr={substitutionRate} 
                   consumption={calorificConsumption} 
                   onIndicatorDoubleClick={(key, name) => handleIndicatorDoubleClick(key, name)}
                 />
