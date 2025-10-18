@@ -93,8 +93,15 @@ export default function IndicateursPage() {
         const getPci = (fuelName: string) => session.availableFuels[fuelName]?.pci_brut || 0;
         
         const getPetCokePci = () => {
-             const pci = getPci('Pet Coke') || getPci('Pet-Coke') || getPci('Pet-Coke Preca') || getPci('Pet-Coke Tuyere');
-             return pci;
+            const petCokeKeys = Object.keys(session.availableFuels).filter(k => /pet.?coke/i.test(k.replace(/\s|_/g, '')));
+            if (petCokeKeys.length === 0) return 0;
+            // Prioritize specific keys if they exist
+            const preferredKeys = ['Pet-Coke Preca', 'Pet-Coke Tuyere', 'Pet-Coke', 'Pet Coke'];
+            for(const key of preferredKeys) {
+                if (session.availableFuels[key]?.pci_brut) return session.availableFuels[key].pci_brut;
+            }
+            // Fallback to the first found key
+            return session.availableFuels[petCokeKeys[0]].pci_brut;
         }
 
         // --- Énergie des AFs (Hall + ATS) ---
@@ -118,9 +125,9 @@ export default function IndicateursPage() {
 
              afTotalFlow += installation.flowRate;
              
-             // Now, calculate the weighted energy contribution
+             // Now, calculate the weighted energy contribution, excluding grignons and petcoke from "Alternative Fuels"
              for (const [fuel, data] of Object.entries(installation.fuels as Record<string, {buckets: number}>)) {
-                if (fuel.toLowerCase().includes('grignons') || fuel.toLowerCase().includes('pet coke')) continue;
+                if (fuel.toLowerCase().includes('grignons') || fuel.toLowerCase().includes('pet coke') || fuel.toLowerCase().includes('pet-coke')) continue;
                 
                 const pci = getPci(fuel);
                 const weight = fuelWeights[fuel] || 0;
@@ -285,5 +292,3 @@ export default function IndicateursPage() {
     </div>
   );
 }
-
-    

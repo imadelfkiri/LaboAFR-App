@@ -206,7 +206,15 @@ export function MainDashboard() {
         if (!mixtureSession || !debitClinker || debitClinker === 0 || !mixtureSession.availableFuels) return 0;
         
         const getPci = (fuelName: string) => mixtureSession.availableFuels[fuelName]?.pci_brut || 0;
-        const getPetCokePci = () => getPci('Pet Coke') || getPci('Pet-Coke') || getPci('Pet-Coke Preca') || getPci('Pet-Coke Tuyere');
+        const getPetCokePci = () => {
+            const petCokeKeys = Object.keys(mixtureSession.availableFuels).filter(k => /pet.?coke/i.test(k.replace(/\s|_/g, '')));
+            if (petCokeKeys.length === 0) return 0;
+            const preferredKeys = ['Pet-Coke Preca', 'Pet-Coke Tuyere', 'Pet-Coke', 'Pet Coke'];
+            for(const key of preferredKeys) {
+                if (mixtureSession.availableFuels[key]?.pci_brut) return mixtureSession.availableFuels[key].pci_brut;
+            }
+            return mixtureSession.availableFuels[petCokeKeys[0]].pci_brut;
+        }
 
         let afEnergyWeightedSum = 0;
 
@@ -225,7 +233,7 @@ export function MainDashboard() {
              if(installationTotalWeight === 0) return;
 
              for (const [fuel, data] of Object.entries(installation.fuels as Record<string, {buckets: number}>)) {
-                if (fuel.toLowerCase().includes('grignons') || fuel.toLowerCase().includes('pet coke')) continue;
+                if (fuel.toLowerCase().includes('grignons') || fuel.toLowerCase().includes('pet coke') || fuel.toLowerCase().includes('pet-coke')) continue;
                 
                 const pci = getPci(fuel);
                 const weight = fuelWeights[fuel] || 0;
@@ -662,5 +670,3 @@ export function MainDashboard() {
         </motion.div>
     );
 }
-
-
