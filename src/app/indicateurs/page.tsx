@@ -3,7 +3,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { getLatestMixtureSession, type MixtureSession } from '@/lib/data';
+import { getLatestMixtureSession, type MixtureSession, getAverageAshAnalysisForFuels } from '@/lib/data';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard } from '@/components/cards/StatCard';
@@ -54,6 +54,7 @@ function usePersistentValue<T>(key: string, defaultValue: T): T {
 export default function IndicateursPage() {
     const [loading, setLoading] = useState(true);
     const [session, setSession] = useState<MixtureSession | null>(null);
+    const [petCokeAnalysis, setPetCokeAnalysis] = useState<{pci_brut: number} | null>(null);
     const { toast } = useToast();
 
     // Read clinker production data from localStorage
@@ -64,7 +65,11 @@ export default function IndicateursPage() {
         const fetchSession = async () => {
             setLoading(true);
             try {
-                const sessionData = await getLatestMixtureSession();
+                const [sessionData, petCokeAvg] = await Promise.all([
+                    getLatestMixtureSession(),
+                    getAverageAshAnalysisForFuels(['Pet-Coke'])
+                ]);
+
                 if (!sessionData) {
                     toast({
                         variant: "destructive",
@@ -73,6 +78,10 @@ export default function IndicateursPage() {
                     });
                 }
                 setSession(sessionData);
+                if (petCokeAvg && petCokeAvg.pci_brut) {
+                    setPetCokeAnalysis({ pci_brut: petCokeAvg.pci_brut });
+                }
+
             } catch (error) {
                 console.error("Error fetching latest mixture session:", error);
                 toast({
@@ -94,14 +103,16 @@ export default function IndicateursPage() {
         
         const getPetCokePci = () => {
             const petCokeKeys = Object.keys(session.availableFuels).filter(k => /pet.?coke/i.test(k.replace(/\s|_/g, '')));
-            if (petCokeKeys.length === 0) return 0;
-            // Prioritize specific keys if they exist
-            const preferredKeys = ['Pet-Coke Preca', 'Pet-Coke Tuyere', 'Pet-Coke', 'Pet Coke'];
-            for(const key of preferredKeys) {
-                if (session.availableFuels[key]?.pci_brut) return session.availableFuels[key].pci_brut;
+            if (petCokeKeys.length > 0) {
+                 const preferredKeys = ['Pet-Coke Preca', 'Pet-Coke Tuyere', 'Pet-Coke', 'Pet Coke'];
+                for(const key of preferredKeys) {
+                    if (session.availableFuels[key]?.pci_brut) return session.availableFuels[key].pci_brut;
+                }
+                // Fallback to the first found key
+                 if(session.availableFuels[petCokeKeys[0]]?.pci_brut) return session.availableFuels[petCokeKeys[0]].pci_brut;
             }
-            // Fallback to the first found key
-            return session.availableFuels[petCokeKeys[0]].pci_brut;
+            // If not in session, use the fetched standalone analysis
+            return petCokeAnalysis?.pci_brut || 0;
         }
 
         // --- Énergie des AFs (Hall + ATS) ---
@@ -127,7 +138,7 @@ export default function IndicateursPage() {
              
              // Now, calculate the weighted energy contribution, excluding grignons and petcoke from "Alternative Fuels"
              for (const [fuel, data] of Object.entries(installation.fuels as Record<string, {buckets: number}>)) {
-                if (fuel.toLowerCase().includes('grignons') || fuel.toLowerCase().includes('pet coke') || fuel.toLowerCase().includes('pet-coke')) continue;
+                if (fuel.toLowerCase().includes('grignons') || /pet.?coke/i.test(fuel.replace(/\s|_/g, ''))) continue;
                 
                 const pci = getPci(fuel);
                 const weight = fuelWeights[fuel] || 0;
@@ -184,7 +195,7 @@ export default function IndicateursPage() {
             : 0;
 
         return { substitutionData: subData, calorificConsumption: consumption };
-    }, [session, debitClinker]);
+    }, [session, debitClinker, petCokeAnalysis]);
 
     if (loading) {
         return (
@@ -292,3 +303,5 @@ export default function IndicateursPage() {
     </div>
   );
 }
+
+    

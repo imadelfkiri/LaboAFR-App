@@ -25,7 +25,7 @@ import { motion } from 'framer-motion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label as UILabel } from "@/components/ui/label";
-import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getSpecifications, type Specification, getLatestIndicatorData, getThresholds, ImpactThresholds, MixtureThresholds, getResultsForPeriod, getMixtureSessions, getImpactAnalysesForPeriod, SPEC_MAP } from '@/lib/data';
+import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getSpecifications, type Specification, getLatestIndicatorData, getThresholds, ImpactThresholds, MixtureThresholds, getResultsForPeriod, getMixtureSessions, getImpactAnalysesForPeriod, SPEC_MAP, getAverageAshAnalysisForFuels } from '@/lib/data';
 import {
   Dialog,
   DialogContent,
@@ -89,6 +89,7 @@ export function MainDashboard() {
     const [isHistoryLoading, setIsHistoryLoading] = useState(false);
     const [historyChartIndicator, setHistoryChartIndicator] = useState<{key: IndicatorKey | 'tsr' | 'consumption' | string; name: string, type: 'mixture' | 'key' | 'impact'} | null>(null);
     const [historyDateRange, setHistoryDateRange] = useState<DateRange | undefined>({ from: subDays(new Date(), 30), to: new Date() });
+    const [petCokeAnalysis, setPetCokeAnalysis] = useState<{pci_brut: number} | null>(null);
 
     const fetchSpecs = useCallback(async () => {
         await getSpecifications(); // This populates SPEC_MAP
@@ -175,17 +176,21 @@ export function MainDashboard() {
         const loadInitialData = async () => {
             setLoading(true);
             try {
-                const [sessionData, impactAnalyses, indicatorData, thresholdsData] = await Promise.all([
+                const [sessionData, impactAnalyses, indicatorData, thresholdsData, petCokeAvg] = await Promise.all([
                     getLatestMixtureSession(),
                     getImpactAnalyses(),
                     getLatestIndicatorData(),
                     getThresholds(),
+                    getAverageAshAnalysisForFuels(['Pet-Coke'])
                 ]);
                 
                 setMixtureSession(sessionData);
                 setLatestImpact(impactAnalyses.length > 0 ? impactAnalyses[0] : null);
                 setKeyIndicators(indicatorData);
                 setThresholds(thresholdsData);
+                 if (petCokeAvg && petCokeAvg.pci_brut) {
+                    setPetCokeAnalysis({ pci_brut: petCokeAvg.pci_brut });
+                }
                 await fetchSpecs();
 
             } catch (error) {
@@ -207,13 +212,15 @@ export function MainDashboard() {
         
         const getPci = (fuelName: string) => mixtureSession.availableFuels[fuelName]?.pci_brut || 0;
         const getPetCokePci = () => {
-            const petCokeKeys = Object.keys(mixtureSession.availableFuels).filter(k => /pet.?coke/i.test(k.replace(/\s|_/g, '')));
-            if (petCokeKeys.length === 0) return 0;
-            const preferredKeys = ['Pet-Coke Preca', 'Pet-Coke Tuyere', 'Pet-Coke', 'Pet Coke'];
-            for(const key of preferredKeys) {
-                if (mixtureSession.availableFuels[key]?.pci_brut) return mixtureSession.availableFuels[key].pci_brut;
+             const petCokeKeys = Object.keys(mixtureSession.availableFuels).filter(k => /pet.?coke/i.test(k.replace(/\s|_/g, '')));
+            if (petCokeKeys.length > 0) {
+                 const preferredKeys = ['Pet-Coke Preca', 'Pet-Coke Tuyere', 'Pet-Coke', 'Pet Coke'];
+                for(const key of preferredKeys) {
+                    if (mixtureSession.availableFuels[key]?.pci_brut) return mixtureSession.availableFuels[key].pci_brut;
+                }
+                if(mixtureSession.availableFuels[petCokeKeys[0]]?.pci_brut) return mixtureSession.availableFuels[petCokeKeys[0]].pci_brut;
             }
-            return mixtureSession.availableFuels[petCokeKeys[0]].pci_brut;
+            return petCokeAnalysis?.pci_brut || 0;
         }
 
         let afEnergyWeightedSum = 0;
@@ -233,7 +240,7 @@ export function MainDashboard() {
              if(installationTotalWeight === 0) return;
 
              for (const [fuel, data] of Object.entries(installation.fuels as Record<string, {buckets: number}>)) {
-                if (fuel.toLowerCase().includes('grignons') || fuel.toLowerCase().includes('pet coke') || fuel.toLowerCase().includes('pet-coke')) continue;
+                if (fuel.toLowerCase().includes('grignons') || /pet.?coke/i.test(fuel.replace(/\s|_/g, ''))) continue;
                 
                 const pci = getPci(fuel);
                 const weight = fuelWeights[fuel] || 0;
@@ -261,7 +268,7 @@ export function MainDashboard() {
         return debitClinker > 0 
             ? (energyTotalGcal * 1000000) / (debitClinker * 1000)
             : 0;
-    }, [mixtureSession, debitClinker]);
+    }, [mixtureSession, debitClinker, petCokeAnalysis]);
 
     const mixtureIndicators = useMemo(() => {
         if (!mixtureSession?.globalIndicators) return null;
@@ -670,3 +677,5 @@ export function MainDashboard() {
         </motion.div>
     );
 }
+
+    
