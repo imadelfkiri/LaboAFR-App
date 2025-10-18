@@ -475,15 +475,19 @@ export async function deleteSpecification(id: string) {
 
 export async function getAverageAnalysisForFuels(
   fuelNames: string[],
-  dateRange?: DateRange
+  globalDateRange?: DateRange,
+  fuelSpecificDateRanges?: Record<string, DateRange | undefined>
 ): Promise<Record<string, AverageAnalysis>> {
   const analyses: Record<string, AverageAnalysis> = {};
 
   for (const name of fuelNames) {
+    const specificRange = fuelSpecificDateRanges?.[name];
+    const dateRangeToUse = specificRange || globalDateRange;
+
     const constraints = [where('type_combustible', '==', name)];
-    if (dateRange?.from && dateRange.to) {
-      constraints.push(where('date_arrivage', '>=', Timestamp.fromDate(startOfDay(dateRange.from))));
-      constraints.push(where('date_arrivage', '<=', Timestamp.fromDate(endOfDay(dateRange.to))));
+    if (dateRangeToUse?.from && dateRangeToUse.to) {
+      constraints.push(where('date_arrivage', '>=', Timestamp.fromDate(startOfDay(dateRangeToUse.from))));
+      constraints.push(where('date_arrivage', '<=', Timestamp.fromDate(endOfDay(dateRangeToUse.to))));
     }
 
     const q = query(collection(db, 'resultats'), ...constraints);
@@ -578,7 +582,7 @@ export async function saveFuelCost(fuelName: string, cost: number): Promise<void
 export async function getStocks(): Promise<Stock[]> {
     const stocksCollection = collection(db, 'stocks');
     const q = query(stocksCollection, orderBy("nom_combustible"));
-    const snapshot = await getDocs(stocksCollection);
+    const snapshot = await getDocs(q);
     if (snapshot.empty) {
         const fuelTypes = await getUniqueFuelTypesFromResultats();
         if (fuelTypes.length === 0) return []; // No fuels to create stocks for

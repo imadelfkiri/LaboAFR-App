@@ -460,9 +460,9 @@ export function MixtureCalculator() {
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [historyChartIndicator, setHistoryChartIndicator] = useState<{key: IndicatorKey; name: string} | null>(null);
 
-  // Global date range for analysis
+  // Global and individual date ranges
   const [globalDateRange, setGlobalDateRange] = useState<DateRange | undefined>(undefined);
-
+  const [fuelDateRanges, setFuelDateRanges] = useState<Record<string, DateRange | undefined>>({});
 
   // Cost state
   const [fuelCosts, setFuelCosts] = useState<Record<string, FuelCost>>({});
@@ -506,7 +506,7 @@ export function MixtureCalculator() {
             ...Object.keys(directInputs)
         ])];
         
-        const analysesResults = await getAverageAnalysisForFuels(fuelNames, globalDateRange);
+        const analysesResults = await getAverageAnalysisForFuels(fuelNames, globalDateRange, fuelDateRanges);
 
         const extendedAnalyses = {...analysesResults};
         extendedAnalyses['Grignons GO1'] = analysesResults['Grignons'];
@@ -532,7 +532,7 @@ export function MixtureCalculator() {
     } finally {
         setLoading(false);
     }
-  }, [toast, hallAF.fuels, ats.fuels, directInputs, globalDateRange]);
+  }, [toast, hallAF.fuels, ats.fuels, directInputs, globalDateRange, fuelDateRanges]);
   
 
   // Initial data load effect
@@ -749,6 +749,22 @@ export function MixtureCalculator() {
             return (
             <div key={fuelName} className="flex items-center gap-2">
                 <Label htmlFor={`${installationName}-${fuelName}`} className="flex-1 text-sm">{fuelName}</Label>
+                <Popover>
+                    <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                        <CalendarIcon className="h-4 w-4" />
+                    </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                            mode="range"
+                            selected={fuelDateRanges[fuelName]}
+                            onSelect={(range) => setFuelDateRanges(prev => ({ ...prev, [fuelName]: range }))}
+                            locale={fr}
+                            numberOfMonths={1}
+                        />
+                    </PopoverContent>
+                </Popover>
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
@@ -1249,3 +1265,4 @@ export function MixtureCalculator() {
     </div>
   );
 }
+
