@@ -40,7 +40,6 @@ import { motion } from 'framer-motion';
 
 interface FuelState {
   buckets: number;
-  dateRange?: DateRange;
 }
 
 interface InstallationState {
@@ -461,6 +460,9 @@ export function MixtureCalculator() {
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [historyChartIndicator, setHistoryChartIndicator] = useState<{key: IndicatorKey; name: string} | null>(null);
 
+  // Global date range for analysis
+  const [globalDateRange, setGlobalDateRange] = useState<DateRange | undefined>(undefined);
+
 
   // Cost state
   const [fuelCosts, setFuelCosts] = useState<Record<string, FuelCost>>({});
@@ -488,7 +490,7 @@ export function MixtureCalculator() {
     }
   }
 
- const fetchData = useCallback(async (stateToUpdate: { hallAF: InstallationState, ats: InstallationState }) => {
+ const fetchData = useCallback(async () => {
     setLoading(true);
     try {
         const [allFuelData, costs, allStocks, thresholdsData] = await Promise.all([
@@ -498,13 +500,13 @@ export function MixtureCalculator() {
             getThresholds(),
         ]);
         
-        const fuelRequests = [
-            ...Object.entries(stateToUpdate.hallAF.fuels),
-            ...Object.entries(stateToUpdate.ats.fuels),
-            ...Object.keys(directInputs).map(name => [name, { buckets: 0 } as FuelState]) // Add direct inputs
-        ].map(([name, fuelState]) => ({ name, dateRange: fuelState.dateRange }));
+        const fuelNames = [...new Set([
+            ...Object.keys(hallAF.fuels),
+            ...Object.keys(ats.fuels),
+            ...Object.keys(directInputs)
+        ])];
         
-        const analysesResults = await getAverageAnalysisForFuels(fuelRequests);
+        const analysesResults = await getAverageAnalysisForFuels(fuelNames, globalDateRange);
 
         const extendedAnalyses = {...analysesResults};
         extendedAnalyses['Grignons GO1'] = analysesResults['Grignons'];
@@ -530,7 +532,7 @@ export function MixtureCalculator() {
     } finally {
         setLoading(false);
     }
-  }, [toast, directInputs]);
+  }, [toast, hallAF.fuels, ats.fuels, directInputs, globalDateRange]);
   
 
   // Initial data load effect
@@ -571,6 +573,10 @@ export function MixtureCalculator() {
                 if (latestSession.directInputs) {
                   initialDirectInputs = { ...initialDirectInputs, ...latestSession.directInputs };
                 }
+                setGlobalDateRange(latestSession.analysisDateRange ? {
+                    from: latestSession.analysisDateRange.from.toDate(),
+                    to: latestSession.analysisDateRange.to.toDate(),
+                }: undefined);
                 setTimeout(() => {
                     toast({ title: "Dernière session chargée", description: "La dernière configuration a été chargée." });
                 }, 100);
@@ -579,7 +585,6 @@ export function MixtureCalculator() {
             setHallAF(initialHallState);
             setAts(initialAtsState);
             setDirectInputs(initialDirectInputs);
-            fetchData({ hallAF: initialHallState, ats: initialAtsState });
             
         } catch (error) {
              console.error("Error on initial load:", error);
@@ -589,12 +594,13 @@ export function MixtureCalculator() {
     };
 
     loadInitialData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run only once
 
 
   useEffect(() => {
-    fetchData({ hallAF, ats });
-  }, [hallAF, ats, fetchData]);
+    fetchData();
+  }, [fetchData]);
 
 
   const fetchHistoryData = useCallback(async () => {
@@ -642,14 +648,6 @@ export function MixtureCalculator() {
       return { ...prev, fuels: newFuels };
     });
   };
-
-  const handleDateRangeChange = (setter: React.Dispatch<React.SetStateAction<InstallationState>>, fuelName: string, dateRange?: DateRange) => {
-      setter(prev => {
-          const newFuels = { ...prev.fuels };
-          newFuels[fuelName] = { ...newFuels[fuelName], dateRange: dateRange };
-          return { ...prev, fuels: newFuels };
-      })
-  }
   
   const handleFlowRateChange = (setter: React.Dispatch<React.SetStateAction<any>>, value: string) => {
     const flowRate = parseFloat(value);
@@ -710,6 +708,10 @@ export function MixtureCalculator() {
             directInputs,
             globalIndicators,
             availableFuels,
+            analysisDateRange: globalDateRange?.from && globalDateRange.to ? {
+                from: Timestamp.fromDate(globalDateRange.from),
+                to: Timestamp.fromDate(globalDateRange.to),
+            } : undefined,
         };
         await saveMixtureSession(sessionData);
         toast({ title: "Succès", description: "La session de mélange a été enregistrée." });
@@ -747,31 +749,6 @@ export function MixtureCalculator() {
             return (
             <div key={fuelName} className="flex items-center gap-2">
                 <Label htmlFor={`${installationName}-${fuelName}`} className="flex-1 text-sm">{fuelName}</Label>
-                 <Popover>
-                    <PopoverTrigger asChild>
-                        <Button
-                            variant={"ghost"}
-                            size="icon"
-                            className={cn(
-                                "h-8 w-8",
-                                fuelState?.dateRange && "text-primary"
-                            )}
-                        >
-                            <CalendarIcon className="h-4 w-4" />
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="center">
-                        <Calendar
-                            initialFocus
-                            mode="range"
-                            defaultMonth={fuelState?.dateRange?.from}
-                            selected={fuelState?.dateRange}
-                            onSelect={(range) => handleDateRangeChange(setInstallationState, fuelName, range)}
-                            numberOfMonths={2}
-                            locale={fr}
-                        />
-                    </PopoverContent>
-                </Popover>
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
@@ -1049,6 +1026,43 @@ export function MixtureCalculator() {
                     />
                 )}
               </div>
+                 <Popover>
+                    <PopoverTrigger asChild>
+                    <Button
+                        id="date"
+                        variant={"outline"}
+                        className={cn(
+                            "w-[300px] justify-start text-left font-normal",
+                            !globalDateRange && "text-muted-foreground"
+                        )}
+                    >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {globalDateRange?.from ? (
+                        globalDateRange.to ? (
+                            <>
+                            {format(globalDateRange.from, "d MMM y", { locale: fr })} -{" "}
+                            {format(globalDateRange.to, "d MMM y", { locale: fr })}
+                            </>
+                        ) : (
+                            format(globalDateRange.from, "d MMM y", { locale: fr })
+                        )
+                        ) : (
+                        <span>Période d'analyse globale</span>
+                        )}
+                    </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                        initialFocus
+                        mode="range"
+                        defaultMonth={globalDateRange?.from}
+                        selected={globalDateRange}
+                        onSelect={setGlobalDateRange}
+                        numberOfMonths={2}
+                        locale={fr}
+                    />
+                    </PopoverContent>
+                </Popover>
             </div>
             <div className="flex items-center gap-2">
                 <Button disabled={isSaving || isReadOnly} onClick={handlePrepareSave}>

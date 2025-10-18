@@ -474,51 +474,39 @@ export async function deleteSpecification(id: string) {
 };
 
 export async function getAverageAnalysisForFuels(
-  fuelRequests: { name: string; dateRange?: DateRange }[]
+  fuelNames: string[],
+  dateRange?: DateRange
 ): Promise<Record<string, AverageAnalysis>> {
-  if (!fuelRequests || fuelRequests.length === 0) return {};
-
   const analyses: Record<string, AverageAnalysis> = {};
-  
-  const allFuelNames = [...new Set(fuelRequests.map(r => r.name))];
-  if (allFuelNames.length === 0) return {};
 
-  const resultsQuery = query(collection(db, 'resultats'), where('type_combustible', 'in', allFuelNames));
-  const resultsSnapshot = await getDocs(resultsQuery);
-  const allResults = resultsSnapshot.docs.map(doc => doc.data());
-
-  for (const request of fuelRequests) {
-    let resultsForFuel = allResults.filter(r => r.type_combustible === request.name);
-
-    if (request.dateRange?.from && request.dateRange.to) {
-        const from = Timestamp.fromDate(startOfDay(request.dateRange.from));
-        const to = Timestamp.fromDate(endOfDay(request.dateRange.to));
-        resultsForFuel = resultsForFuel.filter(r => {
-            const d = r.date_arrivage as Timestamp;
-            return d >= from && d <= to;
-        });
+  for (const name of fuelNames) {
+    const constraints = [where('type_combustible', '==', name)];
+    if (dateRange?.from && dateRange.to) {
+      constraints.push(where('date_arrivage', '>=', Timestamp.fromDate(startOfDay(dateRange.from))));
+      constraints.push(where('date_arrivage', '<=', Timestamp.fromDate(endOfDay(dateRange.to))));
     }
-    
+
+    const q = query(collection(db, 'resultats'), ...constraints);
+    const resultsSnapshot = await getDocs(q);
+    const resultsForFuel = resultsSnapshot.docs.map(doc => doc.data());
+
     if (resultsForFuel.length === 0) continue;
 
     const getAverage = (key: 'pci_brut' | 'h2o' | 'chlore' | 'cendres' | 'taux_metal') => {
-        const values = resultsForFuel
-            .map(r => r[key])
-            .filter((v): v is number => typeof v === 'number' && isFinite(v));
-        
-        if (values.length === 0) return 0;
-        
-        const sum = values.reduce((acc, curr) => acc + curr, 0);
-        return sum / values.length;
+      const values = resultsForFuel
+        .map(r => r[key])
+        .filter((v): v is number => typeof v === 'number' && isFinite(v));
+      if (values.length === 0) return 0;
+      return values.reduce((acc, curr) => acc + curr, 0) / values.length;
     };
 
-    analyses[request.name] = {
-        pci_brut: getAverage('pci_brut'),
-        h2o: getAverage('h2o'),
-        chlore: getAverage('chlore'),
-        cendres: getAverage('cendres'),
-        taux_metal: getAverage('taux_metal'),
-        count: resultsForFuel.length,
+    analyses[name] = {
+      pci_brut: getAverage('pci_brut'),
+      h2o: getAverage('h2o'),
+      chlore: getAverage('chlore'),
+      cendres: getAverage('cendres'),
+      taux_metal: getAverage('taux_metal'),
+      count: resultsForFuel.length,
     };
   }
 
@@ -590,7 +578,7 @@ export async function saveFuelCost(fuelName: string, cost: number): Promise<void
 export async function getStocks(): Promise<Stock[]> {
     const stocksCollection = collection(db, 'stocks');
     const q = query(stocksCollection, orderBy("nom_combustible"));
-    const snapshot = await getDocs(q);
+    const snapshot = await getDocs(stocksCollection);
     if (snapshot.empty) {
         const fuelTypes = await getUniqueFuelTypesFromResultats();
         if (fuelTypes.length === 0) return []; // No fuels to create stocks for
