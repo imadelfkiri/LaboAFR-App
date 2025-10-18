@@ -479,21 +479,25 @@ export async function getAverageAnalysisForFuels(
   if (!fuelRequests || fuelRequests.length === 0) return {};
 
   const analyses: Record<string, AverageAnalysis> = {};
+  
+  const allFuelNames = [...new Set(fuelRequests.map(r => r.name))];
+  if (allFuelNames.length === 0) return {};
+
+  const resultsQuery = query(collection(db, 'resultats'), where('type_combustible', 'in', allFuelNames));
+  const resultsSnapshot = await getDocs(resultsQuery);
+  const allResults = resultsSnapshot.docs.map(doc => doc.data());
 
   for (const request of fuelRequests) {
-    const qConstraints = [
-        where('type_combustible', '==', request.name),
-        where('type_analyse', '==', 'Arrivage')
-    ];
+    let resultsForFuel = allResults.filter(r => r.type_combustible === request.name);
 
     if (request.dateRange?.from && request.dateRange.to) {
-        qConstraints.push(where('date_arrivage', '>=', Timestamp.fromDate(request.dateRange.from)));
-        qConstraints.push(where('date_arrivage', '<=', Timestamp.fromDate(request.dateRange.to)));
+        const from = Timestamp.fromDate(startOfDay(request.dateRange.from));
+        const to = Timestamp.fromDate(endOfDay(request.dateRange.to));
+        resultsForFuel = resultsForFuel.filter(r => {
+            const d = r.date_arrivage as Timestamp;
+            return d >= from && d <= to;
+        });
     }
-
-    const resultsQuery = query(collection(db, 'resultats'), ...qConstraints);
-    const resultsSnapshot = await getDocs(resultsQuery);
-    const resultsForFuel = resultsSnapshot.docs.map(doc => doc.data());
     
     if (resultsForFuel.length === 0) continue;
 
@@ -520,6 +524,7 @@ export async function getAverageAnalysisForFuels(
 
   return analyses;
 }
+
 
 
 
