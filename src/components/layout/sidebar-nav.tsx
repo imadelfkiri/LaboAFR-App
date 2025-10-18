@@ -1,9 +1,9 @@
+
 "use client";
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -50,8 +50,13 @@ const allLinks = [
   { href: '/gestion-seuils', label: 'Gestion des Seuils', icon: SlidersHorizontal, adminOnly: true },
 ];
 
-export function SidebarNav({ userRole }: { userRole: string }) {
-  const [isOpen, setIsOpen] = useState(true);
+interface SidebarNavProps {
+  userRole: string;
+  isOpen: boolean;
+  setIsOpen: (isOpen: boolean) => void;
+}
+
+export function SidebarNav({ userRole, isOpen, setIsOpen }: SidebarNavProps) {
   const pathname = usePathname();
 
   const toggleSidebar = () => setIsOpen(!isOpen);
@@ -105,6 +110,7 @@ export function SidebarNav({ userRole }: { userRole: string }) {
               <Link
                 key={label}
                 href={href}
+                title={label}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group",
                   isActive
@@ -138,7 +144,17 @@ export function SidebarNav({ userRole }: { userRole: string }) {
 
       {/* FOOTER */}
       <div className="text-center text-xs text-gray-500 py-4 border-t border-gray-800">
-        © {new Date().getFullYear()} FuelTrack AFR
+        <AnimatePresence>
+            {isOpen && (
+                 <motion.span
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                 >
+                    © {new Date().getFullYear()} FuelTrack AFR
+                </motion.span>
+            )}
+        </AnimatePresence>
       </div>
     </motion.aside>
   );

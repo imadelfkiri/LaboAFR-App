@@ -16,6 +16,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, userProfile, loading: authLoading } = useAuth();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
   const isLoginPage = pathname === '/login';
   const isUnauthorizedPage = pathname === '/unauthorized';
@@ -60,11 +61,17 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen bg-[#080D16]">
         
-        {userProfile && <SidebarNav userRole={userProfile.role} />}
+        {userProfile && (
+            <SidebarNav 
+                userRole={userProfile.role}
+                isOpen={isSidebarOpen}
+                setIsOpen={setIsSidebarOpen}
+            />
+        )}
         
         <div className={cn(
             "flex-1 flex flex-col overflow-hidden transition-all duration-300",
-             "ml-[250px]" // This margin should be dynamic based on sidebar state
+             isSidebarOpen ? "ml-[250px]" : "ml-[80px]"
         )}>
              <header className="flex-shrink-0 flex justify-between items-center px-6 py-4 bg-background/80 backdrop-blur-lg sticky top-0 z-20 border-b border-border/60 shadow-sm">
                 {userProfile && (
