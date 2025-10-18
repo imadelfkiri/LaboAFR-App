@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -461,10 +462,6 @@ export function MixtureCalculator() {
   const [historyChartIndicator, setHistoryChartIndicator] = useState<{key: IndicatorKey; name: string} | null>(null);
 
 
-  // Global date range for fuel analysis
-  const [analysisDateRange, setAnalysisDateRange] = useState<DateRange | undefined>({ from: subDays(new Date(), 7), to: new Date() });
-
-
   // Cost state
   const [fuelCosts, setFuelCosts] = useState<Record<string, FuelCost>>({});
   
@@ -491,13 +488,9 @@ export function MixtureCalculator() {
     }
   }
 
- const fetchData = useCallback(async () => {
+ const fetchData = useCallback(async (stateToUpdate: { hallAF: InstallationState, ats: InstallationState }) => {
     setLoading(true);
     try {
-        if (!analysisDateRange?.from || !analysisDateRange?.to) {
-            throw new Error("Période d'analyse non définie");
-        }
-
         const [allFuelData, costs, allStocks, thresholdsData] = await Promise.all([
             getFuelData(),
             getFuelCosts(),
@@ -505,11 +498,13 @@ export function MixtureCalculator() {
             getThresholds(),
         ]);
         
-        const allPossibleFuelNames = new Set(allStocks.map(s => s.nom_combustible));
-        ['Grignons', 'Pet-Coke'].forEach(name => allPossibleFuelNames.add(name));
-        const fuelNamesArray = Array.from(allPossibleFuelNames);
+        const fuelRequests = [
+            ...Object.entries(stateToUpdate.hallAF.fuels),
+            ...Object.entries(stateToUpdate.ats.fuels),
+            ...Object.keys(directInputs).map(name => [name, { buckets: 0 } as FuelState]) // Add direct inputs
+        ].map(([name, fuelState]) => ({ name, dateRange: fuelState.dateRange }));
         
-        const analysesResults = await getAverageAnalysisForFuels(fuelNamesArray, { from: analysisDateRange.from, to: analysisDateRange.to });
+        const analysesResults = await getAverageAnalysisForFuels(fuelRequests);
 
         const extendedAnalyses = {...analysesResults};
         extendedAnalyses['Grignons GO1'] = analysesResults['Grignons'];
@@ -535,7 +530,7 @@ export function MixtureCalculator() {
     } finally {
         setLoading(false);
     }
-  }, [toast, analysisDateRange]);
+  }, [toast, directInputs]);
   
 
   // Initial data load effect
@@ -544,17 +539,8 @@ export function MixtureCalculator() {
         setLoading(true);
         try {
             const latestSession = await getLatestMixtureSession();
-            let dateRangeToUse = { from: subDays(new Date(), 7), to: new Date() };
-            if (latestSession?.analysisDateRange?.from && latestSession.analysisDateRange.to) {
-                const fromDate = latestSession.analysisDateRange.from.toDate();
-                const toDate = latestSession.analysisDateRange.to.toDate();
-                if (isValid(fromDate) && isValid(toDate)) {
-                    dateRangeToUse = { from: fromDate, to: toDate };
-                }
-            }
-            setAnalysisDateRange(dateRangeToUse);
             
-            const [allFuelData, allStocks] = await Promise.all([getFuelData(), getStocks()]);
+            const [allStocks] = await Promise.all([getStocks()]);
             const allPossibleFuelNames = new Set(allStocks.map(s => s.nom_combustible));
              if (latestSession) {
                 Object.keys(latestSession.hallAF?.fuels || {}).forEach(name => allPossibleFuelNames.add(name));
@@ -593,6 +579,7 @@ export function MixtureCalculator() {
             setHallAF(initialHallState);
             setAts(initialAtsState);
             setDirectInputs(initialDirectInputs);
+            fetchData({ hallAF: initialHallState, ats: initialAtsState });
             
         } catch (error) {
              console.error("Error on initial load:", error);
@@ -602,15 +589,12 @@ export function MixtureCalculator() {
     };
 
     loadInitialData();
-  }, [toast]); // Removed fetchData dependency here to control it manually
+  }, []); // Run only once
 
 
-  // Effect to refetch data when global date ranges change
   useEffect(() => {
-    if (analysisDateRange?.from && analysisDateRange.to) {
-        fetchData();
-    }
-  }, [analysisDateRange, fetchData]);
+    fetchData({ hallAF, ats });
+  }, [hallAF, ats]);
 
 
   const fetchHistoryData = useCallback(async () => {
@@ -658,6 +642,14 @@ export function MixtureCalculator() {
       return { ...prev, fuels: newFuels };
     });
   };
+
+  const handleDateRangeChange = (setter: React.Dispatch<React.SetStateAction<InstallationState>>, fuelName: string, dateRange?: DateRange) => {
+      setter(prev => {
+          const newFuels = { ...prev.fuels };
+          newFuels[fuelName] = { ...newFuels[fuelName], dateRange: dateRange };
+          return { ...prev, fuels: newFuels };
+      })
+  }
   
   const handleFlowRateChange = (setter: React.Dispatch<React.SetStateAction<any>>, value: string) => {
     const flowRate = parseFloat(value);
@@ -712,20 +704,12 @@ export function MixtureCalculator() {
     setIsSaving(true);
     setIsSaveModalOpen(false);
     try {
-        if (!analysisDateRange?.from || !analysisDateRange?.to) {
-            throw new Error("La plage de dates d'analyse n'est pas définie.");
-        }
-
         const sessionData: Omit<MixtureSession, 'id' | 'timestamp'> = {
             hallAF,
             ats,
             directInputs,
             globalIndicators,
             availableFuels,
-            analysisDateRange: {
-                from: Timestamp.fromDate(analysisDateRange.from),
-                to: Timestamp.fromDate(analysisDateRange.to),
-            },
         };
         await saveMixtureSession(sessionData);
         toast({ title: "Succès", description: "La session de mélange a été enregistrée." });
@@ -758,11 +742,52 @@ export function MixtureCalculator() {
         <div className="space-y-3">
         {sortedFuelNames.map(fuelName => {
             const fuelState = installationState.fuels[fuelName];
+            const analysis = availableFuels[fuelName];
             
             return (
             <div key={fuelName} className="flex items-center gap-2">
                 <Label htmlFor={`${installationName}-${fuelName}`} className="flex-1 text-sm">{fuelName}</Label>
-                
+                 <Popover>
+                    <PopoverTrigger asChild>
+                        <Button
+                            variant={"ghost"}
+                            size="icon"
+                            className={cn(
+                                "h-8 w-8",
+                                fuelState?.dateRange && "text-primary"
+                            )}
+                        >
+                            <CalendarIcon className="h-4 w-4" />
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="center">
+                        <Calendar
+                            initialFocus
+                            mode="range"
+                            defaultMonth={fuelState?.dateRange?.from}
+                            selected={fuelState?.dateRange}
+                            onSelect={(range) => handleDateRangeChange(setInstallationState, fuelName, range)}
+                            numberOfMonths={2}
+                            locale={fr}
+                        />
+                    </PopoverContent>
+                </Popover>
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <div className={cn(
+                                "h-8 w-8 rounded-md flex items-center justify-center text-xs font-mono",
+                                analysis?.count > 0 ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"
+                            )}>
+                                {analysis?.count ?? 0}
+                            </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>{analysis?.count ?? 0} analyse(s) trouvée(s) pour la période sélectionnée.</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+
                 <Input
                     id={`${installationName}-${fuelName}`}
                     type="number"
@@ -1024,45 +1049,6 @@ export function MixtureCalculator() {
                     />
                 )}
               </div>
-               <Popover>
-                  <PopoverTrigger asChild>
-                      <Button
-                          id="date"
-                          variant={"outline"}
-                          className={cn(
-                              "w-[300px] justify-start text-left font-normal",
-                              !analysisDateRange && "text-muted-foreground"
-                          )}
-                          disabled={isReadOnly}
-                      >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {analysisDateRange?.from ? (
-                          analysisDateRange.to ? (
-                              <>
-                              {format(analysisDateRange.from, "d MMM y", { locale: fr })} -{" "}
-                              {format(analysisDateRange.to, "d MMM y", { locale: fr })}
-                              </>
-                          ) : (
-                              format(analysisDateRange.from, "d MMM y", { locale: fr })
-                          )
-                          ) : (
-                          <span>Sélectionner une période d'analyse</span>
-                          )}
-                      </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                          initialFocus
-                          mode="range"
-                          defaultMonth={analysisDateRange?.from}
-                          selected={analysisDateRange}
-                          onSelect={setAnalysisDateRange}
-                          numberOfMonths={2}
-                          locale={fr}
-                          disabled={isReadOnly}
-                      />
-                  </PopoverContent>
-              </Popover>
             </div>
             <div className="flex items-center gap-2">
                 <Button disabled={isSaving || isReadOnly} onClick={handlePrepareSave}>

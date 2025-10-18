@@ -1,4 +1,5 @@
 
+
 // src/lib/data.ts
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, arrayUnion, orderBy, Timestamp, setDoc,getCountFromServer, limit, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
@@ -473,55 +474,53 @@ export async function deleteSpecification(id: string) {
 };
 
 export async function getAverageAnalysisForFuels(
-  fuelNames: string[],
-  dateRanges?: { from: Date; to: Date }
+  fuelRequests: { name: string; dateRange?: DateRange }[]
 ): Promise<Record<string, AverageAnalysis>> {
-  if (!fuelNames || fuelNames.length === 0) return {};
+  if (!fuelRequests || fuelRequests.length === 0) return {};
 
   const analyses: Record<string, AverageAnalysis> = {};
-  
-  const qConstraints = [
-      where('type_combustible', 'in', fuelNames),
-      where('type_analyse', '==', 'Arrivage')
-  ];
 
-  if(dateRanges?.from && dateRanges?.to) {
-      qConstraints.push(where('date_arrivage', '>=', Timestamp.fromDate(dateRanges.from)));
-      qConstraints.push(where('date_arrivage', '<=', Timestamp.fromDate(dateRanges.to)));
-  }
+  for (const request of fuelRequests) {
+    const qConstraints = [
+        where('type_combustible', '==', request.name),
+        where('type_analyse', '==', 'Arrivage')
+    ];
 
-  const allResultsQuery = query(collection(db, 'resultats'), ...qConstraints);
-  const allResultsSnapshot = await getDocs(allResultsQuery);
-  const allResults = allResultsSnapshot.docs.map(doc => ({...doc.data(), id: doc.id}));
+    if (request.dateRange?.from && request.dateRange.to) {
+        qConstraints.push(where('date_arrivage', '>=', Timestamp.fromDate(request.dateRange.from)));
+        qConstraints.push(where('date_arrivage', '<=', Timestamp.fromDate(request.dateRange.to)));
+    }
 
-  for (const fuelName of fuelNames) {
-    const resultsForFuel = allResults.filter(r => r.type_combustible === fuelName);
+    const resultsQuery = query(collection(db, 'resultats'), ...qConstraints);
+    const resultsSnapshot = await getDocs(resultsQuery);
+    const resultsForFuel = resultsSnapshot.docs.map(doc => doc.data());
     
-    if(resultsForFuel.length === 0) continue;
+    if (resultsForFuel.length === 0) continue;
 
-      const getAverage = (key: 'pci_brut' | 'h2o' | 'chlore' | 'cendres' | 'taux_metal') => {
-          const values = resultsForFuel
+    const getAverage = (key: 'pci_brut' | 'h2o' | 'chlore' | 'cendres' | 'taux_metal') => {
+        const values = resultsForFuel
             .map(r => r[key])
             .filter((v): v is number => typeof v === 'number' && isFinite(v));
-          
-          if (values.length === 0) return 0;
-          
-          const sum = values.reduce((acc, curr) => acc + curr, 0);
-          return sum / values.length;
-      };
+        
+        if (values.length === 0) return 0;
+        
+        const sum = values.reduce((acc, curr) => acc + curr, 0);
+        return sum / values.length;
+    };
 
-      analyses[fuelName] = {
-          pci_brut: getAverage('pci_brut'),
-          h2o: getAverage('h2o'),
-          chlore: getAverage('chlore'),
-          cendres: getAverage('cendres'),
-          taux_metal: getAverage('taux_metal'),
-          count: resultsForFuel.length,
-      };
+    analyses[request.name] = {
+        pci_brut: getAverage('pci_brut'),
+        h2o: getAverage('h2o'),
+        chlore: getAverage('chlore'),
+        cendres: getAverage('cendres'),
+        taux_metal: getAverage('taux_metal'),
+        count: resultsForFuel.length,
+    };
   }
 
   return analyses;
 }
+
 
 
 export async function saveMixtureSession(sessionData: Omit<MixtureSession, 'id' | 'timestamp'>): Promise<void> {
