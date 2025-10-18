@@ -594,7 +594,7 @@ export function MixtureCalculator() {
 
   useEffect(() => {
     fetchData({ hallAF, ats });
-  }, [hallAF, ats]);
+  }, [hallAF, ats, fetchData]);
 
 
   const fetchHistoryData = useCallback(async () => {
@@ -666,12 +666,12 @@ export function MixtureCalculator() {
 
   const handlePrepareSave = () => {
     if (isReadOnly) return;
-    const directInputBaseNames = [...new Set(Object.keys(directInputs).map(name => name.split(" ")[0].toLowerCase()))];
+    const directInputBaseNames = ['grignons', 'pet-coke'];
 
     const mixtureFuelWeights: Record<string, number> = {};
 
     for (const fuelName in globalFuelWeights) {
-        if (!directInputBaseNames.includes(fuelName.toLowerCase())) {
+        if (!directInputBaseNames.includes(fuelName.toLowerCase().split(' ')[0])) {
             mixtureFuelWeights[fuelName] = globalFuelWeights[fuelName];
         }
     }
