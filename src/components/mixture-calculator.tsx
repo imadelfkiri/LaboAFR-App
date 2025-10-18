@@ -702,12 +702,31 @@ export function MixtureCalculator() {
     setIsSaving(true);
     setIsSaveModalOpen(false);
     try {
+        const usedFuelNames = new Set<string>();
+        Object.entries(hallAF.fuels).forEach(([name, data]) => { if (data.buckets > 0) usedFuelNames.add(name) });
+        Object.entries(ats.fuels).forEach(([name, data]) => { if (data.buckets > 0) usedFuelNames.add(name) });
+        Object.entries(directInputs).forEach(([name, data]) => { 
+            if (data.flowRate > 0) {
+              if (name.toLowerCase().includes('grignons')) usedFuelNames.add('Grignons');
+              else if (name.toLowerCase().includes('pet-coke')) usedFuelNames.add('Pet-Coke');
+              else usedFuelNames.add(name);
+            }
+        });
+
+        const availableFuelsToSave: Record<string, AverageAnalysis> = {};
+        usedFuelNames.forEach(name => {
+          if (availableFuels[name]) {
+            availableFuelsToSave[name] = availableFuels[name];
+          }
+        });
+
+
         const sessionData: Omit<MixtureSession, 'id' | 'timestamp'> = {
             hallAF,
             ats,
             directInputs,
             globalIndicators,
-            availableFuels,
+            availableFuels: availableFuelsToSave,
             analysisDateRange: globalDateRange?.from && globalDateRange.to ? {
                 from: Timestamp.fromDate(globalDateRange.from),
                 to: Timestamp.fromDate(globalDateRange.to),
@@ -1265,4 +1284,3 @@ export function MixtureCalculator() {
     </div>
   );
 }
-
