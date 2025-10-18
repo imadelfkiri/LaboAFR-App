@@ -137,6 +137,7 @@ export interface AshAnalysis {
     type_combustible?: string;
     fournisseur?: string;
     pourcentage_cendres?: number | null;
+    pci_brut?: number;
     pf?: number | null;
     sio2?: number | null;
     al2o3?: number | null;
@@ -816,7 +817,7 @@ export async function getAshAnalyses(): Promise<AshAnalysis[]> {
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AshAnalysis));
 }
 
-export async function getAverageAshAnalysisForFuels(
+export async function getAverageAshAnalysis(
   fuelNames: string[],
   weights?: number[]
 ): Promise<AshAnalysis> {
@@ -825,26 +826,24 @@ export async function getAverageAshAnalysisForFuels(
   if (!fuelNames || fuelNames.length === 0) {
     return {};
   }
-
-  const q = query(collection(db, 'analyses_cendres'), where('type_combustible', 'in', fuelNames));
-  const snapshot = await getDocs(q);
-  const dbResults = snapshot.docs.map(doc => doc.data() as AshAnalysis);
-
-  const analysesByFuel: Record<string, AshAnalysis[]> = {};
-  fuelNames.forEach(name => {
-    analysesByFuel[name] = [];
-  });
-  dbResults.forEach(res => {
-    if (res.type_combustible && analysesByFuel[res.type_combustible]) {
-      analysesByFuel[res.type_combustible].push(res);
-    }
-  });
+  
+  const resultsByFuel: Record<string, any[]> = {};
+  
+  for (const name of fuelNames) {
+      const resultsQuery = query(collection(db, 'resultats'), where('type_combustible', '==', name), limit(50));
+      const ashQuery = query(collection(db, 'analyses_cendres'), where('type_combustible', '==', name), limit(50));
+      
+      const [resultsSnapshot, ashSnapshot] = await Promise.all([getDocs(resultsQuery), getDocs(ashQuery)]);
+      
+      const combined = [...resultsSnapshot.docs.map(d => d.data()), ...ashSnapshot.docs.map(d => d.data())];
+      resultsByFuel[name] = combined;
+  }
 
   const averageByFuel: Record<string, AshAnalysis> = {};
-  const keysToAverage: (keyof AshAnalysis)[] = ['pf', 'pourcentage_cendres', 'sio2', 'al2o3', 'fe2o3', 'cao', 'mgo', 'so3', 'k2o', 'tio2', 'mno', 'p2o5'];
+  const keysToAverage: (keyof AshAnalysis)[] = ['pci_brut', 'pf', 'pourcentage_cendres', 'sio2', 'al2o3', 'fe2o3', 'cao', 'mgo', 'so3', 'k2o', 'tio2', 'mno', 'p2o5'];
 
   for (const fuelName of fuelNames) {
-    const fuelAnalyses = analysesByFuel[fuelName];
+    const fuelAnalyses = resultsByFuel[fuelName];
     const avg: AshAnalysis = {};
     if (fuelAnalyses.length > 0) {
       for (const key of keysToAverage) {

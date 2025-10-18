@@ -3,7 +3,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { getLatestMixtureSession, type MixtureSession, getAverageAshAnalysisForFuels } from '@/lib/data';
+import { getLatestMixtureSession, type MixtureSession, getAverageAnalysisForFuels } from '@/lib/data';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard } from '@/components/cards/StatCard';
@@ -67,7 +67,7 @@ export default function IndicateursPage() {
             try {
                 const [sessionData, petCokeAvg] = await Promise.all([
                     getLatestMixtureSession(),
-                    getAverageAshAnalysisForFuels(['Pet-Coke'])
+                    getAverageAnalysisForFuels(['Pet-Coke', 'Pet Coke', 'Pet-Coke Preca', 'Pet-Coke Tuyere'])
                 ]);
 
                 if (!sessionData) {
@@ -78,8 +78,10 @@ export default function IndicateursPage() {
                     });
                 }
                 setSession(sessionData);
-                if (petCokeAvg && petCokeAvg.pci_brut) {
-                    setPetCokeAnalysis({ pci_brut: petCokeAvg.pci_brut });
+
+                const petCokeData = petCokeAvg['Pet-Coke'] || petCokeAvg['Pet Coke'] || petCokeAvg['Pet-Coke Preca'] || petCokeAvg['Pet-Coke Tuyere'];
+                if (petCokeData && petCokeData.pci_brut) {
+                    setPetCokeAnalysis({ pci_brut: petCokeData.pci_brut });
                 }
 
             } catch (error) {
@@ -102,16 +104,6 @@ export default function IndicateursPage() {
         const getPci = (fuelName: string) => session.availableFuels[fuelName]?.pci_brut || 0;
         
         const getPetCokePci = () => {
-            const petCokeKeys = Object.keys(session.availableFuels).filter(k => /pet.?coke/i.test(k.replace(/\s|_/g, '')));
-            if (petCokeKeys.length > 0) {
-                 const preferredKeys = ['Pet-Coke Preca', 'Pet-Coke Tuyere', 'Pet-Coke', 'Pet Coke'];
-                for(const key of preferredKeys) {
-                    if (session.availableFuels[key]?.pci_brut) return session.availableFuels[key].pci_brut;
-                }
-                // Fallback to the first found key
-                 if(session.availableFuels[petCokeKeys[0]]?.pci_brut) return session.availableFuels[petCokeKeys[0]].pci_brut;
-            }
-            // If not in session, use the fetched standalone analysis
             return petCokeAnalysis?.pci_brut || 0;
         }
 

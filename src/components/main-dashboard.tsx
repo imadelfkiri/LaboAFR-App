@@ -25,7 +25,7 @@ import { motion } from 'framer-motion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label as UILabel } from "@/components/ui/label";
-import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getSpecifications, type Specification, getLatestIndicatorData, getThresholds, ImpactThresholds, MixtureThresholds, getResultsForPeriod, getMixtureSessions, getImpactAnalysesForPeriod, SPEC_MAP, getAverageAshAnalysisForFuels } from '@/lib/data';
+import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getSpecifications, type Specification, getLatestIndicatorData, getThresholds, ImpactThresholds, MixtureThresholds, getResultsForPeriod, getMixtureSessions, getImpactAnalysesForPeriod, SPEC_MAP, getAverageAnalysisForFuels } from '@/lib/data';
 import {
   Dialog,
   DialogContent,
@@ -181,15 +181,17 @@ export function MainDashboard() {
                     getImpactAnalyses(),
                     getLatestIndicatorData(),
                     getThresholds(),
-                    getAverageAshAnalysisForFuels(['Pet-Coke'])
+                    getAverageAnalysisForFuels(['Pet-Coke', 'Pet Coke'])
                 ]);
                 
                 setMixtureSession(sessionData);
                 setLatestImpact(impactAnalyses.length > 0 ? impactAnalyses[0] : null);
                 setKeyIndicators(indicatorData);
                 setThresholds(thresholdsData);
-                 if (petCokeAvg && petCokeAvg.pci_brut) {
-                    setPetCokeAnalysis({ pci_brut: petCokeAvg.pci_brut });
+
+                const petCokeData = petCokeAvg['Pet-Coke'] || petCokeAvg['Pet Coke'];
+                 if (petCokeData && petCokeData.pci_brut) {
+                    setPetCokeAnalysis({ pci_brut: petCokeData.pci_brut });
                 }
                 await fetchSpecs();
 
@@ -211,17 +213,7 @@ export function MainDashboard() {
         if (!mixtureSession || !debitClinker || debitClinker === 0 || !mixtureSession.availableFuels) return 0;
         
         const getPci = (fuelName: string) => mixtureSession.availableFuels[fuelName]?.pci_brut || 0;
-        const getPetCokePci = () => {
-             const petCokeKeys = Object.keys(mixtureSession.availableFuels).filter(k => /pet.?coke/i.test(k.replace(/\s|_/g, '')));
-            if (petCokeKeys.length > 0) {
-                 const preferredKeys = ['Pet-Coke Preca', 'Pet-Coke Tuyere', 'Pet-Coke', 'Pet Coke'];
-                for(const key of preferredKeys) {
-                    if (mixtureSession.availableFuels[key]?.pci_brut) return mixtureSession.availableFuels[key].pci_brut;
-                }
-                if(mixtureSession.availableFuels[petCokeKeys[0]]?.pci_brut) return mixtureSession.availableFuels[petCokeKeys[0]].pci_brut;
-            }
-            return petCokeAnalysis?.pci_brut || 0;
-        }
+        const getPetCokePci = () => petCokeAnalysis?.pci_brut || 0;
 
         let afEnergyWeightedSum = 0;
 
@@ -629,26 +621,30 @@ export function MainDashboard() {
                                         const [combustible, fournisseur] = entry.name.split("|");
                                         const key = `${combustible}|${fournisseur}`;
                                         const seuils = SPEC_MAP.get(key);
-                                        let color = "#3b82f6"; // Blue for neutral/no spec
                                         
+                                        const colorDefault = "hsl(215 39% 30%)"; // blue-ish
+                                        const colorConform = "hsl(142 71% 45%)"; // green
+                                        const colorNonConform = "hsl(0 84% 60%)"; // red
+                                        let color = colorDefault;
+
                                         if (showColors && seuils) {
                                             const value = entry.value;
                                             let isConform = true;
                                             switch (indicator) {
                                                 case "pci":
-                                                    if (seuils.PCI_min && value < seuils.PCI_min) isConform = false;
+                                                    if (seuils.PCI_min != null && value < seuils.PCI_min) isConform = false;
                                                     break;
                                                 case "h2o":
-                                                    if (seuils.H2O_max && value > seuils.H2O_max) isConform = false;
+                                                    if (seuils.H2O_max != null && value > seuils.H2O_max) isConform = false;
                                                     break;
                                                 case "chlorures":
-                                                     if (seuils.Cl_max && value > seuils.Cl_max) isConform = false;
+                                                     if (seuils.Cl_max != null && value > seuils.Cl_max) isConform = false;
                                                     break;
                                                 case "cendres":
-                                                    if (seuils.Cendres_max && value > seuils.Cendres_max) isConform = false;
+                                                    if (seuils.Cendres_max != null && value > seuils.Cendres_max) isConform = false;
                                                     break;
                                             }
-                                            color = isConform ? "#22c55e" : "#ef4444"; // Green for conform, Red for non-conform
+                                            color = isConform ? colorConform : colorNonConform;
                                         }
 
                                         return (
