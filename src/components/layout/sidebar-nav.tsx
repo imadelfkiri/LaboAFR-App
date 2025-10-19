@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useAuth } from '@/context/auth-provider';
+import { ThemeToggleButton } from './theme-toggle-button';
 import {
   LayoutDashboard,
   BookOpen,
@@ -27,6 +29,7 @@ import {
   Menu,
   X,
   Factory,
+  LogOut,
 } from "lucide-react";
 
 const allLinks = [
@@ -55,11 +58,12 @@ interface SidebarNavProps {
   userRole: string;
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
+  onLogout: () => void;
 }
 
-export function SidebarNav({ userRole, isOpen, setIsOpen }: SidebarNavProps) {
+export function SidebarNav({ userRole, isOpen, setIsOpen, onLogout }: SidebarNavProps) {
   const pathname = usePathname();
-
+  const { user, userProfile } = useAuth();
   const toggleSidebar = () => setIsOpen(!isOpen);
 
   const visibleLinks = allLinks.filter(link => !link.adminOnly || userRole === 'admin');
@@ -111,7 +115,7 @@ export function SidebarNav({ userRole, isOpen, setIsOpen }: SidebarNavProps) {
               <Link
                 key={label}
                 href={href}
-                title={label}
+                title={isOpen ? undefined : label}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group",
                   isActive
@@ -143,19 +147,50 @@ export function SidebarNav({ userRole, isOpen, setIsOpen }: SidebarNavProps) {
           )})}
       </nav>
 
-      {/* FOOTER */}
-      <div className="text-center text-xs text-gray-500 py-4 border-t border-gray-800">
-        <AnimatePresence>
-            {isOpen && (
-                 <motion.span
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                 >
-                    © {new Date().getFullYear()} FuelTrack AFR
-                </motion.span>
-            )}
-        </AnimatePresence>
+      {/* FOOTER & USER SECTION */}
+      <div className="px-3 py-4 border-t border-gray-800 space-y-4">
+        {userProfile && (
+            <div className={cn("px-2 py-2 rounded-lg bg-brand-surface/50 border border-brand-line/50 text-center transition-all duration-300", isOpen ? "opacity-100" : "opacity-0 h-0 p-0 m-0 border-0")}>
+               <AnimatePresence>
+                {isOpen && (
+                    <motion.div initial={{ opacity: 0}} animate={{opacity: 1}} exit={{opacity: 0}}>
+                        <p className="text-sm font-medium text-white truncate">{user?.email}</p>
+                        <p className="text-xs text-emerald-400 capitalize">{userProfile.role}</p>
+                    </motion.div>
+                )}
+               </AnimatePresence>
+            </div>
+        )}
+
+        <div className={cn("flex items-center gap-2", isOpen ? "justify-between" : "flex-col justify-center")}>
+            <ThemeToggleButton />
+            <button
+                onClick={onLogout}
+                title="Déconnexion"
+                className={cn("flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-red-400 bg-red-900/40 hover:bg-red-900/60 transition-colors", !isOpen && "w-full")}
+            >
+                <LogOut className="w-5 h-5" />
+                <AnimatePresence>
+                  {isOpen && (
+                    <motion.span initial={{ opacity: 0}} animate={{opacity: 1}} exit={{opacity: 0}}>Déconnexion</motion.span>
+                  )}
+                </AnimatePresence>
+            </button>
+        </div>
+
+        <div className="text-center text-xs text-gray-500 py-1">
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.span
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                    >
+                        © {new Date().getFullYear()} FuelTrack AFR
+                    </motion.span>
+                )}
+            </AnimatePresence>
+        </div>
       </div>
     </motion.aside>
   );
