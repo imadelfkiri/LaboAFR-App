@@ -25,7 +25,7 @@ import { motion } from 'framer-motion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label as UILabel } from "@/components/ui/label";
-import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getSpecifications, type Specification, getLatestIndicatorData, getThresholds, ImpactThresholds, MixtureThresholds, getResultsForPeriod, getMixtureSessions, getImpactAnalysesForPeriod, SPEC_MAP, getAverageAnalysisForFuels } from '@/lib/data';
+import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getSpecifications, type Specification, getLatestIndicatorData, getThresholds, ImpactThresholds, MixtureThresholds, KeyIndicatorThresholds, getResultsForPeriod, getMixtureSessions, getImpactAnalysesForPeriod, SPEC_MAP, getAverageAnalysisForFuels } from '@/lib/data';
 import {
   Dialog,
   DialogContent,
@@ -76,7 +76,7 @@ export function MainDashboard() {
         to: endOfWeek(new Date(), { weekStartsOn: 1 }),
     });
 
-    const [thresholds, setThresholds] = useState<{ melange?: MixtureThresholds, impact?: ImpactThresholds }>({});
+    const [thresholds, setThresholds] = useState<{ melange?: MixtureThresholds, impact?: ImpactThresholds, indicateurs?: KeyIndicatorThresholds }>({});
     const debitClinker = usePersistentValue<number>('debitClinker', 0);
     
     const [openCalendar, setOpenCalendar] = useState(false);
@@ -501,6 +501,7 @@ export function MainDashboard() {
                 <KeyIndicatorCard 
                   tsr={substitutionRate} 
                   consumption={calorificConsumption} 
+                  thresholds={thresholds.indicateurs}
                   onIndicatorDoubleClick={(key, name) => handleIndicatorDoubleClick(key, name)}
                 />
                 
@@ -678,5 +679,3 @@ export function MainDashboard() {
         </motion.div>
     );
 }
-
-    

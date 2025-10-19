@@ -27,6 +27,7 @@ export interface Specification {
 export interface Thresholds {
     melange?: MixtureThresholds;
     impact?: ImpactThresholds;
+    indicateurs?: KeyIndicatorThresholds;
 }
 
 export interface MixtureThresholds {
@@ -55,6 +56,15 @@ export interface ImpactThresholds {
     ms_jaune_min?: number | null;
     af_vert_min?: number | null;
     af_jaune_min?: number | null;
+}
+
+export interface KeyIndicatorThresholds {
+    tsr_vert_min?: number | null;
+    tsr_jaune_min?: number | null;
+    conso_cal_rouge_min?: number | null;
+    conso_cal_vert_min?: number | null;
+    conso_cal_vert_max?: number | null;
+    conso_cal_rouge_max?: number | null;
 }
 
 
@@ -769,8 +779,7 @@ export async function getThresholds(): Promise<Thresholds> {
 export async function saveThresholds(thresholds: Thresholds): Promise<void> {
     const docRef = doc(db, "seuils", "qualite");
     const dataToSave = {
-        melange: thresholds.melange || null,
-        impact: thresholds.impact || null,
+        ...thresholds,
         updatedAt: serverTimestamp()
     };
     await setDoc(docRef, dataToSave, { merge: true });

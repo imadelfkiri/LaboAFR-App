@@ -3,14 +3,14 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/context/auth-provider";
 import { useRouter } from "next/navigation";
-import { getThresholds, saveThresholds, type Thresholds, type MixtureThresholds, type ImpactThresholds } from '@/lib/data';
+import { getThresholds, saveThresholds, type Thresholds, type MixtureThresholds, type ImpactThresholds, type KeyIndicatorThresholds } from '@/lib/data';
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal, Zap, TrendingUp, Beaker } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const defaultThresholds: Thresholds = {
@@ -40,6 +40,14 @@ const defaultThresholds: Thresholds = {
       af_vert_min: -0.3,
       af_jaune_min: -0.35,
     },
+    indicateurs: {
+        tsr_vert_min: 50,
+        tsr_jaune_min: 45,
+        conso_cal_rouge_min: 800,
+        conso_cal_vert_min: 820,
+        conso_cal_vert_max: 860,
+        conso_cal_rouge_max: 880,
+    }
 };
 
 
@@ -58,7 +66,8 @@ export default function GestionSeuils() {
         const fetchedThresholds = await getThresholds();
         setThresholds({
             melange: fetchedThresholds.melange || defaultThresholds.melange,
-            impact: fetchedThresholds.impact || defaultThresholds.impact
+            impact: fetchedThresholds.impact || defaultThresholds.impact,
+            indicateurs: fetchedThresholds.indicateurs || defaultThresholds.indicateurs,
         });
     } catch (e) {
         console.error(e);
@@ -82,7 +91,7 @@ export default function GestionSeuils() {
     fetchInitialData();
   }, [userProfile, authLoading, router, fetchInitialData]);
 
-  const handleChange = (section: 'melange' | 'impact', key: string, value: string) => {
+  const handleChange = (section: 'melange' | 'impact' | 'indicateurs', key: string, value: string) => {
     setThresholds((prev) => {
         if (!prev) return null;
         const numValue = value === '' ? null : Number(value);
@@ -120,7 +129,7 @@ export default function GestionSeuils() {
     );
   }
 
-  const renderSection = (title: string, section: 'melange' | 'impact', icon: React.ReactNode, data?: MixtureThresholds | ImpactThresholds) => {
+  const renderSection = (title: string, section: 'melange' | 'impact' | 'indicateurs', icon: React.ReactNode, data?: MixtureThresholds | ImpactThresholds | KeyIndicatorThresholds) => {
     if (!data) return null;
     return (
        <Card className="bg-brand-surface/80 border-brand-line/60">
@@ -131,7 +140,7 @@ export default function GestionSeuils() {
                 {Object.keys(data).map((key) => (
                     <div key={key} className="space-y-2">
                         <Label htmlFor={key} className="text-sm text-muted-foreground">
-                            {key.replaceAll("_", " ").replace('pneus', 'Taux Pneus').replace('chlorures', 'Chlorures').replace('cendres','Cendres').replace('humidite', 'Humidité').replace(/\b\w/g, l => l.toUpperCase())}
+                            {key.replaceAll("_", " ").replace(/\b\w/g, l => l.toUpperCase())}
                         </Label>
                         <Input
                             id={key}
@@ -165,8 +174,9 @@ export default function GestionSeuils() {
             </p>
         </div>
         
-        {renderSection("🔬 Indicateurs du Mélange", "melange", null, thresholds.melange)}
-        {renderSection("🧱 Impact sur le Clinker (Δ)", "impact", null, thresholds.impact)}
+        {renderSection("Indicateurs Clés", "indicateurs", <Zap />, thresholds.indicateurs)}
+        {renderSection("Indicateurs du Mélange", "melange", <Beaker />, thresholds.melange)}
+        {renderSection("Impact sur le Clinker (Δ)", "impact", <TrendingUp />, thresholds.impact)}
 
       <div className="flex justify-end mt-8">
         <Button
