@@ -31,8 +31,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import TsrCircleChart from './charts/TsrCircleChart';
-import CcGaugeChart from './charts/CcGaugeChart';
+import EnergyPerformanceCard from './cards/EnergyPerformanceCard';
 
 
 // Hook to read from localStorage without causing hydration issues
@@ -500,8 +499,7 @@ export function MainDashboard() {
             </div>
 
              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                 <TsrCircleChart value={substitutionRate} thresholds={thresholds.indicateurs} />
-                 <CcGaugeChart value={calorificConsumption} thresholds={thresholds.indicateurs} />
+                <EnergyPerformanceCard tsr={substitutionRate} cc={calorificConsumption} thresholds={thresholds.indicateurs} />
                 
                  {mixtureIndicators ? (
                     <IndicatorCard data={mixtureIndicators} thresholds={thresholds.melange} onIndicatorDoubleClick={(key, name) => handleIndicatorDoubleClick(key, name)} />
