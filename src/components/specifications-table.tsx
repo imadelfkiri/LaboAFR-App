@@ -242,14 +242,14 @@ export function SpecificationsTable() {
                                 {specs.length > 0 ? (
                                     specs.map((spec) => (
                                         <TableRow key={spec.id}>
-                                            <TableCell className="font-medium">{spec.type_combustible}</TableCell>
-                                            <TableCell>{spec.fournisseur}</TableCell>
-                                            <TableCell className="text-right">{formatNumber(spec.PCI_min)}</TableCell>
-                                            <TableCell className="text-right">{formatNumber(spec.H2O_max)}</TableCell>
-                                            <TableCell className="text-right">{formatNumber(spec.Cl_max)}</TableCell>
-                                            <TableCell className="text-right">{formatNumber(spec.Cendres_max)}</TableCell>
-                                            <TableCell className="text-right">{formatNumber(spec.Soufre_max)}</TableCell>
-                                            <TableCell className="text-right">
+                                            <TableCell className="font-medium py-2 px-4">{spec.type_combustible}</TableCell>
+                                            <TableCell className="py-2 px-4">{spec.fournisseur}</TableCell>
+                                            <TableCell className="text-right py-2 px-4">{formatNumber(spec.PCI_min)}</TableCell>
+                                            <TableCell className="text-right py-2 px-4">{formatNumber(spec.H2O_max)}</TableCell>
+                                            <TableCell className="text-right py-2 px-4">{formatNumber(spec.Cl_max)}</TableCell>
+                                            <TableCell className="text-right py-2 px-4">{formatNumber(spec.Cendres_max)}</TableCell>
+                                            <TableCell className="text-right py-2 px-4">{formatNumber(spec.Soufre_max)}</TableCell>
+                                            <TableCell className="text-right py-2 px-4">
                                                 <Button variant="ghost" size="icon" onClick={() => handleModalOpen(spec)}>
                                                     <Edit className="h-4 w-4 text-muted-foreground" />
                                                 </Button>
