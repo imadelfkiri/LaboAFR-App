@@ -16,7 +16,6 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
-import { KeyIndicatorCard } from './cards/KeyIndicatorCard';
 import { ImpactCard, ImpactData } from './cards/ImpactCard';
 import { IndicatorCard } from './mixture-calculator';
 import type { IndicatorKey } from './mixture-calculator';
@@ -32,6 +31,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import TsrCircleChart from './charts/TsrCircleChart';
+
 
 // Hook to read from localStorage without causing hydration issues
 function usePersistentValue<T>(key: string, defaultValue: T): T {
@@ -498,12 +499,7 @@ export function MainDashboard() {
             </div>
 
              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                <KeyIndicatorCard 
-                  tsr={substitutionRate} 
-                  consumption={calorificConsumption} 
-                  thresholds={thresholds.indicateurs}
-                  onIndicatorDoubleClick={(key, name) => handleIndicatorDoubleClick(key, name)}
-                />
+                 <TsrCircleChart value={substitutionRate} thresholds={thresholds.indicateurs} />
                 
                  {mixtureIndicators ? (
                     <IndicatorCard data={mixtureIndicators} thresholds={thresholds.melange} onIndicatorDoubleClick={(key, name) => handleIndicatorDoubleClick(key, name)} />
