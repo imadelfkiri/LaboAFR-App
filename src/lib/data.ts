@@ -826,12 +826,10 @@ export async function getAshAnalyses(): Promise<AshAnalysis[]> {
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AshAnalysis));
 }
 
-export async function getAverageAshAnalysis(
+export async function getAverageAshAnalysisForFuels(
   fuelNames: string[],
   weights?: number[]
-): Promise<AshAnalysis> {
-  const finalAverages: AshAnalysis = {};
-
+): Promise<AshAnalysis | null> {
   if (!fuelNames || fuelNames.length === 0) {
     return {};
   }
@@ -849,12 +847,18 @@ export async function getAverageAshAnalysis(
   }
 
   const averageByFuel: Record<string, AshAnalysis> = {};
-  const keysToAverage: (keyof AshAnalysis)[] = ['pci_brut', 'pf', 'pourcentage_cendres', 'sio2', 'al2o3', 'fe2o3', 'cao', 'mgo', 'so3', 'k2o', 'tio2', 'mno', 'p2o5'];
+  const keysToAverage: (keyof AshAnalysis)[] = ['pf', 'sio2', 'al2o3', 'fe2o3', 'cao', 'mgo', 'so3', 'k2o', 'tio2', 'mno', 'p2o5'];
 
   for (const fuelName of fuelNames) {
     const fuelAnalyses = resultsByFuel[fuelName];
     const avg: AshAnalysis = {};
     if (fuelAnalyses.length > 0) {
+      // Add special handling for 'pourcentage_cendres' as it might be named 'cendres'
+      const ashValues = fuelAnalyses.map(a => a.pourcentage_cendres ?? a.cendres).filter(v => typeof v === 'number') as number[];
+      if (ashValues.length > 0) {
+        avg.pourcentage_cendres = ashValues.reduce((sum, val) => sum + val, 0) / ashValues.length;
+      }
+
       for (const key of keysToAverage) {
         const values = fuelAnalyses.map(a => a[key]).filter(v => typeof v === 'number') as number[];
         if (values.length > 0) {
@@ -865,10 +869,17 @@ export async function getAverageAshAnalysis(
     averageByFuel[fuelName] = avg;
   }
   
+  if (Object.values(averageByFuel).every(val => Object.keys(val).length === 0)) {
+    return null; // Return null if no analysis found for any fuel
+  }
+  
+  const finalAverages: AshAnalysis = {};
+
   if (!weights || weights.length !== fuelNames.length) {
-    // Simple average if no weights provided
-    keysToAverage.forEach(key => {
-        const allValues = fuelNames.map(name => averageByFuel[name]?.[key]).filter(v => typeof v === 'number') as number[];
+    // Simple average
+    const allKeys = new Set([...keysToAverage, 'pourcentage_cendres']);
+    allKeys.forEach(key => {
+        const allValues = fuelNames.map(name => averageByFuel[name]?.[key as keyof AshAnalysis]).filter(v => typeof v === 'number') as number[];
         if (allValues.length > 0) {
            (finalAverages as any)[key] = allValues.reduce((sum, val) => sum + val, 0) / allValues.length;
         }
@@ -880,13 +891,14 @@ export async function getAverageAshAnalysis(
   const totalWeight = weights.reduce((sum, w) => sum + w, 0);
   if (totalWeight === 0) return {};
 
-  keysToAverage.forEach(key => {
+  const allKeys = new Set([...keysToAverage, 'pourcentage_cendres']);
+  allKeys.forEach(key => {
     let weightedSum = 0;
     let weightForSum = 0;
     for (let i = 0; i < fuelNames.length; i++) {
         const fuelName = fuelNames[i];
         const weight = weights[i];
-        const avgValue = averageByFuel[fuelName]?.[key];
+        const avgValue = averageByFuel[fuelName]?.[key as keyof AshAnalysis];
         if (typeof avgValue === 'number' && typeof weight === 'number') {
             weightedSum += avgValue * weight;
             weightForSum += weight;
@@ -899,6 +911,7 @@ export async function getAverageAshAnalysis(
 
   return finalAverages;
 }
+
 
 
 export async function addAshAnalysis(data: Omit<AshAnalysis, 'id'>): Promise<string> {
