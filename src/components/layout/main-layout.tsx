@@ -13,16 +13,23 @@ import { cn } from '@/lib/utils';
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, userProfile, loading: authLoading } = useAuth();
+  const { user, userProfile, loading: authLoading, allowedRoutes } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
   const isPublicPage = ['/login', '/unauthorized'].includes(pathname);
 
   useEffect(() => {
-    if (!authLoading && !user && !isPublicPage) {
-      router.push('/login');
+    if (!authLoading) {
+      if (!user && !isPublicPage) {
+        router.push('/login');
+      } else if (user && userProfile && !allowedRoutes.includes(pathname) && !isPublicPage) {
+        // Exception for documentation sub-pages
+        if (!pathname.startsWith('/documentation')) {
+          router.push('/unauthorized');
+        }
+      }
     }
-  }, [user, authLoading, isPublicPage, router]);
+  }, [user, userProfile, authLoading, isPublicPage, router, pathname, allowedRoutes]);
 
   if (authLoading) {
     return (
@@ -41,6 +48,22 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   if (isPublicPage) {
     return <>{children}</>;
   }
+  
+  // If we are still loading profile or routes, show a loader
+  if (!userProfile) {
+     return (
+        <div className="flex h-screen w-screen items-center justify-center">
+             <div className="flex items-center space-x-4">
+                <Skeleton className="h-12 w-12 rounded-full bg-primary/20" />
+                <div className="space-y-2">
+                    <Skeleton className="h-4 w-[250px] bg-primary/10" />
+                    <Skeleton className="h-4 w-[200px] bg-primary/10" />
+                </div>
+            </div>
+        </div>
+    );
+  }
+
 
   const handleLogout = () => {
     auth.signOut();

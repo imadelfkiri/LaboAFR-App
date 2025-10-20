@@ -65,10 +65,13 @@ interface SidebarNavProps {
 
 export function SidebarNav({ userRole, isOpen, setIsOpen, onLogout }: SidebarNavProps) {
   const pathname = usePathname();
-  const { user, userProfile } = useAuth();
+  const { user, userProfile, allowedRoutes } = useAuth();
   const toggleSidebar = () => setIsOpen(!isOpen);
 
-  const visibleLinks = allLinks.filter(link => !link.adminOnly || userRole === 'admin');
+  const visibleLinks = allLinks.filter(link => {
+    if (userRole === 'admin') return true; // Admin sees everything
+    return allowedRoutes.includes(link.href);
+  });
 
   return (
     <motion.aside
