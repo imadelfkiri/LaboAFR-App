@@ -1,4 +1,5 @@
 
+
 // app/calcul-impact/page.tsx
 "use client"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -276,16 +277,18 @@ export default function CalculImpactPage() {
             const afFuelNames = Object.keys(allAfFuelsInSession);
             const afFuelWeights = Object.values(allAfFuelsInSession);
 
-            const petKeys = Object.keys(fuelDataMap).filter(k => /pet.?coke/i.test(k.replace(/\s|_/g, '')));
+            const petCokeKeys = Object.keys(fuelDataMap).filter(k => /pet.?coke/i.test(k.replace(/\s|_/g, '')));
+            
             const [avgAfAsh, avgGrignonsAsh, avgPetCokeAsh] = await Promise.all([
                 getAverageAshAnalysisForFuels(afFuelNames, afFuelWeights),
                 getAverageAshAnalysisForFuels(['Grignons']),
-                getAverageAshAnalysisForFuels(petKeys.length ? petKeys : ['Pet-Coke']),
+                getAverageAshAnalysisForFuels(petCokeKeys.length > 0 ? petCokeKeys : ['Pet-Coke', 'Pet Coke']),
             ]);
 
             setAfAshAnalysis(avgAfAsh);
             setGrignonsAshAnalysis(avgGrignonsAsh || {});
-            const petCokeAnalysis = (avgPetCokeAsh && Object.keys(avgPetCokeAsh).length > 1) ? avgPetCokeAsh : {};
+            
+            const petCokeAnalysis = avgPetCokeAsh || {};
             setPetCokePrecaAsh(petCokeAnalysis);
             setPetCokeTuyereAsh(petCokeAnalysis);
 
