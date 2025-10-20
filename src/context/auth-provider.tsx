@@ -30,6 +30,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUserProfile(profile);
           if (profile) {
             const routes = await getAllowedRoutesForRole(profile.role);
+            // Ensure the homepage is always accessible for logged-in users
+            if (!routes.includes('/')) {
+              routes.push('/');
+            }
             setAllowedRoutes(routes);
           } else {
             setAllowedRoutes([]);
