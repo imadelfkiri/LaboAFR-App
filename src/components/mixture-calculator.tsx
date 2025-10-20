@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -500,19 +499,21 @@ export function MixtureCalculator() {
             getThresholds(),
         ]);
         
-        const fuelNames = [...new Set([
-            ...Object.keys(hallAF.fuels),
-            ...Object.keys(ats.fuels),
-            ...Object.keys(directInputs)
-        ])];
-        
+        const allPossibleFuelNames = new Set(allStocks.map(s => s.nom_combustible));
+        const fuelNames = Array.from(allPossibleFuelNames);
+
         const analysesResults = await getAverageAnalysisForFuels(fuelNames, globalDateRange, fuelDateRanges);
 
         const extendedAnalyses = {...analysesResults};
-        extendedAnalyses['Grignons GO1'] = analysesResults['Grignons'];
-        extendedAnalyses['Grignons GO2'] = analysesResults['Grignons'];
-        extendedAnalyses['Pet-Coke Preca'] = analysesResults['Pet-Coke'];
-        extendedAnalyses['Pet-Coke Tuyere'] = analysesResults['Pet-Coke'];
+        if (analysesResults['Grignons']) {
+            extendedAnalyses['Grignons GO1'] = analysesResults['Grignons'];
+            extendedAnalyses['Grignons GO2'] = analysesResults['Grignons'];
+        }
+        if (analysesResults['Pet-Coke']) {
+            extendedAnalyses['Pet-Coke Preca'] = analysesResults['Pet-Coke'];
+            extendedAnalyses['Pet-Coke Tuyere'] = analysesResults['Pet-Coke'];
+        }
+
 
         setAvailableFuels(extendedAnalyses);
         
@@ -532,7 +533,7 @@ export function MixtureCalculator() {
     } finally {
         setLoading(false);
     }
-  }, [toast, hallAF.fuels, ats.fuels, directInputs, globalDateRange, fuelDateRanges]);
+  }, [toast, globalDateRange, fuelDateRanges]);
   
 
   // Initial data load effect
@@ -1284,3 +1285,5 @@ export function MixtureCalculator() {
     </div>
   );
 }
+
+    
