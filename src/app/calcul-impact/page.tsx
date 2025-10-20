@@ -285,7 +285,7 @@ export default function CalculImpactPage() {
                 getAverageAshAnalysisForFuels(petCokeKeys.length > 0 ? petCokeKeys : ['Pet-Coke', 'Pet Coke']),
             ]);
 
-            setAfAshAnalysis(avgAfAsh);
+            setAfAshAnalysis(avgAfAsh || {});
             setGrignonsAshAnalysis(avgGrignonsAsh || {});
             
             const petCokeAnalysis = avgPetCokeAsh || {};
@@ -657,3 +657,5 @@ export default function CalculImpactPage() {
     </div>
   )
 }
+
+    
