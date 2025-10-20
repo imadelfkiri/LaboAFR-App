@@ -50,7 +50,7 @@ const allLinks = [
   { href: '/indicateurs', label: 'Indicateurs', icon: TrendingUp },
   { href: '/calcul-impact', label: "Calcul d'Impact", icon: Activity },
   { href: '/historique-impact', label: "Historique Impact", icon: Book },
-  { href: '/documentation/principe-calcul-impact', label: 'Doc: Calcul Impact', icon: BookText },
+  { href: '/documentation', label: 'Documentation', icon: BookText },
   { href: '/suivi-chlore', label: 'Suivi Chlore', icon: Wind },
   { href: '/gestion-utilisateurs', label: 'Gestion Utilisateurs', icon: Users, adminOnly: true },
   { href: '/gestion-seuils', label: 'Gestion des Seuils', icon: SlidersHorizontal, adminOnly: true },
