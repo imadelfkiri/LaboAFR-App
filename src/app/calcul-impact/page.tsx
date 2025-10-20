@@ -126,8 +126,8 @@ const useClinkerCalculations = (
         const fuelSources = [
           { name: "AF", flow: afFlow, analysis: afAshAnalysis },
           { name: "Grignons", flow: grignonsFlow, analysis: grignonsAshAnalysis },
-          { name: "Pet-Coke Preca", flow: petCokePrecaFlow, analysis: petCokePrecaAsh },
-          { name: "Pet-Coke Tuyere", flow: petCokeTuyereFlow, analysis: petCokeTuyereAsh },
+          // { name: "Pet-Coke Preca", flow: petCokePrecaFlow, analysis: petCokePrecaAsh },
+          // { name: "Pet-Coke Tuyere", flow: petCokeTuyereFlow, analysis: petCokeTuyereAsh },
         ].filter(s => s.flow > 0 && s.analysis && Object.keys(s.analysis).length > 0);
 
         const totalAshFlow = fuelSources.reduce((sum, s) => sum + (s.flow * (resolveAshPercent(s.name, s.analysis) / 100)), 0);
@@ -282,7 +282,7 @@ export default function CalculImpactPage() {
             const [avgAfAsh, avgGrignonsAsh, avgPetCokeAsh] = await Promise.all([
                 getAverageAshAnalysisForFuels(afFuelNames, afFuelWeights),
                 getAverageAshAnalysisForFuels(['Grignons']),
-                getAverageAshAnalysisForFuels(petCokeKeys.length > 0 ? petCokeKeys : ['Pet-Coke', 'Pet Coke']),
+                getAverageAshAnalysisForFuels(petCokeKeys),
             ]);
 
             setAfAshAnalysis(avgAfAsh || {});
