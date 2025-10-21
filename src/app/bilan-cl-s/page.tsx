@@ -1,0 +1,247 @@
+"use client";
+
+import React, { useState, useMemo } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { Wind, FlaskConical, AlertTriangle, CheckCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useAuth } from '@/context/auth-provider';
+
+// --- Type Definitions ---
+
+interface BilanInput {
+    debit_farine: number;
+    cl_farine_ppm: number;
+    s_farine_ppm: number;
+    cl_poussieres_ppm: number;
+    s_poussieres_ppm: number;
+    cl_afr_pct: number;
+    s_afr_pct: number;
+    debit_afr: number;
+    cl_petcoke_pct: number;
+    s_petcoke_pct: number;
+    debit_petcoke: number;
+    hcl_emission_mg: number;
+    so2_emission_mg: number;
+    debit_gaz_nm3: number;
+    prod_clinker_jour: number;
+}
+
+// --- Initial State ---
+
+const initialInputs: BilanInput = {
+    debit_farine: 100,
+    cl_farine_ppm: 300,
+    s_farine_ppm: 500,
+    cl_poussieres_ppm: 400,
+    s_poussieres_ppm: 600,
+    cl_afr_pct: 0.25,
+    s_afr_pct: 0.7,
+    debit_afr: 2,
+    cl_petcoke_pct: 0.02,
+    s_petcoke_pct: 5.0,
+    debit_petcoke: 5,
+    hcl_emission_mg: 50,
+    so2_emission_mg: 150,
+    debit_gaz_nm3: 250000,
+    prod_clinker_jour: 3500,
+};
+
+// --- Calculation Hook ---
+
+const useBilanCalculations = (inputs: BilanInput) => {
+    return useMemo(() => {
+        const {
+            debit_farine, cl_farine_ppm, s_farine_ppm, cl_poussieres_ppm, s_poussieres_ppm,
+            cl_afr_pct, s_afr_pct, debit_afr, cl_petcoke_pct, s_petcoke_pct, debit_petcoke,
+            hcl_emission_mg, so2_emission_mg, debit_gaz_nm3, prod_clinker_jour
+        } = inputs;
+
+        const debit_clinker = debit_farine * 0.6;
+        const debit_poussieres = debit_farine * 0.08;
+
+        if (debit_clinker === 0) return { bilan: {}, interpretation: { message: '', color: '' } };
+
+        // --- 1. Conversions
+        // ppm -> g/t clinker
+        const cl_farine_g = cl_farine_ppm * (debit_farine / debit_clinker);
+        const s_farine_g = s_farine_ppm * (debit_farine / debit_clinker);
+        const cl_poussieres_g = cl_poussieres_ppm * (debit_poussieres / debit_clinker);
+        const s_poussieres_g = s_poussieres_ppm * (debit_poussieres / debit_clinker);
+
+        // % -> g/t clinker
+        const cl_afr_g = cl_afr_pct * 10000 * (debit_afr / debit_clinker);
+        const s_afr_g = s_afr_pct * 10000 * (debit_afr / debit_clinker);
+        const cl_petcoke_g = cl_petcoke_pct * 10000 * (debit_petcoke / debit_clinker);
+        const s_petcoke_g = s_petcoke_pct * 10000 * (debit_petcoke / debit_clinker);
+        
+        // mg/Nm³ -> g/t clinker (approximation en utilisant la prod journalière)
+        const cl_gaz_g = prod_clinker_jour > 0 ? (hcl_emission_mg * debit_gaz_nm3 * 24 * (35.5 / 36.5)) / (prod_clinker_jour * 1000) : 0;
+        const s_gaz_g = prod_clinker_jour > 0 ? (so2_emission_mg * debit_gaz_nm3 * 24 * (32 / 64)) / (prod_clinker_jour * 1000) : 0;
+
+        // --- 2. Entrées totales
+        const cl_entree = cl_farine_g + cl_poussieres_g + cl_afr_g + cl_petcoke_g;
+        const s_entree = s_farine_g + s_poussieres_g + s_afr_g + s_petcoke_g;
+
+        // --- 3. Sorties volatiles
+        const cl_sortie = cl_gaz_g;
+        const s_sortie = s_gaz_g;
+
+        // --- 4. Accumulation
+        const accum_cl = cl_entree - cl_sortie;
+        const accum_s = s_entree - s_sortie;
+
+        // --- 5. Rapport S/Cl
+        const rapport_s_cl = cl_entree > 0 ? s_entree / cl_entree : Infinity;
+
+        // --- Interpretation AI
+        let message = '';
+        let color = '';
+        if (rapport_s_cl < 5) {
+            message = "⚠️ Rapport S/Cl faible : excès de chlore, risque de dépôts cyclones.";
+            color = 'bg-red-900/40 border-red-500 text-red-300';
+        } else if (rapport_s_cl < 8) {
+            message = "⚠️ Zone de vigilance : tendance à l'instabilité Cl, surveiller AFR riches en PVC.";
+            color = 'bg-yellow-900/40 border-yellow-400 text-yellow-300';
+        } else if (rapport_s_cl <= 12) {
+            message = "✅ Procédé stable : bon équilibre soufre/chlore.";
+            color = 'bg-green-900/40 border-green-500 text-green-300';
+        } else if (rapport_s_cl <= 15) {
+            message = "⚠️ Rapport élevé : excès de soufre, surveiller SO₃ clinker.";
+            color = 'bg-yellow-900/40 border-yellow-400 text-yellow-300';
+        } else {
+            message = "🔴 Déséquilibre marqué : excès de soufre, risque d’enrichissement SO₃ et corrosion.";
+            color = 'bg-red-900/40 border-red-500 text-red-300';
+        }
+
+
+        return {
+            bilan: { cl_entree, s_entree, accum_cl, accum_s, rapport_s_cl },
+            interpretation: { message, color },
+        };
+    }, [inputs]);
+};
+
+
+const BilanResultCard = ({ label, value, unit, status }: { label: string; value: number | string; unit: string; status: 'good' | 'warn' | 'bad' | 'neutral' }) => {
+    const statusClasses = {
+        good: 'bg-green-900/40 border-green-500 text-green-300',
+        warn: 'bg-yellow-900/40 border-yellow-400 text-yellow-300',
+        bad: 'bg-red-900/40 border-red-500 text-red-300',
+        neutral: 'bg-brand-surface/60 border-brand-line/60',
+    };
+
+    return (
+        <div className={cn("rounded-lg p-3 text-center border", statusClasses[status])}>
+            <p className="text-xs font-medium text-muted-foreground">{label}</p>
+            <p className="text-xl font-bold">{value}<span className="text-xs ml-1">{unit}</span></p>
+        </div>
+    );
+};
+
+
+export default function BilanClSPage() {
+    const { userProfile } = useAuth();
+    const isReadOnly = userProfile?.role === 'viewer';
+    const [inputs, setInputs] = useState<BilanInput>(initialInputs);
+    const { bilan, interpretation } = useBilanCalculations(inputs);
+
+    const handleInputChange = (field: keyof BilanInput, value: string) => {
+        setInputs(prev => ({ ...prev, [field]: parseFloat(value) || 0 }));
+    };
+
+    const getClStatus = (val: number): 'good' | 'warn' | 'bad' => {
+        if (val > 0.6) return 'bad';
+        if (val > 0.3) return 'warn';
+        return 'good';
+    };
+    
+    const getRapportStatus = (val: number): 'good' | 'warn' | 'bad' => {
+        if (val < 5 || val > 15) return 'bad';
+        if (val < 8 || val > 12) return 'warn';
+        return 'good';
+    };
+
+
+    return (
+        <div className="container mx-auto p-4 md:p-8 space-y-6">
+            <div className="mb-8">
+                <h1 className="text-3xl font-bold tracking-tight text-primary flex items-center gap-3">
+                    <Wind className="h-8 w-8" />
+                    Bilan Chlore & Soufre
+                </h1>
+                <p className="text-muted-foreground mt-2">
+                    Évaluez l'équilibre du cycle des volatils pour garantir la stabilité du four.
+                </p>
+            </div>
+            
+            {interpretation.message && (
+                <div className={cn("p-4 rounded-lg border flex items-center gap-3", interpretation.color)}>
+                    {interpretation.message.includes('✅') ? <CheckCircle className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}
+                    <span className="font-medium">{interpretation.message.substring(2)}</span>
+                </div>
+            )}
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <BilanResultCard label="Cl Total Entrée" value={(bilan.cl_entree ?? 0).toFixed(2)} unit="g/t" status={getClStatus(bilan.cl_entree ?? 0)} />
+                <BilanResultCard label="S Total Entrée" value={(bilan.s_entree ?? 0).toFixed(2)} unit="g/t" status="neutral" />
+                <BilanResultCard label="Accumulation Cl" value={(bilan.accum_cl ?? 0).toFixed(2)} unit="g/t" status={(bilan.accum_cl ?? 0) > 300 ? 'warn' : 'neutral'} />
+                <BilanResultCard label="Accumulation S" value={(bilan.accum_s ?? 0).toFixed(2)} unit="g/t" status={(bilan.accum_s ?? 0) > 50000 ? 'warn' : 'neutral'} />
+                <BilanResultCard label="Rapport S/Cl" value={isFinite(bilan.rapport_s_cl ?? 0) ? (bilan.rapport_s_cl ?? 0).toFixed(2) : '∞'} unit="" status={getRapportStatus(bilan.rapport_s_cl ?? 0)} />
+            </div>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Données d'Entrée</CardTitle>
+                    <CardDescription>Saisissez les valeurs de votre procédé pour calculer le bilan.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    {/* Farine */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border rounded-lg">
+                        <h3 className="col-span-full font-semibold text-primary">Farine</h3>
+                        <div className="space-y-2"><Label>Débit (t/h)</Label><Input type="number" value={inputs.debit_farine} onChange={e => handleInputChange('debit_farine', e.target.value)} readOnly={isReadOnly} /></div>
+                        <div className="space-y-2"><Label>Cl (ppm)</Label><Input type="number" value={inputs.cl_farine_ppm} onChange={e => handleInputChange('cl_farine_ppm', e.target.value)} readOnly={isReadOnly} /></div>
+                        <div className="space-y-2"><Label>S (ppm)</Label><Input type="number" value={inputs.s_farine_ppm} onChange={e => handleInputChange('s_farine_ppm', e.target.value)} readOnly={isReadOnly} /></div>
+                    </div>
+                     {/* Poussières */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border rounded-lg">
+                        <h3 className="col-span-full font-semibold text-primary">Poussières (Recyclées à 8%)</h3>
+                        <div className="space-y-2"><Label>Débit (t/h)</Label><Input type="number" value={(inputs.debit_farine * 0.08).toFixed(2)} disabled /></div>
+                        <div className="space-y-2"><Label>Cl (ppm)</Label><Input type="number" value={inputs.cl_poussieres_ppm} onChange={e => handleInputChange('cl_poussieres_ppm', e.target.value)} readOnly={isReadOnly} /></div>
+                        <div className="space-y-2"><Label>S (ppm)</Label><Input type="number" value={inputs.s_poussieres_ppm} onChange={e => handleInputChange('s_poussieres_ppm', e.target.value)} readOnly={isReadOnly} /></div>
+                    </div>
+                    {/* AFR */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border rounded-lg">
+                         <h3 className="col-span-full font-semibold text-primary">Combustibles Alternatifs (AFR)</h3>
+                        <div className="space-y-2"><Label>Débit (t/h)</Label><Input type="number" value={inputs.debit_afr} onChange={e => handleInputChange('debit_afr', e.target.value)} readOnly={isReadOnly} /></div>
+                        <div className="space-y-2"><Label>Cl (%)</Label><Input type="number" value={inputs.cl_afr_pct} onChange={e => handleInputChange('cl_afr_pct', e.target.value)} readOnly={isReadOnly} /></div>
+                        <div className="space-y-2"><Label>S (%)</Label><Input type="number" value={inputs.s_afr_pct} onChange={e => handleInputChange('s_afr_pct', e.target.value)} readOnly={isReadOnly} /></div>
+                    </div>
+                     {/* Petcoke */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border rounded-lg">
+                         <h3 className="col-span-full font-semibold text-primary">Petcoke</h3>
+                        <div className="space-y-2"><Label>Débit (t/h)</Label><Input type="number" value={inputs.debit_petcoke} onChange={e => handleInputChange('debit_petcoke', e.target.value)} readOnly={isReadOnly} /></div>
+                        <div className="space-y-2"><Label>Cl (%)</Label><Input type="number" value={inputs.cl_petcoke_pct} onChange={e => handleInputChange('cl_petcoke_pct', e.target.value)} readOnly={isReadOnly} /></div>
+                        <div className="space-y-2"><Label>S (%)</Label><Input type="number" value={inputs.s_petcoke_pct} onChange={e => handleInputChange('s_petcoke_pct', e.target.value)} readOnly={isReadOnly} /></div>
+                    </div>
+                     {/* Émissions */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border rounded-lg">
+                        <h3 className="col-span-full font-semibold text-primary">Émissions Gazeuses</h3>
+                        <div className="space-y-2"><Label>Débit Gaz (Nm³/h)</Label><Input type="number" value={inputs.debit_gaz_nm3} onChange={e => handleInputChange('debit_gaz_nm3', e.target.value)} readOnly={isReadOnly} /></div>
+                        <div className="space-y-2"><Label>HCl (mg/Nm³)</Label><Input type="number" value={inputs.hcl_emission_mg} onChange={e => handleInputChange('hcl_emission_mg', e.target.value)} readOnly={isReadOnly} /></div>
+                        <div className="space-y-2"><Label>SO₂ (mg/Nm³)</Label><Input type="number" value={inputs.so2_emission_mg} onChange={e => handleInputChange('so2_emission_mg', e.target.value)} readOnly={isReadOnly} /></div>
+                    </div>
+                     {/* Production */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border rounded-lg">
+                        <h3 className="col-span-full font-semibold text-primary">Production</h3>
+                        <div className="space-y-2"><Label>Production Clinker (t/jour)</Label><Input type="number" value={inputs.prod_clinker_jour} onChange={e => handleInputChange('prod_clinker_jour', e.target.value)} readOnly={isReadOnly} /></div>
+                        <div className="space-y-2"><Label>Débit Clinker (t/h)</Label><Input type="number" value={(inputs.debit_farine * 0.6).toFixed(2)} disabled /></div>
+                    </div>
+                </CardContent>
+            </Card>
+
+        </div>
+    );
+}
