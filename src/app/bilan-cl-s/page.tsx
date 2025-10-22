@@ -30,6 +30,8 @@ export interface BilanInput {
     hcl_emission_mg: number;
     so2_emission_mg: number;
     debit_gaz_nm3: number;
+    cl_clinker_pct: number; // Nouveau
+    s_clinker_pct: number; // Nouveau
 }
 
 // --- Initial State ---
@@ -49,6 +51,8 @@ const initialInputs: BilanInput = {
     hcl_emission_mg: 50,
     so2_emission_mg: 150,
     debit_gaz_nm3: 250000,
+    cl_clinker_pct: 0.015, // Nouveau
+    s_clinker_pct: 0.8, // Nouveau
 };
 
 // --- Calculation Hook ---
@@ -58,7 +62,8 @@ const useBilanCalculations = (inputs: BilanInput) => {
         const {
             debit_farine, cl_farine_pct, s_farine_pct, cl_poussieres_pct, s_poussieres_pct,
             cl_afr_pct, s_afr_pct, debit_afr, cl_petcoke_pct, s_petcoke_pct, debit_petcoke,
-            hcl_emission_mg, so2_emission_mg, debit_gaz_nm3
+            hcl_emission_mg, so2_emission_mg, debit_gaz_nm3,
+            cl_clinker_pct, s_clinker_pct
         } = inputs;
 
         const debit_clinker = debit_farine * 0.6;
@@ -67,7 +72,7 @@ const useBilanCalculations = (inputs: BilanInput) => {
 
         if (debit_clinker <= 0) return { bilan: {}, interpretation: { message: 'Débit clinker invalide.', color: 'bg-yellow-900/40 border-yellow-400 text-yellow-300' } };
 
-        // --- 1. Conversions
+        // --- 1. Conversions en g/t clinker
         const cl_farine_g = cl_farine_pct * 10000 * (debit_farine / debit_clinker);
         const s_farine_g = s_farine_pct * 10000 * (debit_farine / debit_clinker);
         const cl_poussieres_g = cl_poussieres_pct * 10000 * (debit_poussieres / debit_clinker);
@@ -81,15 +86,18 @@ const useBilanCalculations = (inputs: BilanInput) => {
         const cl_gaz_g = (hcl_emission_mg * debit_gaz_nm3 * (35.5 / 36.5)) / (debit_clinker * 1000);
         const s_gaz_g = (so2_emission_mg * debit_gaz_nm3 * (32 / 64)) / (debit_clinker * 1000);
 
+        const cl_clinker_g = cl_clinker_pct * 10000;
+        const s_clinker_g = s_clinker_pct * 10000;
+
         // --- 2. Entrées totales
         const cl_entree = cl_farine_g + cl_poussieres_g + cl_afr_g + cl_petcoke_g;
         const s_entree = s_farine_g + s_poussieres_g + s_afr_g + s_petcoke_g;
 
-        // --- 3. Sorties volatiles
-        const cl_sortie = cl_gaz_g;
-        const s_sortie = s_gaz_g;
+        // --- 3. Sorties
+        const cl_sortie = cl_gaz_g + cl_clinker_g;
+        const s_sortie = s_gaz_g + s_clinker_g;
 
-        // --- 4. Accumulation
+        // --- 4. Accumulation (Cycle Interne)
         const accum_cl = cl_entree - cl_sortie;
         const accum_s = s_entree - s_sortie;
 
@@ -197,8 +205,8 @@ export default function BilanClSPage() {
 
 
     const getClStatus = (val: number): 'good' | 'warn' | 'bad' => {
-        if (val > 0.6) return 'bad';
-        if (val > 0.3) return 'warn';
+        if (val > 600) return 'bad'; // Anciennement 0.6
+        if (val > 300) return 'warn'; // Anciennement 0.3
         return 'good';
     };
     
@@ -249,57 +257,63 @@ export default function BilanClSPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 <BilanResultCard label="Cl Total Entrée" value={(bilan.cl_entree ?? 0).toFixed(2)} unit="g/t" valueKgH={(bilan.cl_entree_kg_h ?? 0).toFixed(2)} status={getClStatus(bilan.cl_entree ?? 0)} />
                 <BilanResultCard label="S Total Entrée" value={(bilan.s_entree ?? 0).toFixed(2)} unit="g/t" valueKgH={(bilan.s_entree_kg_h ?? 0).toFixed(2)} status="neutral" />
-                <BilanResultCard label="Accumulation Cl" value={(bilan.accum_cl ?? 0).toFixed(2)} unit="g/t" valueKgH={(bilan.accum_cl_kg_h ?? 0).toFixed(2)} status={(bilan.accum_cl ?? 0) > 300 ? 'warn' : 'neutral'} />
-                <BilanResultCard label="Accumulation S" value={(bilan.accum_s ?? 0).toFixed(2)} unit="g/t" valueKgH={(bilan.accum_s_kg_h ?? 0).toFixed(2)} status={(bilan.accum_s ?? 0) > 50000 ? 'warn' : 'neutral'} />
+                <BilanResultCard label="Cycle Interne Cl" value={(bilan.accum_cl ?? 0).toFixed(2)} unit="g/t" valueKgH={(bilan.accum_cl_kg_h ?? 0).toFixed(2)} status={(bilan.accum_cl ?? 0) > 300 ? 'warn' : 'neutral'} />
+                <BilanResultCard label="Cycle Interne S" value={(bilan.accum_s ?? 0).toFixed(2)} unit="g/t" valueKgH={(bilan.accum_s_kg_h ?? 0).toFixed(2)} status={(bilan.accum_s ?? 0) > 5000 ? 'warn' : 'neutral'} />
                 <BilanResultCard label="Rapport S/Cl" value={isFinite(bilan.rapport_s_cl ?? 0) ? (bilan.rapport_s_cl ?? 0).toFixed(2) : '∞'} unit="" status={getRapportStatus(bilan.rapport_s_cl ?? 0)} />
             </div>
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Données d'Entrée</CardTitle>
+                    <CardTitle>Données d'Entrée &amp; de Sortie</CardTitle>
                     <CardDescription>Saisissez les valeurs de votre procédé pour calculer le bilan.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                    {/* Farine */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border rounded-lg">
-                        <h3 className="col-span-full font-semibold text-primary">Farine</h3>
-                        <div className="space-y-2"><Label>Débit (t/h)</Label><Input type="number" value={inputs.debit_farine} onChange={e => handleInputChange('debit_farine', e.target.value)} readOnly={isReadOnly} /></div>
-                        <div className="space-y-2"><Label>Cl (%)</Label><Input type="number" value={inputs.cl_farine_pct} onChange={e => handleInputChange('cl_farine_pct', e.target.value)} readOnly={isReadOnly} /></div>
-                        <div className="space-y-2"><Label>S (%)</Label><Input type="number" value={inputs.s_farine_pct} onChange={e => handleInputChange('s_farine_pct', e.target.value)} readOnly={isReadOnly} /></div>
-                    </div>
-                     {/* Poussières */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border rounded-lg">
-                        <h3 className="col-span-full font-semibold text-primary">Poussières (Recyclées à 8%)</h3>
-                        <div className="space-y-2"><Label>Débit (t/h)</Label><Input type="number" value={(inputs.debit_farine * 0.08).toFixed(2)} disabled /></div>
-                        <div className="space-y-2"><Label>Cl (%)</Label><Input type="number" value={inputs.cl_poussieres_pct} onChange={e => handleInputChange('cl_poussieres_pct', e.target.value)} readOnly={isReadOnly} /></div>
-                        <div className="space-y-2"><Label>S (%)</Label><Input type="number" value={inputs.s_poussieres_pct} onChange={e => handleInputChange('s_poussieres_pct', e.target.value)} readOnly={isReadOnly} /></div>
-                    </div>
-                    {/* AFR */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border rounded-lg">
-                         <h3 className="col-span-full font-semibold text-primary">Combustibles Alternatifs (AFR)</h3>
-                        <div className="space-y-2"><Label>Débit (t/h)</Label><Input type="number" value={inputs.debit_afr} onChange={e => handleInputChange('debit_afr', e.target.value)} readOnly={isReadOnly} /></div>
-                        <div className="space-y-2"><Label>Cl (%)</Label><Input type="number" value={inputs.cl_afr_pct} onChange={e => handleInputChange('cl_afr_pct', e.target.value)} readOnly={isReadOnly} /></div>
-                        <div className="space-y-2"><Label>S (%)</Label><Input type="number" value={inputs.s_afr_pct} onChange={e => handleInputChange('s_afr_pct', e.target.value)} readOnly={isReadOnly} /></div>
-                    </div>
-                     {/* Petcoke */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border rounded-lg">
-                         <h3 className="col-span-full font-semibold text-primary">Petcoke</h3>
-                        <div className="space-y-2"><Label>Débit (t/h)</Label><Input type="number" value={inputs.debit_petcoke} onChange={e => handleInputChange('debit_petcoke', e.target.value)} readOnly={isReadOnly} /></div>
-                        <div className="space-y-2"><Label>Cl (%)</Label><Input type="number" value={inputs.cl_petcoke_pct} onChange={e => handleInputChange('cl_petcoke_pct', e.target.value)} readOnly={isReadOnly} /></div>
-                        <div className="space-y-2"><Label>S (%)</Label><Input type="number" value={inputs.s_petcoke_pct} onChange={e => handleInputChange('s_petcoke_pct', e.target.value)} readOnly={isReadOnly} /></div>
-                    </div>
-                     {/* Émissions */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border rounded-lg">
-                        <h3 className="col-span-full font-semibold text-primary">Émissions Gazeuses</h3>
-                        <div className="space-y-2"><Label>Débit Gaz (Nm³/h)</Label><Input type="number" value={inputs.debit_gaz_nm3} onChange={e => handleInputChange('debit_gaz_nm3', e.target.value)} readOnly={isReadOnly} /></div>
-                        <div className="space-y-2"><Label>HCl (mg/Nm³)</Label><Input type="number" value={inputs.hcl_emission_mg} onChange={e => handleInputChange('hcl_emission_mg', e.target.value)} readOnly={isReadOnly} /></div>
-                        <div className="space-y-2"><Label>SO₂ (mg/Nm³)</Label><Input type="number" value={inputs.so2_emission_mg} onChange={e => handleInputChange('so2_emission_mg', e.target.value)} readOnly={isReadOnly} /></div>
-                    </div>
-                     {/* Production */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border rounded-lg">
-                        <h3 className="col-span-full font-semibold text-primary">Production</h3>
-                        <div className="space-y-2"><Label>Production Clinker (t/jour)</Label><Input type="number" value={(bilan.prod_clinker_jour ?? 0).toFixed(2)} disabled /></div>
-                        <div className="space-y-2"><Label>Débit Clinker (t/h)</Label><Input type="number" value={(bilan.debit_clinker ?? 0).toFixed(2)} disabled /></div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* Section Entrées */}
+                        <div className='space-y-4'>
+                            <h3 className="font-semibold text-xl text-primary mb-4">Entrées</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border rounded-lg">
+                                <h3 className="col-span-full font-semibold">Farine</h3>
+                                <div className="space-y-2"><Label>Débit (t/h)</Label><Input type="number" value={inputs.debit_farine} onChange={e => handleInputChange('debit_farine', e.target.value)} readOnly={isReadOnly} /></div>
+                                <div className="space-y-2"><Label>Cl (%)</Label><Input type="number" value={inputs.cl_farine_pct} onChange={e => handleInputChange('cl_farine_pct', e.target.value)} readOnly={isReadOnly} /></div>
+                                <div className="space-y-2"><Label>S (%)</Label><Input type="number" value={inputs.s_farine_pct} onChange={e => handleInputChange('s_farine_pct', e.target.value)} readOnly={isReadOnly} /></div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border rounded-lg">
+                                <h3 className="col-span-full font-semibold">Poussières (Recyclées à 8%)</h3>
+                                <div className="space-y-2"><Label>Débit (t/h)</Label><Input type="number" value={(inputs.debit_farine * 0.08).toFixed(2)} disabled /></div>
+                                <div className="space-y-2"><Label>Cl (%)</Label><Input type="number" value={inputs.cl_poussieres_pct} onChange={e => handleInputChange('cl_poussieres_pct', e.target.value)} readOnly={isReadOnly} /></div>
+                                <div className="space-y-2"><Label>S (%)</Label><Input type="number" value={inputs.s_poussieres_pct} onChange={e => handleInputChange('s_poussieres_pct', e.target.value)} readOnly={isReadOnly} /></div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border rounded-lg">
+                                <h3 className="col-span-full font-semibold">Combustibles Alternatifs (AFR)</h3>
+                                <div className="space-y-2"><Label>Débit (t/h)</Label><Input type="number" value={inputs.debit_afr} onChange={e => handleInputChange('debit_afr', e.target.value)} readOnly={isReadOnly} /></div>
+                                <div className="space-y-2"><Label>Cl (%)</Label><Input type="number" value={inputs.cl_afr_pct} onChange={e => handleInputChange('cl_afr_pct', e.target.value)} readOnly={isReadOnly} /></div>
+                                <div className="space-y-2"><Label>S (%)</Label><Input type="number" value={inputs.s_afr_pct} onChange={e => handleInputChange('s_afr_pct', e.target.value)} readOnly={isReadOnly} /></div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border rounded-lg">
+                                <h3 className="col-span-full font-semibold">Petcoke</h3>
+                                <div className="space-y-2"><Label>Débit (t/h)</Label><Input type="number" value={inputs.debit_petcoke} onChange={e => handleInputChange('debit_petcoke', e.target.value)} readOnly={isReadOnly} /></div>
+                                <div className="space-y-2"><Label>Cl (%)</Label><Input type="number" value={inputs.cl_petcoke_pct} onChange={e => handleInputChange('cl_petcoke_pct', e.target.value)} readOnly={isReadOnly} /></div>
+                                <div className="space-y-2"><Label>S (%)</Label><Input type="number" value={inputs.s_petcoke_pct} onChange={e => handleInputChange('s_petcoke_pct', e.target.value)} readOnly={isReadOnly} /></div>
+                            </div>
+                        </div>
+
+                        {/* Section Sorties */}
+                        <div className='space-y-4'>
+                             <h3 className="font-semibold text-xl text-primary mb-4">Sorties</h3>
+                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border rounded-lg">
+                                <h3 className="col-span-full font-semibold">Émissions Gazeuses</h3>
+                                <div className="space-y-2"><Label>Débit Gaz (Nm³/h)</Label><Input type="number" value={inputs.debit_gaz_nm3} onChange={e => handleInputChange('debit_gaz_nm3', e.target.value)} readOnly={isReadOnly} /></div>
+                                <div className="space-y-2"><Label>HCl (mg/Nm³)</Label><Input type="number" value={inputs.hcl_emission_mg} onChange={e => handleInputChange('hcl_emission_mg', e.target.value)} readOnly={isReadOnly} /></div>
+                                <div className="space-y-2"><Label>SO₂ (mg/Nm³)</Label><Input type="number" value={inputs.so2_emission_mg} onChange={e => handleInputChange('so2_emission_mg', e.target.value)} readOnly={isReadOnly} /></div>
+                            </div>
+                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border rounded-lg">
+                                <h3 className="col-span-full font-semibold">Clinker Produit</h3>
+                                <div className="space-y-2"><Label>Débit Clinker (t/h)</Label><Input type="number" value={(bilan.debit_clinker ?? 0).toFixed(2)} disabled /></div>
+                                <div className="space-y-2"><Label>Cl (%)</Label><Input type="number" value={inputs.cl_clinker_pct} onChange={e => handleInputChange('cl_clinker_pct', e.target.value)} readOnly={isReadOnly} /></div>
+                                <div className="space-y-2"><Label>S (%)</Label><Input type="number" value={inputs.s_clinker_pct} onChange={e => handleInputChange('s_clinker_pct', e.target.value)} readOnly={isReadOnly} /></div>
+                            </div>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
@@ -307,7 +321,3 @@ export default function BilanClSPage() {
         </div>
     );
 }
-
-    
-
-    
