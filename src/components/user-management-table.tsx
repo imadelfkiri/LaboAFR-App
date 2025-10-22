@@ -55,7 +55,7 @@ import { getAllUsers, updateUserRole, type UserProfile, getRoles, type Role, upd
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Users, Crown, HardHat, Eye, PlusCircle, Settings, Edit } from 'lucide-react';
+import { Users, Crown, HardHat, Eye, PlusCircle, Settings, Edit, LayoutDashboard, BookOpen, Flame, FlaskConical, BarChart3, ClipboardCheck, ClipboardList, Factory, Cog, Beaker, DollarSign, Archive, TrendingUp, Activity, Wind, Book, BookText } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { ScrollArea } from './ui/scroll-area';
@@ -80,27 +80,30 @@ const newUserSchema = z.object({
 });
 
 const allPages = [
-  { id: '/', label: 'Tableau de Bord' },
-  { id: '/rapport-synthese', label: 'Rapport Synthèse' },
-  { id: '/calculateur', label: 'Calculateur PCI' },
-  { id: '/resultats', label: 'Résultats' },
-  { id: '/statistiques', label: 'Statistiques' },
-  { id: '/specifications', label: 'Spécifications' },
-  { id: '/analyses-cendres', label: 'Analyses Cendres' },
-  { id: '/donnees-combustibles', label: 'Données Combustibles' },
-  { id: '/calcul-melange', label: 'Calcul de Mélange' },
-  { id: '/simulation-melange', label: 'Simulation de Mélange' },
-  { id: '/gestion-couts', label: 'Gestion des Coûts' },
-  { id: '/gestion-stock', label: 'Gestion du Stock' },
-  { id: '/indicateurs', label: 'Indicateurs' },
-  { id: '/calcul-impact', label: 'Calcul d\'Impact' },
-  { id: '/historique-impact', label: 'Historique Impact' },
-  { id: '/suivi-chlore', label: 'Suivi Chlore' },
-  { id: '/gestion-utilisateurs', label: 'Gestion Utilisateurs' },
-  { id: '/gestion-seuils', label: 'Gestion des Seuils' },
+    { id: '/', label: 'Tableau de Bord', icon: LayoutDashboard },
+    { id: '/rapport-synthese', label: 'Rapport Synthèse', icon: BookOpen },
+    { id: '/calculateur', label: 'Calculateur PCI', icon: Flame },
+    { id: '/resultats', label: 'Résultats', icon: FlaskConical },
+    { id: '/statistiques', label: 'Statistiques', icon: BarChart3 },
+    { id: '/specifications', label: 'Spécifications', icon: ClipboardCheck },
+    { id: '/analyses-cendres', label: 'Analyses Cendres', icon: ClipboardList },
+    { id: '/matieres-premieres', label: 'Matières Premières', icon: Factory },
+    { id: '/donnees-combustibles', label: 'Données Combustibles', icon: Cog },
+    { id: '/calcul-melange', label: 'Calcul de Mélange', icon: Beaker },
+    { id: '/simulation-melange', label: 'Simulation de Mélange', icon: FlaskConical },
+    { id: '/gestion-couts', label: 'Gestion des Coûts', icon: DollarSign },
+    { id: '/gestion-stock', label: 'Gestion du Stock', icon: Archive },
+    { id: '/indicateurs', label: 'Indicateurs', icon: TrendingUp },
+    { id: '/calcul-impact', label: "Calcul d'Impact", icon: Activity },
+    { id: '/bilan-cl-s', label: 'Bilan Cl & S', icon: Wind },
+    { id: '/historique-impact', label: "Historique Impact", icon: Book },
+    { id: '/documentation', label: 'Documentation', icon: BookText },
+    { id: '/suivi-chlore', label: 'Suivi Chlore', icon: Wind },
+    { id: '/gestion-utilisateurs', label: 'Gestion Utilisateurs', icon: Users, adminOnly: true },
+    { id: '/gestion-seuils', label: 'Gestion des Seuils', icon: Settings, adminOnly: true },
 ];
 
-const RolePermissionsModal = ({ role, onSave, allPages }: { role: Role; onSave: (access: string[]) => void; allPages: {id: string, label: string}[] }) => {
+const RolePermissionsModal = ({ role, onSave }: { role: Role; onSave: (access: string[]) => void; }) => {
     const [selectedPages, setSelectedPages] = useState<string[]>(role.access || []);
     const [isSaving, setIsSaving] = useState(false);
 
@@ -127,7 +130,7 @@ const RolePermissionsModal = ({ role, onSave, allPages }: { role: Role; onSave: 
             </DialogHeader>
             <ScrollArea className="h-72 my-4">
                 <div className="grid grid-cols-1 gap-2 p-1">
-                    {allPages.map(page => (
+                    {allPages.filter(p => !p.adminOnly || role.id === 'admin').map(page => (
                         <div key={page.id} className="flex items-center space-x-2 p-2 rounded-md hover:bg-muted">
                             <Checkbox
                                 id={`page-${role.id}-${page.id}`}
@@ -411,7 +414,6 @@ export function UserManagementTable() {
                                             <RolePermissionsModal 
                                                 role={editingRole} 
                                                 onSave={(access) => handleUpdateRoleAccess(editingRole.id, access)}
-                                                allPages={allPages}
                                             />
                                         )}
                                     </Dialog>
