@@ -20,8 +20,8 @@ export interface BilanInput {
     debit_farine: number;
     cl_farine_pct: number;
     s_farine_pct: number;
-    cl_poussieres_pct: number;
-    s_poussieres_pct: number;
+    cl_poussieres_pct: number; // Conserve pour affichage mais n'est plus dans les calculs d'entrée
+    s_poussieres_pct: number; // Conserve pour affichage mais n'est plus dans les calculs d'entrée
     cl_afr_pct: number;
     s_afr_pct: number;
     debit_afr: number;
@@ -31,8 +31,8 @@ export interface BilanInput {
     hcl_emission_mg: number;
     so2_emission_mg: number;
     debit_gaz_nm3: number;
-    cl_clinker_pct: number; // Nouveau
-    s_clinker_pct: number; // Nouveau
+    cl_clinker_pct: number;
+    s_clinker_pct: number;
 }
 
 // --- Initial State ---
@@ -52,8 +52,8 @@ const initialInputs: BilanInput = {
     hcl_emission_mg: 50,
     so2_emission_mg: 150,
     debit_gaz_nm3: 250000,
-    cl_clinker_pct: 0.015, // Nouveau
-    s_clinker_pct: 0.8, // Nouveau
+    cl_clinker_pct: 0.015,
+    s_clinker_pct: 0.8,
 };
 
 // --- Calculation Hook ---
@@ -61,7 +61,7 @@ const initialInputs: BilanInput = {
 const useBilanCalculations = (inputs: BilanInput) => {
     return useMemo(() => {
         const {
-            debit_farine, cl_farine_pct, s_farine_pct, cl_poussieres_pct, s_poussieres_pct,
+            debit_farine, cl_farine_pct, s_farine_pct,
             cl_afr_pct, s_afr_pct, debit_afr, cl_petcoke_pct, s_petcoke_pct, debit_petcoke,
             hcl_emission_mg, so2_emission_mg, debit_gaz_nm3,
             cl_clinker_pct, s_clinker_pct
@@ -69,15 +69,12 @@ const useBilanCalculations = (inputs: BilanInput) => {
 
         const debit_clinker = debit_farine * 0.6;
         const prod_clinker_jour = debit_clinker * 24;
-        const debit_poussieres = debit_farine * 0.08;
 
         if (debit_clinker <= 0) return { bilan: {}, interpretation: { message: 'Débit clinker invalide.', color: 'bg-yellow-900/40 border-yellow-400 text-yellow-300' } };
 
         // --- 1. Conversions en g/t clinker
         const cl_farine_g = cl_farine_pct * 10000 * (debit_farine / debit_clinker);
         const s_farine_g = s_farine_pct * 10000 * (debit_farine / debit_clinker);
-        const cl_poussieres_g = cl_poussieres_pct * 10000 * (debit_poussieres / debit_clinker);
-        const s_poussieres_g = s_poussieres_pct * 10000 * (debit_poussieres / debit_clinker);
 
         const cl_afr_g = cl_afr_pct * 10000 * (debit_afr / debit_clinker);
         const s_afr_g = s_afr_pct * 10000 * (debit_afr / debit_clinker);
@@ -85,13 +82,10 @@ const useBilanCalculations = (inputs: BilanInput) => {
         const s_petcoke_g = s_petcoke_pct * 10000 * (debit_petcoke / debit_clinker);
         
         // --- Conversion des émissions gazeuses (mg/Nm³ -> g/t clinker) ---
-        // 1. Calcul du flux massique en g/h
-        const hcl_flux_g_h = hcl_emission_mg * debit_gaz_nm3 / 1000; // mg/h -> g/h
-        const so2_flux_g_h = so2_emission_mg * debit_gaz_nm3 / 1000; // mg/h -> g/h
-        // 2. Conversion en flux de Cl et S purs en g/h (avec masses molaires)
+        const hcl_flux_g_h = hcl_emission_mg * debit_gaz_nm3 / 1000;
+        const so2_flux_g_h = so2_emission_mg * debit_gaz_nm3 / 1000;
         const cl_flux_g_h = hcl_flux_g_h * (35.5 / 36.5);
         const s_flux_g_h = so2_flux_g_h * (32 / 64);
-        // 3. Rapport au débit clinker pour obtenir des g/t clinker
         const cl_gaz_g = cl_flux_g_h / debit_clinker;
         const s_gaz_g = s_flux_g_h / debit_clinker;
 
@@ -99,8 +93,8 @@ const useBilanCalculations = (inputs: BilanInput) => {
         const s_clinker_g = s_clinker_pct * 10000;
 
         // --- 2. Entrées totales
-        const cl_entree = cl_farine_g + cl_poussieres_g + cl_afr_g + cl_petcoke_g;
-        const s_entree = s_farine_g + s_poussieres_g + s_afr_g + s_petcoke_g;
+        const cl_entree = cl_farine_g + cl_afr_g + cl_petcoke_g;
+        const s_entree = s_farine_g + s_afr_g + s_petcoke_g;
 
         // --- 3. Sorties
         const cl_sortie = cl_gaz_g + cl_clinker_g;
@@ -212,7 +206,6 @@ export default function BilanClSPage() {
         }
     };
 
-    // CORRECTION: Ajustement des seuils
     const getClStatus = (val: number): 'good' | 'warn' | 'bad' => {
         if (val > 600) return 'bad';
         if (val > 300) return 'warn';
@@ -267,7 +260,7 @@ export default function BilanClSPage() {
                 <BilanResultCard label="Cl Total Entrée" value={(bilan.cl_entree ?? 0).toFixed(2)} unit="g/t" valueKgH={(bilan.cl_entree_kg_h ?? 0).toFixed(2)} status={getClStatus(bilan.cl_entree ?? 0)} />
                 <BilanResultCard label="S Total Entrée" value={(bilan.s_entree ?? 0).toFixed(2)} unit="g/t" valueKgH={(bilan.s_entree_kg_h ?? 0).toFixed(2)} status="neutral" />
                 <BilanResultCard label="Cycle Interne Cl" value={(bilan.accum_cl ?? 0).toFixed(2)} unit="g/t" valueKgH={(bilan.accum_cl_kg_h ?? 0).toFixed(2)} status={(bilan.accum_cl ?? 0) > 300 ? 'warn' : 'neutral'} />
-                <BilanResultCard label="Cycle Interne S" value={(bilan.accum_s ?? 0).toFixed(2)} unit="g/t" valueKgH={(bilan.accum_s_kg_h ?? 0).toFixed(2)} status={(bilan.accum_s ?? 0) > 5000 ? 'warn' : 'neutral'} />
+                <BilanResultCard label="Cycle Interne S" value={(bilan.accum_s ?? 0).toFixed(2)} unit="g/t" valueKgH={(bilan.accum_s_kg_h ?? 0).toFixed(2)} status={(bilan.accum_s ?? 0) < 0 ? 'bad' : (bilan.accum_s ?? 0) > 5000 ? 'warn' : 'neutral'} />
                 <BilanResultCard label="Rapport S/Cl" value={isFinite(bilan.rapport_s_cl ?? 0) ? (bilan.rapport_s_cl ?? 0).toFixed(2) : '∞'} unit="" status={getRapportStatus(bilan.rapport_s_cl ?? 0)} />
             </div>
 
@@ -287,8 +280,8 @@ export default function BilanClSPage() {
                                 <div className="space-y-2"><Label>Cl (%)</Label><Input type="number" value={inputs.cl_farine_pct} onChange={e => handleInputChange('cl_farine_pct', e.target.value)} readOnly={isReadOnly} /></div>
                                 <div className="space-y-2"><Label>S (%)</Label><Input type="number" value={inputs.s_farine_pct} onChange={e => handleInputChange('s_farine_pct', e.target.value)} readOnly={isReadOnly} /></div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border rounded-lg">
-                                <h3 className="col-span-full font-semibold">Poussières (Recyclées à 8%)</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border rounded-lg bg-muted/20">
+                                <h3 className="col-span-full font-semibold text-muted-foreground">Poussières (Recyclées à 8%) - Pour information</h3>
                                 <div className="space-y-2"><Label>Débit (t/h)</Label><Input type="number" value={(inputs.debit_farine * 0.08).toFixed(2)} disabled /></div>
                                 <div className="space-y-2"><Label>Cl (%)</Label><Input type="number" value={inputs.cl_poussieres_pct} onChange={e => handleInputChange('cl_poussieres_pct', e.target.value)} readOnly={isReadOnly} /></div>
                                 <div className="space-y-2"><Label>S (%)</Label><Input type="number" value={inputs.s_poussieres_pct} onChange={e => handleInputChange('s_poussieres_pct', e.target.value)} readOnly={isReadOnly} /></div>
