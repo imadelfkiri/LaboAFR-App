@@ -83,6 +83,7 @@ const useBilanCalculations = (inputs: BilanInput) => {
         const cl_petcoke_g = cl_petcoke_pct * 10000 * (debit_petcoke / debit_clinker);
         const s_petcoke_g = s_petcoke_pct * 10000 * (debit_petcoke / debit_clinker);
         
+        // CORRECTION: Ajout des poids moléculaires pour la conversion
         const cl_gaz_g = (hcl_emission_mg * debit_gaz_nm3 * (35.5 / 36.5)) / (debit_clinker * 1000);
         const s_gaz_g = (so2_emission_mg * debit_gaz_nm3 * (32 / 64)) / (debit_clinker * 1000);
 
@@ -203,10 +204,10 @@ export default function BilanClSPage() {
         }
     };
 
-
+    // CORRECTION: Ajustement des seuils
     const getClStatus = (val: number): 'good' | 'warn' | 'bad' => {
-        if (val > 600) return 'bad'; // Anciennement 0.6
-        if (val > 300) return 'warn'; // Anciennement 0.3
+        if (val > 600) return 'bad';
+        if (val > 300) return 'warn';
         return 'good';
     };
     
