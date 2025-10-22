@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Wind, FlaskConical, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Wind, FlaskConical, AlertTriangle, CheckCircle, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/auth-provider';
 
@@ -26,7 +26,6 @@ interface BilanInput {
     hcl_emission_mg: number;
     so2_emission_mg: number;
     debit_gaz_nm3: number;
-    prod_clinker_jour: number;
 }
 
 // --- Initial State ---
@@ -46,7 +45,6 @@ const initialInputs: BilanInput = {
     hcl_emission_mg: 50,
     so2_emission_mg: 150,
     debit_gaz_nm3: 250000,
-    prod_clinker_jour: 3500,
 };
 
 // --- Calculation Hook ---
@@ -56,10 +54,11 @@ const useBilanCalculations = (inputs: BilanInput) => {
         const {
             debit_farine, cl_farine_ppm, s_farine_ppm, cl_poussieres_ppm, s_poussieres_ppm,
             cl_afr_pct, s_afr_pct, debit_afr, cl_petcoke_pct, s_petcoke_pct, debit_petcoke,
-            hcl_emission_mg, so2_emission_mg, debit_gaz_nm3, prod_clinker_jour
+            hcl_emission_mg, so2_emission_mg, debit_gaz_nm3
         } = inputs;
 
         const debit_clinker = debit_farine * 0.6;
+        const prod_clinker_jour = debit_clinker * 24;
         const debit_poussieres = debit_farine * 0.08;
 
         if (debit_clinker === 0) return { bilan: {}, interpretation: { message: '', color: '' } };
@@ -118,7 +117,7 @@ const useBilanCalculations = (inputs: BilanInput) => {
 
 
         return {
-            bilan: { cl_entree, s_entree, accum_cl, accum_s, rapport_s_cl },
+            bilan: { cl_entree, s_entree, accum_cl, accum_s, rapport_s_cl, debit_clinker, prod_clinker_jour },
             interpretation: { message, color },
         };
     }, [inputs]);
@@ -167,14 +166,20 @@ export default function BilanClSPage() {
 
     return (
         <div className="container mx-auto p-4 md:p-8 space-y-6">
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold tracking-tight text-primary flex items-center gap-3">
-                    <Wind className="h-8 w-8" />
-                    Bilan Chlore & Soufre
-                </h1>
-                <p className="text-muted-foreground mt-2">
-                    Évaluez l'équilibre du cycle des volatils pour garantir la stabilité du four.
-                </p>
+            <div className="flex justify-between items-start mb-8">
+              <div>
+                  <h1 className="text-3xl font-bold tracking-tight text-primary flex items-center gap-3">
+                      <Wind className="h-8 w-8" />
+                      Bilan Chlore & Soufre
+                  </h1>
+                  <p className="text-muted-foreground mt-2">
+                      Évaluez l'équilibre du cycle des volatils pour garantir la stabilité du four.
+                  </p>
+              </div>
+              <Button disabled={isReadOnly}>
+                  <Save className="mr-2 h-4 w-4" />
+                  Sauvegarder le Bilan
+              </Button>
             </div>
             
             {interpretation.message && (
@@ -236,8 +241,8 @@ export default function BilanClSPage() {
                      {/* Production */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border rounded-lg">
                         <h3 className="col-span-full font-semibold text-primary">Production</h3>
-                        <div className="space-y-2"><Label>Production Clinker (t/jour)</Label><Input type="number" value={inputs.prod_clinker_jour} onChange={e => handleInputChange('prod_clinker_jour', e.target.value)} readOnly={isReadOnly} /></div>
-                        <div className="space-y-2"><Label>Débit Clinker (t/h)</Label><Input type="number" value={(inputs.debit_farine * 0.6).toFixed(2)} disabled /></div>
+                        <div className="space-y-2"><Label>Production Clinker (t/jour)</Label><Input type="number" value={(bilan.prod_clinker_jour ?? 0).toFixed(2)} disabled /></div>
+                        <div className="space-y-2"><Label>Débit Clinker (t/h)</Label><Input type="number" value={(bilan.debit_clinker ?? 0).toFixed(2)} disabled /></div>
                     </div>
                 </CardContent>
             </Card>
