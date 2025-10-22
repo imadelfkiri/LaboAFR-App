@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -83,9 +84,16 @@ const useBilanCalculations = (inputs: BilanInput) => {
         const cl_petcoke_g = cl_petcoke_pct * 10000 * (debit_petcoke / debit_clinker);
         const s_petcoke_g = s_petcoke_pct * 10000 * (debit_petcoke / debit_clinker);
         
-        // CORRECTION: Ajout des poids moléculaires pour la conversion
-        const cl_gaz_g = (hcl_emission_mg * debit_gaz_nm3 * (35.5 / 36.5)) / (debit_clinker * 1000);
-        const s_gaz_g = (so2_emission_mg * debit_gaz_nm3 * (32 / 64)) / (debit_clinker * 1000);
+        // --- Conversion des émissions gazeuses (mg/Nm³ -> g/t clinker) ---
+        // 1. Calcul du flux massique en g/h
+        const hcl_flux_g_h = hcl_emission_mg * debit_gaz_nm3 / 1000; // mg/h -> g/h
+        const so2_flux_g_h = so2_emission_mg * debit_gaz_nm3 / 1000; // mg/h -> g/h
+        // 2. Conversion en flux de Cl et S purs en g/h (avec masses molaires)
+        const cl_flux_g_h = hcl_flux_g_h * (35.5 / 36.5);
+        const s_flux_g_h = so2_flux_g_h * (32 / 64);
+        // 3. Rapport au débit clinker pour obtenir des g/t clinker
+        const cl_gaz_g = cl_flux_g_h / debit_clinker;
+        const s_gaz_g = s_flux_g_h / debit_clinker;
 
         const cl_clinker_g = cl_clinker_pct * 10000;
         const s_clinker_g = s_clinker_pct * 10000;
@@ -322,3 +330,5 @@ export default function BilanClSPage() {
         </div>
     );
 }
+
+    
