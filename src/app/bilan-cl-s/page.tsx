@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,10 +8,13 @@ import { Button } from '@/components/ui/button';
 import { Wind, FlaskConical, AlertTriangle, CheckCircle, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/auth-provider';
+import { saveBilanClS, getLatestBilanClS, BilanClSData } from '@/lib/data';
+import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // --- Type Definitions ---
 
-interface BilanInput {
+export interface BilanInput {
     debit_farine: number;
     cl_farine_ppm: number;
     s_farine_ppm: number;
@@ -61,24 +64,21 @@ const useBilanCalculations = (inputs: BilanInput) => {
         const prod_clinker_jour = debit_clinker * 24;
         const debit_poussieres = debit_farine * 0.08;
 
-        if (debit_clinker === 0) return { bilan: {}, interpretation: { message: '', color: '' } };
+        if (debit_clinker <= 0) return { bilan: {}, interpretation: { message: 'Débit clinker invalide.', color: 'bg-yellow-900/40 border-yellow-400 text-yellow-300' } };
 
         // --- 1. Conversions
-        // ppm -> g/t clinker
         const cl_farine_g = cl_farine_ppm * (debit_farine / debit_clinker);
         const s_farine_g = s_farine_ppm * (debit_farine / debit_clinker);
         const cl_poussieres_g = cl_poussieres_ppm * (debit_poussieres / debit_clinker);
         const s_poussieres_g = s_poussieres_ppm * (debit_poussieres / debit_clinker);
 
-        // % -> g/t clinker
         const cl_afr_g = cl_afr_pct * 10000 * (debit_afr / debit_clinker);
         const s_afr_g = s_afr_pct * 10000 * (debit_afr / debit_clinker);
         const cl_petcoke_g = cl_petcoke_pct * 10000 * (debit_petcoke / debit_clinker);
         const s_petcoke_g = s_petcoke_pct * 10000 * (debit_petcoke / debit_clinker);
         
-        // mg/Nm³ -> g/t clinker
-        const cl_gaz_g = debit_clinker > 0 ? (hcl_emission_mg * debit_gaz_nm3 * (35.5 / 36.5)) / (debit_clinker * 1000) : 0;
-        const s_gaz_g = debit_clinker > 0 ? (so2_emission_mg * debit_gaz_nm3 * (32 / 64)) / (debit_clinker * 1000) : 0;
+        const cl_gaz_g = (hcl_emission_mg * debit_gaz_nm3 * (35.5 / 36.5)) / (debit_clinker * 1000);
+        const s_gaz_g = (so2_emission_mg * debit_gaz_nm3 * (32 / 64)) / (debit_clinker * 1000);
 
         // --- 2. Entrées totales
         const cl_entree = cl_farine_g + cl_poussieres_g + cl_afr_g + cl_petcoke_g;
@@ -146,10 +146,45 @@ export default function BilanClSPage() {
     const isReadOnly = userProfile?.role === 'viewer';
     const [inputs, setInputs] = useState<BilanInput>(initialInputs);
     const { bilan, interpretation } = useBilanCalculations(inputs);
+    const { toast } = useToast();
+    const [loading, setLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        const fetchLatestData = async () => {
+            setLoading(true);
+            try {
+                const latestBilan = await getLatestBilanClS();
+                if (latestBilan) {
+                    setInputs(latestBilan.inputs);
+                }
+            } catch (error) {
+                toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger le dernier bilan." });
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchLatestData();
+    }, [toast]);
+
 
     const handleInputChange = (field: keyof BilanInput, value: string) => {
         setInputs(prev => ({ ...prev, [field]: parseFloat(value) || 0 }));
     };
+
+    const handleSave = async () => {
+        if (isReadOnly) return;
+        setIsSaving(true);
+        try {
+            await saveBilanClS({ inputs, results: bilan });
+            toast({ title: "Succès", description: "Le bilan a été sauvegardé." });
+        } catch (error) {
+            toast({ variant: "destructive", title: "Erreur de sauvegarde", description: "Impossible d'enregistrer le bilan." });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
 
     const getClStatus = (val: number): 'good' | 'warn' | 'bad' => {
         if (val > 0.6) return 'bad';
@@ -163,6 +198,18 @@ export default function BilanClSPage() {
         return 'good';
     };
 
+    if (loading) {
+        return (
+             <div className="container mx-auto p-4 md:p-8 space-y-6">
+                <Skeleton className="h-12 w-1/3" />
+                <Skeleton className="h-24 w-full" />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                    {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}
+                </div>
+                <Skeleton className="h-96 w-full" />
+            </div>
+        )
+    }
 
     return (
         <div className="container mx-auto p-4 md:p-8 space-y-6">
@@ -176,9 +223,9 @@ export default function BilanClSPage() {
                       Évaluez l'équilibre du cycle des volatils pour garantir la stabilité du four.
                   </p>
               </div>
-              <Button disabled={isReadOnly}>
+              <Button onClick={handleSave} disabled={isReadOnly || isSaving}>
                   <Save className="mr-2 h-4 w-4" />
-                  Sauvegarder le Bilan
+                  {isSaving ? "Sauvegarde..." : "Sauvegarder le Bilan"}
               </Button>
             </div>
             
@@ -193,7 +240,7 @@ export default function BilanClSPage() {
                 <BilanResultCard label="Cl Total Entrée" value={(bilan.cl_entree ?? 0).toFixed(2)} unit="g/t" status={getClStatus(bilan.cl_entree ?? 0)} />
                 <BilanResultCard label="S Total Entrée" value={(bilan.s_entree ?? 0).toFixed(2)} unit="g/t" status="neutral" />
                 <BilanResultCard label="Accumulation Cl" value={(bilan.accum_cl ?? 0).toFixed(2)} unit="g/t" status={(bilan.accum_cl ?? 0) > 300 ? 'warn' : 'neutral'} />
-                <BilanResultCard label="Accumulation S" value={(bilan.accum_s ?? 0).toFixed(2)} unit="g_t" status={(bilan.accum_s ?? 0) > 50000 ? 'warn' : 'neutral'} />
+                <BilanResultCard label="Accumulation S" value={(bilan.accum_s ?? 0).toFixed(2)} unit="g/t" status={(bilan.accum_s ?? 0) > 50000 ? 'warn' : 'neutral'} />
                 <BilanResultCard label="Rapport S/Cl" value={isFinite(bilan.rapport_s_cl ?? 0) ? (bilan.rapport_s_cl ?? 0).toFixed(2) : '∞'} unit="" status={getRapportStatus(bilan.rapport_s_cl ?? 0)} />
             </div>
 

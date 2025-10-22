@@ -1,5 +1,3 @@
-
-
 // src/lib/data.ts
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, arrayUnion, orderBy, Timestamp, setDoc,getCountFromServer, limit, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
@@ -242,6 +240,14 @@ interface Result {
   chlore?: number;
 }
 
+export interface BilanClSData {
+    id?: string;
+    savedAt: Timestamp;
+    inputs: any;
+    results: any;
+}
+
+
 export async function getResultsForPeriod(
   dateRange: DateRange
 ): Promise<Result[]> {
@@ -274,6 +280,7 @@ const defaultRoleAccess: Record<string, string[]> = {
     '/statistiques',
     '/specifications',
     '/analyses-cendres',
+    '/matieres-premieres',
     '/donnees-combustibles',
     '/calcul-melange',
     '/simulation-melange',
@@ -282,11 +289,11 @@ const defaultRoleAccess: Record<string, string[]> = {
     '/indicateurs',
     '/calcul-impact',
     '/historique-impact',
+    '/documentation',
+    '/bilan-cl-s',
     '/suivi-chlore',
     '/gestion-utilisateurs',
     '/gestion-seuils',
-    '/documentation',
-    '/bilan-cl-s',
   ],
   technician: [
     '/',
@@ -301,8 +308,8 @@ const defaultRoleAccess: Record<string, string[]> = {
     '/indicateurs',
     '/calcul-impact',
     '/historique-impact',
-    '/suivi-chlore',
     '/bilan-cl-s',
+    '/suivi-chlore',
   ],
   viewer: [
     '/',
@@ -1123,6 +1130,31 @@ export async function deleteChlorineTrackingEntry(id: string): Promise<void> {
     const entryRef = doc(db, 'chlorine_tracking', id);
     await deleteDoc(entryRef);
 }
+
+// --- Bilan Chlore & Soufre ---
+
+export async function saveBilanClS(data: Omit<BilanClSData, 'id' | 'savedAt'>): Promise<void> {
+    const dataToSave = {
+        ...data,
+        savedAt: serverTimestamp(),
+    };
+    await addDoc(collection(db, 'bilans_cl_s'), dataToSave);
+}
+
+export async function getLatestBilanClS(): Promise<BilanClSData | null> {
+    const q = query(
+        collection(db, 'bilans_cl_s'),
+        orderBy('savedAt', 'desc'),
+        limit(1)
+    );
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) {
+        return null;
+    }
+    const docData = snapshot.docs[0];
+    return { id: docData.id, ...docData.data() } as BilanClSData;
+}
+
 
 // --- User Management ---
 
