@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -16,10 +17,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export interface BilanInput {
     debit_farine: number;
-    cl_farine_ppm: number;
-    s_farine_ppm: number;
-    cl_poussieres_ppm: number;
-    s_poussieres_ppm: number;
+    cl_farine_pct: number;
+    s_farine_pct: number;
+    cl_poussieres_pct: number;
+    s_poussieres_pct: number;
     cl_afr_pct: number;
     s_afr_pct: number;
     debit_afr: number;
@@ -35,10 +36,10 @@ export interface BilanInput {
 
 const initialInputs: BilanInput = {
     debit_farine: 100,
-    cl_farine_ppm: 300,
-    s_farine_ppm: 500,
-    cl_poussieres_ppm: 400,
-    s_poussieres_ppm: 600,
+    cl_farine_pct: 0.03,
+    s_farine_pct: 0.05,
+    cl_poussieres_pct: 0.04,
+    s_poussieres_pct: 0.06,
     cl_afr_pct: 0.25,
     s_afr_pct: 0.7,
     debit_afr: 2,
@@ -55,7 +56,7 @@ const initialInputs: BilanInput = {
 const useBilanCalculations = (inputs: BilanInput) => {
     return useMemo(() => {
         const {
-            debit_farine, cl_farine_ppm, s_farine_ppm, cl_poussieres_ppm, s_poussieres_ppm,
+            debit_farine, cl_farine_pct, s_farine_pct, cl_poussieres_pct, s_poussieres_pct,
             cl_afr_pct, s_afr_pct, debit_afr, cl_petcoke_pct, s_petcoke_pct, debit_petcoke,
             hcl_emission_mg, so2_emission_mg, debit_gaz_nm3
         } = inputs;
@@ -67,10 +68,10 @@ const useBilanCalculations = (inputs: BilanInput) => {
         if (debit_clinker <= 0) return { bilan: {}, interpretation: { message: 'Débit clinker invalide.', color: 'bg-yellow-900/40 border-yellow-400 text-yellow-300' } };
 
         // --- 1. Conversions
-        const cl_farine_g = cl_farine_ppm * (debit_farine / debit_clinker);
-        const s_farine_g = s_farine_ppm * (debit_farine / debit_clinker);
-        const cl_poussieres_g = cl_poussieres_ppm * (debit_poussieres / debit_clinker);
-        const s_poussieres_g = s_poussieres_ppm * (debit_poussieres / debit_clinker);
+        const cl_farine_g = cl_farine_pct * 10000 * (debit_farine / debit_clinker);
+        const s_farine_g = s_farine_pct * 10000 * (debit_farine / debit_clinker);
+        const cl_poussieres_g = cl_poussieres_pct * 10000 * (debit_poussieres / debit_clinker);
+        const s_poussieres_g = s_poussieres_pct * 10000 * (debit_poussieres / debit_clinker);
 
         const cl_afr_g = cl_afr_pct * 10000 * (debit_afr / debit_clinker);
         const s_afr_g = s_afr_pct * 10000 * (debit_afr / debit_clinker);
@@ -254,15 +255,15 @@ export default function BilanClSPage() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border rounded-lg">
                         <h3 className="col-span-full font-semibold text-primary">Farine</h3>
                         <div className="space-y-2"><Label>Débit (t/h)</Label><Input type="number" value={inputs.debit_farine} onChange={e => handleInputChange('debit_farine', e.target.value)} readOnly={isReadOnly} /></div>
-                        <div className="space-y-2"><Label>Cl (ppm)</Label><Input type="number" value={inputs.cl_farine_ppm} onChange={e => handleInputChange('cl_farine_ppm', e.target.value)} readOnly={isReadOnly} /></div>
-                        <div className="space-y-2"><Label>S (ppm)</Label><Input type="number" value={inputs.s_farine_ppm} onChange={e => handleInputChange('s_farine_ppm', e.target.value)} readOnly={isReadOnly} /></div>
+                        <div className="space-y-2"><Label>Cl (%)</Label><Input type="number" value={inputs.cl_farine_pct} onChange={e => handleInputChange('cl_farine_pct', e.target.value)} readOnly={isReadOnly} /></div>
+                        <div className="space-y-2"><Label>S (%)</Label><Input type="number" value={inputs.s_farine_pct} onChange={e => handleInputChange('s_farine_pct', e.target.value)} readOnly={isReadOnly} /></div>
                     </div>
                      {/* Poussières */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border rounded-lg">
                         <h3 className="col-span-full font-semibold text-primary">Poussières (Recyclées à 8%)</h3>
                         <div className="space-y-2"><Label>Débit (t/h)</Label><Input type="number" value={(inputs.debit_farine * 0.08).toFixed(2)} disabled /></div>
-                        <div className="space-y-2"><Label>Cl (ppm)</Label><Input type="number" value={inputs.cl_poussieres_ppm} onChange={e => handleInputChange('cl_poussieres_ppm', e.target.value)} readOnly={isReadOnly} /></div>
-                        <div className="space-y-2"><Label>S (ppm)</Label><Input type="number" value={inputs.s_poussieres_ppm} onChange={e => handleInputChange('s_poussieres_ppm', e.target.value)} readOnly={isReadOnly} /></div>
+                        <div className="space-y-2"><Label>Cl (%)</Label><Input type="number" value={inputs.cl_poussieres_pct} onChange={e => handleInputChange('cl_poussieres_pct', e.target.value)} readOnly={isReadOnly} /></div>
+                        <div className="space-y-2"><Label>S (%)</Label><Input type="number" value={inputs.s_poussieres_pct} onChange={e => handleInputChange('s_poussieres_pct', e.target.value)} readOnly={isReadOnly} /></div>
                     </div>
                     {/* AFR */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border rounded-lg">
@@ -297,3 +298,5 @@ export default function BilanClSPage() {
         </div>
     );
 }
+
+    
