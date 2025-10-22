@@ -856,7 +856,6 @@ export async function getAverageAshAnalysisForFuels(
     const fuelAnalyses = resultsByFuel[fuelName];
     const avg: AshAnalysis = {};
     if (fuelAnalyses.length > 0) {
-      // Add special handling for 'pourcentage_cendres' as it might be named 'cendres'
       const ashValues = fuelAnalyses.map(a => a.pourcentage_cendres ?? a.cendres).filter(v => typeof v === 'number') as number[];
       if (ashValues.length > 0) {
         avg.pourcentage_cendres = ashValues.reduce((sum, val) => sum + val, 0) / ashValues.length;

@@ -76,9 +76,9 @@ const useBilanCalculations = (inputs: BilanInput) => {
         const cl_petcoke_g = cl_petcoke_pct * 10000 * (debit_petcoke / debit_clinker);
         const s_petcoke_g = s_petcoke_pct * 10000 * (debit_petcoke / debit_clinker);
         
-        // mg/Nm³ -> g/t clinker (approximation en utilisant la prod journalière)
-        const cl_gaz_g = prod_clinker_jour > 0 ? (hcl_emission_mg * debit_gaz_nm3 * 24 * (35.5 / 36.5)) / (prod_clinker_jour * 1000) : 0;
-        const s_gaz_g = prod_clinker_jour > 0 ? (so2_emission_mg * debit_gaz_nm3 * 24 * (32 / 64)) / (prod_clinker_jour * 1000) : 0;
+        // mg/Nm³ -> g/t clinker
+        const cl_gaz_g = debit_clinker > 0 ? (hcl_emission_mg * debit_gaz_nm3 * (35.5 / 36.5)) / (debit_clinker * 1000) : 0;
+        const s_gaz_g = debit_clinker > 0 ? (so2_emission_mg * debit_gaz_nm3 * (32 / 64)) / (debit_clinker * 1000) : 0;
 
         // --- 2. Entrées totales
         const cl_entree = cl_farine_g + cl_poussieres_g + cl_afr_g + cl_petcoke_g;
@@ -193,7 +193,7 @@ export default function BilanClSPage() {
                 <BilanResultCard label="Cl Total Entrée" value={(bilan.cl_entree ?? 0).toFixed(2)} unit="g/t" status={getClStatus(bilan.cl_entree ?? 0)} />
                 <BilanResultCard label="S Total Entrée" value={(bilan.s_entree ?? 0).toFixed(2)} unit="g/t" status="neutral" />
                 <BilanResultCard label="Accumulation Cl" value={(bilan.accum_cl ?? 0).toFixed(2)} unit="g/t" status={(bilan.accum_cl ?? 0) > 300 ? 'warn' : 'neutral'} />
-                <BilanResultCard label="Accumulation S" value={(bilan.accum_s ?? 0).toFixed(2)} unit="g/t" status={(bilan.accum_s ?? 0) > 50000 ? 'warn' : 'neutral'} />
+                <BilanResultCard label="Accumulation S" value={(bilan.accum_s ?? 0).toFixed(2)} unit="g_t" status={(bilan.accum_s ?? 0) > 50000 ? 'warn' : 'neutral'} />
                 <BilanResultCard label="Rapport S/Cl" value={isFinite(bilan.rapport_s_cl ?? 0) ? (bilan.rapport_s_cl ?? 0).toFixed(2) : '∞'} unit="" status={getRapportStatus(bilan.rapport_s_cl ?? 0)} />
             </div>
 
