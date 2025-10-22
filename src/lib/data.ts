@@ -302,6 +302,7 @@ const defaultRoleAccess: Record<string, string[]> = {
     '/calcul-impact',
     '/historique-impact',
     '/suivi-chlore',
+    '/bilan-cl-s',
   ],
   viewer: [
     '/',
