@@ -72,7 +72,7 @@ const useBilanCalculations = (inputs: BilanInput) => {
 
         if (debit_clinker <= 0) return { bilan: {}, interpretation: { message: 'Débit clinker invalide.', color: 'bg-yellow-900/40 border-yellow-400 text-yellow-300' } };
 
-        // --- 1. Conversions en g/t clinker
+        // --- 1. Entrées en g/t clinker
         const cl_farine_g = cl_farine_pct * 10000 * (debit_farine / debit_clinker);
         const s_farine_g = s_farine_pct * 10000 * (debit_farine / debit_clinker);
 
@@ -81,33 +81,33 @@ const useBilanCalculations = (inputs: BilanInput) => {
         const cl_petcoke_g = cl_petcoke_pct * 10000 * (debit_petcoke / debit_clinker);
         const s_petcoke_g = s_petcoke_pct * 10000 * (debit_petcoke / debit_clinker);
         
-        // --- Conversion des émissions gazeuses (mg/Nm³ -> g/t clinker) ---
+        const cl_entree = cl_farine_g + cl_afr_g + cl_petcoke_g;
+        const s_entree = s_farine_g + s_afr_g + s_petcoke_g;
+
+        // --- 2. Sorties en g/t clinker
+        // Sorties gazeuses
         const hcl_flux_g_h = hcl_emission_mg * debit_gaz_nm3 / 1000;
         const so2_flux_g_h = so2_emission_mg * debit_gaz_nm3 / 1000;
         const cl_flux_g_h = hcl_flux_g_h * (35.5 / 36.5);
         const s_flux_g_h = so2_flux_g_h * (32 / 64);
         const cl_gaz_g = cl_flux_g_h / debit_clinker;
         const s_gaz_g = s_flux_g_h / debit_clinker;
-
+        
+        // Sorties clinker
         const cl_clinker_g = cl_clinker_pct * 10000;
         const s_clinker_g = s_clinker_pct * 10000;
 
-        // --- 2. Entrées totales
-        const cl_entree = cl_farine_g + cl_afr_g + cl_petcoke_g;
-        const s_entree = s_farine_g + s_afr_g + s_petcoke_g;
-
-        // --- 3. Sorties
         const cl_sortie = cl_gaz_g + cl_clinker_g;
         const s_sortie = s_gaz_g + s_clinker_g;
 
-        // --- 4. Accumulation (Cycle Interne)
+        // --- 3. Accumulation (Cycle Interne)
         const accum_cl = cl_entree - cl_sortie;
         const accum_s = s_entree - s_sortie;
 
-        // --- 5. Rapport S/Cl
+        // --- 4. Rapport S/Cl
         const rapport_s_cl = cl_entree > 0 ? s_entree / cl_entree : Infinity;
 
-        // --- 6. Valeurs en kg/h
+        // --- 5. Valeurs en kg/h
         const cl_entree_kg_h = cl_entree * debit_clinker / 1000;
         const s_entree_kg_h = s_entree * debit_clinker / 1000;
         const accum_cl_kg_h = accum_cl * debit_clinker / 1000;
@@ -259,8 +259,8 @@ export default function BilanClSPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 <BilanResultCard label="Cl Total Entrée" value={(bilan.cl_entree ?? 0).toFixed(2)} unit="g/t" valueKgH={(bilan.cl_entree_kg_h ?? 0).toFixed(2)} status={getClStatus(bilan.cl_entree ?? 0)} />
                 <BilanResultCard label="S Total Entrée" value={(bilan.s_entree ?? 0).toFixed(2)} unit="g/t" valueKgH={(bilan.s_entree_kg_h ?? 0).toFixed(2)} status="neutral" />
-                <BilanResultCard label="Cycle Interne Cl" value={(bilan.accum_cl ?? 0).toFixed(2)} unit="g/t" valueKgH={(bilan.accum_cl_kg_h ?? 0).toFixed(2)} status={(bilan.accum_cl ?? 0) > 300 ? 'warn' : 'neutral'} />
-                <BilanResultCard label="Cycle Interne S" value={(bilan.accum_s ?? 0).toFixed(2)} unit="g/t" valueKgH={(bilan.accum_s_kg_h ?? 0).toFixed(2)} status={(bilan.accum_s ?? 0) < 0 ? 'bad' : (bilan.accum_s ?? 0) > 5000 ? 'warn' : 'neutral'} />
+                <BilanResultCard label="Accumulation Cl (Cycle Interne)" value={(bilan.accum_cl ?? 0).toFixed(2)} unit="g/t" valueKgH={(bilan.accum_cl_kg_h ?? 0).toFixed(2)} status={(bilan.accum_cl ?? 0) > 300 ? 'warn' : 'neutral'} />
+                <BilanResultCard label="Accumulation S (Cycle Interne)" value={(bilan.accum_s ?? 0).toFixed(2)} unit="g/t" valueKgH={(bilan.accum_s_kg_h ?? 0).toFixed(2)} status={(bilan.accum_s ?? 0) < 0 ? 'bad' : (bilan.accum_s ?? 0) > 5000 ? 'warn' : 'neutral'} />
                 <BilanResultCard label="Rapport S/Cl" value={isFinite(bilan.rapport_s_cl ?? 0) ? (bilan.rapport_s_cl ?? 0).toFixed(2) : '∞'} unit="" status={getRapportStatus(bilan.rapport_s_cl ?? 0)} />
             </div>
 
