@@ -411,9 +411,23 @@ export default function ResultsTable() {
                     throw new Error(`Impossible de trouver la première feuille de calcul.`);
                 }
                 
-                // Use range option to skip the first 3 rows
-                const json = XLSX.utils.sheet_to_json<any>(worksheet, { header: 1, raw: false, range: 3 });
+                const sheetRef = worksheet['!ref'];
+                if (!sheetRef) throw new Error("La feuille de calcul est vide.");
+                
+                const range = XLSX.utils.decode_range(sheetRef);
+                // Set the starting row to 3 (which is the 4th row, 0-indexed)
+                range.s.r = 3; 
+                
+                if (range.e.r < range.s.r) {
+                    throw new Error("Aucune donnée à importer à partir de la ligne 4.");
+                }
 
+                const json = XLSX.utils.sheet_to_json<any>(worksheet, {
+                    header: 1,
+                    raw: false,
+                    range: XLSX.utils.encode_range(range),
+                });
+                
                 if (json.length < 2) {
                      throw new Error("Le fichier Excel est vide ou n'a pas d'en-tête à partir de la ligne 4.");
                 }
@@ -439,7 +453,7 @@ export default function ResultsTable() {
                 });
                 
                 const parsedResults = rows.map((row, rowIndex) => {
-                    const rowNum = rowIndex + 5; // Data starts at line 4 (header) + 1 
+                    const rowNum = rowIndex + 5; 
                     try {
                         const rowData: { [key: string]: any } = {};
                         mappedHeaders.forEach((key, index) => {
