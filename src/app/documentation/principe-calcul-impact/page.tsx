@@ -1,12 +1,13 @@
+"use client";
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { BookText } from "lucide-react";
 import type { Metadata } from 'next';
 import { ExportButton } from "@/components/actions/ExportButton";
 
-export const metadata: Metadata = {
-  title: "Principe du Calcul d'Impact | FuelTrack AFR",
-  description: "Explication détaillée de la méthodologie de calcul d'impact des cendres de combustibles sur la composition du clinker.",
-};
+// Metadata should be exported from server components, but since we need interactivity,
+// we can't have both in the same file easily. For now, we'll remove it.
+// Consider creating a separate layout or using a different pattern if metadata is critical.
 
 export default function PrincipeCalculImpactPage() {
 
