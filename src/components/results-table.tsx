@@ -445,45 +445,44 @@ export default function ResultsTable() {
         const reader = new FileReader();
         reader.onload = async (e) => {
             try {
-                const buffer = e.target?.result;
-                if (!buffer) {
-                    throw new Error("Impossible de lire le fichier.");
-                }
-                const workbook = XLSX.read(buffer, { type: 'array' });
+                const data = e.target?.result;
+                if (!data) throw new Error("Impossible de lire le fichier.");
+
+                const workbook = XLSX.read(data, { type: 'array', cellDates: true, dateNF:'dd/mm/yyyy' });
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
-                const json = XLSX.utils.sheet_to_json(worksheet, {
-                    header: 3, // Data starts on line 4, so headers are on line 3
-                    raw: false, // Keep dates as strings for custom parsing
-                    dateNF: 'dd/mm/yyyy',
-                });
                 
-                const headerMapping: { [key: string]: string } = {
-                    'Date Arrivage': 'date_arrivage',
-                    'Type Combustible': 'type_combustible',
-                    'Fournisseur': 'fournisseur',
-                    'Tonnage (t)': 'tonnage',
-                    'PCS sur sec (kcal/kg)': 'pcs',
-                    'PCI sur Brut (kcal/kg)': 'pci_brut',
-                    '% H2O': 'h2o',
-                    '% Cl-': 'chlore',
-                    '% Cendres': 'cendres',
-                    'Remarques': 'remarques',
-                };
+                const json = XLSX.utils.sheet_to_json<any[]>(worksheet, {
+                    header: 1, // Read all rows as arrays
+                    defval: null, // Represent empty cells as null
+                });
 
-                const parsedResults = json.map((row: any, rowIndex) => {
-                    const rowNum = rowIndex + 4; // Data starts from row 4
+                if (json.length < 4) {
+                    throw new Error("Le fichier Excel doit contenir au moins 4 lignes.");
+                }
+
+                // Skip first 3 rows
+                const dataRows = json.slice(3);
+
+                const parsedResults = dataRows.map((rowArray, rowIndex) => {
+                    const rowNum = rowIndex + 4; // Excel rows are 1-based
                     try {
-                        const mappedRow: { [key: string]: any } = {};
-                        for (const key in row) {
-                            if (headerMapping[key]) {
-                                mappedRow[headerMapping[key]] = row[key];
-                            }
-                        }
-                        
+                        const rowObject = {
+                          date_arrivage: rowArray[0], // A
+                          type_combustible: rowArray[1], // B
+                          fournisseur: rowArray[2], // C
+                          tonnage: rowArray[3], // D
+                          pcs: rowArray[4], // E
+                          pci_brut: rowArray[5], // F
+                          h2o: rowArray[6], // G
+                          chlore: rowArray[7], // H
+                          cendres: rowArray[8], // I
+                          remarques: rowArray[10], // K
+                        };
+
                         const validatedData = importSchema.partial().parse({
-                            ...mappedRow,
-                            date_arrivage: parseDate(mappedRow.date_arrivage, rowNum),
+                            ...rowObject,
+                            date_arrivage: parseDate(rowObject.date_arrivage, rowNum),
                         });
 
                         if (!validatedData.type_combustible || !validatedData.fournisseur || validatedData.h2o === null || validatedData.h2o === undefined || !validatedData.date_arrivage) {
