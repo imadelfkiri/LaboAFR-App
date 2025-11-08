@@ -215,7 +215,10 @@ export default function IndicateursPage() {
   return (
     <div className="container mx-auto p-4 md:p-8 space-y-6">
         <div className="flex flex-col md:flex-row justify-between md:items-center gap-2">
-            <h1 className="text-3xl font-bold tracking-tight">Indicateurs de Performance</h1>
+             <h1 className="text-3xl font-bold tracking-tight text-primary flex items-center gap-3">
+                <TrendingUp className="h-8 w-8"/>
+                Indicateurs de Performance
+            </h1>
             {session.timestamp && (
                 <p className="text-sm text-muted-foreground">
                     Basé sur la session du {format(session.timestamp.toDate(), "d MMMM yyyy 'à' HH:mm", { locale: fr })}
@@ -295,5 +298,3 @@ export default function IndicateursPage() {
     </div>
   );
 }
-
-    

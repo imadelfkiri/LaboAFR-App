@@ -1,5 +1,7 @@
+
 import { MixtureCalculator } from '@/components/mixture-calculator';
 import type { Metadata } from 'next';
+import { Beaker } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: "Calcul de Mélange | FuelTrack AFR",

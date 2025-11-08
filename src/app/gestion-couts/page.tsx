@@ -1,6 +1,7 @@
 
 import { CostManager } from '@/components/cost-manager';
 import type { Metadata } from 'next';
+import { DollarSign } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: "Gestion des Coûts | FuelTrack AFR",

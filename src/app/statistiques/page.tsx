@@ -49,7 +49,7 @@ import {
 } from 'recharts';
 
 import { getFuelTypes, FuelType, getSpecifications, SPEC_MAP, Specification } from '@/lib/data';
-import { CalendarIcon, Fuel, Truck, LineChart as LineChartIcon, Droplets, Percent, Wind } from "lucide-react";
+import { CalendarIcon, Fuel, Truck, LineChart as LineChartIcon, Droplets, Percent, Wind, BarChart3 } from "lucide-react";
 
 
 interface Result {
@@ -306,6 +306,13 @@ export default function StatisticsDashboard() {
     
     return (
         <div className="space-y-6">
+             <div className="mb-8">
+                <h1 className="text-3xl font-bold tracking-tight text-primary flex items-center gap-3">
+                    <BarChart3 className="h-8 w-8"/>
+                    Statistiques des Analyses
+                </h1>
+                <p className="text-muted-foreground mt-1">Visualisez les tendances et comparez les performances des combustibles.</p>
+            </div>
             <Card>
                 <CardContent className="p-4 flex flex-col md:flex-row gap-4">
                     <Select value={selectedFuelType} onValueChange={setSelectedFuelType}>

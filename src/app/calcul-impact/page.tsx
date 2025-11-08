@@ -4,7 +4,7 @@
 "use client"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Flame, Beaker, Gauge, Save, Trash2, FileDown, Wind, Zap, Upload, BrainCircuit } from "lucide-react"
+import { Flame, Beaker, Gauge, Save, Trash2, FileDown, Wind, Zap, Upload, BrainCircuit, Activity } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
@@ -495,6 +495,13 @@ export default function CalculImpactPage() {
   
   return (
     <div className="mx-auto w-full max-w-[90rem] px-4 py-6 space-y-6">
+      <div className="mb-8">
+          <h1 className="text-3xl font-bold tracking-tight text-primary flex items-center gap-3">
+              <Activity className="h-8 w-8"/>
+              Calcul d'Impact sur le Clinker
+          </h1>
+          <p className="text-muted-foreground mt-1">Simulez l'effet des cendres de combustibles sur la composition et la qualité du clinker.</p>
+      </div>
        <input
         type="file"
         ref={analysisFileInputRef}
@@ -657,5 +664,3 @@ export default function CalculImpactPage() {
     </div>
   )
 }
-
-    
