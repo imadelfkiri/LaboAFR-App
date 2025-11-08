@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { BookText, BookOpen, Flame } from "lucide-react";
+import { BookText, BookOpen, Flame, Beaker } from "lucide-react";
 import Link from 'next/link';
 import type { Metadata } from 'next';
 
@@ -14,6 +14,12 @@ const documentationArticles = [
     description: "Fonctionnement, champs, calculs et fonctionnalités de la page Calculateur PCI.",
     href: "/documentation/principe-calcul-pci",
     icon: Flame,
+  },
+  {
+    title: "Principe du Calcul de Mélange",
+    description: "Logique, calculs et fonctionnalités de l'outil de simulation de mélange de combustibles.",
+    href: "/documentation/principe-calcul-melange",
+    icon: Beaker,
   },
   {
     title: "Principe du Calcul d'Impact",
