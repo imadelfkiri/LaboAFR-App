@@ -7,6 +7,7 @@ import jsPDF from "jspdf";
 import { format } from 'date-fns';
 import { Document, Packer, Paragraph, HeadingLevel } from 'docx';
 import { saveAs } from 'file-saver';
+import Link from 'next/link';
 
 export default function PrincipeAnalysesCendresPage() {
 
