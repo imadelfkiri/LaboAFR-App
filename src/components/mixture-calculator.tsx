@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { BrainCircuit, Calendar as CalendarIcon, Save, Settings, ChevronDown, CheckCircle, AlertTriangle, Copy, Mail, Flame, X, LineChart as LineChartIcon } from 'lucide-react';
+import { BrainCircuit, Calendar as CalendarIcon, Save, Settings, ChevronDown, CheckCircle, AlertTriangle, Copy, Mail, Flame, X, LineChart as LineChartIcon, Beaker } from 'lucide-react';
 import { DateRange } from "react-day-picker";
 import { format, subDays, startOfDay, endOfDay, parseISO, isValid } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -1047,11 +1047,21 @@ export function MixtureCalculator() {
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6">
+       <div className="flex items-center justify-between">
+            <div>
+                 <h1 className="text-3xl font-bold tracking-tight text-primary flex items-center gap-3">
+                    <Beaker className="h-8 w-8"/>
+                    Calcul de Mélange
+                </h1>
+                <p className="text-muted-foreground mt-1">Outil de simulation pour la préparation de mélanges de combustibles alternatifs (AF).</p>
+            </div>
+        </div>
+
       <div className="sticky top-0 z-10 bg-brand-bg/95 backdrop-blur-sm py-4 space-y-4 -mx-4 -mt-4 px-4 pt-4">
         <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className='flex items-center gap-2'>
-                <h1 className="text-2xl font-bold text-white">Indicateurs Globaux</h1>
+                <h2 className="text-2xl font-bold text-white">Indicateurs Globaux</h2>
                 {thresholds && (
                     <ThresholdSettingsModal 
                         isOpen={isThresholdModalOpen}
