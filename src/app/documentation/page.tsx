@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { BookText, BookOpen } from "lucide-react";
+import { BookText, BookOpen, Flame } from "lucide-react";
 import Link from 'next/link';
 import type { Metadata } from 'next';
 
@@ -9,6 +9,12 @@ export const metadata: Metadata = {
 };
 
 const documentationArticles = [
+  {
+    title: "Principe du Calculateur PCI",
+    description: "Fonctionnement, champs, calculs et fonctionnalités de la page Calculateur PCI.",
+    href: "/documentation/principe-calcul-pci",
+    icon: Flame,
+  },
   {
     title: "Principe du Calcul d'Impact",
     description: "Méthodologie détaillée de la simulation de l'effet des cendres sur la composition et la qualité du clinker.",
