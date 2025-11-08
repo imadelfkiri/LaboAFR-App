@@ -882,7 +882,7 @@ export default function ResultsTable() {
                                                     <DropdownMenuItem onSelect={() => exportData('pdf', 'detailed', 'current')}>Sélection actuelle (PDF)</DropdownMenuItem>
                                                     <DropdownMenuSeparator/>
                                                     <DropdownMenuItem onSelect={() => exportData('excel', 'detailed', 'today')}>Veille & Jour J (Excel)</DropdownMenuItem>
-                                                    <DropdownMenuItem onSelect={() => exportData('pdf', 'detailed', 'today')}>Veille & Jour J (PDF)</DropdownMenuItem>
+                                                     <DropdownMenuItem onSelect={() => exportData('pdf', 'detailed', 'today')}>Veille & Jour J (PDF)</DropdownMenuItem>
                                                     <DropdownMenuItem onSelect={() => exportData('excel', 'detailed', 'this_week')}>Cette semaine (Excel)</DropdownMenuItem>
                                                     <DropdownMenuItem onSelect={() => exportData('pdf', 'detailed', 'this_week')}>Cette semaine (PDF)</DropdownMenuItem>
                                                     <DropdownMenuItem onSelect={() => exportData('excel', 'detailed', 'this_month')}>Ce mois-ci (Excel)</DropdownMenuItem>
