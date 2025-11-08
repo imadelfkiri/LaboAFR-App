@@ -2,18 +2,139 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { BookText } from "lucide-react";
-import type { Metadata } from 'next';
 import { ExportButton } from "@/components/actions/ExportButton";
-
-// Metadata should be exported from server components, but since we need interactivity,
-// we can't have both in the same file easily. For now, we'll remove it.
-// Consider creating a separate layout or using a different pattern if metadata is critical.
+import jsPDF from "jspdf";
+import { format } from 'date-fns';
 
 export default function PrincipeCalculImpactPage() {
 
   const handleExport = () => {
-    // La logique d'exportation sera implémentée ici
-    alert("La fonctionnalité d'exportation sera bientôt disponible.");
+    const doc = new jsPDF();
+    const date = format(new Date(), "dd/MM/yyyy");
+    let yPos = 20;
+    const page_width = doc.internal.pageSize.getWidth();
+    const margin = 14;
+
+    // Titre
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("Principe du Calcul d'Impact des Cendres", page_width / 2, yPos, { align: "center" });
+    yPos += 8;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Document généré le ${date}`, page_width / 2, yPos, { align: "center" });
+    yPos += 15;
+
+    // Introduction
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Introduction", margin, yPos);
+    yPos += 8;
+
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    const introText = [
+      "L'utilisation de combustibles alternatifs (AF) en cimenterie est une pratique essentielle pour des raisons économiques et environnementales. Cependant, les cendres générées par leur combustion s'incorporent au clinker et modifient sa composition chimique. L'outil de \"Calcul d'Impact\" de l'application FuelTrack AFR permet de simuler et de quantifier précisément cet effet.",
+      "Le principe fondamental repose sur une comparaison entre deux scénarios :",
+    ];
+    doc.splitTextToSize(introText.join('\n\n'), page_width - margin * 2).forEach((line: string) => {
+        doc.text(line, margin, yPos);
+        yPos += 6;
+    });
+    yPos += 4;
+
+    const scenarios = [
+        "Clinker Théorique (Sans Cendres) : La composition du clinker qui serait obtenu si l'on utilisait uniquement la farine crue, sans aucun apport de cendres.",
+        "Clinker Calculé (Avec Cendres) : La composition du clinker qui résulte du mélange de la farine crue et des cendres issues de tous les combustibles utilisés (AF, grignons, etc.).",
+    ];
+    scenarios.forEach(scenario => {
+        doc.text("•", margin + 5, yPos);
+        doc.splitTextToSize(scenario, page_width - margin * 2 - 10).forEach((line: string) => {
+            doc.text(line, margin + 10, yPos);
+            yPos += 6;
+        });
+        yPos+=2;
+    });
+
+    const conclusionIntro = "En analysant la différence (le \"delta\" - Δ) entre ces deux scénarios, l'opérateur peut anticiper les ajustements nécessaires et garantir la qualité du produit final.";
+    doc.splitTextToSize(conclusionIntro, page_width - margin * 2).forEach((line: string) => {
+        doc.text(line, margin, yPos);
+        yPos += 6;
+    });
+    yPos += 10;
+    
+    // Étapes
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Étapes du Calcul", margin, yPos);
+    yPos += 8;
+
+    const steps = [
+        { 
+            title: "1. Analyse du \"Clinker Sans Cendres\"",
+            content: "Cette première étape consiste à simuler la production de clinker à partir de la farine crue seule.",
+            points: [
+                "Clinkérisation de la farine : On part de l'analyse chimique de la farine crue. La \"clinkérisation\" est un calcul de normalisation qui simule la perte au feu (PF) dans le four. La composition est recalculée sur une base de 100% après avoir retiré les éléments volatils, ce qui donne la composition théorique du clinker si aucune cendre n'était ajoutée.",
+                "Calcul des modules : À partir de cette composition de clinker théorique, on calcule les modules clés (LSF, MS, AF) et la teneur en Alite (C₃S), qui sont des indicateurs fondamentaux de la qualité et de la réactivité du clinker."
+            ]
+        },
+        {
+            title: "2. Calcul de la Cendre Moyenne du Mélange",
+            content: "Les cendres de chaque combustible ont une composition unique. L'application calcule d'abord une \"cendre moyenne pondérée\" qui représente la composition chimique de toutes les cendres qui seront produites par le mélange de combustibles en cours d'utilisation.",
+            points: [
+                 "Apport de chaque combustible : Pour chaque combustible (AF, grignons), on prend son débit (t/h) et son taux de cendres (%). On en déduit le débit de cendres (t/h) apporté par ce combustible.",
+                 "Moyenne pondérée : La composition de la cendre moyenne est la moyenne des compositions de chaque cendre individuelle, pondérée par le débit de cendres de chaque combustible. Un combustible utilisé à un débit plus élevé aura plus d'influence sur la composition finale."
+            ]
+        },
+        {
+            title: "3. Analyse du \"Clinker Avec Cendres\"",
+            content: "C'est le cœur de la simulation. On combine la farine crue et la cendre moyenne pour prédire la composition finale du clinker.",
+            points: [
+                "Bilan matière : On calcule les flux de chaque oxyde (SiO₂, Al₂O₃, CaO, etc.) provenant de la farine crue (déjà \"clinkérisée\") et ceux provenant de la cendre moyenne.",
+                "Mélange et Normalisation : On additionne ces flux d'oxydes et on les rapporte au flux total de matière (farine non volatile + cendres totales) pour obtenir la composition en pourcentage du clinker final \"avec cendres\".",
+                "Ajustement final : Cette composition est ensuite normalisée une dernière fois pour atteindre les cibles de SO₃ et de PF que vous avez définies, simulant ainsi les conditions finales du clinker.",
+                "Calcul des modules finaux : Sur cette composition finale, on recalcule les modules (LSF, MS, AF) et la teneur en C₃S."
+            ]
+        },
+        {
+            title: "4. L'Interprétation des Résultats (le \"Delta\" Δ)",
+            content: "La véritable valeur de l'outil réside dans la comparaison des deux scénarios. La différence (\"delta\") entre les indicateurs du \"Clinker Avec Cendres\" et ceux du \"Clinker Sans Cendres\" révèle l'impact direct de l'utilisation des combustibles alternatifs :",
+            points: [
+                "Δ LSF & Δ MS : Indiquent un changement dans la \"cuisabilité\" du cru. Par exemple, une baisse du LSF facilite la cuisson.",
+                "Δ C₃S : C'est un indicateur crucial. Une baisse du C₃S peut signifier une diminution des résistances du ciment à court terme, ce qui pourrait nécessiter une correction en amont (par exemple, en ajustant la composition de la farine crue).",
+                "Δ des autres oxydes (Fe₂O₃, etc.) : Permet d'anticiper des changements de couleur du ciment ou des variations dans la phase liquide du four."
+            ]
+        }
+    ];
+
+    steps.forEach(step => {
+        if (yPos > 260) { doc.addPage(); yPos = 20; }
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text(step.title, margin, yPos);
+        yPos += 7;
+
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "normal");
+        doc.splitTextToSize(step.content, page_width - margin * 2).forEach((line: string) => {
+            doc.text(line, margin, yPos);
+            yPos += 6;
+        });
+        yPos += 4;
+        
+        step.points.forEach(point => {
+            if (yPos > 270) { doc.addPage(); yPos = 20; }
+            doc.text("•", margin + 5, yPos);
+            doc.splitTextToSize(point, page_width - margin * 2 - 10).forEach((line: string) => {
+                doc.text(line, margin + 10, yPos);
+                yPos += 6;
+            });
+            yPos += 3;
+        });
+        yPos += 5;
+    });
+
+    doc.save(`Principe_Calcul_Impact_${date.replaceAll('/', '-')}.pdf`);
   };
 
   return (

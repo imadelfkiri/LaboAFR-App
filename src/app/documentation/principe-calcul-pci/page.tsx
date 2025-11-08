@@ -3,15 +3,162 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Flame } from "lucide-react";
 import { ExportButton } from "@/components/actions/ExportButton";
-
-// Metadata should be exported from server components, but since we need interactivity,
-// we can't have both in the same file easily. For now, we'll remove it.
+import jsPDF from "jspdf";
+import { format } from 'date-fns';
 
 export default function PrincipeCalculPCIPage() {
 
   const handleExport = () => {
-    // La logique d'exportation sera implémentée ici
-    alert("La fonctionnalité d'exportation sera bientôt disponible.");
+    const doc = new jsPDF();
+    const date = format(new Date(), "dd/MM/yyyy");
+    let yPos = 20;
+    const page_width = doc.internal.pageSize.getWidth();
+    const margin = 14;
+
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("Fonctionnement du Calculateur PCI", page_width / 2, yPos, { align: "center" });
+    yPos += 8;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Document généré le ${date}`, page_width / 2, yPos, { align: "center" });
+    yPos += 15;
+    
+    // Introduction
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Introduction", margin, yPos);
+    yPos += 8;
+
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    const introText = "La page \"Calculateur PCI\" est un outil central de l'application. Elle a deux objectifs principaux :";
+    doc.splitTextToSize(introText, page_width - margin * 2).forEach((line: string) => {
+        doc.text(line, margin, yPos);
+        yPos += 6;
+    });
+    yPos += 4;
+    
+    const objectives = [
+        "Calculer le Pouvoir Calorifique Inférieur (PCI) sur produit brut à partir du Pouvoir Calorifique Supérieur (PCS) sur sec et du taux d'humidité.",
+        "Enregistrer les résultats d'analyse d'un échantillon de combustible (arrivage, prospection, etc.) dans la base de données."
+    ];
+    objectives.forEach(obj => {
+        doc.text("•", margin + 5, yPos);
+        doc.text(obj, margin + 10, yPos);
+        yPos += 6;
+    });
+    yPos += 4;
+
+    const conclusionIntro = "Elle est conçue pour être à la fois un outil de calcul rapide et le formulaire de saisie principal pour l'historique des analyses.";
+    doc.splitTextToSize(conclusionIntro, page_width - margin * 2).forEach((line: string) => {
+        doc.text(line, margin, yPos);
+        yPos += 6;
+    });
+    yPos += 10;
+    
+    // Sections
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Description des Sections et des Champs", margin, yPos);
+    yPos += 8;
+
+    const sections = [
+        {
+            title: "1. Informations Générales",
+            content: "Cette section regroupe les informations d'identification de l'échantillon analysé.",
+            points: [
+                "Date : La date de l'analyse ou de l'arrivage du combustible.",
+                "Type d'analyse : Catégorise l'analyse (ex: Arrivage, Prospection, Consommation).",
+                "Combustible : Le type de combustible analysé. La liste est alimentée par la base de données centrale. Un bouton \"Nouveau combustible...\" permet d'ajouter un nouveau type à la volée s'il n'existe pas.",
+                "Fournisseur : Le fournisseur du combustible. La liste est filtrée en fonction du combustible sélectionné. Un bouton \"Ajouter un fournisseur\" apparaît pour associer un nouveau fournisseur au combustible choisi.",
+                "Tonnage (t) : Le poids en tonnes du lot de combustible reçu (principalement pour les arrivages).",
+                "Remarques : Un champ libre pour ajouter des informations contextuelles sur l'analyse."
+            ]
+        },
+        {
+            title: "2. Données Analytiques",
+            content: "Cette section contient les valeurs mesurées en laboratoire.",
+            points: [
+                "PCS (kcal/kg) : Le Pouvoir Calorifique Supérieur sur produit sec. C'est une valeur clé pour le calcul.",
+                "% H₂O : Le taux d'humidité du produit brut. Indispensable pour le calcul du PCI.",
+                "% H : La teneur en hydrogène du combustible. Cette valeur n'est pas saisie manuellement ; elle est automatiquement récupérée depuis les \"Données de Référence des Combustibles\" en fonction du combustible sélectionné. Elle est cruciale pour la précision du calcul.",
+                "% Cl- et % Cendres : Les teneurs en chlore et en cendres. Ces valeurs sont importantes pour le suivi de la qualité et pour le calcul d'impact sur le clinker, mais n'entrent pas dans le calcul du PCI.",
+                "Taux d'inertes (%) : Permet de corriger le PCS si le combustible contient une part de matériaux non combustibles (ex: métaux). Le PCS utilisé pour le calcul sera diminué de ce pourcentage."
+            ]
+        },
+        {
+            title: "3. Résultat du Calcul",
+            content: "Le résultat du PCI sur Brut est affiché en grand. Il est mis à jour en temps réel à chaque modification des champs PCS, % H₂O, % H ou Taux d'inertes."
+        },
+        {
+            title: "Calcul du PCI",
+            content: "Le calcul du PCI sur brut (pci_brut) est effectué à l'aide de la formule suivante, qui prend en compte l'énergie perdue pour évaporer l'humidité présente dans le combustible et l'eau formée par la combustion de l'hydrogène :",
+            isFormula: true,
+            formula: "pci_brut = ((PCS - 50.635 * H) * (1 - H₂O/100)) - (H₂O * 5.83)",
+            formulaDesc: "Où :\n• PCS : La valeur que vous saisissez, corrigée par le taux d'inertes.\n• H : La teneur en hydrogène récupérée automatiquement.\n• H₂O : Le taux d'humidité que vous saisissez."
+        },
+        {
+            title: "Fonctionnalités Clés",
+            points: [
+                 "Validation par Couleur : Les champs de saisie (% H₂O, % Cl-, % Cendres) et le résultat du PCI changent de couleur (vert, rouge) pour vous indiquer si la valeur est conforme ou non aux spécifications définies pour le couple combustible-fournisseur sélectionné.",
+                 "Bouton \"Enregistrer\" : Ce bouton, situé en bas à droite, enregistre l'ensemble des informations et le résultat du PCI calculé dans la collection \"resultats\", alimentant ainsi l'historique et les pages de statistiques.",
+                 "Importation de Fichiers Excel : Sur la page \"Résultats des Analyses\", un bouton \"Importer\" permet de charger en masse des analyses depuis un fichier Excel, évitant ainsi la saisie manuelle."
+            ]
+        }
+    ];
+
+    sections.forEach(section => {
+        if (yPos > 260) { doc.addPage(); yPos = 20; }
+        doc.setFontSize(section.isFormula ? 14 : 12);
+        doc.setFont("helvetica", "bold");
+        doc.text(section.title, margin, yPos);
+        yPos += 7;
+
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "normal");
+        if(section.content) {
+            doc.splitTextToSize(section.content, page_width - margin * 2).forEach((line: string) => {
+                doc.text(line, margin, yPos);
+                yPos += 6;
+            });
+            yPos += 4;
+        }
+
+        if(section.isFormula && section.formula) {
+            doc.setFillColor(230, 230, 230); // light gray
+            doc.rect(margin, yPos - 2, page_width - margin*2, 12, 'F');
+            doc.setFont("courier", "bold");
+            doc.setTextColor(0, 0, 0);
+            doc.text(section.formula, page_width / 2, yPos + 5, { align: "center" });
+            doc.setTextColor(0); // reset color
+            yPos += 18;
+
+            if(section.formulaDesc) {
+                 doc.setFont("helvetica", "normal");
+                 doc.splitTextToSize(section.formulaDesc, page_width - margin * 2).forEach((line: string) => {
+                    doc.text(line, margin, yPos);
+                    yPos += 6;
+                });
+                yPos += 4;
+            }
+        }
+        
+        if(section.points) {
+            section.points.forEach(point => {
+                if (yPos > 270) { doc.addPage(); yPos = 20; }
+                doc.text("•", margin + 5, yPos);
+                doc.splitTextToSize(point, page_width - margin * 2 - 10).forEach((line: string) => {
+                    doc.text(line, margin + 10, yPos);
+                    yPos += 6;
+                });
+                yPos += 3;
+            });
+        }
+        yPos += 5;
+    });
+
+    doc.save(`Principe_Calcul_PCI_${date.replaceAll('/', '-')}.pdf`);
   };
 
   return (
