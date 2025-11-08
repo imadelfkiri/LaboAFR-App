@@ -28,6 +28,12 @@ const documentationArticles = [
     icon: Beaker,
   },
   {
+    title: "Principe de la Simulation de Mélange",
+    description: "Utiliser l'environnement 'bac à sable' pour tester librement des recettes de mélange avec des données manuelles.",
+    href: "/documentation/principe-simulation-melange",
+    icon: FlaskConical,
+  },
+  {
     title: "Principe du Calcul d'Impact",
     description: "Méthodologie détaillée de la simulation de l'effet des cendres sur la composition et la qualité du clinker.",
     href: "/documentation/principe-calcul-impact",
