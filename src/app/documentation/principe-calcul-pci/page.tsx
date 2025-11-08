@@ -12,11 +12,11 @@ export default function PrincipeCalculPCIPage() {
     <div className="container mx-auto p-4 md:p-8 max-w-4xl">
       <Card className="prose prose-invert max-w-none prose-h2:text-primary prose-h2:font-semibold prose-h3:text-emerald-400 prose-a:text-emerald-400 hover:prose-a:text-emerald-300 prose-strong:text-white">
         <CardHeader>
-          <CardTitle className="text-3xl font-bold flex items-center gap-3">
+          <CardTitle className="text-3xl font-bold flex items-center gap-3 not-prose">
             <Flame className="h-8 w-8 text-primary" />
             Fonctionnement du Calculateur PCI
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="not-prose">
             Cette page explique le fonctionnement, les champs, les calculs et les fonctionnalités de l'outil de calcul du PCI.
           </CardDescription>
         </CardHeader>
@@ -69,7 +69,11 @@ export default function PrincipeCalculPCIPage() {
           <p>
             Le calcul du PCI sur brut (<code>pci_brut</code>) est effectué à l'aide de la formule suivante, qui prend en compte l'énergie perdue pour évaporer l'humidité présente dans le combustible et l'eau formée par la combustion de l'hydrogène :
           </p>
-          <code>pci_brut = ((PCS - 50.635 * H) * (1 - H₂O/100)) - (H₂O * 5.83)</code>
+          <div className="not-prose my-6">
+              <pre className="bg-gray-800/50 p-4 rounded-lg border border-gray-700 text-sm text-center font-mono text-emerald-300">
+                  <code>pci_brut = ((PCS - 50.635 * H) * (1 - H₂O/100)) - (H₂O * 5.83)</code>
+              </pre>
+          </div>
           <p>
             Où :
           </p>
