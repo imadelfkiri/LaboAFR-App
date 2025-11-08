@@ -395,49 +395,6 @@ export default function ResultsTable() {
     }
   };
 
-    const excelDateToJSDate = (serial: number): Date => {
-        const utc_days  = Math.floor(serial - 25569);
-        const utc_value = utc_days * 86400;                                        
-        const date_info = new Date(utc_value * 1000);
-        const fractional_day = serial - Math.floor(serial) + 0.0000001;
-        let total_seconds = Math.floor(86400 * fractional_day);
-        const seconds = total_seconds % 60;
-        total_seconds -= seconds;
-        const hours = Math.floor(total_seconds / (60 * 60));
-        const minutes = Math.floor(total_seconds / 60) % 60;
-        return new Date(date_info.getFullYear(), date_info.getMonth(), date_info.getDate(), hours, minutes, seconds);
-    }
-
-    const parseDate = (value: any, rowNum: number): Date => {
-        if (value === null || value === undefined) {
-            throw new Error(`Date vide non autorisée à la ligne ${rowNum}.`);
-        }
-    
-        if (value instanceof Date && isValid(value)) {
-            return value;
-        }
-    
-        // Handle Excel's numeric date format
-        if (typeof value === 'number') {
-            const date = excelDateToJSDate(value);
-            if (isValid(date)) return date;
-        }
-        
-        if (typeof value === 'string') {
-            // Try to parse common string formats
-            const dateFormats = [
-                'dd/MM/yyyy', 'd/M/yyyy', 'dd-MM-yyyy', 'd-M-yyyy', 'dd/MM/yy', 'd/M/yy',
-                'yyyy-MM-dd HH:mm:ss', 'yyyy/MM/dd HH:mm:ss', 'M/d/yy',
-            ];
-            for (const fmt of dateFormats) {
-                const date = parse(value, fmt, new Date());
-                if (isValid(date)) return date;
-            }
-        }
-        
-        throw new Error(`Format de date non reconnu à la ligne ${rowNum} pour la valeur "${value}".`);
-    }
-
     const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
@@ -448,7 +405,7 @@ export default function ResultsTable() {
                 const data = e.target?.result;
                 if (!data) throw new Error("Impossible de lire le fichier.");
 
-                const workbook = XLSX.read(data, { type: 'array', cellDates: true, dateNF:'dd/mm/yyyy' });
+                const workbook = XLSX.read(data, { type: 'binary', cellDates: true, dateNF:'dd/mm/yyyy' });
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
                 
@@ -456,9 +413,9 @@ export default function ResultsTable() {
                     header: 1, // Read all rows as arrays
                     defval: null, // Represent empty cells as null
                 });
-
+                
                 if (json.length < 4) {
-                    throw new Error("Le fichier Excel doit contenir au moins 4 lignes.");
+                    throw new Error("Le fichier Excel doit contenir au moins 4 lignes (3 pour les en-têtes, 1 pour les données).");
                 }
 
                 // Skip first 3 rows
@@ -477,16 +434,16 @@ export default function ResultsTable() {
                           h2o: rowArray[6], // G
                           chlore: rowArray[7], // H
                           cendres: rowArray[8], // I
-                          remarques: rowArray[10], // K
+                          remarques: rowArray[10] || "", // K
                         };
-
+                        
                         const validatedData = importSchema.partial().parse({
                             ...rowObject,
-                            date_arrivage: parseDate(rowObject.date_arrivage, rowNum),
+                            date_arrivage: new Date(rowObject.date_arrivage),
                         });
 
-                        if (!validatedData.type_combustible || !validatedData.fournisseur || validatedData.h2o === null || validatedData.h2o === undefined || !validatedData.date_arrivage) {
-                            throw new Error("Les colonnes 'Date Arrivage', 'Type Combustible', 'Fournisseur' et '% H2O' sont obligatoires.");
+                        if (!validatedData.type_combustible || !validatedData.fournisseur || validatedData.h2o === null || validatedData.h2o === undefined || !validatedData.date_arrivage || !isValid(validatedData.date_arrivage)) {
+                            throw new Error("Les colonnes 'Date Arrivage', 'Type Combustible', 'Fournisseur' et '% H2O' sont obligatoires et doivent être valides.");
                         }
 
                         const hValue = fuelDataMap.get(validatedData.type_combustible)?.teneur_hydrogene;
@@ -513,6 +470,7 @@ export default function ResultsTable() {
                         
                         return {
                             ...validatedData,
+                            remarques: validatedData.remarques || "",
                             type_analyse: 'Arrivage',
                             pcs: finalPcs,
                             pci_brut: finalPci,
@@ -539,7 +497,7 @@ export default function ResultsTable() {
                 if (fileInputRef.current) fileInputRef.current.value = "";
             }
         };
-        reader.readAsArrayBuffer(file);
+        reader.readAsBinaryString(file);
     };
 
 
