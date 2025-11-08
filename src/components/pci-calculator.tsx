@@ -68,7 +68,6 @@ const formSchema = z.object({
   type_analyse: z.string().nonempty({ message: "Veuillez sélectionner un type d'analyse." }),
   type_combustible: z.string().nonempty({ message: "Veuillez sélectionner un type de combustible." }),
   fournisseur: z.string().nonempty({ message: "Veuillez sélectionner un fournisseur." }),
-  numero_bc: z.string().optional().nullable(),
   tonnage: z.coerce.number({invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "Le tonnage ne peut être négatif." }).optional().nullable(),
   pcs: z.coerce.number({required_error: "Veuillez renseigner une valeur valide pour le PCS.", invalid_type_error: "Veuillez entrer un nombre."}).positive({ message: "Le PCS doit être un nombre positif." }),
   h2o: z.coerce.number({required_error: "Le taux d'humidité est requis.", invalid_type_error: "Veuillez entrer un nombre."}).min(0, { message: "L'humidité ne peut être négative." }).max(100, { message: "L'humidité ne peut dépasser 100%." }),
@@ -135,7 +134,6 @@ export function PciCalculator() {
       type_analyse: "Arrivage",
       type_combustible: "",
       fournisseur: "",
-      numero_bc: "",
       tonnage: undefined,
       pcs: undefined,
       h2o: undefined,
@@ -161,7 +159,6 @@ export function PciCalculator() {
         type_analyse: "Arrivage",
         type_combustible: "",
         fournisseur: "",
-        numero_bc: "",
         tonnage: '' as any,
         pcs: '' as any,
         h2o: '' as any,
@@ -365,7 +362,6 @@ export function PciCalculator() {
       
       const dataToSave = {
         ...values,
-        numero_bc: values.numero_bc || null,
         tonnage: values.tonnage ? Number(values.tonnage) : null,
         pci_brut,
         chlore: values.chlore ? Number(values.chlore) : null,
@@ -564,20 +560,7 @@ export function PciCalculator() {
                                 )}
                                 />
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <FormField
-                                    control={form.control}
-                                    name="numero_bc"
-                                    render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Numéro BC</FormLabel>
-                                        <FormControl>
-                                        <Input type="text" placeholder="Ex: BC-12345" {...field} value={field.value ?? ''} className="h-11 rounded-xl px-4 text-sm" />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                    )}
-                                />
+                            <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
                                 <FormField
                                     control={form.control}
                                     name="tonnage"
