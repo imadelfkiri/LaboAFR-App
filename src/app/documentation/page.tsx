@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { BookText, BookOpen, Flame, Beaker, FlaskConical, BarChart3, ClipboardCheck, ClipboardList, FilePieChart } from "lucide-react";
+import { BookText, BookOpen, Flame, Beaker, FlaskConical, BarChart3, ClipboardCheck, ClipboardList, FilePieChart, LayoutDashboard } from "lucide-react";
 import Link from 'next/link';
 import type { Metadata } from 'next';
 
@@ -9,6 +9,12 @@ export const metadata: Metadata = {
 };
 
 const documentationArticles = [
+  {
+    title: "Principe du Tableau de Bord",
+    description: "Comprendre les indicateurs, les graphiques et les relations du tableau de bord principal.",
+    href: "/documentation/principe-tableau-de-bord",
+    icon: LayoutDashboard,
+  },
   {
     title: "Principe du Calculateur PCI",
     description: "Fonctionnement, champs, calculs et fonctionnalités de la page Calculateur PCI.",
