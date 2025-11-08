@@ -135,7 +135,6 @@ export default function PrincipeCalculPCIPage() {
         if(section.isFormula && section.formula) {
             doc.setFillColor(230, 230, 230); // light gray
             doc.rect(margin, yPos - 2, page_width - margin*2, 12, 'F');
-            doc.setFont("courier", "bold");
             doc.setTextColor(0, 0, 0);
             doc.text(section.formula, page_width / 2, yPos + 5, { align: "center" });
             doc.setTextColor(0); // reset color
