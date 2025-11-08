@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { BookText, BookOpen, Flame, Beaker, FlaskConical, BarChart3, ClipboardCheck } from "lucide-react";
+import { BookText, BookOpen, Flame, Beaker, FlaskConical, BarChart3, ClipboardCheck, ClipboardList } from "lucide-react";
 import Link from 'next/link';
 import type { Metadata } from 'next';
 
@@ -26,6 +26,12 @@ const documentationArticles = [
     description: "Méthodologie détaillée de la simulation de l'effet des cendres sur la composition et la qualité du clinker.",
     href: "/documentation/principe-calcul-impact",
     icon: BookText,
+  },
+    {
+    title: "Principe des Analyses de Cendres",
+    description: "Gestion des analyses chimiques des cendres et leur relation avec le calcul d'impact.",
+    href: "/documentation/principe-analyses-cendres",
+    icon: ClipboardList,
   },
   {
     title: "Fonctionnement de la Page Résultats",
