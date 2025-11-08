@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { BookText } from "lucide-react";
 import type { Metadata } from 'next';
+import { ExportButton } from "@/components/actions/ExportButton";
 
 export const metadata: Metadata = {
   title: "Principe du Calcul d'Impact | FuelTrack AFR",
@@ -8,15 +9,25 @@ export const metadata: Metadata = {
 };
 
 export default function PrincipeCalculImpactPage() {
+
+  const handleExport = () => {
+    // La logique d'exportation sera implémentée ici
+    alert("La fonctionnalité d'exportation sera bientôt disponible.");
+  };
+
   return (
     <div className="container mx-auto p-4 md:p-8 max-w-4xl">
-      <Card className="prose prose-invert max-w-none prose-h2:text-primary prose-h2:font-semibold prose-h3:text-emerald-400 prose-a:text-emerald-400 hover:prose-a:text-emerald-300 prose-strong:text-white">
-        <CardHeader>
+       <div className="flex justify-between items-center mb-6">
           <CardTitle className="text-3xl font-bold flex items-center gap-3">
             <BookText className="h-8 w-8 text-primary" />
             Principe du Calcul d'Impact des Cendres
           </CardTitle>
-          <CardDescription>
+          <ExportButton onClick={handleExport} />
+       </div>
+
+      <Card className="prose prose-invert max-w-none prose-h2:text-primary prose-h2:font-semibold prose-h3:text-emerald-400 prose-a:text-emerald-400 hover:prose-a:text-emerald-300 prose-strong:text-white">
+        <CardHeader>
+          <CardDescription className="text-lg">
             Méthodologie détaillée de la simulation de l'effet des combustibles alternatifs sur la composition et la qualité du clinker.
           </CardDescription>
         </CardHeader>
