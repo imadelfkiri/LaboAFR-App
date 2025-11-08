@@ -325,7 +325,7 @@ export default function RapportSynthesePage() {
     return (
         <div className="p-4 md:p-6 lg:p-8 space-y-6">
             <div className="flex items-center justify-between">
-                <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-3">
+                <h1 className="text-3xl font-bold tracking-tight text-primary flex items-center gap-3">
                     <BookOpen className="h-8 w-8" />
                     Rapport de Synthèse
                 </h1>
@@ -384,7 +384,7 @@ export default function RapportSynthesePage() {
                                     />
                                     <Bar dataKey="value" name="Variation">
                                         {impactChartData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
+                                            <Cell key={`cell-${index}`} fill={entry.value > 0 ? 'hsl(var(--positive))' : 'hsl(var(--destructive))'} />
                                         ))}
                                         <LabelList dataKey="value" position="top" formatter={(value: number) => value.toFixed(2)} fontSize={12} fill="hsl(var(--foreground))" />
                                     </Bar>
@@ -435,7 +435,10 @@ export default function RapportSynthesePage() {
                                         contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))" }}
                                         cursor={{ fill: 'hsl(var(--muted))' }}
                                     />
-                                    <Bar dataKey="percentage" name="% Poids" fill="hsl(var(--primary)/0.8)">
+                                    <Bar dataKey="percentage" name="% Poids">
+                                       {mixtureComposition.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
+                                        ))}
                                        <LabelList dataKey="percentage" position="top" formatter={(value: number) => `${value}%`} fontSize={12} fill="hsl(var(--foreground))" />
                                     </Bar>
                                 </BarChart>
