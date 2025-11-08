@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { BookText, BookOpen, Flame, Beaker, FlaskConical, BarChart3, ClipboardCheck, ClipboardList, FilePieChart, LayoutDashboard, Cog } from "lucide-react";
+import { BookText, BookOpen, Flame, Beaker, FlaskConical, BarChart3, ClipboardCheck, ClipboardList, FilePieChart, LayoutDashboard, Cog, DollarSign } from "lucide-react";
 import Link from 'next/link';
 import type { Metadata } from 'next';
 
@@ -68,6 +68,12 @@ const documentationArticles = [
     description: "Gérez les données de base (poids godet, teneur H) cruciales pour les calculs de l'application.",
     href: "/documentation/principe-donnees-combustibles",
     icon: Cog,
+  },
+  {
+    title: "Principe de la Gestion des Coûts",
+    description: "Définissez le coût par tonne pour chaque combustible et son impact sur le calcul de mélange.",
+    href: "/documentation/principe-gestion-couts",
+    icon: DollarSign,
   },
   {
     title: "Principe du Rapport de Synthèse",
