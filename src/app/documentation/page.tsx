@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { BookText, BookOpen, Flame, Beaker, FlaskConical, BarChart3, ClipboardCheck, ClipboardList, FilePieChart, LayoutDashboard, Cog, DollarSign, TrendingUp, SlidersHorizontal } from "lucide-react";
+import { BookText, BookOpen, Flame, Beaker, FlaskConical, BarChart3, ClipboardCheck, ClipboardList, FilePieChart, LayoutDashboard, Cog, DollarSign, TrendingUp, SlidersHorizontal, Calculator } from "lucide-react";
 import Link from 'next/link';
 import type { Metadata } from 'next';
 
@@ -92,6 +92,12 @@ const documentationArticles = [
     description: "Configurez les seuils de qualité (vert, jaune, rouge) pour les indicateurs de l'application.",
     href: "/documentation/principe-gestion-seuils",
     icon: SlidersHorizontal,
+  },
+  {
+    title: "Principes des Formules de Calcul",
+    description: "Détail de toutes les formules de calcul utilisées dans l'application (PCI, Modules, TSR, etc.).",
+    href: "/documentation/principe-formules-calcul",
+    icon: Calculator,
   },
 ];
 
