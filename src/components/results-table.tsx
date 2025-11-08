@@ -411,11 +411,13 @@ export default function ResultsTable() {
                     throw new Error(`Impossible de trouver la première feuille de calcul.`);
                 }
                 
-                const json = XLSX.utils.sheet_to_json<any>(worksheet, { header: 1, raw: false });
+                // Use range option to skip the first 3 rows
+                const json = XLSX.utils.sheet_to_json<any>(worksheet, { header: 1, raw: false, range: 3 });
+
                 if (json.length < 2) {
-                     throw new Error("Le fichier Excel est vide ou n'a pas d'en-tête.");
+                     throw new Error("Le fichier Excel est vide ou n'a pas d'en-tête à partir de la ligne 4.");
                 }
-                const headers: string[] = json[0].map(h => String(h));
+                const headers: string[] = json[0].map((h: any) => String(h));
                 const rows = json.slice(1);
                 
                 const headerMapping: { [key: string]: string } = {
@@ -437,7 +439,7 @@ export default function ResultsTable() {
                 });
                 
                 const parsedResults = rows.map((row, rowIndex) => {
-                    const rowNum = rowIndex + 2; 
+                    const rowNum = rowIndex + 5; // Data starts at line 4 (header) + 1 
                     try {
                         const rowData: { [key: string]: any } = {};
                         mappedHeaders.forEach((key, index) => {
