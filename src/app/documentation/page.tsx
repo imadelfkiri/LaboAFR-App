@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { BookText, BookOpen, Flame, Beaker, FlaskConical, BarChart3, ClipboardCheck, ClipboardList, FilePieChart, LayoutDashboard, Cog, DollarSign, TrendingUp } from "lucide-react";
+import { BookText, BookOpen, Flame, Beaker, FlaskConical, BarChart3, ClipboardCheck, ClipboardList, FilePieChart, LayoutDashboard, Cog, DollarSign, TrendingUp, SlidersHorizontal } from "lucide-react";
 import Link from 'next/link';
 import type { Metadata } from 'next';
 
@@ -86,6 +86,12 @@ const documentationArticles = [
     description: "Comprendre le Taux de Substitution (TSR) et la Consommation Calorifique (CC).",
     href: "/documentation/principe-indicateurs",
     icon: TrendingUp,
+  },
+   {
+    title: "Principe de la Gestion des Seuils",
+    description: "Configurez les seuils de qualité (vert, jaune, rouge) pour les indicateurs de l'application.",
+    href: "/documentation/principe-gestion-seuils",
+    icon: SlidersHorizontal,
   },
 ];
 
