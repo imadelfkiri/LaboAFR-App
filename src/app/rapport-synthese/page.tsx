@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -97,6 +98,8 @@ export default function RapportSynthesePage() {
             { name: "AF", value: delta(results.modulesAvec.af, results.modulesSans.af) },
         ];
     }, [latestImpact]);
+
+    const chartColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F'];
 
     const mixtureComposition = useMemo(() => {
         if (!mixtureSession || !fuelDataMap || Object.keys(fuelDataMap).length === 0) return [];
@@ -381,7 +384,7 @@ export default function RapportSynthesePage() {
                                     />
                                     <Bar dataKey="value" name="Variation">
                                         {impactChartData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.value >= 0 ? 'hsl(var(--positive))' : 'hsl(var(--destructive))'} />
+                                            <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
                                         ))}
                                         <LabelList dataKey="value" position="top" formatter={(value: number) => value.toFixed(2)} fontSize={12} fill="hsl(var(--foreground))" />
                                     </Bar>
