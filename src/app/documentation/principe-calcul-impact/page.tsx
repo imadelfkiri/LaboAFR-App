@@ -53,6 +53,7 @@ export default function PrincipeCalculImpactPage() {
         "Clinker Calculé (Avec Cendres) : La composition du clinker qui résulte du mélange de la farine crue et des cendres issues de tous les combustibles utilisés (AF, grignons, etc.).",
     ];
     for (const scenario of scenarios) {
+        if (yPos > 275) { doc.addPage(); yPos = 20; }
         const lines = doc.splitTextToSize(scenario, page_width - margin * 2 - 10);
         doc.text("•", margin + 5, yPos);
         for (const line of lines) {
@@ -61,6 +62,7 @@ export default function PrincipeCalculImpactPage() {
         }
         yPos+=2;
     }
+    yPos += 4;
     
     // Correction de la gestion de la conclusion
     const conclusionIntro = "En analysant la différence (le \"delta\" - Δ) entre ces deux scénarios, l'opérateur peut anticiper les ajustements nécessaires et garantir la qualité du produit final.";
@@ -143,28 +145,67 @@ export default function PrincipeCalculImpactPage() {
         }
         yPos += 5;
     }
+    
+    if (yPos > 260) { doc.addPage(); yPos = 20; }
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Conclusion", margin, yPos);
+    yPos += 8;
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    const conclusionText = "Cet outil de calcul d'impact est un simulateur puissant qui transforme des analyses chimiques brutes en informations décisionnelles. En comprenant comment les cendres affectent le produit final avant même qu'il ne soit cuit, les opérateurs peuvent ajuster les paramètres du processus de manière proactive, optimiser l'utilisation des combustibles alternatifs et garantir une qualité de clinker constante et conforme aux spécifications.";
+    const conclusionFinalLines = doc.splitTextToSize(conclusionText, page_width - margin * 2);
+    for (const line of conclusionFinalLines) {
+        doc.text(line, margin, yPos);
+        yPos += 6;
+    }
 
     doc.save(`Principe_Calcul_Impact_${date.replaceAll('/', '-')}.pdf`);
   };
 
   const handleExportWord = () => {
-    const doc = new Document({
-      sections: [
-        {
-          children: [
-            new Paragraph({ text: "Principe du Calcul d'Impact des Cendres", heading: HeadingLevel.TITLE, alignment: "center" }),
-            new Paragraph({ text: `Document généré le ${format(new Date(), "dd/MM/yyyy")}`, alignment: "center", spacing: { after: 400 } }),
-            
-            new Paragraph({ text: "Introduction", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
-            new Paragraph("L'utilisation de combustibles alternatifs (AF) en cimenterie est une pratique essentielle pour des raisons économiques et environnementales. Cependant, les cendres générées par leur combustion s'incorporent au clinker et modifient sa composition chimique. L'outil de \"Calcul d'Impact\" de l'application FuelTrack AFR permet de simuler et de quantifier précisément cet effet."),
-            new Paragraph("Le principe fondamental repose sur une comparaison entre deux scénarios :"),
-            new Paragraph({ text: "Clinker Théorique (Sans Cendres) : La composition du clinker qui serait obtenu si l'on utilisait uniquement la farine crue, sans aucun apport de cendres.", bullet: { level: 0 } }),
-            new Paragraph({ text: "Clinker Calculé (Avec Cendres) : La composition du clinker qui résulte du mélange de la farine crue et des cendres issues de tous les combustibles utilisés (AF, grignons, etc.).", bullet: { level: 0 } }),
-            new Paragraph("En analysant la différence (le \"delta\" - Δ) entre ces deux scénarios, l'opérateur peut anticiper les ajustements nécessaires et garantir la qualité du produit final."),
+    const children = [
+      new Paragraph({ text: "Principe du Calcul d'Impact des Cendres", heading: HeadingLevel.TITLE, alignment: "center" }),
+      new Paragraph({ text: `Document généré le ${format(new Date(), "dd/MM/yyyy")}`, alignment: "center", spacing: { after: 400 } }),
+      
+      new Paragraph({ text: "Introduction", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
+      new Paragraph("L'utilisation de combustibles alternatifs (AF) en cimenterie est une pratique essentielle pour des raisons économiques et environnementales. Cependant, les cendres générées par leur combustion s'incorporent au clinker et modifient sa composition chimique. L'outil de \"Calcul d'Impact\" de l'application FuelTrack AFR permet de simuler et de quantifier précisément cet effet."),
+      new Paragraph("Le principe fondamental repose sur une comparaison entre deux scénarios :"),
+      new Paragraph({ text: "Clinker Théorique (Sans Cendres) : La composition du clinker qui serait obtenu si l'on utilisait uniquement la farine crue, sans aucun apport de cendres.", bullet: { level: 0 } }),
+      new Paragraph({ text: "Clinker Calculé (Avec Cendres) : La composition du clinker qui résulte du mélange de la farine crue et des cendres issues de tous les combustibles utilisés (AF, grignons, etc.).", bullet: { level: 0 } }),
+      new Paragraph("En analysant la différence (le \"delta\" - Δ) entre ces deux scénarios, l'opérateur peut anticiper les ajustements nécessaires et garantir la qualité du produit final."),
 
-          ],
-        },
-      ],
+      new Paragraph({ text: "Étapes du Calcul", heading: HeadingLevel.HEADING_1, spacing: { before: 400, after: 200 } }),
+      
+      new Paragraph({ text: "1. Analyse du \"Clinker Sans Cendres\"", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
+      new Paragraph("Cette première étape consiste à simuler la production de clinker à partir de la farine crue seule."),
+      new Paragraph({ text: "Clinkérisation de la farine : On part de l'analyse chimique de la farine crue. La \"clinkérisation\" est un calcul de normalisation qui simule la perte au feu (PF) dans le four. La composition est recalculée sur une base de 100% après avoir retiré les éléments volatils, ce qui donne la composition théorique du clinker si aucune cendre n'était ajoutée.", bullet: { level: 0 } }),
+      new Paragraph({ text: "Calcul des modules : À partir de cette composition de clinker théorique, on calcule les modules clés (LSF, MS, AF) et la teneur en Alite (C₃S), qui sont des indicateurs fondamentaux de la qualité et de la réactivité du clinker.", bullet: { level: 0 } }),
+      
+      new Paragraph({ text: "2. Calcul de la Cendre Moyenne du Mélange", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
+      new Paragraph("Les cendres de chaque combustible ont une composition unique. L'application calcule d'abord une \"cendre moyenne pondérée\" qui représente la composition chimique de toutes les cendres qui seront produites par le mélange de combustibles en cours d'utilisation."),
+      new Paragraph({ text: "Apport de chaque combustible : Pour chaque combustible (AF, grignons), on prend son débit (t/h) et son taux de cendres (%). On en déduit le débit de cendres (t/h) apporté par ce combustible.", bullet: { level: 0 } }),
+      new Paragraph({ text: "Moyenne pondérée : La composition de la cendre moyenne est la moyenne des compositions de chaque cendre individuelle, pondérée par le débit de cendres de chaque combustible. Un combustible utilisé à un débit plus élevé aura plus d'influence sur la composition finale.", bullet: { level: 0 } }),
+
+      new Paragraph({ text: "3. Analyse du \"Clinker Avec Cendres\"", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
+      new Paragraph("C'est le cœur de la simulation. On combine la farine crue et la cendre moyenne pour prédire la composition finale du clinker."),
+      new Paragraph({ text: "Bilan matière : On calcule les flux de chaque oxyde (SiO₂, Al₂O₃, CaO, etc.) provenant de la farine crue (déjà \"clinkérisée\") et ceux provenant de la cendre moyenne.", bullet: { level: 0 } }),
+      new Paragraph({ text: "Mélange et Normalisation : On additionne ces flux d'oxydes et on les rapporte au flux total de matière (farine non volatile + cendres totales) pour obtenir la composition en pourcentage du clinker final \"avec cendres\".", bullet: { level: 0 } }),
+      new Paragraph({ text: "Ajustement final : Cette composition est ensuite normalisée une dernière fois pour atteindre les cibles de SO₃ et de PF que vous avez définies, simulant ainsi les conditions finales du clinker.", bullet: { level: 0 } }),
+      new Paragraph({ text: "Calcul des modules finaux : Sur cette composition finale, on recalcule les modules (LSF, MS, AF) et la teneur en C₃S.", bullet: { level: 0 } }),
+      
+      new Paragraph({ text: "4. L'Interprétation des Résultats (le \"Delta\" Δ)", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
+      new Paragraph("La véritable valeur de l'outil réside dans la comparaison des deux scénarios. La différence (\"delta\") entre les indicateurs du \"Clinker Avec Cendres\" et ceux du \"Clinker Sans Cendres\" révèle l'impact direct de l'utilisation des combustibles alternatifs :"),
+      new Paragraph({ text: "Δ LSF & Δ MS : Indiquent un changement dans la \"cuisabilité\" du cru. Par exemple, une baisse du LSF facilite la cuisson.", bullet: { level: 0 } }),
+      new Paragraph({ text: "Δ C₃S : C'est un indicateur crucial. Une baisse du C₃S peut signifier une diminution des résistances du ciment à court terme, ce qui pourrait nécessiter une correction en amont (par exemple, en ajustant la composition de la farine crue).", bullet: { level: 0 } }),
+      new Paragraph({ text: "Δ des autres oxydes (Fe₂O₃, etc.) : Permet d'anticiper des changements de couleur du ciment ou des variations dans la phase liquide du four.", bullet: { level: 0 } }),
+      
+      new Paragraph({ text: "Conclusion", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
+      new Paragraph("Cet outil de calcul d'impact est un simulateur puissant qui transforme des analyses chimiques brutes en informations décisionnelles. En comprenant comment les cendres affectent le produit final avant même qu'il ne soit cuit, les opérateurs peuvent ajuster les paramètres du processus de manière proactive, optimiser l'utilisation des combustibles alternatifs et garantir une qualité de clinker constante et conforme aux spécifications."),
+    ];
+
+    const doc = new Document({
+      sections: [{ children }],
     });
 
     Packer.toBlob(doc).then(blob => {

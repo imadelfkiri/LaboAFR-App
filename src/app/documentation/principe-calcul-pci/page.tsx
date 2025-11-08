@@ -47,6 +47,7 @@ export default function PrincipeCalculPCIPage() {
         "Enregistrer les résultats d'analyse d'un échantillon de combustible (arrivage, prospection, etc.) dans la base de données."
     ];
     for (const obj of objectives) {
+        if (yPos > 275) { doc.addPage(); yPos = 20; }
         const lines = doc.splitTextToSize(obj, page_width - margin * 2 - 10);
         doc.text("•", margin + 5, yPos);
         for (const line of lines) {
@@ -176,36 +177,54 @@ export default function PrincipeCalculPCIPage() {
   };
 
   const handleExportWord = () => {
-    const doc = new Document({
-      sections: [
-        {
-          children: [
-            new Paragraph({ text: "Fonctionnement du Calculateur PCI", heading: HeadingLevel.TITLE, alignment: "center" }),
-            new Paragraph({ text: `Document généré le ${format(new Date(), "dd/MM/yyyy")}`, alignment: "center", spacing: { after: 400 } }),
-            
-            new Paragraph({ text: "Introduction", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
-            new Paragraph("La page \"Calculateur PCI\" est un outil central de l'application. Elle a deux objectifs principaux :"),
-            new Paragraph({ text: "Calculer le Pouvoir Calorifique Inférieur (PCI) sur produit brut à partir du Pouvoir Calorifique Supérieur (PCS) sur sec et du taux d'humidité.", bullet: { level: 0 } }),
-            new Paragraph({ text: "Enregistrer les résultats d'analyse d'un échantillon de combustible (arrivage, prospection, etc.) dans la base de données.", bullet: { level: 0 } }),
-            new Paragraph("Elle est conçue pour être à la fois un outil de calcul rapide et le formulaire de saisie principal pour l'historique des analyses."),
+    const children = [
+      new Paragraph({ text: "Fonctionnement du Calculateur PCI", heading: HeadingLevel.TITLE, alignment: "center" }),
+      new Paragraph({ text: `Document généré le ${format(new Date(), "dd/MM/yyyy")}`, alignment: "center", spacing: { after: 400 } }),
+      
+      new Paragraph({ text: "Introduction", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
+      new Paragraph("La page \"Calculateur PCI\" est un outil central de l'application. Elle a deux objectifs principaux :"),
+      new Paragraph({ text: "Calculer le Pouvoir Calorifique Inférieur (PCI) sur produit brut à partir du Pouvoir Calorifique Supérieur (PCS) sur sec et du taux d'humidité.", bullet: { level: 0 } }),
+      new Paragraph({ text: "Enregistrer les résultats d'analyse d'un échantillon de combustible (arrivage, prospection, etc.) dans la base de données.", bullet: { level: 0 } }),
+      new Paragraph("Elle est conçue pour être à la fois un outil de calcul rapide et le formulaire de saisie principal pour l'historique des analyses."),
 
-            new Paragraph({ text: "Description des Sections et des Champs", heading: HeadingLevel.HEADING_1, spacing: { before: 400, after: 200 } }),
-            
-            new Paragraph({ text: "1. Informations Générales", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
-            new Paragraph("Cette section regroupe les informations d'identification de l'échantillon analysé."),
-            new Paragraph({ text: "Date : La date de l'analyse ou de l'arrivage du combustible.", bullet: { level: 0 } }),
-            new Paragraph({ text: "Type d'analyse : Catégorise l'analyse (ex: Arrivage, Prospection, Consommation).", bullet: { level: 0 } }),
-            new Paragraph({ text: "Combustible : Le type de combustible analysé. La liste est alimentée par la base de données centrale. Un bouton \"Nouveau combustible...\" permet d'ajouter un nouveau type à la volée s'il n'existe pas.", bullet: { level: 0 } }),
-            
-            new Paragraph({ text: "2. Données Analytiques", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
-            new Paragraph("Cette section contient les valeurs mesurées en laboratoire."),
-            
-            new Paragraph({ text: "Calcul du PCI", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
-            new Paragraph("Le calcul du PCI sur brut (pci_brut) est effectué à l'aide de la formule suivante :"),
-            new Paragraph({ text: "pci_brut = ((PCS - 50.635 * H) * (1 - H₂O/100)) - (H₂O * 5.83)", style: "code" }),
-          ],
-        },
-      ],
+      new Paragraph({ text: "Description des Sections et des Champs", heading: HeadingLevel.HEADING_1, spacing: { before: 400, after: 200 } }),
+      
+      new Paragraph({ text: "1. Informations Générales", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
+      new Paragraph("Cette section regroupe les informations d'identification de l'échantillon analysé."),
+      new Paragraph({ text: "Date : La date de l'analyse ou de l'arrivage du combustible.", bullet: { level: 0 } }),
+      new Paragraph({ text: "Type d'analyse : Catégorise l'analyse (ex: Arrivage, Prospection, Consommation).", bullet: { level: 0 } }),
+      new Paragraph({ text: "Combustible : Le type de combustible analysé. La liste est alimentée par la base de données centrale. Un bouton \"Nouveau combustible...\" permet d'ajouter un nouveau type à la volée s'il n'existe pas.", bullet: { level: 0 } }),
+      new Paragraph({ text: "Fournisseur : Le fournisseur du combustible. La liste est filtrée en fonction du combustible sélectionné. Un bouton \"Ajouter un fournisseur\" apparaît pour associer un nouveau fournisseur au combustible choisi.", bullet: { level: 0 } }),
+      new Paragraph({ text: "Tonnage (t) : Le poids en tonnes du lot de combustible reçu (principalement pour les arrivages).", bullet: { level: 0 } }),
+      new Paragraph({ text: "Remarques : Un champ libre pour ajouter des informations contextuelles sur l'analyse.", bullet: { level: 0 } }),
+      
+      new Paragraph({ text: "2. Données Analytiques", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
+      new Paragraph("Cette section contient les valeurs mesurées en laboratoire."),
+      new Paragraph({ text: "PCS (kcal/kg) : Le Pouvoir Calorifique Supérieur sur produit sec. C'est une valeur clé pour le calcul.", bullet: { level: 0 } }),
+      new Paragraph({ text: "% H₂O : Le taux d'humidité du produit brut. Indispensable pour le calcul du PCI.", bullet: { level: 0 } }),
+      new Paragraph({ text: "% H : La teneur en hydrogène du combustible. Cette valeur n'est pas saisie manuellement ; elle est automatiquement récupérée depuis les \"Données de Référence des Combustibles\" en fonction du combustible sélectionné. Elle est cruciale pour la précision du calcul.", bullet: { level: 0 } }),
+      new Paragraph({ text: "% Cl- et % Cendres : Les teneurs en chlore et en cendres. Ces valeurs sont importantes pour le suivi de la qualité et pour le calcul d'impact sur le clinker, mais n'entrent pas dans le calcul du PCI.", bullet: { level: 0 } }),
+      new Paragraph({ text: "Taux d'inertes (%) : Permet de corriger le PCS si le combustible contient une part de matériaux non combustibles (ex: métaux). Le PCS utilisé pour le calcul sera diminué de ce pourcentage.", bullet: { level: 0 } }),
+
+      new Paragraph({ text: "3. Résultat du Calcul", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
+      new Paragraph("Le résultat du PCI sur Brut est affiché en grand. Il est mis à jour en temps réel à chaque modification des champs PCS, % H₂O, % H ou Taux d'inertes."),
+
+      new Paragraph({ text: "Calcul du PCI", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
+      new Paragraph("Le calcul du PCI sur brut (pci_brut) est effectué à l'aide de la formule suivante, qui prend en compte l'énergie perdue pour évaporer l'humidité présente dans le combustible et l'eau formée par la combustion de l'hydrogène :"),
+      new Paragraph({ text: "pci_brut = ((PCS - 50.635 * H) * (1 - H₂O/100)) - (H₂O * 5.83)", style: "code" }),
+      new Paragraph("Où :"),
+      new Paragraph({ text: "PCS : La valeur que vous saisissez, corrigée par le taux d'inertes.", bullet: { level: 0 } }),
+      new Paragraph({ text: "H : La teneur en hydrogène récupérée automatiquement.", bullet: { level: 0 } }),
+      new Paragraph({ text: "H₂O : Le taux d'humidité que vous saisissez.", bullet: { level: 0 } }),
+
+      new Paragraph({ text: "Fonctionnalités Clés", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
+      new Paragraph({ text: "Validation par Couleur : Les champs de saisie (% H₂O, % Cl-, % Cendres) et le résultat du PCI changent de couleur (vert, rouge) pour vous indiquer si la valeur est conforme ou non aux spécifications définies pour le couple combustible-fournisseur sélectionné.", bullet: { level: 0 } }),
+      new Paragraph({ text: "Bouton \"Enregistrer\" : Ce bouton, situé en bas à droite, enregistre l'ensemble des informations et le résultat du PCI calculé dans la collection \"resultats\", alimentant ainsi l'historique et les pages de statistiques.", bullet: { level: 0 } }),
+      new Paragraph({ text: "Importation de Fichiers Excel : Sur la page \"Résultats des Analyses\", un bouton \"Importer\" permet de charger en masse des analyses depuis un fichier Excel, évitant ainsi la saisie manuelle.", bullet: { level: 0 } }),
+    ];
+    
+    const doc = new Document({
+      sections: [{ children }],
       styles: {
         paragraphStyles: [{
           id: "code",

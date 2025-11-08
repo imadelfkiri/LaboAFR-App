@@ -125,26 +125,42 @@ export default function PrincipeCalculMelangePage() {
   };
 
   const handleExportWord = () => {
+    const children = [
+        new Paragraph({ text: "Principe du Calcul de Mélange", heading: HeadingLevel.TITLE, alignment: "center" }),
+        new Paragraph({ text: `Document généré le ${format(new Date(), "dd/MM/yyyy")}`, alignment: "center", spacing: { after: 400 } }),
+        
+        new Paragraph({ text: "Introduction", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
+        new Paragraph("La page \"Calcul de Mélange\" est l'outil opérationnel principal pour piloter l'alimentation du four. Elle permet de simuler en temps réel une recette de mélange de combustibles en combinant les apports de différentes installations (Hall des AF, ATS) et des combustibles directs (Grignons, Pet-Coke)."),
+        new Paragraph("L'objectif est d'atteindre les cibles de qualité (PCI, Chlore, Cendres, etc.) tout en optimisant les coûts et le taux de substitution. Chaque ajustement, que ce soit le nombre de godets ou un débit, met à jour instantanément les indicateurs globaux du mélange."),
+
+        new Paragraph({ text: "1. Panneau des Indicateurs Globaux", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
+        new Paragraph("Situé en haut de la page, ce bandeau affiche en temps réel les caractéristiques consolidées du mélange que vous êtes en train de créer. C'est votre tableau de bord principal."),
+        new Paragraph({ text: "Débit des AFs : Somme des débits (en t/h) des installations \"Hall des AF\" et \"ATS\".", bullet: { level: 0 } }),
+        new Paragraph({ text: "PCI moyen : Pouvoir Calorifique Inférieur moyen du mélange, pondéré par le débit de chaque installation.", bullet: { level: 0 } }),
+        new Paragraph({ text: "% Humidité, % Cendres, % Chlorures : Teneurs moyennes pondérées du mélange.", bullet: { level: 0 } }),
+        new Paragraph({ text: "Taux de pneus : Pourcentage en poids des pneus dans le mélange total des AFs (hors grignons et pet-coke).", bullet: { level: 0 } }),
+        new Paragraph({ text: "Coût du Mélange : Coût moyen pondéré du mélange en MAD/t, basé sur les coûts définis dans \"Gestion des Coûts\".", bullet: { level: 0 } }),
+        new Paragraph({ text: "Validation par couleur : Chaque indicateur change de couleur (vert, jaune, rouge) en fonction des seuils que vous avez définis, vous alertant immédiatement d'une non-conformité.", bullet: { level: 0 } }),
+        
+        new Paragraph({ text: "2. Les Installations de Mélange (Hall des AF & ATS)", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
+        new Paragraph("Ces deux cartes représentent les lignes d'alimentation principales pour les combustibles alternatifs solides."),
+        new Paragraph({ text: "Débit (t/h) : Pour chaque installation, vous définissez le débit total qui sera envoyé au four.", bullet: { level: 0 } }),
+        new Paragraph({ text: "Liste des combustibles : Chaque combustible disponible apparaît avec un champ pour saisir le nombre de godets.", bullet: { level: 0 } }),
+        new Paragraph({ text: "Calcul de la composition : L'application calcule la composition interne du mélange de chaque installation (ex: le PCI moyen du Hall des AF) en se basant sur le nombre de godets et le poids par godet de chaque combustible.", bullet: { level: 0 } }),
+        new Paragraph({ text: "Pondération finale : Les indicateurs de chaque installation sont ensuite pondérés par le débit que vous avez défini pour contribuer aux indicateurs globaux.", bullet: { level: 0 } }),
+
+        new Paragraph({ text: "3. Autres Combustibles (Entrées Directes)", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
+        new Paragraph("Cette section permet d'ajouter au bilan énergétique des combustibles qui ne font pas partie du mélange des AFs mais qui sont injectés directement, comme les grignons d'olive ou le pet-coke."),
+        new Paragraph({ text: "Débit (t/h) : Vous saisissez manuellement le débit pour chaque combustible direct.", bullet: { level: 0 } }),
+        new Paragraph({ text: "Impact sur les indicateurs : Leurs caractéristiques (PCI, Chlore, etc.) sont prises en compte dans le calcul des indicateurs globaux, mais ils ne sont pas inclus dans le \"Débit des AFs\".", bullet: { level: 0 } }),
+        
+        new Paragraph({ text: "4. Actions et Fonctionnalités", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
+        new Paragraph({ text: "Période d'analyse : Vous pouvez définir une plage de dates pour que les analyses chimiques de chaque combustible soient calculées sur cette période, affinant ainsi la simulation.", bullet: { level: 0 } }),
+        new Paragraph({ text: "Suggérer un mélange (IA) : En cliquant sur ce bouton, vous pouvez décrire un objectif (ex: \"un PCI de 5800 avec le moins de chlore possible\"). L'IA analysera les combustibles disponibles et vous proposera une recette (nombre de godets) pour atteindre cet objectif.", bullet: { level: 0 } }),
+        new Paragraph({ text: "Enregistrer la Session : Une fois votre recette de mélange finalisée, ce bouton enregistre un \"instantané\" de toute la configuration (débits, godets, indicateurs). Cet enregistrement alimente les pages d'historique et de statistiques (ex: la page Indicateurs).", bullet: { level: 0 } }),
+    ];
     const doc = new Document({
-      sections: [
-        {
-          children: [
-            new Paragraph({ text: "Principe du Calcul de Mélange", heading: HeadingLevel.TITLE, alignment: "center" }),
-            new Paragraph({ text: `Document généré le ${format(new Date(), "dd/MM/yyyy")}`, alignment: "center", spacing: { after: 400 } }),
-            
-            new Paragraph({ text: "Introduction", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
-            new Paragraph("La page \"Calcul de Mélange\" est l'outil opérationnel principal pour piloter l'alimentation du four. Elle permet de simuler en temps réel une recette de mélange de combustibles en combinant les apports de différentes installations (Hall des AF, ATS) et des combustibles directs (Grignons, Pet-Coke)."),
-            new Paragraph("L'objectif est d'atteindre les cibles de qualité (PCI, Chlore, Cendres, etc.) tout en optimisant les coûts et le taux de substitution. Chaque ajustement, que ce soit le nombre de godets ou un débit, met à jour instantanément les indicateurs globaux du mélange."),
-
-            new Paragraph({ text: "1. Panneau des Indicateurs Globaux", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
-            new Paragraph("Situé en haut de la page, ce bandeau affiche en temps réel les caractéristiques consolidées du mélange que vous êtes en train de créer. C'est votre tableau de bord principal."),
-            
-            new Paragraph({ text: "2. Les Installations de Mélange (Hall des AF & ATS)", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
-            new Paragraph("Ces deux cartes représentent les lignes d'alimentation principales pour les combustibles alternatifs solides."),
-
-          ],
-        },
-      ],
+      sections: [{ children }],
     });
 
     Packer.toBlob(doc).then(blob => {
