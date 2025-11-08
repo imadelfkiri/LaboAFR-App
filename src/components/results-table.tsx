@@ -57,7 +57,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import * as XLSX from "xlsx";
+import XLSX from "xlsx";
 import * as z from "zod";
 import { Skeleton } from "./ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card"
@@ -395,6 +395,46 @@ export default function ResultsTable() {
     }
   };
 
+    const excelDateToJSDate = (serial: number) => {
+        const utc_days  = Math.floor(serial - 25569);
+        const utc_value = utc_days * 86400;                                        
+        const date_info = new Date(utc_value * 1000);
+        const fractional_day = serial - Math.floor(serial) + 0.0000001;
+        let total_seconds = Math.floor(86400 * fractional_day);
+        const seconds = total_seconds % 60;
+        total_seconds -= seconds;
+        const hours = Math.floor(total_seconds / (60 * 60));
+        const minutes = Math.floor(total_seconds / 60) % 60;
+        return new Date(date_info.getFullYear(), date_info.getMonth(), date_info.getDate(), hours, minutes, seconds);
+    }
+
+    const parseDate = (value: any, rowNum: number): Date => {
+        if (value === null || value === undefined) {
+            throw new Error(`Date vide non autorisée à la ligne ${rowNum}.`);
+        }
+
+        if (value instanceof Date && isValid(value)) {
+            return value;
+        }
+
+        if (typeof value === 'number') {
+            const date = excelDateToJSDate(value);
+            if (isValid(date)) return date;
+        }
+        
+        if (typeof value === 'string') {
+            const dateFormats = [
+                'dd/MM/yyyy', 'd/M/yyyy', 'dd-MM-yyyy', 'd-M-yyyy', 'dd/MM/yy', 'd/M/yy'
+            ];
+            for (const fmt of dateFormats) {
+                const date = parse(value, fmt, new Date());
+                if (isValid(date)) return date;
+            }
+        }
+        
+        throw new Error(`Format de date non reconnu à la ligne ${rowNum} pour la valeur "${value}".`);
+    }
+
     const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
@@ -411,7 +451,7 @@ export default function ResultsTable() {
                     throw new Error(`Impossible de trouver la première feuille de calcul.`);
                 }
                 
-                const allData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
+                const allData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, dateNF:'dd/mm/yyyy' });
 
                 if (allData.length < 4) {
                     throw new Error("Le fichier est vide ou ne contient pas assez de lignes pour les en-têtes et les données.");
@@ -420,7 +460,7 @@ export default function ResultsTable() {
                 let headerRowIndex = -1;
                 for (let i = 0; i < allData.length; i++) {
                     const row = allData[i];
-                    if (row && row.some(cell => typeof cell === 'string' && cell.toLowerCase().includes('date arrivage'))) {
+                    if (row && row.some(cell => typeof cell === 'string' && cell.trim().toLowerCase() === 'date arrivage')) {
                         headerRowIndex = i;
                         break;
                     }
@@ -459,7 +499,10 @@ export default function ResultsTable() {
                             rowData[key] = row[index];
                         });
 
-                        const validatedData = importSchema.partial().parse(rowData);
+                        const validatedData = importSchema.partial().parse({
+                            ...rowData,
+                            date_arrivage: parseDate(rowData.date_arrivage, rowNum),
+                        });
 
                         if (!validatedData.type_combustible || !validatedData.fournisseur || validatedData.h2o === null || validatedData.h2o === undefined || !validatedData.date_arrivage) {
                             throw new Error("Les colonnes 'Date Arrivage', 'Type Combustible', 'Fournisseur' et '% H2O' sont obligatoires.");
