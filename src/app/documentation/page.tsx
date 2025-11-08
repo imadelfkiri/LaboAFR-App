@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { BookText, BookOpen, Flame, Beaker, FlaskConical, BarChart3, ClipboardCheck, ClipboardList } from "lucide-react";
+import { BookText, BookOpen, Flame, Beaker, FlaskConical, BarChart3, ClipboardCheck, ClipboardList, FilePieChart } from "lucide-react";
 import Link from 'next/link';
 import type { Metadata } from 'next';
 
@@ -27,7 +27,7 @@ const documentationArticles = [
     href: "/documentation/principe-calcul-impact",
     icon: BookText,
   },
-    {
+  {
     title: "Principe des Analyses de Cendres",
     description: "Gestion des analyses chimiques des cendres et leur relation avec le calcul d'impact.",
     href: "/documentation/principe-analyses-cendres",
@@ -50,6 +50,12 @@ const documentationArticles = [
     description: "Définissez les seuils de qualité pour chaque couple combustible-fournisseur.",
     href: "/documentation/principe-specifications",
     icon: ClipboardCheck,
+  },
+  {
+    title: "Principe du Rapport de Synthèse",
+    description: "Générez un rapport consolidé du mélange et de son impact, prêt à être partagé ou archivé.",
+    href: "/documentation/rapport-synthese",
+    icon: FilePieChart,
   },
 ];
 
