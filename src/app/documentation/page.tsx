@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { BookText, BookOpen, Flame, Beaker } from "lucide-react";
+import { BookText, BookOpen, Flame, Beaker, FlaskConical } from "lucide-react";
 import Link from 'next/link';
 import type { Metadata } from 'next';
 
@@ -27,7 +27,12 @@ const documentationArticles = [
     href: "/documentation/principe-calcul-impact",
     icon: BookText,
   },
-  // Ajoutez d'autres articles ici à l'avenir
+  {
+    title: "Fonctionnement de la Page Résultats",
+    description: "Consultez, filtrez, triez et gérez l'historique complet de toutes les analyses de combustibles.",
+    href: "/documentation/principe-resultats",
+    icon: FlaskConical,
+  },
 ];
 
 export default function DocumentationHubPage() {
