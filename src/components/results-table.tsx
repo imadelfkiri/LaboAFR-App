@@ -44,7 +44,7 @@ import {
   ArrowUpDown,
   Edit,
 } from "lucide-react";
-import { getSpecifications, SPEC_MAP, deleteAllResults, getFuelData, type FuelData, addManyResults, updateResult } from "@/lib/data";
+import { getSpecifications, SPEC_MAP, deleteAllResults, getFuelData, type FuelData, addManyResults, updateResult } from '@/lib/data';
 import { calculerPCI, calculerPCS } from "@/lib/pci";
 import {
   AlertDialog,
@@ -57,7 +57,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import XLSX from "xlsx";
+import * as XLSX from "xlsx";
 import * as z from "zod";
 import { Skeleton } from "./ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card"
@@ -442,8 +442,11 @@ export default function ResultsTable() {
         const reader = new FileReader();
         reader.onload = async (e) => {
             try {
-                const data = new Uint8Array(e.target?.result as ArrayBuffer);
-                const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                const buffer = e.target?.result;
+                if (!buffer) {
+                    throw new Error("Impossible de lire le fichier.");
+                }
+                const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
                 
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
@@ -452,10 +455,6 @@ export default function ResultsTable() {
                 }
                 
                 const allData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, dateNF:'dd/mm/yyyy' });
-
-                if (allData.length < 4) {
-                    throw new Error("Le fichier est vide ou ne contient pas assez de lignes pour les en-têtes et les données.");
-                }
 
                 let headerRowIndex = -1;
                 for (let i = 0; i < allData.length; i++) {
@@ -560,6 +559,7 @@ export default function ResultsTable() {
         };
         reader.readAsArrayBuffer(file);
     };
+
 
     const aggregateResults = (data: Result[]) => {
       const grouped = new Map<string, Result[]>();
