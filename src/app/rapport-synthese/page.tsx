@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getFuelData, type FuelData } from '@/lib/data';
+import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getFuelData, type FuelData, getThresholds, type MixtureThresholds } from '@/lib/data';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Flame, Activity, BookOpen, Beaker, BarChart2, Download, FileText, FileJson, ChevronDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +16,7 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, Table as DocxTable, TableRow as DocxTableRow, TableCell as DocxTableCell, WidthType, BorderStyle } from 'docx';
 import { saveAs } from 'file-saver';
+import { IndicatorCard } from '@/components/mixture-calculator';
 
 
 // Extend jsPDF for autoTable
@@ -50,13 +51,15 @@ export default function RapportSynthesePage() {
     const [mixtureSession, setMixtureSession] = useState<MixtureSession | null>(null);
     const [latestImpact, setLatestImpact] = useState<ImpactAnalysis | null>(null);
     const [fuelDataMap, setFuelDataMap] = useState<Record<string, FuelData>>({});
+    const [thresholds, setThresholds] = useState<MixtureThresholds | undefined>(undefined);
 
     const fetchData = useCallback(async () => {
         try {
-            const [sessionData, impactAnalyses, fuelData] = await Promise.all([
+            const [sessionData, impactAnalyses, fuelData, thresholdsData] = await Promise.all([
                 getLatestMixtureSession(),
                 getImpactAnalyses(),
                 getFuelData(),
+                getThresholds(),
             ]);
             setMixtureSession(sessionData);
             setLatestImpact(impactAnalyses.length > 0 ? impactAnalyses[0] : null);
@@ -64,6 +67,9 @@ export default function RapportSynthesePage() {
                 acc[fd.nom_combustible] = fd;
                 return acc;
             }, {} as Record<string, FuelData>));
+             if (thresholdsData.melange) {
+                setThresholds(thresholdsData.melange);
+            }
         } catch (error) {
             console.error("Error fetching dashboard data:", error);
         } finally {
@@ -78,12 +84,13 @@ export default function RapportSynthesePage() {
     const mixtureIndicators = useMemo(() => {
         if (!mixtureSession?.globalIndicators) return null;
         const indicators = mixtureSession.globalIndicators;
-        return [
-            { label: "PCI", value: formatNumber(indicators.pci, 0), unit: "kcal/kg" },
-            { label: "Chlorures", value: formatNumber(indicators.chlorine, 3), unit: "%" },
-            { label: "Cendres", value: formatNumber(indicators.ash, 2), unit: "%" },
-            { label: "H₂O", value: formatNumber(indicators.humidity, 2), unit: "%" },
-        ];
+        return {
+          'PCI': indicators.pci,
+          'Chlorures': indicators.chlorine,
+          'Cendres': indicators.ash,
+          'Humidité': indicators.humidity,
+          'TauxPneus': indicators.tireRate,
+        };
     }, [mixtureSession]);
 
     const impactChartData = useMemo(() => {
@@ -150,33 +157,21 @@ export default function RapportSynthesePage() {
             doc.setFontSize(14);
             doc.text("Indicateurs du Mélange", 14, yPos);
             yPos += 6;
+            const indicatorData = [
+                { label: "PCI", value: formatNumber(mixtureSession.globalIndicators.pci, 0), unit: "kcal/kg" },
+                { label: "Chlorures", value: formatNumber(mixtureSession.globalIndicators.chlorine, 3), unit: "%" },
+                { label: "Cendres", value: formatNumber(mixtureSession.globalIndicators.ash, 2), unit: "%" },
+                { label: "H₂O", value: formatNumber(mixtureSession.globalIndicators.humidity, 2), unit: "%" },
+            ];
+
             doc.autoTable({
                 startY: yPos,
                 head: [['Indicateur', 'Valeur', 'Unité']],
-                body: mixtureIndicators.map(ind => {
-                    const label = ind.label;
-                    let digits = 2;
-                    switch (label) {
-                        case 'PCI':
-                            digits = 0;
-                            break;
-                        case 'H₂O':
-                        case 'Cendres':
-                            digits = 1;
-                            break;
-                        case 'Chlorures':
-                            digits = 2;
-                            break;
-                    }
-                    
-                    const value = formatNumberForPdf(
-                        mixtureSession?.globalIndicators[
-                            label.toLowerCase().replace('chlorures', 'chlorine').replace('cendres', 'ash').replace('h₂o', 'humidity') as keyof typeof mixtureSession.globalIndicators
-                        ], 
-                        digits
-                    );
-                    return [label === 'H₂O' ? 'H2O' : label, value, ind.unit];
-                }),
+                body: indicatorData.map(ind => [
+                    ind.label === 'H₂O' ? 'H2O' : ind.label, 
+                    ind.value.replace(/\s/g, ''), // remove space from formatted number for PDF
+                    ind.unit
+                ]),
                 theme: 'striped',
                 headStyles: { fillColor: [44, 62, 80] },
             });
@@ -243,13 +238,16 @@ export default function RapportSynthesePage() {
                                         new DocxTableCell({ children: [new Paragraph({ text: "Unité", children: [new TextRun({ bold: true })]})] }),
                                     ],
                                 }),
-                                ...mixtureIndicators.map(ind => new DocxTableRow({
-                                    children: [
-                                        new DocxTableCell({ children: [new Paragraph(ind.label)] }),
-                                        new DocxTableCell({ children: [new Paragraph(ind.value)] }),
-                                        new DocxTableCell({ children: [new Paragraph(ind.unit)] }),
-                                    ]
-                                }))
+                                ...Object.entries(mixtureIndicators).map(([key, value]) => {
+                                    const indicatorMap = {'PCI': 'kcal/kg', 'Chlorures': '%', 'Cendres': '%', 'Humidité': '%', 'TauxPneus': '%'};
+                                    return new DocxTableRow({
+                                        children: [
+                                            new DocxTableCell({ children: [new Paragraph(key === 'TauxPneus' ? 'Taux Pneus' : key)] }),
+                                            new DocxTableCell({ children: [new Paragraph(String(value))] }),
+                                            new DocxTableCell({ children: [new Paragraph(indicatorMap[key as keyof typeof indicatorMap])] }),
+                                        ]
+                                    })
+                                })
                             ]
                         })
                     ] : []),
@@ -358,17 +356,16 @@ export default function RapportSynthesePage() {
             </div>
             
             <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                 <Card>
-                    <CardHeader><CardTitle className="flex items-center gap-2"><Flame /> Indicateurs du Mélange</CardTitle></CardHeader>
-                    <CardContent className="grid gap-4 grid-cols-2">
-                         {mixtureIndicators ? mixtureIndicators.map(ind => (
-                            <div key={ind.label} className="p-4 rounded-lg bg-brand-muted/70 border border-brand-line/50">
-                                <p className="text-sm text-muted-foreground">{ind.label}</p>
-                                <p className="text-2xl font-bold">{ind.value}<span className="text-sm ml-1">{ind.unit}</span></p>
-                            </div>
-                        )) : <p className="col-span-full text-center text-muted-foreground p-4">Aucune session de mélange.</p>}
-                    </CardContent>
-                </Card>
+                {mixtureIndicators ? (
+                    <IndicatorCard data={mixtureIndicators} thresholds={thresholds} />
+                ) : (
+                    <Card>
+                        <CardHeader><CardTitle className="flex items-center gap-2"><Flame /> Indicateurs du Mélange</CardTitle></CardHeader>
+                        <CardContent>
+                            <p className="col-span-full text-center text-muted-foreground p-4">Aucune session de mélange.</p>
+                        </CardContent>
+                    </Card>
+                )}
                  <Card>
                     <CardHeader><CardTitle className="flex items-center gap-2"><Activity /> Impact sur le Clinker</CardTitle></CardHeader>
                     <CardContent>
