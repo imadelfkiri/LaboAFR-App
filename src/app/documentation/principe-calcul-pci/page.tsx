@@ -5,10 +5,12 @@ import { Flame } from "lucide-react";
 import { ExportButton } from "@/components/actions/ExportButton";
 import jsPDF from "jspdf";
 import { format } from 'date-fns';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
+import { saveAs } from 'file-saver';
 
 export default function PrincipeCalculPCIPage() {
 
-  const handleExport = () => {
+  const handleExportPdf = () => {
     const doc = new jsPDF();
     const date = format(new Date(), "dd/MM/yyyy");
     let yPos = 20;
@@ -173,6 +175,54 @@ export default function PrincipeCalculPCIPage() {
     doc.save(`Principe_Calcul_PCI_${date.replaceAll('/', '-')}.pdf`);
   };
 
+  const handleExportWord = () => {
+    const doc = new Document({
+      sections: [
+        {
+          children: [
+            new Paragraph({ text: "Fonctionnement du Calculateur PCI", heading: HeadingLevel.TITLE, alignment: "center" }),
+            new Paragraph({ text: `Document généré le ${format(new Date(), "dd/MM/yyyy")}`, alignment: "center", spacing: { after: 400 } }),
+            
+            new Paragraph({ text: "Introduction", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
+            new Paragraph("La page \"Calculateur PCI\" est un outil central de l'application. Elle a deux objectifs principaux :"),
+            new Paragraph({ text: "Calculer le Pouvoir Calorifique Inférieur (PCI) sur produit brut à partir du Pouvoir Calorifique Supérieur (PCS) sur sec et du taux d'humidité.", bullet: { level: 0 } }),
+            new Paragraph({ text: "Enregistrer les résultats d'analyse d'un échantillon de combustible (arrivage, prospection, etc.) dans la base de données.", bullet: { level: 0 } }),
+            new Paragraph("Elle est conçue pour être à la fois un outil de calcul rapide et le formulaire de saisie principal pour l'historique des analyses."),
+
+            new Paragraph({ text: "Description des Sections et des Champs", heading: HeadingLevel.HEADING_1, spacing: { before: 400, after: 200 } }),
+            
+            new Paragraph({ text: "1. Informations Générales", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
+            new Paragraph("Cette section regroupe les informations d'identification de l'échantillon analysé."),
+            new Paragraph({ text: "Date : La date de l'analyse ou de l'arrivage du combustible.", bullet: { level: 0 } }),
+            new Paragraph({ text: "Type d'analyse : Catégorise l'analyse (ex: Arrivage, Prospection, Consommation).", bullet: { level: 0 } }),
+            new Paragraph({ text: "Combustible : Le type de combustible analysé. La liste est alimentée par la base de données centrale. Un bouton \"Nouveau combustible...\" permet d'ajouter un nouveau type à la volée s'il n'existe pas.", bullet: { level: 0 } }),
+            
+            new Paragraph({ text: "2. Données Analytiques", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
+            new Paragraph("Cette section contient les valeurs mesurées en laboratoire."),
+            
+            new Paragraph({ text: "Calcul du PCI", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
+            new Paragraph("Le calcul du PCI sur brut (pci_brut) est effectué à l'aide de la formule suivante :"),
+            new Paragraph({ text: "pci_brut = ((PCS - 50.635 * H) * (1 - H₂O/100)) - (H₂O * 5.83)", style: "code" }),
+          ],
+        },
+      ],
+      styles: {
+        paragraphStyles: [{
+          id: "code",
+          name: "Code Block",
+          basedOn: "Normal",
+          next: "Normal",
+          run: { font: "Courier New", size: 20 },
+          paragraph: { indentation: { left: 720 }, spacing: { before: 100, after: 100 } },
+        }]
+      }
+    });
+
+    Packer.toBlob(doc).then(blob => {
+      saveAs(blob, `Principe_Calcul_PCI_${format(new Date(), "yyyy-MM-dd")}.docx`);
+    });
+  };
+
   return (
     <div className="container mx-auto p-4 md:p-8 max-w-4xl">
       <div className="flex justify-between items-center mb-6">
@@ -180,7 +230,7 @@ export default function PrincipeCalculPCIPage() {
           <Flame className="h-8 w-8 text-primary" />
           Fonctionnement du Calculateur PCI
         </CardTitle>
-        <ExportButton onClick={handleExport} />
+        <ExportButton onPdfExport={handleExportPdf} onWordExport={handleExportWord} />
       </div>
 
       <Card className="prose prose-invert max-w-none prose-h2:text-primary prose-h2:font-semibold prose-h3:text-emerald-400 prose-p:leading-relaxed prose-a:text-emerald-400 hover:prose-a:text-emerald-300 prose-strong:text-white">

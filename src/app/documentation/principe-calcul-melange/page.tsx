@@ -5,10 +5,12 @@ import { Beaker } from "lucide-react";
 import { ExportButton } from "@/components/actions/ExportButton";
 import jsPDF from "jspdf";
 import { format } from 'date-fns';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
+import { saveAs } from 'file-saver';
 
 export default function PrincipeCalculMelangePage() {
 
-  const handleExport = () => {
+  const handleExportPdf = () => {
     const doc = new jsPDF();
     const date = format(new Date(), "dd/MM/yyyy");
     let yPos = 20;
@@ -122,6 +124,34 @@ export default function PrincipeCalculMelangePage() {
     doc.save(`Principe_Calcul_Melange_${date.replaceAll('/', '-')}.pdf`);
   };
 
+  const handleExportWord = () => {
+    const doc = new Document({
+      sections: [
+        {
+          children: [
+            new Paragraph({ text: "Principe du Calcul de Mélange", heading: HeadingLevel.TITLE, alignment: "center" }),
+            new Paragraph({ text: `Document généré le ${format(new Date(), "dd/MM/yyyy")}`, alignment: "center", spacing: { after: 400 } }),
+            
+            new Paragraph({ text: "Introduction", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
+            new Paragraph("La page \"Calcul de Mélange\" est l'outil opérationnel principal pour piloter l'alimentation du four. Elle permet de simuler en temps réel une recette de mélange de combustibles en combinant les apports de différentes installations (Hall des AF, ATS) et des combustibles directs (Grignons, Pet-Coke)."),
+            new Paragraph("L'objectif est d'atteindre les cibles de qualité (PCI, Chlore, Cendres, etc.) tout en optimisant les coûts et le taux de substitution. Chaque ajustement, que ce soit le nombre de godets ou un débit, met à jour instantanément les indicateurs globaux du mélange."),
+
+            new Paragraph({ text: "1. Panneau des Indicateurs Globaux", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
+            new Paragraph("Situé en haut de la page, ce bandeau affiche en temps réel les caractéristiques consolidées du mélange que vous êtes en train de créer. C'est votre tableau de bord principal."),
+            
+            new Paragraph({ text: "2. Les Installations de Mélange (Hall des AF & ATS)", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
+            new Paragraph("Ces deux cartes représentent les lignes d'alimentation principales pour les combustibles alternatifs solides."),
+
+          ],
+        },
+      ],
+    });
+
+    Packer.toBlob(doc).then(blob => {
+      saveAs(blob, `Principe_Calcul_Melange_${format(new Date(), "yyyy-MM-dd")}.docx`);
+    });
+  };
+
   return (
     <div className="container mx-auto p-4 md:p-8 max-w-4xl">
       <div className="flex justify-between items-center mb-6">
@@ -129,7 +159,7 @@ export default function PrincipeCalculMelangePage() {
           <Beaker className="h-8 w-8 text-primary" />
           Principe du Calcul de Mélange
         </CardTitle>
-        <ExportButton onClick={handleExport} />
+        <ExportButton onPdfExport={handleExportPdf} onWordExport={handleExportWord} />
       </div>
 
       <Card className="prose prose-invert max-w-none prose-h2:text-primary prose-h2:font-semibold prose-h3:text-emerald-400 prose-p:leading-relaxed prose-a:text-emerald-400 hover:prose-a:text-emerald-300 prose-strong:text-white">

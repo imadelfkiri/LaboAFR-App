@@ -14,7 +14,7 @@ import { fr } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, Cell, LabelList } from 'recharts';
 import jsPDF from "jspdf";
 import "jspdf-autotable";
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, Table as DocxTable, TableRow as DocxTableRow, TableCell as DocxTableCell, WidthType, BorderStyle } from 'docx';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, Table as DocxTable, TableRow as DocxTableRow, TableCell as DocxTableCell, WidthType } from 'docx';
 import { saveAs } from 'file-saver';
 import { IndicatorCard } from '@/components/mixture-calculator';
 
@@ -219,85 +219,93 @@ export default function RapportSynthesePage() {
     };
 
     const handleExportWord = () => {
+        if (!mixtureSession || !mixtureIndicators || !latestImpact) {
+            // Or show a toast message
+            return;
+        }
+        
+        const children = [
+            new Paragraph({ text: "Composition de mélange et son impact", heading: HeadingLevel.TITLE, alignment: 'center' }),
+            new Paragraph({ text: format(new Date(), "dd/MM/yyyy"), alignment: 'center', spacing: { after: 400 } }),
+        ];
+
+        // Indicateurs
+        children.push(new Paragraph({ text: "Indicateurs du Mélange", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }));
+        const indicatorRows = Object.entries(mixtureIndicators).map(([key, value]) => {
+            const indicatorMap = {'PCI': 'kcal/kg', 'Chlorures': '%', 'Cendres': '%', 'Humidité': '%', 'TauxPneus': '%'};
+            return new DocxTableRow({
+                children: [
+                    new DocxTableCell({ children: [new Paragraph(key === 'TauxPneus' ? 'Taux Pneus' : key)] }),
+                    new DocxTableCell({ children: [new Paragraph(String(value))] }),
+                    new DocxTableCell({ children: [new Paragraph(indicatorMap[key as keyof typeof indicatorMap])] }),
+                ]
+            });
+        });
+        children.push(new DocxTable({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            rows: [
+                new DocxTableRow({
+                    children: [
+                        new DocxTableCell({ children: [new Paragraph({ text: "Indicateur", children: [new TextRun({ bold: true })]})] }),
+                        new DocxTableCell({ children: [new Paragraph({ text: "Valeur", children: [new TextRun({ bold: true })]})] }),
+                        new DocxTableCell({ children: [new Paragraph({ text: "Unité", children: [new TextRun({ bold: true })]})] }),
+                    ],
+                }),
+                ...indicatorRows
+            ]
+        }));
+    
+        // Composition
+        if (mixtureComposition.length > 0) {
+            children.push(new Paragraph({ text: "Composition du Mélange", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }));
+            const compositionRows = mixtureComposition.map(item => new DocxTableRow({
+                children: [
+                    new DocxTableCell({ children: [new Paragraph(item.name)] }),
+                    new DocxTableCell({ children: [new Paragraph(String(item.buckets))] }),
+                    new DocxTableCell({ children: [new Paragraph(`${item.percentage}%`)] }),
+                ]
+            }));
+             children.push(new DocxTable({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                rows: [
+                    new DocxTableRow({
+                        children: [
+                            new DocxTableCell({ children: [new Paragraph({ text: "Combustible", children: [new TextRun({ bold: true })]})] }),
+                            new DocxTableCell({ children: [new Paragraph({ text: "Nombre de Godets", children: [new TextRun({ bold: true })]})] }),
+                            new DocxTableCell({ children: [new Paragraph({ text: "% Poids", children: [new TextRun({ bold: true })]})] }),
+                        ],
+                    }),
+                    ...compositionRows
+                ]
+            }));
+        }
+    
+         // Impact
+        if (impactChartData.length > 0) {
+            children.push(new Paragraph({ text: "Impact sur le Clinker", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }));
+            const impactRows = impactChartData.map(item => new DocxTableRow({
+                children: [
+                    new DocxTableCell({ children: [new Paragraph(item.name)] }),
+                    new DocxTableCell({ children: [new Paragraph(item.value.toFixed(2))] }),
+                ]
+            }));
+             children.push(new DocxTable({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                rows: [
+                    new DocxTableRow({
+                        children: [
+                            new DocxTableCell({ children: [new Paragraph({ text: "Indicateur", children: [new TextRun({ bold: true })]})] }),
+                            new DocxTableCell({ children: [new Paragraph({ text: "Variation (Calculé - Sans Cendres)", children: [new TextRun({ bold: true })]})] }),
+                        ],
+                    }),
+                    ...impactRows
+                ]
+            }));
+        }
+
         const doc = new Document({
             sections: [{
-                children: [
-                    new Paragraph({ text: "Composition de mélange et son impact", heading: HeadingLevel.TITLE, alignment: 'center' }),
-                    new Paragraph({ text: format(new Date(), "dd/MM/yyyy"), alignment: 'center', spacing: { after: 400 } }),
-                    
-                    // Indicateurs
-                    ...(mixtureIndicators && mixtureSession?.globalIndicators ? [
-                        new Paragraph({ text: "Indicateurs du Mélange", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
-                        new DocxTable({
-                            width: { size: 100, type: WidthType.PERCENTAGE },
-                            rows: [
-                                new DocxTableRow({
-                                    children: [
-                                        new DocxTableCell({ children: [new Paragraph({ text: "Indicateur", children: [new TextRun({ bold: true })]})] }),
-                                        new DocxTableCell({ children: [new Paragraph({ text: "Valeur", children: [new TextRun({ bold: true })]})] }),
-                                        new DocxTableCell({ children: [new Paragraph({ text: "Unité", children: [new TextRun({ bold: true })]})] }),
-                                    ],
-                                }),
-                                ...Object.entries(mixtureIndicators).map(([key, value]) => {
-                                    const indicatorMap = {'PCI': 'kcal/kg', 'Chlorures': '%', 'Cendres': '%', 'Humidité': '%', 'TauxPneus': '%'};
-                                    return new DocxTableRow({
-                                        children: [
-                                            new DocxTableCell({ children: [new Paragraph(key === 'TauxPneus' ? 'Taux Pneus' : key)] }),
-                                            new DocxTableCell({ children: [new Paragraph(String(value))] }),
-                                            new DocxTableCell({ children: [new Paragraph(indicatorMap[key as keyof typeof indicatorMap])] }),
-                                        ]
-                                    })
-                                })
-                            ]
-                        })
-                    ] : []),
-    
-                    // Composition
-                    ...(mixtureComposition.length > 0 ? [
-                        new Paragraph({ text: "Composition du Mélange", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
-                         new DocxTable({
-                            width: { size: 100, type: WidthType.PERCENTAGE },
-                            rows: [
-                                new DocxTableRow({
-                                    children: [
-                                        new DocxTableCell({ children: [new Paragraph({ text: "Combustible", children: [new TextRun({ bold: true })]})] }),
-                                        new DocxTableCell({ children: [new Paragraph({ text: "Nombre de Godets", children: [new TextRun({ bold: true })]})] }),
-                                        new DocxTableCell({ children: [new Paragraph({ text: "% Poids", children: [new TextRun({ bold: true })]})] }),
-                                    ],
-                                }),
-                                ...mixtureComposition.map(item => new DocxTableRow({
-                                    children: [
-                                        new DocxTableCell({ children: [new Paragraph(item.name)] }),
-                                        new DocxTableCell({ children: [new Paragraph(String(item.buckets))] }),
-                                        new DocxTableCell({ children: [new Paragraph(`${item.percentage}%`)] }),
-                                    ]
-                                }))
-                            ]
-                        })
-                    ] : []),
-    
-                     // Impact
-                    ...(impactChartData.length > 0 ? [
-                        new Paragraph({ text: "Impact sur le Clinker", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
-                         new DocxTable({
-                            width: { size: 100, type: WidthType.PERCENTAGE },
-                            rows: [
-                                new DocxTableRow({
-                                    children: [
-                                        new DocxTableCell({ children: [new Paragraph({ text: "Indicateur", children: [new TextRun({ bold: true })]})] }),
-                                        new DocxTableCell({ children: [new Paragraph({ text: "Variation (Calculé - Sans Cendres)", children: [new TextRun({ bold: true })]})] }),
-                                    ],
-                                }),
-                                ...impactChartData.map(item => new DocxTableRow({
-                                    children: [
-                                        new DocxTableCell({ children: [new Paragraph(item.name)] }),
-                                        new DocxTableCell({ children: [new Paragraph(item.value.toFixed(2))] }),
-                                    ]
-                                }))
-                            ]
-                        })
-                    ] : []),
-                ],
+                children,
             }],
         });
     

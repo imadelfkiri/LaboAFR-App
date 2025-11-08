@@ -5,10 +5,12 @@ import { BookText } from "lucide-react";
 import { ExportButton } from "@/components/actions/ExportButton";
 import jsPDF from "jspdf";
 import { format } from 'date-fns';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
+import { saveAs } from 'file-saver';
 
 export default function PrincipeCalculImpactPage() {
 
-  const handleExport = () => {
+  const handleExportPdf = () => {
     const doc = new jsPDF();
     const date = format(new Date(), "dd/MM/yyyy");
     let yPos = 20;
@@ -145,6 +147,31 @@ export default function PrincipeCalculImpactPage() {
     doc.save(`Principe_Calcul_Impact_${date.replaceAll('/', '-')}.pdf`);
   };
 
+  const handleExportWord = () => {
+    const doc = new Document({
+      sections: [
+        {
+          children: [
+            new Paragraph({ text: "Principe du Calcul d'Impact des Cendres", heading: HeadingLevel.TITLE, alignment: "center" }),
+            new Paragraph({ text: `Document généré le ${format(new Date(), "dd/MM/yyyy")}`, alignment: "center", spacing: { after: 400 } }),
+            
+            new Paragraph({ text: "Introduction", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }),
+            new Paragraph("L'utilisation de combustibles alternatifs (AF) en cimenterie est une pratique essentielle pour des raisons économiques et environnementales. Cependant, les cendres générées par leur combustion s'incorporent au clinker et modifient sa composition chimique. L'outil de \"Calcul d'Impact\" de l'application FuelTrack AFR permet de simuler et de quantifier précisément cet effet."),
+            new Paragraph("Le principe fondamental repose sur une comparaison entre deux scénarios :"),
+            new Paragraph({ text: "Clinker Théorique (Sans Cendres) : La composition du clinker qui serait obtenu si l'on utilisait uniquement la farine crue, sans aucun apport de cendres.", bullet: { level: 0 } }),
+            new Paragraph({ text: "Clinker Calculé (Avec Cendres) : La composition du clinker qui résulte du mélange de la farine crue et des cendres issues de tous les combustibles utilisés (AF, grignons, etc.).", bullet: { level: 0 } }),
+            new Paragraph("En analysant la différence (le \"delta\" - Δ) entre ces deux scénarios, l'opérateur peut anticiper les ajustements nécessaires et garantir la qualité du produit final."),
+
+          ],
+        },
+      ],
+    });
+
+    Packer.toBlob(doc).then(blob => {
+      saveAs(blob, `Principe_Calcul_Impact_${format(new Date(), "yyyy-MM-dd")}.docx`);
+    });
+  };
+
   return (
     <div className="container mx-auto p-4 md:p-8 max-w-4xl">
        <div className="flex justify-between items-center mb-6">
@@ -152,7 +179,7 @@ export default function PrincipeCalculImpactPage() {
             <BookText className="h-8 w-8 text-primary" />
             Principe du Calcul d'Impact des Cendres
           </CardTitle>
-          <ExportButton onClick={handleExport} />
+          <ExportButton onPdfExport={handleExportPdf} onWordExport={handleExportWord} />
        </div>
 
       <Card className="prose prose-invert max-w-none prose-h2:text-primary prose-h2:font-semibold prose-h3:text-emerald-400 prose-a:text-emerald-400 hover:prose-a:text-emerald-300 prose-strong:text-white">
