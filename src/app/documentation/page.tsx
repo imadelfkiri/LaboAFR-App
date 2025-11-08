@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { BookText, BookOpen, Flame, Beaker, FlaskConical, BarChart3, ClipboardCheck, ClipboardList, FilePieChart, LayoutDashboard, Cog, DollarSign } from "lucide-react";
+import { BookText, BookOpen, Flame, Beaker, FlaskConical, BarChart3, ClipboardCheck, ClipboardList, FilePieChart, LayoutDashboard, Cog, DollarSign, TrendingUp } from "lucide-react";
 import Link from 'next/link';
 import type { Metadata } from 'next';
 
@@ -80,6 +80,12 @@ const documentationArticles = [
     description: "Générez un rapport consolidé du mélange et de son impact, prêt à être partagé ou archivé.",
     href: "/documentation/rapport-synthese",
     icon: FilePieChart,
+  },
+  {
+    title: "Principe des Indicateurs de Performance",
+    description: "Comprendre le Taux de Substitution (TSR) et la Consommation Calorifique (CC).",
+    href: "/documentation/principe-indicateurs",
+    icon: TrendingUp,
   },
 ];
 
