@@ -208,16 +208,7 @@ export function SpecificationsTable() {
     return (
         <div className="space-y-4">
              <Card>
-                <CardHeader className="flex flex-row items-start justify-between">
-                     <div>
-                        <CardTitle className="text-2xl font-bold flex items-center gap-2">
-                           <ClipboardCheck className="w-6 h-6 text-primary" />
-                           Spécifications des Combustibles
-                        </CardTitle>
-                        <CardDescription className="mt-1">
-                            Définissez les seuils de qualité (minimum et maximum) pour chaque couple combustible-fournisseur.
-                        </CardDescription>
-                    </div>
+                <CardHeader className="flex flex-row items-center justify-end">
                     <Button onClick={() => handleModalOpen()}>
                         <PlusCircle className="w-4 h-4 mr-2" />
                         Ajouter une spécification
