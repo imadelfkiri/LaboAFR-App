@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { BookText, BookOpen, Flame, Beaker, FlaskConical, BarChart3 } from "lucide-react";
+import { BookText, BookOpen, Flame, Beaker, FlaskConical, BarChart3, ClipboardCheck } from "lucide-react";
 import Link from 'next/link';
 import type { Metadata } from 'next';
 
@@ -38,6 +38,12 @@ const documentationArticles = [
     description: "Visualisez les tendances et comparez les performances des combustibles sur différentes périodes.",
     href: "/documentation/principe-statistiques",
     icon: BarChart3,
+  },
+  {
+    title: "Fonctionnement de la Page Spécifications",
+    description: "Définissez les seuils de qualité pour chaque couple combustible-fournisseur.",
+    href: "/documentation/principe-specifications",
+    icon: ClipboardCheck,
   },
 ];
 
