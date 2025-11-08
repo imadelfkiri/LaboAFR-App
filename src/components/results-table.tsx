@@ -853,6 +853,9 @@ export default function ResultsTable() {
                             </div>
 
                           <div className="col-span-1 md:col-span-2 lg:col-span-2 xl:col-span-3 flex items-center justify-end gap-2">
+                                <Button variant="outline" className="h-9 rounded-xl" onClick={() => fileInputRef.current?.click()}>
+                                    <Upload className="w-4 h-4 mr-1" /> Importer
+                                </Button>
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild><Button variant="outline" className="h-9 rounded-xl bg-brand-bg border-brand-line"><Download className="w-4 h-4 mr-1"/>Exporter</Button></DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
@@ -993,7 +996,7 @@ export default function ResultsTable() {
                             <FormField control={form.control} name="tonnage" render={({ field }) => (<FormItem><FormLabel>Tonnage (t)</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                             <FormField control={form.control} name="chlore" render={({ field }) => (<FormItem><FormLabel>% Cl-</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                             <FormField control={form.control} name="cendres" render={({ field }) => (<FormItem><FormLabel>% Cendres</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                            <FormField control={form.control} name="taux_metal" render={({ field }) => (<FormItem><FormLabel>Taux du Métal (%)</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
+                            <FormField control={form.control} name="taux_metal" render={({ field }) => (<FormItem><FormLabel>Taux d'inertes (%)</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                         </div>
                         <FormField control={form.control} name="remarques" render={({ field }) => (<FormItem><FormLabel>Remarques</FormLabel><FormControl><Input {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                         <DialogFooter><DialogClose asChild><Button type="button" variant="secondary">Annuler</Button></DialogClose><Button type="submit">Enregistrer</Button></DialogFooter>
