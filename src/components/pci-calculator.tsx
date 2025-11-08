@@ -683,7 +683,7 @@ export function PciCalculator() {
                                         name="taux_metal"
                                         render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Taux du Métal (%)</FormLabel>
+                                            <FormLabel>Taux d'inertes %</FormLabel>
                                             <FormControl>
                                             <Input type="number" step="any" placeholder=" " {...field} value={field.value ?? ''} className="h-11 rounded-xl px-4 text-sm"/>
                                             </FormControl>
