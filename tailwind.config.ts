@@ -60,10 +60,10 @@ const config = {
           bg: 'hsl(var(--unauthorized-bg))',
         },
         danger: {
-          DEFAULT: 'hsl(0 84% 60%)',
+          DEFAULT: 'hsl(var(--destructive))',
         },
         positive: {
-          DEFAULT: 'hsl(142 84% 40%)',
+          DEFAULT: 'hsl(142.1 76.2% 36.3%)',
         }
       },
       borderRadius: {

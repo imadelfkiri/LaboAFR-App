@@ -381,7 +381,7 @@ export default function RapportSynthesePage() {
                                     />
                                     <Bar dataKey="value" name="Variation">
                                         {impactChartData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.value >= 0 ? 'hsl(var(--positive))' : 'hsl(var(--danger))'} />
+                                            <Cell key={`cell-${index}`} fill={entry.value >= 0 ? 'hsl(var(--positive))' : 'hsl(var(--destructive))'} />
                                         ))}
                                         <LabelList dataKey="value" position="top" formatter={(value: number) => value.toFixed(2)} fontSize={12} fill="hsl(var(--foreground))" />
                                     </Bar>
