@@ -33,28 +33,33 @@ export default function PrincipeCalculPCIPage() {
     doc.setFontSize(11);
     doc.setFont("helvetica", "normal");
     const introText = "La page \"Calculateur PCI\" est un outil central de l'application. Elle a deux objectifs principaux :";
-    doc.splitTextToSize(introText, page_width - margin * 2).forEach((line: string) => {
+    const introLines = doc.splitTextToSize(introText, page_width - margin * 2);
+    for (const line of introLines) {
         doc.text(line, margin, yPos);
         yPos += 6;
-    });
+    }
     yPos += 4;
     
     const objectives = [
         "Calculer le Pouvoir Calorifique Inférieur (PCI) sur produit brut à partir du Pouvoir Calorifique Supérieur (PCS) sur sec et du taux d'humidité.",
         "Enregistrer les résultats d'analyse d'un échantillon de combustible (arrivage, prospection, etc.) dans la base de données."
     ];
-    objectives.forEach(obj => {
+    for (const obj of objectives) {
+        const lines = doc.splitTextToSize(obj, page_width - margin * 2 - 10);
         doc.text("•", margin + 5, yPos);
-        doc.text(obj, margin + 10, yPos);
-        yPos += 6;
-    });
+        for (const line of lines) {
+            doc.text(line, margin + 10, yPos);
+            yPos += 6;
+        }
+    }
     yPos += 4;
 
     const conclusionIntro = "Elle est conçue pour être à la fois un outil de calcul rapide et le formulaire de saisie principal pour l'historique des analyses.";
-    doc.splitTextToSize(conclusionIntro, page_width - margin * 2).forEach((line: string) => {
+    const conclusionLines = doc.splitTextToSize(conclusionIntro, page_width - margin * 2);
+    for (const line of conclusionLines) {
         doc.text(line, margin, yPos);
         yPos += 6;
-    });
+    }
     yPos += 10;
     
     // Sections
@@ -108,7 +113,7 @@ export default function PrincipeCalculPCIPage() {
         }
     ];
 
-    sections.forEach(section => {
+    for (const section of sections) {
         if (yPos > 260) { doc.addPage(); yPos = 20; }
         doc.setFontSize(section.isFormula ? 14 : 12);
         doc.setFont("helvetica", "bold");
@@ -118,10 +123,11 @@ export default function PrincipeCalculPCIPage() {
         doc.setFontSize(11);
         doc.setFont("helvetica", "normal");
         if(section.content) {
-            doc.splitTextToSize(section.content, page_width - margin * 2).forEach((line: string) => {
+            const contentLines = doc.splitTextToSize(section.content, page_width - margin * 2);
+            for (const line of contentLines) {
                 doc.text(line, margin, yPos);
                 yPos += 6;
-            });
+            }
             yPos += 4;
         }
 
@@ -136,27 +142,29 @@ export default function PrincipeCalculPCIPage() {
 
             if(section.formulaDesc) {
                  doc.setFont("helvetica", "normal");
-                 doc.splitTextToSize(section.formulaDesc, page_width - margin * 2).forEach((line: string) => {
+                 const descLines = doc.splitTextToSize(section.formulaDesc, page_width - margin * 2);
+                 for (const line of descLines) {
                     doc.text(line, margin, yPos);
                     yPos += 6;
-                });
+                 }
                 yPos += 4;
             }
         }
         
         if(section.points) {
-            section.points.forEach(point => {
+            for (const point of section.points) {
                 if (yPos > 270) { doc.addPage(); yPos = 20; }
+                const pointLines = doc.splitTextToSize(point, page_width - margin * 2 - 10);
                 doc.text("•", margin + 5, yPos);
-                doc.splitTextToSize(point, page_width - margin * 2 - 10).forEach((line: string) => {
+                for(const line of pointLines) {
                     doc.text(line, margin + 10, yPos);
                     yPos += 6;
-                });
+                }
                 yPos += 3;
-            });
+            }
         }
         yPos += 5;
-    });
+    }
 
     doc.save(`Principe_Calcul_PCI_${date.replaceAll('/', '-')}.pdf`);
   };

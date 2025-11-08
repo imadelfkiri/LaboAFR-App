@@ -37,30 +37,35 @@ export default function PrincipeCalculImpactPage() {
       "L'utilisation de combustibles alternatifs (AF) en cimenterie est une pratique essentielle pour des raisons économiques et environnementales. Cependant, les cendres générées par leur combustion s'incorporent au clinker et modifient sa composition chimique. L'outil de \"Calcul d'Impact\" de l'application FuelTrack AFR permet de simuler et de quantifier précisément cet effet.",
       "Le principe fondamental repose sur une comparaison entre deux scénarios :",
     ];
-    doc.splitTextToSize(introText.join('\n\n'), page_width - margin * 2).forEach((line: string) => {
-        doc.text(line, margin, yPos);
-        yPos += 6;
-    });
-    yPos += 4;
+    for (const text of introText) {
+        const lines = doc.splitTextToSize(text, page_width - margin * 2);
+        for (const line of lines) {
+            doc.text(line, margin, yPos);
+            yPos += 6;
+        }
+        yPos += 4;
+    }
 
     const scenarios = [
         "Clinker Théorique (Sans Cendres) : La composition du clinker qui serait obtenu si l'on utilisait uniquement la farine crue, sans aucun apport de cendres.",
         "Clinker Calculé (Avec Cendres) : La composition du clinker qui résulte du mélange de la farine crue et des cendres issues de tous les combustibles utilisés (AF, grignons, etc.).",
     ];
-    scenarios.forEach(scenario => {
+    for (const scenario of scenarios) {
+        const lines = doc.splitTextToSize(scenario, page_width - margin * 2 - 10);
         doc.text("•", margin + 5, yPos);
-        doc.splitTextToSize(scenario, page_width - margin * 2 - 10).forEach((line: string) => {
+        for (const line of lines) {
             doc.text(line, margin + 10, yPos);
             yPos += 6;
-        });
+        }
         yPos+=2;
-    });
+    }
 
     const conclusionIntro = "En analysant la différence (le \"delta\" - Δ) entre ces deux scénarios, l'opérateur peut anticiper les ajustements nécessaires et garantir la qualité du produit final.";
-    doc.splitTextToSize(conclusionIntro, page_width - margin * 2).forEach((line: string) => {
+    const conclusionLines = doc.splitTextToSize(conclusionIntro, page_width - margin * 2);
+    for (const line of conclusionLines) {
         doc.text(line, margin, yPos);
         yPos += 6;
-    });
+    }
     yPos += 10;
     
     // Étapes
@@ -107,7 +112,7 @@ export default function PrincipeCalculImpactPage() {
         }
     ];
 
-    steps.forEach(step => {
+    for (const step of steps) {
         if (yPos > 260) { doc.addPage(); yPos = 20; }
         doc.setFontSize(12);
         doc.setFont("helvetica", "bold");
@@ -116,23 +121,25 @@ export default function PrincipeCalculImpactPage() {
 
         doc.setFontSize(11);
         doc.setFont("helvetica", "normal");
-        doc.splitTextToSize(step.content, page_width - margin * 2).forEach((line: string) => {
+        const contentLines = doc.splitTextToSize(step.content, page_width - margin * 2);
+        for (const line of contentLines) {
             doc.text(line, margin, yPos);
             yPos += 6;
-        });
+        }
         yPos += 4;
         
-        step.points.forEach(point => {
+        for (const point of step.points) {
             if (yPos > 270) { doc.addPage(); yPos = 20; }
+            const pointLines = doc.splitTextToSize(point, page_width - margin * 2 - 10);
             doc.text("•", margin + 5, yPos);
-            doc.splitTextToSize(point, page_width - margin * 2 - 10).forEach((line: string) => {
+            for (const line of pointLines) {
                 doc.text(line, margin + 10, yPos);
                 yPos += 6;
-            });
+            }
             yPos += 3;
-        });
+        }
         yPos += 5;
-    });
+    }
 
     doc.save(`Principe_Calcul_Impact_${date.replaceAll('/', '-')}.pdf`);
   };
