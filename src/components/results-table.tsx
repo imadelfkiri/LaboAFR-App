@@ -395,7 +395,7 @@ export default function ResultsTable() {
     }
   };
 
-    const excelDateToJSDate = (serial: number) => {
+    const excelDateToJSDate = (serial: number): Date => {
         const utc_days  = Math.floor(serial - 25569);
         const utc_value = utc_days * 86400;                                        
         const date_info = new Date(utc_value * 1000);
@@ -412,19 +412,22 @@ export default function ResultsTable() {
         if (value === null || value === undefined) {
             throw new Error(`Date vide non autorisée à la ligne ${rowNum}.`);
         }
-
+    
         if (value instanceof Date && isValid(value)) {
             return value;
         }
-
+    
+        // Handle Excel's numeric date format
         if (typeof value === 'number') {
             const date = excelDateToJSDate(value);
             if (isValid(date)) return date;
         }
         
         if (typeof value === 'string') {
+            // Try to parse common string formats
             const dateFormats = [
-                'dd/MM/yyyy', 'd/M/yyyy', 'dd-MM-yyyy', 'd-M-yyyy', 'dd/MM/yy', 'd/M/yy'
+                'dd/MM/yyyy', 'd/M/yyyy', 'dd-MM-yyyy', 'd-M-yyyy', 'dd/MM/yy', 'd/M/yy',
+                'yyyy-MM-dd HH:mm:ss', 'yyyy/MM/dd HH:mm:ss', 'M/d/yy',
             ];
             for (const fmt of dateFormats) {
                 const date = parse(value, fmt, new Date());
@@ -446,61 +449,41 @@ export default function ResultsTable() {
                 if (!buffer) {
                     throw new Error("Impossible de lire le fichier.");
                 }
-                const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
-                
+                const workbook = XLSX.read(buffer, { type: 'array' });
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
-                if (!worksheet) {
-                    throw new Error(`Impossible de trouver la première feuille de calcul.`);
-                }
-                
-                const allData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, dateNF:'dd/mm/yyyy' });
-
-                let headerRowIndex = -1;
-                for (let i = 0; i < allData.length; i++) {
-                    const row = allData[i];
-                    if (row && row.some(cell => typeof cell === 'string' && cell.trim().toLowerCase() === 'date arrivage')) {
-                        headerRowIndex = i;
-                        break;
-                    }
-                }
-
-                if (headerRowIndex === -1) {
-                    throw new Error("Impossible de trouver la ligne d'en-tête (doit contenir 'Date Arrivage').");
-                }
-                
-                const headers: string[] = allData[headerRowIndex].map((h: any) => String(h));
-                const dataRows = allData.slice(headerRowIndex + 1);
-
-                const headerMapping: { [key: string]: string } = {
-                    'date arrivage': 'date_arrivage',
-                    'type combustible': 'type_combustible',
-                    'fournisseur': 'fournisseur',
-                    'tonnage (t)': 'tonnage',
-                    'pcs sur sec (kcal/kg)': 'pcs',
-                    'pci sur brut (kcal/kg)': 'pci_brut',
-                    '% h2o': 'h2o',
-                    '% cl-': 'chlore',
-                    '% cendres': 'cendres',
-                    'remarques': 'remarques',
-                };
-                
-                const mappedHeaders = headers.map(h => {
-                    const normalized = h.trim().toLowerCase();
-                    return headerMapping[normalized] || h;
+                const json = XLSX.utils.sheet_to_json(worksheet, {
+                    header: 3, // Data starts on line 4, so headers are on line 3
+                    raw: false, // Keep dates as strings for custom parsing
+                    dateNF: 'dd/mm/yyyy',
                 });
                 
-                const parsedResults = dataRows.map((row, rowIndex) => {
-                    const rowNum = headerRowIndex + rowIndex + 2; 
-                    try {
-                        const rowData: { [key: string]: any } = {};
-                        mappedHeaders.forEach((key, index) => {
-                            rowData[key] = row[index];
-                        });
+                const headerMapping: { [key: string]: string } = {
+                    'Date Arrivage': 'date_arrivage',
+                    'Type Combustible': 'type_combustible',
+                    'Fournisseur': 'fournisseur',
+                    'Tonnage (t)': 'tonnage',
+                    'PCS sur sec (kcal/kg)': 'pcs',
+                    'PCI sur Brut (kcal/kg)': 'pci_brut',
+                    '% H2O': 'h2o',
+                    '% Cl-': 'chlore',
+                    '% Cendres': 'cendres',
+                    'Remarques': 'remarques',
+                };
 
+                const parsedResults = json.map((row: any, rowIndex) => {
+                    const rowNum = rowIndex + 4; // Data starts from row 4
+                    try {
+                        const mappedRow: { [key: string]: any } = {};
+                        for (const key in row) {
+                            if (headerMapping[key]) {
+                                mappedRow[headerMapping[key]] = row[key];
+                            }
+                        }
+                        
                         const validatedData = importSchema.partial().parse({
-                            ...rowData,
-                            date_arrivage: parseDate(rowData.date_arrivage, rowNum),
+                            ...mappedRow,
+                            date_arrivage: parseDate(mappedRow.date_arrivage, rowNum),
                         });
 
                         if (!validatedData.type_combustible || !validatedData.fournisseur || validatedData.h2o === null || validatedData.h2o === undefined || !validatedData.date_arrivage) {
