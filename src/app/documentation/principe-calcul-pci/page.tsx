@@ -51,6 +51,7 @@ export default function PrincipeCalculPCIPage() {
             doc.text(line, margin + 10, yPos);
             yPos += 6;
         }
+        yPos+=2;
     }
     yPos += 4;
 
@@ -142,10 +143,13 @@ export default function PrincipeCalculPCIPage() {
 
             if(section.formulaDesc) {
                  doc.setFont("helvetica", "normal");
-                 const descLines = doc.splitTextToSize(section.formulaDesc, page_width - margin * 2);
-                 for (const line of descLines) {
-                    doc.text(line, margin, yPos);
-                    yPos += 6;
+                 const descLines = section.formulaDesc.split('\n');
+                 for (const descLine of descLines) {
+                     const lines = doc.splitTextToSize(descLine, page_width - margin * 2);
+                     for (const line of lines) {
+                        doc.text(line, margin, yPos);
+                        yPos += 6;
+                     }
                  }
                 yPos += 4;
             }

@@ -59,7 +59,8 @@ export default function PrincipeCalculImpactPage() {
         }
         yPos+=2;
     }
-
+    
+    // Correction de la gestion de la conclusion
     const conclusionIntro = "En analysant la différence (le \"delta\" - Δ) entre ces deux scénarios, l'opérateur peut anticiper les ajustements nécessaires et garantir la qualité du produit final.";
     const conclusionLines = doc.splitTextToSize(conclusionIntro, page_width - margin * 2);
     for (const line of conclusionLines) {
