@@ -116,6 +116,7 @@ export function PciCalculator() {
   
   const [filteredFournisseurs, setFilteredFournisseurs] = useState<string[]>([]);
   
+  const [isFuelTypeModalOpen, setIsFuelTypeModalOpen] = useState(false);
   const [isFournisseurModalOpen, setIsFournisseurModalOpen] = useState(false);
   const [newFournisseurName, setNewFournisseurName] = useState("");
 
@@ -333,6 +334,23 @@ export function PciCalculator() {
     }
   };
 
+  async function handleAddFuelType(values: z.infer<typeof newFuelTypeSchema>) {
+    try {
+      await addFuelType({ name: values.name, hValue: values.hValue });
+      toast({ title: "Succès", description: `Le combustible "${values.name}" a été ajouté.` });
+      
+      await fetchAndSetData(); // Refetch all data to update UI everywhere
+      
+      setValue("type_combustible", values.name, { shouldValidate: true });
+      
+      setIsFuelTypeModalOpen(false);
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Une erreur est survenue.";
+      toast({ variant: "destructive", title: "Erreur", description: errorMessage });
+    }
+  }
+
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSaving(true);
@@ -512,6 +530,15 @@ export function PciCalculator() {
                                                         {fuel}
                                                     </SelectItem>
                                                 ))}
+                                                <Separator className="my-1" />
+                                                <div
+                                                    onSelect={(e) => e.preventDefault()}
+                                                    onClick={() => setIsFuelTypeModalOpen(true)}
+                                                    className="relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent focus:text-accent-foreground"
+                                                >
+                                                    <PlusCircle className="mr-2 h-4 w-4" />
+                                                    Nouveau combustible...
+                                                </div>
                                             </SelectContent>
                                         </Select>
                                         <FormMessage />
@@ -752,7 +779,66 @@ export function PciCalculator() {
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+
+        <NewFuelTypeDialog 
+            isOpen={isFuelTypeModalOpen}
+            onOpenChange={setIsFuelTypeModalOpen}
+            onSave={handleAddFuelType}
+        />
     </div>
     </>
   );
 }
+
+
+const NewFuelTypeDialog = ({ isOpen, onOpenChange, onSave }: { isOpen: boolean; onOpenChange: (open: boolean) => void; onSave: (values: z.infer<typeof newFuelTypeSchema>) => Promise<void> }) => {
+    
+    const form = useForm<z.infer<typeof newFuelTypeSchema>>({
+        resolver: zodResolver(newFuelTypeSchema),
+        defaultValues: { name: "", hValue: undefined },
+    });
+    
+    const onSubmit = async (values: z.infer<typeof newFuelTypeSchema>) => {
+        await onSave(values);
+        form.reset();
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Ajouter un nouveau type de combustible</DialogTitle>
+                    <DialogDescription>
+                        Définissez un nouveau combustible qui sera disponible dans toute l'application.
+                    </DialogDescription>
+                </DialogHeader>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+                        <FormField control={form.control} name="name" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Nom du Combustible</FormLabel>
+                                <FormControl><Input placeholder="Ex: Déchets industriels" {...field} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}/>
+                        <FormField control={form.control} name="hValue" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Teneur en Hydrogène (%)</FormLabel>
+                                <FormControl><Input type="number" step="any" placeholder="Ex: 5.5" {...field} value={field.value ?? ''} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}/>
+                        <DialogFooter>
+                            <DialogClose asChild><Button type="button" variant="secondary">Annuler</Button></DialogClose>
+                            <Button type="submit" disabled={form.formState.isSubmitting}>
+                                {form.formState.isSubmitting ? "Sauvegarde..." : "Sauvegarder"}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+    
