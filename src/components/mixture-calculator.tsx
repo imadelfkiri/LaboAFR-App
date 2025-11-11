@@ -390,7 +390,7 @@ function useMixtureCalculations(
     const totalEnergy = totalAlternativeEnergy + petcokeEnergy;
     const tsr = totalEnergy > 0 ? (totalAlternativeEnergy / totalEnergy) * 100 : 0;
     
-    const clFc = 0.20 + (totalChlorine) * (0.23 + 4.85 * (tsr / 100));
+    const clFc = 0.15 + (totalChlorine) * (0.23 + 4.85 * (tsr / 100));
 
     const totalIndicators = {
         flow: totalAlternativeFlow,
