@@ -1,8 +1,9 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { RefreshCcw, Save, Download, Edit, Trash2 } from 'lucide-react';
+import { RefreshCcw, Save, Download, Edit, Trash2, TrendingUp } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -45,7 +46,7 @@ interface FuelAnalysis {
     ash: number;
 }
 
-interface GrignonsAnalysis {
+interface DirectFuelAnalysis {
     flowRate: number;
     pci: number;
     humidity: number;
@@ -70,7 +71,7 @@ const createInitialInstallationState = (fuelTypes: string[]): InstallationState 
     fuels: createInitialFuelState(fuelTypes),
 });
 
-const createInitialGrignonsState = (): GrignonsAnalysis => ({
+const createInitialDirectFuelState = (): DirectFuelAnalysis => ({
     flowRate: 0, pci: 0, humidity: 0, chlorine: 0, ash: 0
 });
 
@@ -107,7 +108,8 @@ function IndicatorCard({ title, value, unit, tooltipText }: { title: string; val
 function useMixtureCalculations(
     hallAF: InstallationState, 
     ats: InstallationState, 
-    grignons: GrignonsAnalysis,
+    grignons: DirectFuelAnalysis,
+    petcoke: DirectFuelAnalysis,
     fuelData: Record<string, FuelData>
 ) {
    return useMemo(() => {
@@ -127,7 +129,7 @@ function useMixtureCalculations(
                 continue;
             }
             
-            const poidsGodet = baseFuelData.poids_godet > 0 ? baseFuelData.poids_godet : 1.5; // Default 1.5 tonnes if not set
+            const poidsGodet = baseFuelData.poids_godet > 0 ? baseFuelData.poids_godet : 1.5;
             const weight = fuelInput.buckets * poidsGodet;
             totalWeight += weight;
 
@@ -157,35 +159,46 @@ function useMixtureCalculations(
     const flowHall = hallAF.flowRate || 0;
     const flowAts = ats.flowRate || 0;
     const flowGrignons = grignons.flowRate || 0;
+    const flowPetcoke = petcoke.flowRate || 0;
 
-    const totalFlow = flowHall + flowAts + flowGrignons;
+    const totalAfFlow = flowHall + flowAts;
+    const totalAlternativeFlow = totalAfFlow + flowGrignons;
+    const totalFlow = totalAlternativeFlow + flowPetcoke;
 
     const weightedAvg = (
         valHall: number, flowH: number, 
         valAts: number, flowA: number,
-        valGrignons: number, flowG: number
     ) => {
-      if (totalFlow === 0) return 0;
-      return (valHall * flowH + valAts * flowA + valGrignons * flowG) / totalFlow;
+      if (totalAfFlow === 0) return 0;
+      return (valHall * flowH + valAts * flowA) / totalAfFlow;
     }
 
-    const pci = weightedAvg(hallIndicators.pci, flowHall, atsIndicators.pci, flowAts, grignons.pci, flowGrignons);
-    const humidity = weightedAvg(hallIndicators.humidity, flowHall, atsIndicators.humidity, flowAts, grignons.humidity, flowGrignons);
-    const ash = weightedAvg(hallIndicators.ash, flowHall, atsIndicators.ash, flowAts, grignons.ash, flowGrignons);
-    const chlorine = weightedAvg(hallIndicators.chlorine, flowHall, atsIndicators.chlorine, flowAts, grignons.chlorine, flowGrignons);
-    const tireRate = weightedAvg(hallIndicators.tireRate, flowHall, atsIndicators.tireRate, flowAts, 0, flowGrignons); // Grignons are not tires
+    const pci = weightedAvg(hallIndicators.pci, flowHall, atsIndicators.pci, flowAts);
+    const humidity = weightedAvg(hallIndicators.humidity, flowHall, atsIndicators.humidity, flowAts);
+    const ash = weightedAvg(hallIndicators.ash, flowHall, atsIndicators.ash, flowAts);
+    const chlorine = weightedAvg(hallIndicators.chlorine, flowHall, atsIndicators.chlorine, flowAts);
+    const tireRate = weightedAvg(hallIndicators.tireRate, flowHall, atsIndicators.tireRate, flowAts);
+
+    // TSR Calculation
+    const afEnergy = flowHall * hallIndicators.pci + flowAts * atsIndicators.pci;
+    const grignonsEnergy = flowGrignons * grignons.pci;
+    const petcokeEnergy = flowPetcoke * petcoke.pci;
+    const totalAlternativeEnergy = afEnergy + grignonsEnergy;
+    const totalEnergy = totalAlternativeEnergy + petcokeEnergy;
+    const tsr = totalEnergy > 0 ? (totalAlternativeEnergy / totalEnergy) * 100 : 0;
 
     return {
       globalIndicators: {
-        flow: totalFlow,
+        flow: totalAfFlow,
         pci,
         humidity,
         ash,
         chlorine,
         tireRate,
+        tsr,
       }
     };
-  }, [hallAF, ats, grignons, fuelData]);
+  }, [hallAF, ats, grignons, petcoke, fuelData]);
 }
 
 const fuelOrder = [
@@ -330,7 +343,8 @@ export function MixtureSimulator() {
   const [fuelTypes, setFuelTypes] = useState<string[]>([]);
   const [hallAF, setHallAF] = useState<InstallationState>(createInitialInstallationState([]));
   const [ats, setAts] = useState<InstallationState>(createInitialInstallationState([]));
-  const [grignons, setGrignons] = useState<GrignonsAnalysis>(createInitialGrignonsState());
+  const [grignons, setGrignons] = useState<DirectFuelAnalysis>(createInitialDirectFuelState());
+  const [petcoke, setPetcoke] = useState<DirectFuelAnalysis>(createInitialDirectFuelState());
   const [openAccordion, setOpenAccordion] = useState<string | null>(null);
   const [fuelData, setFuelData] = useState<Record<string, FuelData>>({});
   const { toast } = useToast();
@@ -343,7 +357,7 @@ export function MixtureSimulator() {
                 getFuelData()
             ]);
 
-            const filteredFuelTypes = allFuelTypes.filter(ft => ft.toLowerCase() !== 'grignons');
+            const filteredFuelTypes = allFuelTypes.filter(ft => ft.toLowerCase() !== 'grignons' && ft.toLowerCase() !== 'pet-coke' && ft.toLowerCase() !== 'pet coke');
             setFuelTypes(filteredFuelTypes);
             
             const fuelDataMap = allFuelData.reduce((acc, fd) => {
@@ -354,11 +368,13 @@ export function MixtureSimulator() {
 
             const initialHallState = createInitialInstallationState(filteredFuelTypes);
             const initialAtsState = createInitialInstallationState(filteredFuelTypes);
-            const initialGrignonsState = createInitialGrignonsState();
+            const initialGrignonsState = createInitialDirectFuelState();
+            const initialPetcokeState = createInitialDirectFuelState();
             
             setHallAF(initialHallState);
             setAts(initialAtsState);
             setGrignons(initialGrignonsState);
+            setPetcoke(initialPetcokeState);
 
              try {
                 const savedStateJSON = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -372,6 +388,9 @@ export function MixtureSimulator() {
                     }
                     if (savedState.grignons) {
                         setGrignons(prev => ({ ...prev, ...savedState.grignons }));
+                    }
+                    if (savedState.petcoke) {
+                        setPetcoke(prev => ({ ...prev, ...savedState.petcoke }));
                     }
                 }
             } catch (error) {
@@ -391,20 +410,21 @@ export function MixtureSimulator() {
   // Save state to localStorage on every change
   useEffect(() => {
     try {
-        const stateToSave = JSON.stringify({ hallAF, ats, grignons });
+        const stateToSave = JSON.stringify({ hallAF, ats, grignons, petcoke });
         localStorage.setItem(LOCAL_STORAGE_KEY, stateToSave);
     } catch (error) {
         console.error("Could not save simulator state to localStorage", error);
     }
-  }, [hallAF, ats, grignons]);
+  }, [hallAF, ats, grignons, petcoke]);
 
 
-  const { globalIndicators } = useMixtureCalculations(hallAF, ats, grignons, fuelData);
+  const { globalIndicators } = useMixtureCalculations(hallAF, ats, grignons, petcoke, fuelData);
 
   const handleReset = () => {
     setHallAF(createInitialInstallationState(fuelTypes));
     setAts(createInitialInstallationState(fuelTypes));
-    setGrignons(createInitialGrignonsState());
+    setGrignons(createInitialDirectFuelState());
+    setPetcoke(createInitialDirectFuelState());
     setOpenAccordion(null);
     try {
         localStorage.removeItem(LOCAL_STORAGE_KEY);
@@ -419,15 +439,17 @@ export function MixtureSimulator() {
     setter(prev => ({ ...prev, [field]: isNaN(numValue) ? 0 : numValue }));
   };
 
-  const handleGrignonsInputChange = (field: keyof Omit<GrignonsAnalysis, 'flowRate'>, value: string) => {
+  const handleDirectInputChange = (fuel: 'grignons' | 'petcoke', field: keyof Omit<DirectFuelAnalysis, 'flowRate'>, value: string) => {
     const numValue = parseFloat(value);
-    setGrignons(prev => ({ ...prev, [field]: isNaN(numValue) ? 0 : numValue }));
+    const setter = fuel === 'grignons' ? setGrignons : setPetcoke;
+    setter(prev => ({ ...prev, [field]: isNaN(numValue) ? 0 : numValue }));
   }
 
   const handleScenarioLoad = (scenario: MixtureScenario) => {
     const fullHallState = createInitialInstallationState(fuelTypes);
     const fullAtsState = createInitialInstallationState(fuelTypes);
-    const fullGrignonsState = createInitialGrignonsState();
+    const fullGrignonsState = createInitialDirectFuelState();
+    const fullPetcokeState = createInitialDirectFuelState();
 
     if (scenario.donnees_hall) {
         fullHallState.flowRate = scenario.donnees_hall.flowRate || 0;
@@ -447,7 +469,7 @@ export function MixtureSimulator() {
         }
     }
 
-    if ((scenario as any).donnees_grignons) { // For backward compatibility
+    if ((scenario as any).donnees_grignons) { 
         const scenarioGrignons = (scenario as any).donnees_grignons;
          for (const key in fullGrignonsState) {
             if (scenarioGrignons[key] !== undefined) {
@@ -455,10 +477,20 @@ export function MixtureSimulator() {
             }
         }
     }
+
+    if ((scenario as any).donnees_petcoke) { 
+        const scenarioPetcoke = (scenario as any).donnees_petcoke;
+         for (const key in fullPetcokeState) {
+            if (scenarioPetcoke[key] !== undefined) {
+                (fullPetcokeState as any)[key] = scenarioPetcoke[key];
+            }
+        }
+    }
     
     setHallAF(fullHallState);
     setAts(fullAtsState);
     setGrignons(fullGrignonsState);
+    setPetcoke(fullPetcokeState);
     toast({ title: "Succès", description: `Le scénario "${scenario.nom_scenario}" a été chargé.`});
   };
   
@@ -479,7 +511,8 @@ export function MixtureSimulator() {
                 donnees_hall: hallAF,
                 donnees_ats: ats,
                 donnees_grignons: grignons,
-            });
+                donnees_petcoke: petcoke,
+            } as any);
             toast({ title: "Succès", description: "Le scénario a été sauvegardé."});
             setIsOpen(false);
             setScenarioName("");
@@ -672,13 +705,14 @@ export function MixtureSimulator() {
               </Button>
             </div>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
           <IndicatorCard title="Débit des AFs" value={globalIndicators.flow.toFixed(2)} unit="t/h" />
           <IndicatorCard title="PCI moy" value={globalIndicators.pci.toFixed(0)} unit="kcal/kg" />
           <IndicatorCard title="% Humidité moy" value={globalIndicators.humidity.toFixed(2)} unit="%" />
           <IndicatorCard title="% Cendres moy" value={globalIndicators.ash.toFixed(2)} unit="%" />
           <IndicatorCard title="% Chlorures" value={globalIndicators.chlorine.toFixed(3)} unit="%" />
           <IndicatorCard title="Taux de pneus" value={globalIndicators.tireRate.toFixed(2)} unit="%" />
+          <IndicatorCard title="TSR" value={globalIndicators.tsr.toFixed(2)} unit="%" tooltipText="Taux de Substitution Énergétique" />
         </div>
       </div>
 
@@ -721,36 +755,68 @@ export function MixtureSimulator() {
           </CardContent>
         </Card>
 
-         <Card className="shadow-md rounded-xl lg:col-span-1">
-            <CardHeader className="flex flex-row items-center justify-between p-6">
-                <CardTitle>Grignons</CardTitle>
-                <div className="flex items-center gap-2">
-                    <Label htmlFor="flow-grignons" className="text-sm">Débit (t/h)</Label>
-                    <Input id="flow-grignons" type="number" className="w-32 h-9" value={grignons.flowRate || ''} onChange={(e) => handleFlowRateChange(setGrignons, e.target.value, 'flowRate')} />
-                </div>
-            </CardHeader>
-            <CardContent className="p-6">
-                <div className="space-y-3">
+         <div className="space-y-6">
+            <Card className="shadow-md rounded-xl">
+                <CardHeader className="flex flex-row items-center justify-between p-6">
+                    <CardTitle>Grignons</CardTitle>
                     <div className="flex items-center gap-2">
-                        <Label htmlFor="grignons-pci" className="flex-1 text-sm">PCI (kcal/kg)</Label>
-                        <Input id="grignons-pci" type="number" className="w-28 h-9" value={grignons.pci || ''} onChange={(e) => handleGrignonsInputChange('pci', e.target.value)} />
+                        <Label htmlFor="flow-grignons" className="text-sm">Débit (t/h)</Label>
+                        <Input id="flow-grignons" type="number" className="w-32 h-9" value={grignons.flowRate || ''} onChange={(e) => handleFlowRateChange(setGrignons, e.target.value, 'flowRate')} />
                     </div>
+                </CardHeader>
+                <CardContent className="p-6">
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                            <Label htmlFor="grignons-pci" className="flex-1 text-sm">PCI (kcal/kg)</Label>
+                            <Input id="grignons-pci" type="number" className="w-28 h-9" value={grignons.pci || ''} onChange={(e) => handleDirectInputChange('grignons', 'pci', e.target.value)} />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Label htmlFor="grignons-humidity" className="flex-1 text-sm">Humidité (%)</Label>
+                            <Input id="grignons-humidity" type="number" className="w-28 h-9" value={grignons.humidity || ''} onChange={(e) => handleDirectInputChange('grignons', 'humidity', e.target.value)} />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Label htmlFor="grignons-chlorine" className="flex-1 text-sm">Chlorures (%)</Label>
+                            <Input id="grignons-chlorine" type="number" className="w-28 h-9" value={grignons.chlorine || ''} onChange={(e) => handleDirectInputChange('grignons', 'chlorine', e.target.value)} />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Label htmlFor="grignons-ash" className="flex-1 text-sm">Cendres (%)</Label>
+                            <Input id="grignons-ash" type="number" className="w-28 h-9" value={grignons.ash || ''} onChange={(e) => handleDirectInputChange('grignons', 'ash', e.target.value)} />
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+             <Card className="shadow-md rounded-xl">
+                <CardHeader className="flex flex-row items-center justify-between p-6">
+                    <CardTitle>Pet-Coke</CardTitle>
                     <div className="flex items-center gap-2">
-                        <Label htmlFor="grignons-humidity" className="flex-1 text-sm">Humidité (%)</Label>
-                        <Input id="grignons-humidity" type="number" className="w-28 h-9" value={grignons.humidity || ''} onChange={(e) => handleGrignonsInputChange('humidity', e.target.value)} />
+                        <Label htmlFor="flow-petcoke" className="text-sm">Débit (t/h)</Label>
+                        <Input id="flow-petcoke" type="number" className="w-32 h-9" value={petcoke.flowRate || ''} onChange={(e) => handleFlowRateChange(setPetcoke, e.target.value, 'flowRate')} />
                     </div>
-                    <div className="flex items-center gap-2">
-                        <Label htmlFor="grignons-chlorine" className="flex-1 text-sm">Chlorures (%)</Label>
-                        <Input id="grignons-chlorine" type="number" className="w-28 h-9" value={grignons.chlorine || ''} onChange={(e) => handleGrignonsInputChange('chlorine', e.target.value)} />
+                </CardHeader>
+                <CardContent className="p-6">
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                            <Label htmlFor="petcoke-pci" className="flex-1 text-sm">PCI (kcal/kg)</Label>
+                            <Input id="petcoke-pci" type="number" className="w-28 h-9" value={petcoke.pci || ''} onChange={(e) => handleDirectInputChange('petcoke', 'pci', e.target.value)} />
+                        </div>
+                         <div className="flex items-center gap-2">
+                            <Label htmlFor="petcoke-humidity" className="flex-1 text-sm">Humidité (%)</Label>
+                            <Input id="petcoke-humidity" type="number" className="w-28 h-9" value={petcoke.humidity || ''} onChange={(e) => handleDirectInputChange('petcoke', 'humidity', e.target.value)} />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Label htmlFor="petcoke-chlorine" className="flex-1 text-sm">Chlorures (%)</Label>
+                            <Input id="petcoke-chlorine" type="number" className="w-28 h-9" value={petcoke.chlorine || ''} onChange={(e) => handleDirectInputChange('petcoke', 'chlorine', e.target.value)} />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Label htmlFor="petcoke-ash" className="flex-1 text-sm">Cendres (%)</Label>
+                            <Input id="petcoke-ash" type="number" className="w-28 h-9" value={petcoke.ash || ''} onChange={(e) => handleDirectInputChange('petcoke', 'ash', e.target.value)} />
+                        </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <Label htmlFor="grignons-ash" className="flex-1 text-sm">Cendres (%)</Label>
-                        <Input id="grignons-ash" type="number" className="w-28 h-9" value={grignons.ash || ''} onChange={(e) => handleGrignonsInputChange('ash', e.target.value)} />
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
+                </CardContent>
+            </Card>
+        </div>
       </section>
     </div>
   );
 }
+

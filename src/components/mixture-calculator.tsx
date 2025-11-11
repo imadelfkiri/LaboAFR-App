@@ -1,8 +1,9 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { BrainCircuit, Calendar as CalendarIcon, Save, Settings, ChevronDown, CheckCircle, AlertTriangle, Copy, Mail, Flame, X, LineChart as LineChartIcon, Beaker } from 'lucide-react';
+import { BrainCircuit, Calendar as CalendarIcon, Save, Settings, ChevronDown, CheckCircle, AlertTriangle, Copy, Mail, Flame, X, LineChart as LineChartIcon, Beaker, TrendingUp } from 'lucide-react';
 import { DateRange } from "react-day-picker";
 import { format, subDays, startOfDay, endOfDay, parseISO, isValid } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -18,7 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getAverageAnalysisForFuels, saveMixtureSession, getMixtureSessions, MixtureSession, getFuelCosts, FuelCost, getLatestMixtureSession, getStocks, getFuelData, FuelData, getThresholds, saveThresholds, Specification, MixtureThresholds } from '@/lib/data';
+import { getAverageAnalysisForFuels, saveMixtureSession, getMixtureSessions, MixtureSession, getFuelCosts, FuelCost, getLatestMixtureSession, getStocks, getFuelData, FuelData, getThresholds, saveThresholds, Specification, MixtureThresholds, getAverageAnalysisForFuels as getAverageAnalysisForFuelsNew } from '@/lib/data';
 import type { AverageAnalysis } from '@/lib/data';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -80,7 +81,7 @@ const defaultThresholds: MixtureThresholds = {
 };
 
 type IndicatorStatus = 'alert' | 'warning' | 'conform' | 'neutral';
-export type IndicatorKey = 'pci' | 'humidity' | 'ash' | 'chlorine' | 'tireRate' | 'cost' | 'flow';
+export type IndicatorKey = 'pci' | 'humidity' | 'ash' | 'chlorine' | 'tireRate' | 'cost' | 'flow' | 'tsr';
 
 const ThresholdSettingsModal = ({
   isOpen,
@@ -203,6 +204,7 @@ export function IndicatorCard({
     'Cendres': { key: 'ash', name: 'Cendres' },
     'Humidité': { key: 'humidity', name: 'Humidité' },
     'TauxPneus': { key: 'tireRate', name: 'Taux Pneus' },
+    'TSR': { key: 'tsr', name: 'TSR'},
   };
   
     const statusClasses: Record<IndicatorStatus, string> = {
@@ -352,6 +354,53 @@ function useMixtureCalculations(
         tireRate = (totalTireWeightInMixture / totalWeightInMixture) * 100;
     }
 
+    // --- TSR Calculation ---
+    const getPci = (fuelName: string) => availableFuels[fuelName]?.pci_brut || 0;
+    
+    // AF Energy
+    let afEnergy = 0;
+    const processInstallationForEnergy = (state: InstallationState) => {
+        if (!state.flowRate || state.flowRate === 0) return;
+        
+        let totalInstallationWeight = 0;
+        let weightedPciSum = 0;
+
+        for (const fuelName in state.fuels) {
+            const fuelInput = state.fuels[fuelName];
+            const baseFuelData = fuelData[fuelName];
+            if (!fuelInput || fuelInput.buckets <= 0 || !baseFuelData) continue;
+            
+            const poidsGodet = baseFuelData.poids_godet > 0 ? baseFuelData.poids_godet : 1.5;
+            const weight = fuelInput.buckets * poidsGodet;
+            totalInstallationWeight += weight;
+
+            const analysisData = availableFuels[fuelName];
+            if (analysisData && analysisData.count > 0) {
+                weightedPciSum += weight * analysisData.pci_brut;
+            }
+        }
+        if (totalInstallationWeight > 0) {
+            const avgPci = weightedPciSum / totalInstallationWeight;
+            afEnergy += state.flowRate * avgPci;
+        }
+    };
+    processInstallationForEnergy(hallAF);
+    processInstallationForEnergy(ats);
+
+    // Grignons Energy
+    const grignonsFlow = (directInputs['Grignons GO1']?.flowRate || 0) + (directInputs['Grignons GO2']?.flowRate || 0);
+    const pciGrignons = getPci('Grignons');
+    const grignonsEnergy = grignonsFlow * pciGrignons;
+
+    // Petcoke Energy
+    const petcokeFlow = (directInputs['Pet-Coke Preca']?.flowRate || 0) + (directInputs['Pet-Coke Tuyere']?.flowRate || 0);
+    const pciPetcoke = getPci('Pet-Coke') || getPci('Pet-Coke Preca') || getPci('Pet-Coke Tuyere'); // Try a few names
+    const petcokeEnergy = petcokeFlow * pciPetcoke;
+
+    const totalAlternativeEnergy = afEnergy + grignonsEnergy;
+    const totalEnergy = totalAlternativeEnergy + petcokeEnergy;
+    const tsr = totalEnergy > 0 ? (totalAlternativeEnergy / totalEnergy) * 100 : 0;
+
 
     const getStatus = (value: number, key: IndicatorKey): IndicatorStatus => {
        if(!thresholds) return 'neutral';
@@ -387,6 +436,7 @@ function useMixtureCalculations(
         ash: getStatus(ash, 'ash'),
         chlorine: getStatus(chlorine, 'chlorine'),
         tireRate: getStatus(tireRate, 'tireRate'),
+        tsr: 'neutral' as IndicatorStatus,
     };
 
     const globalFuelWeights: Record<string, number> = {};
@@ -415,6 +465,7 @@ function useMixtureCalculations(
         chlorine,
         tireRate,
         cost,
+        tsr,
         status,
       },
       globalFuelWeights
@@ -502,18 +553,18 @@ export function MixtureCalculator() {
         const allPossibleFuelNames = new Set(allStocks.map(s => s.nom_combustible));
         const fuelNames = Array.from(allPossibleFuelNames);
 
-        const analysesResults = await getAverageAnalysisForFuels(fuelNames, globalDateRange, fuelDateRanges);
+        const analysesResults = await getAverageAnalysisForFuelsNew(fuelNames, globalDateRange, fuelDateRanges);
 
         const extendedAnalyses = {...analysesResults};
         if (analysesResults['Grignons']) {
             extendedAnalyses['Grignons GO1'] = analysesResults['Grignons'];
             extendedAnalyses['Grignons GO2'] = analysesResults['Grignons'];
         }
-        if (analysesResults['Pet-Coke']) {
-            extendedAnalyses['Pet-Coke Preca'] = analysesResults['Pet-Coke'];
-            extendedAnalyses['Pet-Coke Tuyere'] = analysesResults['Pet-Coke'];
+        const petcokeAnalysis = analysesResults['Pet-Coke'] || analysesResults['Pet Coke'] || analysesResults['Pet-Coke Preca'] || analysesResults['Pet-Coke Tuyere'];
+        if(petcokeAnalysis) {
+             extendedAnalyses['Pet-Coke Preca'] = petcokeAnalysis;
+             extendedAnalyses['Pet-Coke Tuyere'] = petcokeAnalysis;
         }
-
 
         setAvailableFuels(extendedAnalyses);
         
@@ -1118,13 +1169,14 @@ export function MixtureCalculator() {
                 <SaveConfirmationModal />
             </div>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
           <IndicatorDisplay title="Débit des AFs" value={globalIndicators.flow.toFixed(2)} unit="t/h" status='neutral' indicatorKey="flow" name="Débit"/>
           <IndicatorDisplay title="PCI moy" value={globalIndicators.pci.toFixed(0)} unit="kcal/kg" status={globalIndicators.status.pci} indicatorKey="pci" name="PCI Moyen"/>
           <IndicatorDisplay title="% Humidité moy" value={globalIndicators.humidity.toFixed(2)} unit="%" status={globalIndicators.status.humidity} indicatorKey="humidity" name="Humidité Moyenne"/>
           <IndicatorDisplay title="% Cendres moy" value={globalIndicators.ash.toFixed(2)} unit="%" status={globalIndicators.status.ash} indicatorKey="ash" name="Cendres Moyennes"/>
           <IndicatorDisplay title="% Chlorures" value={globalIndicators.chlorine.toFixed(3)} unit="%" status={globalIndicators.status.chlorine} indicatorKey="chlorine" name="Chlorures Moyens"/>
           <IndicatorDisplay title="Taux de pneus" value={globalIndicators.tireRate.toFixed(2)} unit="%" status={globalIndicators.status.tireRate} indicatorKey="tireRate" name="Taux de Pneus"/>
+          <IndicatorDisplay title="TSR" value={globalIndicators.tsr.toFixed(2)} unit="%" status={globalIndicators.status.tsr} indicatorKey="tsr" name="TSR"/>
           <IndicatorDisplay title="Coût du Mélange" value={globalIndicators.cost.toFixed(2) } unit="MAD/t" status='neutral' indicatorKey="cost" name="Coût du Mélange"/>
         </div>
       </div>
