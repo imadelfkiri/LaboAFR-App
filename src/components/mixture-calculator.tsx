@@ -165,7 +165,7 @@ export function IndicatorCard({
     thresholds,
     onIndicatorDoubleClick,
 }: { 
-    data: Record<string, number>, 
+    data: Record<string, number | undefined>, 
     thresholds?: MixtureThresholds,
     onIndicatorDoubleClick?: (key: IndicatorKey, name: string) => void,
 }) {
@@ -240,10 +240,11 @@ export function IndicatorCard({
                 >
                     <span className="text-xs opacity-80">{key === 'TauxPneus' ? 'Taux Pneus' : key}</span>
                     <span className="text-base font-semibold">
-                    {key === "PCI"
+                    {typeof value !== 'number' || isNaN(value)
+                      ? '-'
+                      : key === "PCI"
                         ? `${(value as number).toFixed(0)}`
-                        : `${(value as number).toFixed(key === 'Chlorures' || key === '%Cl FC' ? 3 : 2)}%`
-                    }
+                        : `${(value as number).toFixed(key === 'Chlorures' || key === '%Cl FC' ? 3 : 2)}%`}
                     </span>
                 </motion.div>
                 ))}
@@ -1239,4 +1240,5 @@ export function MixtureCalculator() {
 }
 
     
+
 
