@@ -9,6 +9,12 @@ export const metadata: Metadata = {
 };
 
 const documentationArticles = [
+    {
+    title: "Principes des Formules de Calcul",
+    description: "Détail de toutes les formules de calcul utilisées dans l'application (PCI, Modules, TSR, etc.).",
+    href: "/documentation/principe-formules-calcul",
+    icon: Calculator,
+  },
   {
     title: "Principe du Tableau de Bord",
     description: "Comprendre les indicateurs, les graphiques et les relations du tableau de bord principal.",
@@ -92,12 +98,6 @@ const documentationArticles = [
     description: "Configurez les seuils de qualité (vert, jaune, rouge) pour les indicateurs de l'application.",
     href: "/documentation/principe-gestion-seuils",
     icon: SlidersHorizontal,
-  },
-  {
-    title: "Principes des Formules de Calcul",
-    description: "Détail de toutes les formules de calcul utilisées dans l'application (PCI, Modules, TSR, etc.).",
-    href: "/documentation/principe-formules-calcul",
-    icon: Calculator,
   },
 ];
 

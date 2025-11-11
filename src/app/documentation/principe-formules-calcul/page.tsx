@@ -94,8 +94,17 @@ export default function PrincipeFormulesCalculPage() {
             "• <strong>CaO_libre</strong> : Pourcentage de chaux libre dans le clinker (%)."
         ]
       },
+      {
+        title: "4. Chlore en Farine Chaude (%Cl FC)",
+        content: "Formule empirique pour estimer le taux de chlore en sortie de préchauffeur, basé sur les caractéristiques du mélange.",
+        formula: "%Cl FC = 0.15 + (%Cl_Mélange * (0.23 + 4.85 * (TSR / 100)))",
+        explanation: [
+          "• <strong>%Cl_Mélange</strong> : Teneur en chlore (%) du mélange total.",
+          "• <strong>TSR</strong> : Taux de substitution énergétique (%).",
+        ]
+      },
        {
-        title: "4. Calcul des Indicateurs du Mélange (Moyenne Pondérée)",
+        title: "5. Calcul des Indicateurs du Mélange (Moyenne Pondérée)",
         content: "La caractéristique X (ex: PCI, % Cendres) d'un mélange de N combustibles est la moyenne des caractéristiques de chaque combustible, pondérée par leur poids respectif.",
         formula: "X_mélange = (Σ (Poids_i * X_i)) / (Σ Poids_i)",
         explanation: [
@@ -104,7 +113,7 @@ export default function PrincipeFormulesCalculPage() {
         ]
       },
        {
-        title: "5. Taux de Substitution Énergétique (TSR)",
+        title: "6. Taux de Substitution Énergétique (TSR)",
         content: "Le TSR mesure la part d'énergie apportée par les combustibles de substitution par rapport à l'énergie totale.",
         formula: "TSR (%) = (Énergie_AFs + Énergie_Grignons) / Énergie_Totale * 100",
         explanation: [
@@ -112,7 +121,7 @@ export default function PrincipeFormulesCalculPage() {
         ]
       },
        {
-        title: "6. Consommation Calorifique (CC)",
+        title: "7. Consommation Calorifique (CC)",
         content: "La CC mesure l'efficacité énergétique du four.",
         formula: "CC (kcal/kg) = Énergie_Totale (kcal/h) / Production_Clinker (kg/h)",
         explanation: [
@@ -179,9 +188,10 @@ export default function PrincipeFormulesCalculPage() {
         subFormulas: [ { title: "Facteur de Saturation en Chaux (LSF)", formula: "LSF = (100 * CaO) / (2.8 * SiO₂ + 1.18 * Al₂O₃ + 0.65 * Fe₂O₃)", explanation: ["L'LSF mesure le rapport entre la chaux disponible et la chaux nécessaire pour saturer la silice, l'alumine et le fer. Un LSF autour de 95-98 est souvent visé."] }, { title: "Module Siliceux (MS)", formula: "MS = SiO₂ / (Al₂O₃ + Fe₂O₃)", explanation: ["Le MS influence la proportion de phase silicatée par rapport à la phase liquide dans le four."] }, { title: "Module Alumino-Ferrique (AF)", formula: "AF = Al₂O₃ / Fe₂O₃", explanation: ["L'AF influence la composition et la quantité de la phase liquide à haute température."] } ]
       },
       { title: "3. Calcul de l'Alite (C₃S)", content: "La teneur en C₃S (Alite) est un indicateur crucial de la résistance à court terme du ciment. La formule de Bogue corrigée est utilisée :", formula: "C₃S = 4.07 * (CaO - 0.7*SO₃ - (1.27*PF/2) - CaO_libre) - (7.6*SiO₂ + 6.72*Al₂O₃ + 1.43*Fe₂O₃)", explanation: [ "Toutes les valeurs d'oxydes (CaO, SiO₂, etc.) sont en %.", "PF : Perte au Feu (%).", "CaO_libre : Pourcentage de chaux libre dans le clinker (%)." ] },
-      { title: "4. Calcul des Indicateurs du Mélange (Moyenne Pondérée)", content: "La caractéristique X (ex: PCI, % Cendres) d'un mélange de N combustibles est la moyenne des caractéristiques de chaque combustible, pondérée par leur poids respectif.", formula: "X_mélange = (Σ (Poids_i * X_i)) / (Σ Poids_i)", explanation: [ "Poids_i : Poids du combustible 'i' dans le mélange (calculé par : Nb de godets × Poids par godet).", "X_i : Valeur de la caractéristique X pour le combustible 'i'." ] },
-      { title: "5. Taux de Substitution Énergétique (TSR)", content: "Le TSR mesure la part d'énergie apportée par les combustibles de substitution par rapport à l'énergie totale.", formula: "TSR (%) = (Énergie_AFs + Énergie_Grignons) / Énergie_Totale * 100", explanation: [ "Énergie_X : Apport énergétique d'une famille de combustible (en Gcal/h), calculé par : Débit (t/h) × PCI moyen (kcal/kg) / 1000." ] },
-      { title: "6. Consommation Calorifique (CC)", content: "La CC mesure l'efficacité énergétique du four.", formula: "CC (kcal/kg) = Énergie_Totale (kcal/h) / Production_Clinker (kg/h)", explanation: [ "Énergie_Totale (kcal/h) : Énergie totale (en Gcal/h) × 1,000,000.", "Production_Clinker (kg/h) : Débit clinker (t/h) × 1,000." ] }
+      { title: "4. Chlore en Farine Chaude (%Cl FC)", content: "Formule empirique pour estimer le taux de chlore en sortie de préchauffeur, basé sur les caractéristiques du mélange.", formula: "%Cl FC = 0.15 + (%Cl_Mélange * (0.23 + 4.85 * (TSR / 100)))", explanation: ["• %Cl_Mélange : Teneur en chlore (%) du mélange total.", "• TSR : Taux de substitution énergétique (%)."] },
+      { title: "5. Calcul des Indicateurs du Mélange (Moyenne Pondérée)", content: "La caractéristique X (ex: PCI, % Cendres) d'un mélange de N combustibles est la moyenne des caractéristiques de chaque combustible, pondérée par leur poids respectif.", formula: "X_mélange = (Σ (Poids_i * X_i)) / (Σ Poids_i)", explanation: [ "Poids_i : Poids du combustible 'i' dans le mélange (calculé par : Nb de godets × Poids par godet).", "X_i : Valeur de la caractéristique X pour le combustible 'i'." ] },
+      { title: "6. Taux de Substitution Énergétique (TSR)", content: "Le TSR mesure la part d'énergie apportée par les combustibles de substitution par rapport à l'énergie totale.", formula: "TSR (%) = (Énergie_AFs + Énergie_Grignons) / Énergie_Totale * 100", explanation: [ "Énergie_X : Apport énergétique d'une famille de combustible (en Gcal/h), calculé par : Débit (t/h) × PCI moyen (kcal/kg) / 1000." ] },
+      { title: "7. Consommation Calorifique (CC)", content: "La CC mesure l'efficacité énergétique du four.", formula: "CC (kcal/kg) = Énergie_Totale (kcal/h) / Production_Clinker (kg/h)", explanation: [ "Énergie_Totale (kcal/h) : Énergie totale (en Gcal/h) × 1,000,000.", "Production_Clinker (kg/h) : Débit clinker (t/h) × 1,000." ] }
     ];
 
     const children = [
@@ -284,8 +294,15 @@ export default function PrincipeFormulesCalculPage() {
                 explanation={["Toutes les valeurs d'oxydes (CaO, SiO₂, etc.) sont en %.", "<strong>PF</strong> : Perte au Feu (%).", "<strong>CaO_libre</strong> : Pourcentage de chaux libre dans le clinker (%)."]}
                 className="border-amber-500/30"
             />
-            
-            <h2>4. Logique du Mélange</h2>
+             <h2>4. Chlore en Farine Chaude (%Cl FC)</h2>
+             <FormulaBlock
+                title="Formule Empirique"
+                formula="%Cl FC = 0.15 + (%Cl_Mélange * (0.23 + 4.85 * (TSR / 100)))"
+                explanation={["Estime le pourcentage de chlore en sortie de préchauffeur, basé sur les caractéristiques du mélange.", "<strong>%Cl_Mélange</strong> : Teneur en chlore (%) du mélange total.", "<strong>TSR</strong> : Taux de substitution énergétique (%)."]}
+                className="border-yellow-500/30"
+             />
+
+            <h2>5. Logique du Mélange</h2>
              <FormulaBlock
                 title="Moyenne Pondérée"
                 formula="X_mélange = (Σ (Poids_i * X_i)) / (Σ Poids_i)"
@@ -293,7 +310,7 @@ export default function PrincipeFormulesCalculPage() {
                 className="border-cyan-500/30"
             />
 
-            <h2>5. Indicateurs de Performance</h2>
+            <h2>6. Indicateurs de Performance</h2>
             <FormulaBlock
                 title="Taux de Substitution Énergétique (TSR)"
                 formula="TSR (%) = (Énergie_AFs + Énergie_Grignons) / Énergie_Totale * 100"
