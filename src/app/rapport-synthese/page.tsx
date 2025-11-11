@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -90,7 +91,7 @@ export default function RapportSynthesePage() {
           'Cendres': indicators.ash,
           'Humidité': indicators.humidity,
           'TauxPneus': indicators.tireRate,
-          '%Cl FC': indicators.cl_fc,
+          '%Cl- FC estimé': indicators.cl_fc,
         };
     }, [mixtureSession]);
 
@@ -162,8 +163,8 @@ export default function RapportSynthesePage() {
                 { label: "PCI", value: formatNumber(mixtureSession.globalIndicators.pci, 0), unit: "kcal/kg" },
                 { label: "Chlorures", value: formatNumber(mixtureSession.globalIndicators.chlorine, 3), unit: "%" },
                 { label: "Cendres", value: formatNumber(mixtureSession.globalIndicators.ash, 2), unit: "%" },
-                { label: "H₂O", value: formatNumber(mixtureSession.globalIndicators.humidity, 2), unit: "%" },
-                 { label: "%Cl FC", value: formatNumber(mixtureSession.globalIndicators.cl_fc, 3), unit: "%" },
+                { label: "H2O", value: formatNumber(mixtureSession.globalIndicators.humidity, 2), unit: "%" },
+                 { label: "%Cl FC estimé", value: formatNumber(mixtureSession.globalIndicators.cl_fc, 3), unit: "%" },
             ];
 
             doc.autoTable({
@@ -234,7 +235,7 @@ export default function RapportSynthesePage() {
         // Indicateurs
         children.push(new Paragraph({ text: "Indicateurs du Mélange", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }));
         const indicatorRows = Object.entries(mixtureIndicators).map(([key, value]) => {
-            const indicatorMap = {'PCI': 'kcal/kg', 'Chlorures': '%', 'Cendres': '%', 'Humidité': '%', 'TauxPneus': '%', '%Cl FC': '%'};
+            const indicatorMap = {'PCI': 'kcal/kg', 'Chlorures': '%', 'Cendres': '%', 'Humidité': '%', 'TauxPneus': '%', '%Cl- FC estimé': '%'};
             return new DocxTableRow({
                 children: [
                     new DocxTableCell({ children: [new Paragraph(key === 'TauxPneus' ? 'Taux Pneus' : key)] }),

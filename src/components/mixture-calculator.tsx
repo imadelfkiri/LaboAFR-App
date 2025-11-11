@@ -170,6 +170,7 @@ export function IndicatorCard({
     onIndicatorDoubleClick?: (key: IndicatorKey, name: string) => void,
 }) {
   const getColorClass = (key: string, value: number): IndicatorStatus => {
+    if(key === '%Cl- FC estimé') return 'neutral'; // Always neutral color
     if(!thresholds) return 'neutral';
 
     switch (key) {
@@ -205,7 +206,7 @@ export function IndicatorCard({
     'Humidité': { key: 'humidity', name: 'Humidité' },
     'TauxPneus': { key: 'tireRate', name: 'Taux Pneus' },
     'TSR': { key: 'tsr', name: 'TSR'},
-    '%Cl FC': { key: 'cl_fc', name: '%Cl FC'},
+    '%Cl- FC estimé': { key: 'cl_fc', name: '%Cl FC estimé'},
   };
   
     const statusClasses: Record<IndicatorStatus, string> = {
@@ -214,6 +215,8 @@ export function IndicatorCard({
         conform: "bg-green-900/40 border-green-500 text-green-300",
         neutral: "border-brand-line/60 bg-brand-surface/60",
     }
+
+    const specialColorClass = "bg-purple-900/40 border-purple-500 text-purple-300";
 
   return (
     <Card className="bg-brand-surface border-brand-line h-full">
@@ -233,8 +236,8 @@ export function IndicatorCard({
                     whileHover={{ scale: 1.07 }}
                     transition={{ type: "spring", stiffness: 250 }}
                     className={cn(
-                        "flex flex-col items-center justify-center rounded-xl border py-3 px-2 font-medium",
-                        statusClasses[getColorClass(key, value as number)]
+                        "flex flex-col items-center justify-center rounded-xl border py-3 px-2 font-medium cursor-pointer",
+                        key === '%Cl- FC estimé' ? specialColorClass : statusClasses[getColorClass(key, value as number)]
                     )}
                     onDoubleClick={() => onIndicatorDoubleClick && keyMap[key] && onIndicatorDoubleClick(keyMap[key].key, keyMap[key].name)}
                 >
@@ -244,7 +247,7 @@ export function IndicatorCard({
                       ? '-'
                       : key === "PCI"
                         ? `${(value as number).toFixed(0)}`
-                        : `${(value as number).toFixed(key === 'Chlorures' || key === '%Cl FC' ? 3 : 2)}%`}
+                        : `${(value as number).toFixed(key === 'Chlorures' || key === '%Cl- FC estimé' ? 3 : 2)}%`}
                     </span>
                 </motion.div>
                 ))}
@@ -940,16 +943,18 @@ export function MixtureCalculator() {
         conform: "bg-green-900/40 border-green-500 text-green-300",
         neutral: "border-brand-line/60 bg-brand-surface/60",
     }
+
+    const specialColorClass = "bg-purple-900/40 border-purple-500 text-purple-300";
     
     return (
         <Card 
             onDoubleClick={() => handleIndicatorDoubleClick(indicatorKey, name)}
             className={cn(
                 "text-center transition-colors rounded-xl cursor-pointer hover:bg-brand-muted/50",
-                statusClasses[status]
+                title === '%Cl- FC estimé' ? specialColorClass : statusClasses[status]
             )}>
             <CardHeader className="p-2 pb-1">
-                <CardTitle className={cn("text-xs font-medium", status === 'neutral' ? 'text-muted-foreground' : 'text-inherit')}>
+                <CardTitle className={cn("text-xs font-medium", status === 'neutral' && title !== '%Cl- FC estimé' ? 'text-muted-foreground' : 'text-inherit')}>
                 <div className="flex items-center justify-center gap-1.5">
                     {status === 'alert' && <AlertTriangle className="h-3 w-3" />}
                     {status === 'conform' && <CheckCircle className="h-3 w-3" />}
@@ -958,7 +963,7 @@ export function MixtureCalculator() {
                 </CardTitle>
             </CardHeader>
             <CardContent className="p-2 pt-0">
-                <p className={cn("text-xl font-bold", status === 'neutral' ? 'text-white' : 'text-inherit')}>
+                <p className={cn("text-xl font-bold", status === 'neutral' && title !== '%Cl- FC estimé' ? 'text-white' : 'text-inherit')}>
                 {value} <span className="text-base opacity-70">{unit}</span>
                 </p>
             </CardContent>
@@ -1009,10 +1014,8 @@ export function MixtureCalculator() {
             </div>
             {/* Indicateurs Mélange Total (avec GO) */}
             <div>
-                 <div className="flex items-center gap-4 mb-3">
-                    <h2 className="text-xl font-bold text-white">Indicateurs Mélange Total (avec GO)</h2>
-                 </div>
-                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <h3 className="text-lg font-semibold text-white mb-3">Indicateurs Mélange Total (avec GO)</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     <IndicatorDisplay title="Débit Total" value={totalIndicators.flow.toFixed(2)} unit="t/h" status='neutral' indicatorKey="flow" name="Débit"/>
                     <IndicatorDisplay title="PCI moy" value={totalIndicators.pci.toFixed(0)} unit="kcal/kg" status={totalIndicators.status.pci} indicatorKey="pci" name="PCI Moyen"/>
                     <IndicatorDisplay title="% Humidité moy" value={totalIndicators.humidity.toFixed(2)} unit="%" status={totalIndicators.status.humidity} indicatorKey="humidity" name="Humidité Moyenne"/>
@@ -1021,7 +1024,7 @@ export function MixtureCalculator() {
                     <IndicatorDisplay title="Taux de pneus" value={totalIndicators.tireRate.toFixed(2)} unit="%" status={totalIndicators.status.tireRate} indicatorKey="tireRate" name="Taux de Pneus"/>
                      <IndicatorDisplay title="TSR" value={totalIndicators.tsr.toFixed(2)} unit="%" status='neutral' indicatorKey="tsr" name="TSR"/>
                     <IndicatorDisplay title="Coût du Mélange" value={totalIndicators.cost.toFixed(2) } unit="MAD/t" status='neutral' indicatorKey="cost" name="Coût du Mélange"/>
-                    <IndicatorDisplay title="%Cl FC" value={totalIndicators.cl_fc.toFixed(3)} unit="%" status='neutral' indicatorKey="cl_fc" name="%Cl FC" />
+                    <IndicatorDisplay title="%Cl- FC estimé" value={totalIndicators.cl_fc.toFixed(3)} unit="%" status='neutral' indicatorKey="cl_fc" name="%Cl- FC estimé" />
                 </div>
             </div>
         </div>
@@ -1240,5 +1243,6 @@ export function MixtureCalculator() {
 }
 
     
+
 
 

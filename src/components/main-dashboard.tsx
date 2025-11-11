@@ -277,7 +277,7 @@ export function MainDashboard() {
           'Cendres': indicators.ash,
           'Humidité': indicators.humidity,
           'TauxPneus': indicators.tireRate,
-          '%Cl FC': indicators.cl_fc,
+          '%Cl- FC estimé': indicators.cl_fc,
         };
     }, [mixtureSession]);
 
@@ -676,4 +676,5 @@ export function MainDashboard() {
         </motion.div>
     );
 }
+
 
