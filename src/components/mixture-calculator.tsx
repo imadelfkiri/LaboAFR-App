@@ -390,7 +390,7 @@ function useMixtureCalculations(
     const totalEnergy = totalAlternativeEnergy + petcokeEnergy;
     const tsr = totalEnergy > 0 ? (totalAlternativeEnergy / totalEnergy) * 100 : 0;
     
-    const clFc = 0.15 + (totalChlorine) * (0.23 + 4.85 * (tsr / 100));
+    const cl_fc = 0.15 + (totalChlorine) * (0.23 + 4.85 * (tsr / 100));
 
     const totalIndicators = {
         flow: totalAlternativeFlow,
@@ -401,7 +401,7 @@ function useMixtureCalculations(
         tireRate: afIndicators.tireRate, // tireRate is only for AFs
         cost: weightedTotalAvg(afIndicators.cost, costGrignons),
         tsr,
-        cl_fc: clFc
+        cl_fc
     };
 
     const getStatus = (value: number, key: IndicatorKey): IndicatorStatus => {
@@ -440,6 +440,8 @@ function useMixtureCalculations(
         chlorine: getStatus(afIndicators.chlorine, 'chlorine'),
         tireRate: getStatus(afIndicators.tireRate, 'tireRate'),
         tsr: 'neutral' as IndicatorStatus,
+        cost: 'neutral' as IndicatorStatus,
+        flow: 'neutral' as IndicatorStatus,
       } },
       totalIndicators: { ...totalIndicators, status: {
         pci: getStatus(totalIndicators.pci, 'pci'),
@@ -449,6 +451,8 @@ function useMixtureCalculations(
         tireRate: getStatus(totalIndicators.tireRate, 'tireRate'),
         tsr: 'neutral' as IndicatorStatus,
         cl_fc: 'neutral' as IndicatorStatus,
+        cost: 'neutral' as IndicatorStatus,
+        flow: 'neutral' as IndicatorStatus,
       } },
     };
   }, [hallAF, ats, directInputs, availableFuels, fuelData, fuelCosts, thresholds]);
@@ -980,7 +984,7 @@ export function MixtureCalculator() {
             {/* Indicateurs AFs (sans GO) */}
             <div>
                  <div className="flex items-center gap-4 mb-3">
-                    <h2 className="text-2xl font-bold text-white">Indicateurs Mélange AFs (sans GO)</h2>
+                    <h2 className="text-xl font-bold text-white">Indicateurs Mélange AFs (sans GO)</h2>
                      {thresholds && (
                         <ThresholdSettingsModal 
                             isOpen={isThresholdModalOpen}
@@ -1005,7 +1009,7 @@ export function MixtureCalculator() {
             {/* Indicateurs Mélange Total (avec GO) */}
             <div>
                  <div className="flex items-center gap-4 mb-3">
-                    <h2 className="text-2xl font-bold text-white">Indicateurs Mélange Total (avec GO)</h2>
+                    <h2 className="text-xl font-bold text-white">Indicateurs Mélange Total (avec GO)</h2>
                  </div>
                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     <IndicatorDisplay title="Débit Total" value={totalIndicators.flow.toFixed(2)} unit="t/h" status='neutral' indicatorKey="flow" name="Débit"/>
@@ -1235,3 +1239,4 @@ export function MixtureCalculator() {
 }
 
     
+

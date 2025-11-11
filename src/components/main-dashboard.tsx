@@ -277,6 +277,7 @@ export function MainDashboard() {
           'Cendres': indicators.ash,
           'Humidité': indicators.humidity,
           'TauxPneus': indicators.tireRate,
+          '%Cl FC': indicators.cl_fc,
         };
     }, [mixtureSession]);
 
@@ -327,7 +328,7 @@ export function MainDashboard() {
 
     const handleIndicatorDoubleClick = useCallback((key: IndicatorKey | 'tsr' | 'consumption' | string, name: string) => {
         let type: 'mixture' | 'key' | 'impact';
-        if (['pci', 'humidity', 'ash', 'chlorine', 'tireRate'].includes(key)) {
+        if (['pci', 'humidity', 'ash', 'chlorine', 'tireRate', 'cl_fc'].includes(key)) {
             type = 'mixture';
         } else if (['tsr', 'consumption'].includes(key)) {
             type = 'key';
@@ -675,3 +676,4 @@ export function MainDashboard() {
         </motion.div>
     );
 }
+
