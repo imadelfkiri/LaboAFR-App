@@ -156,16 +156,12 @@ function useMixtureCalculations(
     const hallIndicators = processInstallation(hallAF);
     const atsIndicators = processInstallation(ats);
     
+    // --- AFs Indicators (sans GO) ---
     const flowHall = hallAF.flowRate || 0;
     const flowAts = ats.flowRate || 0;
-    const flowGrignons = grignons.flowRate || 0;
-    const flowPetcoke = petcoke.flowRate || 0;
-
     const totalAfFlow = flowHall + flowAts;
-    const totalAlternativeFlow = totalAfFlow + flowGrignons;
-    const totalFlow = totalAlternativeFlow + flowPetcoke;
 
-    const weightedAvg = (
+    const weightedAfAvg = (
         valHall: number, flowH: number, 
         valAts: number, flowA: number,
     ) => {
@@ -173,28 +169,51 @@ function useMixtureCalculations(
       return (valHall * flowH + valAts * flowA) / totalAfFlow;
     }
 
-    const pci = weightedAvg(hallIndicators.pci, flowHall, atsIndicators.pci, flowAts);
-    const humidity = weightedAvg(hallIndicators.humidity, flowHall, atsIndicators.humidity, flowAts);
-    const ash = weightedAvg(hallIndicators.ash, flowHall, atsIndicators.ash, flowAts);
-    const chlorine = weightedAvg(hallIndicators.chlorine, flowHall, atsIndicators.chlorine, flowAts);
-    const tireRate = weightedAvg(hallIndicators.tireRate, flowHall, atsIndicators.tireRate, flowAts);
+    const afPci = weightedAfAvg(hallIndicators.pci, flowHall, atsIndicators.pci, flowAts);
+    const afHumidity = weightedAfAvg(hallIndicators.humidity, flowHall, atsIndicators.humidity, flowAts);
+    const afAsh = weightedAfAvg(hallIndicators.ash, flowHall, atsIndicators.ash, flowAts);
+    const afChlorine = weightedAfAvg(hallIndicators.chlorine, flowHall, atsIndicators.chlorine, flowAts);
+    const afTireRate = weightedAfAvg(hallIndicators.tireRate, flowHall, atsIndicators.tireRate, flowAts);
 
+    // --- Total Indicators (avec GO) ---
+    const flowGrignons = grignons.flowRate || 0;
+    const totalAlternativeFlow = totalAfFlow + flowGrignons;
+
+    const weightedTotalAvg = (afValue: number, grignonsValue: number) => {
+        if (totalAlternativeFlow === 0) return 0;
+        return (afValue * totalAfFlow + grignonsValue * flowGrignons) / totalAlternativeFlow;
+    };
+
+    const totalPci = weightedTotalAvg(afPci, grignons.pci);
+    const totalHumidity = weightedTotalAvg(afHumidity, grignons.humidity);
+    const totalAsh = weightedTotalAvg(afAsh, grignons.ash);
+    const totalChlorine = weightedTotalAvg(afChlorine, grignons.chlorine);
+    
     // TSR Calculation
     const afEnergy = flowHall * hallIndicators.pci + flowAts * atsIndicators.pci;
     const grignonsEnergy = flowGrignons * grignons.pci;
+    const flowPetcoke = petcoke.flowRate || 0;
     const petcokeEnergy = flowPetcoke * petcoke.pci;
     const totalAlternativeEnergy = afEnergy + grignonsEnergy;
     const totalEnergy = totalAlternativeEnergy + petcokeEnergy;
     const tsr = totalEnergy > 0 ? (totalAlternativeEnergy / totalEnergy) * 100 : 0;
 
     return {
-      globalIndicators: {
+      afIndicators: {
         flow: totalAfFlow,
-        pci,
-        humidity,
-        ash,
-        chlorine,
-        tireRate,
+        pci: afPci,
+        humidity: afHumidity,
+        ash: afAsh,
+        chlorine: afChlorine,
+        tireRate: afTireRate,
+      },
+      totalIndicators: {
+        flow: totalAlternativeFlow,
+        pci: totalPci,
+        humidity: totalHumidity,
+        ash: totalAsh,
+        chlorine: totalChlorine,
+        tireRate: afTireRate, // Tire rate is only for AFs
         tsr,
       }
     };
@@ -418,7 +437,7 @@ export function MixtureSimulator() {
   }, [hallAF, ats, grignons, petcoke]);
 
 
-  const { globalIndicators } = useMixtureCalculations(hallAF, ats, grignons, petcoke, fuelData);
+  const { afIndicators, totalIndicators } = useMixtureCalculations(hallAF, ats, grignons, petcoke, fuelData);
 
   const handleReset = () => {
     setHallAF(createInitialInstallationState(fuelTypes));
@@ -693,9 +712,7 @@ export function MixtureSimulator() {
     <div className="p-4 md:p-6 lg:p-8 space-y-6">
       <div className="sticky top-0 z-10 bg-brand-bg py-4">
         <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
-              <h1 className="text-2xl font-bold text-white">Indicateurs Globaux (Simulation)</h1>
-            </div>
+            <h2 className="text-2xl font-bold text-white">Indicateurs Globaux (Simulation)</h2>
             <div className="flex items-center gap-2">
               <LoadScenarioDialog />
               <SaveScenarioDialog />
@@ -705,14 +722,29 @@ export function MixtureSimulator() {
               </Button>
             </div>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-          <IndicatorCard title="Débit des AFs" value={globalIndicators.flow.toFixed(2)} unit="t/h" />
-          <IndicatorCard title="PCI moy" value={globalIndicators.pci.toFixed(0)} unit="kcal/kg" />
-          <IndicatorCard title="% Humidité moy" value={globalIndicators.humidity.toFixed(2)} unit="%" />
-          <IndicatorCard title="% Cendres moy" value={globalIndicators.ash.toFixed(2)} unit="%" />
-          <IndicatorCard title="% Chlorures" value={globalIndicators.chlorine.toFixed(3)} unit="%" />
-          <IndicatorCard title="Taux de pneus" value={globalIndicators.tireRate.toFixed(2)} unit="%" />
-          <IndicatorCard title="TSR" value={globalIndicators.tsr.toFixed(2)} unit="%" tooltipText="Taux de Substitution Énergétique" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <div>
+                 <h3 className="text-lg font-semibold text-white mb-3">Mélange AFs (sans GO)</h3>
+                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <IndicatorCard title="Débit AFs" value={afIndicators.flow.toFixed(2)} unit="t/h" />
+                    <IndicatorCard title="PCI moy" value={afIndicators.pci.toFixed(0)} unit="kcal/kg" />
+                    <IndicatorCard title="% Humidité moy" value={afIndicators.humidity.toFixed(2)} unit="%" />
+                    <IndicatorCard title="% Cendres moy" value={afIndicators.ash.toFixed(2)} unit="%" />
+                    <IndicatorCard title="% Chlorures" value={afIndicators.chlorine.toFixed(3)} unit="%" />
+                    <IndicatorCard title="Taux de pneus" value={afIndicators.tireRate.toFixed(2)} unit="%" />
+                </div>
+            </div>
+             <div>
+                <h3 className="text-lg font-semibold text-white mb-3">Mélange Total (avec GO)</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <IndicatorCard title="Débit Total" value={totalIndicators.flow.toFixed(2)} unit="t/h" />
+                    <IndicatorCard title="PCI moy" value={totalIndicators.pci.toFixed(0)} unit="kcal/kg" />
+                    <IndicatorCard title="% Humidité moy" value={totalIndicators.humidity.toFixed(2)} unit="%" />
+                    <IndicatorCard title="% Cendres moy" value={totalIndicators.ash.toFixed(2)} unit="%" />
+                    <IndicatorCard title="% Chlorures" value={totalIndicators.chlorine.toFixed(3)} unit="%" />
+                    <IndicatorCard title="TSR" value={totalIndicators.tsr.toFixed(2)} unit="%" tooltipText="Taux de Substitution Énergétique" />
+                </div>
+            </div>
         </div>
       </div>
 
@@ -819,4 +851,5 @@ export function MixtureSimulator() {
     </div>
   );
 }
+
 

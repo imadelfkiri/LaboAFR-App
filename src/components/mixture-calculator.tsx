@@ -53,7 +53,7 @@ interface DirectInputState {
 }
 
 interface MixtureSummary {
-    globalIndicators: ReturnType<typeof useMixtureCalculations>['globalIndicators'];
+    globalIndicators: ReturnType<typeof useMixtureCalculations>['afIndicators'];
     composition: { 
         name: string; 
         percentage: number;
@@ -321,87 +321,75 @@ function useMixtureCalculations(
     const hallIndicators = processInstallation(hallAF);
     const atsIndicators = processInstallation(ats);
 
-    // Only consider Hall AF and ATS for the mixture indicators
+    // --- AFs Indicators (sans GO) ---
     const afFlows = [
       { flow: hallAF.flowRate || 0, indicators: hallIndicators },
       { flow: ats.flowRate || 0, indicators: atsIndicators },
     ];
-    
     const totalAfFlow = afFlows.reduce((sum, item) => sum + item.flow, 0);
 
-    const weightedAvg = (valueKey: 'pci' | 'humidity' | 'ash' | 'chlorine' | 'cost') => {
+    const weightedAfAvg = (valueKey: 'pci' | 'humidity' | 'ash' | 'chlorine' | 'cost') => {
         if (totalAfFlow === 0) return 0;
-        const totalValue = afFlows.reduce((sum, item) => {
-            const indicatorValue = item.indicators[valueKey as keyof typeof item.indicators];
-            if (typeof indicatorValue === 'number') {
-                return sum + item.flow * indicatorValue;
-            }
-            return sum;
-        }, 0);
+        const totalValue = afFlows.reduce((sum, item) => sum + item.flow * (item.indicators[valueKey] || 0), 0);
         return totalValue / totalAfFlow;
     };
     
-    const pci = weightedAvg('pci');
-    const chlorine = weightedAvg('chlorine');
-    const humidity = weightedAvg('humidity');
-    const ash = weightedAvg('ash');
-    const cost = weightedAvg('cost');
-
-    let tireRate = 0;
-    const totalWeightInMixture = (hallIndicators.weight * (hallAF.flowRate / totalAfFlow)) + (atsIndicators.weight * (ats.flowRate / totalAfFlow));
-    if (totalAfFlow > 0 && totalWeightInMixture > 0) {
-        const totalTireWeightInMixture = (hallIndicators.tireWeight * (hallAF.flowRate / totalAfFlow)) + (atsIndicators.tireWeight * (ats.flowRate / totalAfFlow));
-        tireRate = (totalTireWeightInMixture / totalWeightInMixture) * 100;
+    let tireRateAf = 0;
+    if (totalAfFlow > 0) {
+        const totalTireWeight = afFlows.reduce((sum, item) => sum + item.flow * (item.indicators.tireWeight / item.indicators.weight), 0);
+        const totalWeight = afFlows.reduce((sum, item) => sum + item.flow, 0);
+        if (totalWeight > 0) {
+            tireRateAf = (totalTireWeight / totalWeight) * 100;
+        }
     }
+
+    const afIndicators = {
+        flow: totalAfFlow,
+        pci: weightedAfAvg('pci'),
+        humidity: weightedAfAvg('humidity'),
+        ash: weightedAfAvg('ash'),
+        chlorine: weightedAfAvg('chlorine'),
+        tireRate: tireRateAf,
+        cost: weightedAfAvg('cost'),
+    };
+    
+    // --- Total Indicators (avec GO) ---
+    const grignonsFlow = (directInputs['Grignons GO1']?.flowRate || 0) + (directInputs['Grignons GO2']?.flowRate || 0);
+    const totalAlternativeFlow = totalAfFlow + grignonsFlow;
+    
+    const grignonsAnalysis = availableFuels['Grignons'];
+    const pciGrignons = grignonsAnalysis?.pci_brut || 0;
+    const humidityGrignons = grignonsAnalysis?.h2o || 0;
+    const ashGrignons = grignonsAnalysis?.cendres || 0;
+    const chlorineGrignons = grignonsAnalysis?.chlore || 0;
+    const costGrignons = fuelCosts['Grignons']?.cost || 0;
+    
+    const weightedTotalAvg = (afValue: number, grignonsValue: number) => {
+        if (totalAlternativeFlow === 0) return 0;
+        return (afValue * totalAfFlow + grignonsValue * grignonsFlow) / totalAlternativeFlow;
+    };
+
+    const totalIndicators = {
+        flow: totalAlternativeFlow,
+        pci: weightedTotalAvg(afIndicators.pci, pciGrignons),
+        humidity: weightedTotalAvg(afIndicators.humidity, humidityGrignons),
+        ash: weightedTotalAvg(afIndicators.ash, ashGrignons),
+        chlorine: weightedTotalAvg(afIndicators.chlorine, chlorineGrignons),
+        tireRate: afIndicators.tireRate, // tireRate is only for AFs
+        cost: weightedTotalAvg(afIndicators.cost, costGrignons),
+    };
 
     // --- TSR Calculation ---
     const getPci = (fuelName: string) => availableFuels[fuelName]?.pci_brut || 0;
-    
-    // AF Energy
-    let afEnergy = 0;
-    const processInstallationForEnergy = (state: InstallationState) => {
-        if (!state.flowRate || state.flowRate === 0) return;
-        
-        let totalInstallationWeight = 0;
-        let weightedPciSum = 0;
-
-        for (const fuelName in state.fuels) {
-            const fuelInput = state.fuels[fuelName];
-            const baseFuelData = fuelData[fuelName];
-            if (!fuelInput || fuelInput.buckets <= 0 || !baseFuelData) continue;
-            
-            const poidsGodet = baseFuelData.poids_godet > 0 ? baseFuelData.poids_godet : 1.5;
-            const weight = fuelInput.buckets * poidsGodet;
-            totalInstallationWeight += weight;
-
-            const analysisData = availableFuels[fuelName];
-            if (analysisData && analysisData.count > 0) {
-                weightedPciSum += weight * analysisData.pci_brut;
-            }
-        }
-        if (totalInstallationWeight > 0) {
-            const avgPci = weightedPciSum / totalInstallationWeight;
-            afEnergy += state.flowRate * avgPci;
-        }
-    };
-    processInstallationForEnergy(hallAF);
-    processInstallationForEnergy(ats);
-
-    // Grignons Energy
-    const grignonsFlow = (directInputs['Grignons GO1']?.flowRate || 0) + (directInputs['Grignons GO2']?.flowRate || 0);
-    const pciGrignons = getPci('Grignons');
+    const afEnergy = totalAfFlow * afIndicators.pci;
     const grignonsEnergy = grignonsFlow * pciGrignons;
-
-    // Petcoke Energy
     const petcokeFlow = (directInputs['Pet-Coke Preca']?.flowRate || 0) + (directInputs['Pet-Coke Tuyere']?.flowRate || 0);
-    const pciPetcoke = getPci('Pet-Coke') || getPci('Pet-Coke Preca') || getPci('Pet-Coke Tuyere'); // Try a few names
+    const pciPetcoke = getPci('Pet-Coke') || getPci('Pet-Coke Preca') || getPci('Pet-Coke Tuyere');
     const petcokeEnergy = petcokeFlow * pciPetcoke;
-
     const totalAlternativeEnergy = afEnergy + grignonsEnergy;
     const totalEnergy = totalAlternativeEnergy + petcokeEnergy;
     const tsr = totalEnergy > 0 ? (totalAlternativeEnergy / totalEnergy) * 100 : 0;
-
-
+    
     const getStatus = (value: number, key: IndicatorKey): IndicatorStatus => {
        if(!thresholds) return 'neutral';
        switch (key) {
@@ -430,45 +418,23 @@ function useMixtureCalculations(
        }
     };
 
-    const status = {
-        pci: getStatus(pci, 'pci'),
-        humidity: getStatus(humidity, 'humidity'),
-        ash: getStatus(ash, 'ash'),
-        chlorine: getStatus(chlorine, 'chlorine'),
-        tireRate: getStatus(tireRate, 'tireRate'),
-        tsr: 'neutral' as IndicatorStatus,
-    };
-
-    const globalFuelWeights: Record<string, number> = {};
-    Object.entries(hallIndicators.fuelWeights).forEach(([fuel, weight]) => {
-        globalFuelWeights[fuel] = (globalFuelWeights[fuel] || 0) + weight;
-    });
-    Object.entries(atsIndicators.fuelWeights).forEach(([fuel, weight]) => {
-        globalFuelWeights[fuel] = (globalFuelWeights[fuel] || 0) + weight;
-    });
-    
-    // Add direct inputs weight
-    for (const fuelName in directInputs) {
-        const flow = directInputs[fuelName].flowRate || 0;
-        if(flow > 0) {
-            globalFuelWeights[fuelName] = (globalFuelWeights[fuelName] || 0) + flow;
-        }
-    }
-
-
     return {
-      globalIndicators: {
-        flow: totalAfFlow,
-        pci,
-        humidity,
-        ash,
-        chlorine,
-        tireRate,
-        cost,
-        tsr,
-        status,
-      },
-      globalFuelWeights
+      afIndicators: { ...afIndicators, tsr, status: {
+        pci: getStatus(afIndicators.pci, 'pci'),
+        humidity: getStatus(afIndicators.humidity, 'humidity'),
+        ash: getStatus(afIndicators.ash, 'ash'),
+        chlorine: getStatus(afIndicators.chlorine, 'chlorine'),
+        tireRate: getStatus(afIndicators.tireRate, 'tireRate'),
+        tsr: 'neutral' as IndicatorStatus,
+      } },
+      totalIndicators: { ...totalIndicators, tsr, status: {
+        pci: getStatus(totalIndicators.pci, 'pci'),
+        humidity: getStatus(totalIndicators.humidity, 'humidity'),
+        ash: getStatus(totalIndicators.ash, 'ash'),
+        chlorine: getStatus(totalIndicators.chlorine, 'chlorine'),
+        tireRate: getStatus(totalIndicators.tireRate, 'tireRate'),
+        tsr: 'neutral' as IndicatorStatus,
+      } },
     };
   }, [hallAF, ats, directInputs, availableFuels, fuelData, fuelCosts, thresholds]);
 }
@@ -673,7 +639,7 @@ export function MixtureCalculator() {
     fetchHistoryData();
   }, [fetchHistoryData]);
 
-  const { globalIndicators, globalFuelWeights } = useMixtureCalculations(hallAF, ats, directInputs, availableFuels, fuelData, fuelCosts, thresholds);
+  const { afIndicators, totalIndicators } = useMixtureCalculations(hallAF, ats, directInputs, availableFuels, fuelData, fuelCosts, thresholds);
 
   const historyChartData = useMemo(() => {
     if (!historySessions || historySessions.length === 0 || !historyChartIndicator) return [];
@@ -681,7 +647,7 @@ export function MixtureCalculator() {
     return historySessions
         .map(session => ({
             date: session.timestamp.toDate(),
-            value: session.globalIndicators[historyChartIndicator.key]
+            value: (session.globalIndicators as any)[historyChartIndicator.key]
         }))
         .filter(item => typeof item.value === 'number')
         .sort((a, b) => a.date.valueOf() - b.date.valueOf())
@@ -720,30 +686,12 @@ export function MixtureCalculator() {
 
     const mixtureFuelWeights: Record<string, number> = {};
 
-    for (const fuelName in globalFuelWeights) {
-        if (!directInputBaseNames.includes(fuelName.toLowerCase().split(' ')[0])) {
-            mixtureFuelWeights[fuelName] = globalFuelWeights[fuelName];
-        }
-    }
-
-    const totalMixtureWeight = Object.values(mixtureFuelWeights).reduce((sum, weight) => sum + weight, 0);
-
-    const composition = Object.entries(mixtureFuelWeights)
-      .filter(([, weight]) => weight > 0)
-      .map(([name, weight]) => ({
-            name,
-            percentage: totalMixtureWeight > 0 ? (weight / totalMixtureWeight) * 100 : 0,
-            totalBuckets: (hallAF.fuels[name]?.buckets || 0) + (ats.fuels[name]?.buckets || 0),
-        })
-      )
-      .sort((a, b) => b.percentage - a.percentage);
-      
     const afFlow = (hallAF.flowRate || 0) + (ats.flowRate || 0);
     const goFlow = (directInputs['Grignons GO1']?.flowRate || 0) + (directInputs['Grignons GO2']?.flowRate || 0);
 
     setMixtureSummary({
-      globalIndicators,
-      composition,
+      globalIndicators: afIndicators,
+      composition: [], // This part seems not used in modal, can be simplified
       flows: { afFlow, goFlow }
     });
     setIsSaveModalOpen(true);
@@ -777,7 +725,7 @@ export function MixtureCalculator() {
             hallAF,
             ats,
             directInputs,
-            globalIndicators,
+            globalIndicators: totalIndicators, // Save the total indicators
             availableFuels: availableFuelsToSave,
             analysisDateRange: globalDateRange?.from && globalDateRange.to ? {
                 from: Timestamp.fromDate(globalDateRange.from),
@@ -871,50 +819,19 @@ export function MixtureCalculator() {
   const SaveConfirmationModal = () => {
     if (!mixtureSummary) return null;
 
-    const { globalIndicators: summaryIndicators, composition, flows } = mixtureSummary;
+    const { globalIndicators: summaryIndicators, flows } = mixtureSummary;
 
     const generateSummaryText = () => {
         let textToCopy = "Voici le résumé de la nouvelle composition du mélange et de ses indicateurs clés :\n\n";
+        textToCopy += `Basé sur la session du ${format(new Date(), 'dd/MM/yyyy HH:mm', { locale: fr })}\n\n`;
 
-        // Key Indicators
-        textToCopy += "Indicateurs Clés\n";
-        textToCopy += `- PCI moyen: ${summaryIndicators.pci.toFixed(0)} kcal/kg\n`;
-        textToCopy += `- % Humidité: ${summaryIndicators.humidity.toFixed(2)} %\n`;
-        textToCopy += `- % Cendres: ${summaryIndicators.ash.toFixed(2)} %\n`;
-        textToCopy += `- % Chlorures: ${summaryIndicators.chlorine.toFixed(3)} %\n`;
-        textToCopy += `- Taux de pneus: ${summaryIndicators.tireRate.toFixed(2)} %\n\n`;
-
-        // Flows
-        textToCopy += "Débits\n";
-        textToCopy += `- Débit AFs: ${flows.afFlow.toFixed(2)} t/h\n`;
-        textToCopy += `- Débit GO: ${flows.goFlow.toFixed(2)} t/h\n\n`;
-
-        // Composition
-        textToCopy += "Composition du Mélange\n";
-        
-        const headers = ["Combustible", "Nb Godets", "% Poids"];
-        const colWidths = {
-            col1: Math.max(headers[0].length, ...composition.map(item => item.name.length)),
-            col2: Math.max(headers[1].length, ...composition.map(item => item.totalBuckets === 0 ? '-' : item.totalBuckets.toString().length)),
-            col3: Math.max(headers[2].length, ...composition.map(item => `${item.percentage.toFixed(2)} %`.length)),
-        };
-
-        const headerRow = [
-            headers[0].padEnd(colWidths.col1),
-            headers[1].padStart(colWidths.col2),
-            headers[2].padStart(colWidths.col3),
-        ].join(' | ');
-        textToCopy += headerRow + '\n';
-        textToCopy += '-'.repeat(headerRow.length) + '\n';
-        
-        composition.forEach(item => {
-            const row = [
-                item.name.padEnd(colWidths.col1),
-                (item.totalBuckets === 0 ? '-' : item.totalBuckets.toString()).padStart(colWidths.col2),
-                `${item.percentage.toFixed(2)} %`.padStart(colWidths.col3),
-            ];
-            textToCopy += row.join(' | ') + '\n';
-        });
+        textToCopy += "Indicateurs du Mélange Total (AFs + GO)\n";
+        textToCopy += `- Débit: ${totalIndicators.flow.toFixed(2)} t/h\n`;
+        textToCopy += `- PCI moyen: ${totalIndicators.pci.toFixed(0)} kcal/kg\n`;
+        textToCopy += `- % Humidité: ${totalIndicators.humidity.toFixed(2)} %\n`;
+        textToCopy += `- % Cendres: ${totalIndicators.ash.toFixed(2)} %\n`;
+        textToCopy += `- % Chlorures: ${totalIndicators.chlorine.toFixed(3)} %\n\n`;
+        textToCopy += `- TSR: ${totalIndicators.tsr.toFixed(2)} %\n\n`;
 
         return textToCopy;
     };
@@ -938,84 +855,18 @@ export function MixtureCalculator() {
     };
 
 
-    const keyIndicators = [
-      { label: 'PCI moyen:', value: summaryIndicators.pci.toFixed(0), unit: 'kcal/kg' },
-      { label: '% Humidité:', value: summaryIndicators.humidity.toFixed(2), unit: '%' },
-      { label: '% Cendres:', value: summaryIndicators.ash.toFixed(2), unit: '%' },
-      { label: '% Chlorures:', value: summaryIndicators.chlorine.toFixed(3), unit: '%' },
-      { label: 'Taux de pneus:', value: summaryIndicators.tireRate.toFixed(2), unit: '%' },
-    ];
-
-    const flowIndicators = [
-        { label: 'Débit AFs:', value: flows.afFlow.toFixed(2), unit: 't/h' },
-        { label: 'Débit GO:', value: flows.goFlow.toFixed(2), unit: 't/h' },
-    ];
-
-
     return (
       <Dialog open={isSaveModalOpen} onOpenChange={setIsSaveModalOpen}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Résumé et Confirmation du Mélange</DialogTitle>
+            <DialogTitle>Confirmer l'Enregistrement</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-6 py-4 text-sm">
-            <p>
-              Voici le résumé de la nouvelle composition du mélange et de ses indicateurs clés :
-            </p>
-            
-            <div className='grid grid-cols-2 gap-x-8'>
-                <div>
-                    <h3 className="font-semibold text-foreground mb-2">Indicateurs Clés</h3>
-                    <div className="rounded-lg border p-4 grid grid-cols-1 gap-2">
-                        {keyIndicators.map(item => (
-                            <div key={item.label} className="flex justify-between items-baseline">
-                                <span className="text-muted-foreground">{item.label}</span>
-                                <span className="font-medium text-foreground">{item.value} <span className="text-xs text-muted-foreground">{item.unit}</span></span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-                <div>
-                    <h3 className="font-semibold text-foreground mb-2">Débits</h3>
-                     <div className="rounded-lg border p-4 grid grid-cols-1 gap-2">
-                        {flowIndicators.map(item => (
-                            <div key={item.label} className="flex justify-between items-baseline">
-                                <span className="text-muted-foreground">{item.label}</span>
-                                <span className="font-medium text-foreground">{item.value} <span className="text-xs text-muted-foreground">{item.unit}</span></span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-            
-            <div>
-                 <h3 className="font-semibold text-foreground mb-2">Composition du Mélange</h3>
-                {composition.length > 0 ? (
-                    <ScrollArea className="h-[250px] rounded-lg border">
-                       <Table>
-                            <TableHeader className="sticky top-0 bg-background z-10">
-                                <TableRow>
-                                    <TableHead>Combustible</TableHead>
-                                    <TableHead className="text-center">Nb Godets</TableHead>
-                                    <TableHead className="text-right">% Poids</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {composition.map(item => (
-                                    <TableRow key={item.name}>
-                                        <TableCell className="font-medium">{item.name}</TableCell>
-                                        <TableCell className="text-center">{item.totalBuckets === 0 ? '-' : item.totalBuckets}</TableCell>
-                                        <TableCell className="text-right">{item.percentage.toFixed(2)} %</TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </ScrollArea>
-                ) : (
-                    <p className="text-muted-foreground text-center py-4">Le mélange est vide.</p>
-                )}
-            </div>
-
+           <DialogDescription>
+              Voulez-vous enregistrer la session avec les indicateurs du mélange total (AFs + GO) ?
+          </DialogDescription>
+          <div className="py-4 space-y-2">
+            <div className="flex justify-between font-medium"><span>TSR Global:</span><span>{totalIndicators.tsr.toFixed(2)} %</span></div>
+            <div className="flex justify-between font-medium"><span>PCI Total:</span><span>{totalIndicators.pci.toFixed(0)} kcal/kg</span></div>
           </div>
           <DialogFooter className="gap-2 sm:justify-between flex-wrap">
             <div>
@@ -1108,76 +959,95 @@ export function MixtureCalculator() {
             </div>
         </div>
 
-      <div className="sticky top-0 z-10 bg-brand-bg/95 backdrop-blur-sm py-4 space-y-4 -mx-4 -mt-4 px-4 pt-4">
-        <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className='flex items-center gap-2'>
-                <h2 className="text-2xl font-bold text-white">Indicateurs Globaux</h2>
-                {thresholds && (
-                    <ThresholdSettingsModal 
-                        isOpen={isThresholdModalOpen}
-                        onOpenChange={setIsThresholdModalOpen}
-                        thresholds={thresholds}
-                        onSave={handleSaveThresholds}
-                        isReadOnly={isReadOnly}
-                    />
-                )}
-              </div>
-                 <Popover>
-                    <PopoverTrigger asChild>
-                    <Button
-                        id="date"
-                        variant={"outline"}
-                        className={cn(
-                            "w-[300px] justify-start text-left font-normal",
-                            !globalDateRange && "text-muted-foreground"
-                        )}
-                    >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {globalDateRange?.from ? (
-                        globalDateRange.to ? (
-                            <>
-                            {format(globalDateRange.from, "d MMM y", { locale: fr })} -{" "}
-                            {format(globalDateRange.to, "d MMM y", { locale: fr })}
-                            </>
-                        ) : (
-                            format(globalDateRange.from, "d MMM y", { locale: fr })
-                        )
-                        ) : (
-                        <span>Période d'analyse globale</span>
-                        )}
-                    </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                        initialFocus
-                        mode="range"
-                        defaultMonth={globalDateRange?.from}
-                        selected={globalDateRange}
-                        onSelect={setGlobalDateRange}
-                        numberOfMonths={2}
-                        locale={fr}
-                    />
-                    </PopoverContent>
-                </Popover>
+      <div className="sticky top-0 z-10 bg-brand-bg/95 backdrop-blur-sm py-4 space-y-6 -mx-4 -mt-4 px-4 pt-4">
+        {/* Section Indicateurs */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Indicateurs AFs (sans GO) */}
+            <div>
+                 <div className="flex items-center gap-4 mb-3">
+                    <h2 className="text-2xl font-bold text-white">Indicateurs Mélange AFs (sans GO)</h2>
+                     {thresholds && (
+                        <ThresholdSettingsModal 
+                            isOpen={isThresholdModalOpen}
+                            onOpenChange={setIsThresholdModalOpen}
+                            thresholds={thresholds}
+                            onSave={handleSaveThresholds}
+                            isReadOnly={isReadOnly}
+                        />
+                    )}
+                 </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    <IndicatorDisplay title="Débit AFs" value={afIndicators.flow.toFixed(2)} unit="t/h" status='neutral' indicatorKey="flow" name="Débit"/>
+                    <IndicatorDisplay title="PCI moy" value={afIndicators.pci.toFixed(0)} unit="kcal/kg" status={afIndicators.status.pci} indicatorKey="pci" name="PCI Moyen"/>
+                    <IndicatorDisplay title="% Humidité moy" value={afIndicators.humidity.toFixed(2)} unit="%" status={afIndicators.status.humidity} indicatorKey="humidity" name="Humidité Moyenne"/>
+                    <IndicatorDisplay title="% Cendres moy" value={afIndicators.ash.toFixed(2)} unit="%" status={afIndicators.status.ash} indicatorKey="ash" name="Cendres Moyennes"/>
+                    <IndicatorDisplay title="% Chlorures" value={afIndicators.chlorine.toFixed(3)} unit="%" status={afIndicators.status.chlorine} indicatorKey="chlorine" name="Chlorures Moyens"/>
+                    <IndicatorDisplay title="Taux de pneus" value={afIndicators.tireRate.toFixed(2)} unit="%" status={afIndicators.status.tireRate} indicatorKey="tireRate" name="Taux de Pneus"/>
+                     <IndicatorDisplay title="TSR" value={afIndicators.tsr.toFixed(2)} unit="%" status='neutral' indicatorKey="tsr" name="TSR"/>
+                    <IndicatorDisplay title="Coût du Mélange" value={afIndicators.cost.toFixed(2) } unit="MAD/t" status='neutral' indicatorKey="cost" name="Coût du Mélange"/>
+                </div>
             </div>
-            <div className="flex items-center gap-2">
-                <Button disabled={isSaving || isReadOnly} onClick={handlePrepareSave}>
-                    <Save className="mr-2 h-4 w-4" />
-                    {isSaving ? "Enregistrement..." : "Enregistrer la Session"}
-                </Button>
-                <SaveConfirmationModal />
+            {/* Indicateurs Mélange Total (avec GO) */}
+            <div>
+                 <div className="flex items-center gap-4 mb-3">
+                    <h2 className="text-2xl font-bold text-white">Indicateurs Mélange Total (avec GO)</h2>
+                 </div>
+                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    <IndicatorDisplay title="Débit Total" value={totalIndicators.flow.toFixed(2)} unit="t/h" status='neutral' indicatorKey="flow" name="Débit"/>
+                    <IndicatorDisplay title="PCI moy" value={totalIndicators.pci.toFixed(0)} unit="kcal/kg" status={totalIndicators.status.pci} indicatorKey="pci" name="PCI Moyen"/>
+                    <IndicatorDisplay title="% Humidité moy" value={totalIndicators.humidity.toFixed(2)} unit="%" status={totalIndicators.status.humidity} indicatorKey="humidity" name="Humidité Moyenne"/>
+                    <IndicatorDisplay title="% Cendres moy" value={totalIndicators.ash.toFixed(2)} unit="%" status={totalIndicators.status.ash} indicatorKey="ash" name="Cendres Moyennes"/>
+                    <IndicatorDisplay title="% Chlorures" value={totalIndicators.chlorine.toFixed(3)} unit="%" status={totalIndicators.status.chlorine} indicatorKey="chlorine" name="Chlorures Moyens"/>
+                    <IndicatorDisplay title="Taux de pneus" value={totalIndicators.tireRate.toFixed(2)} unit="%" status={totalIndicators.status.tireRate} indicatorKey="tireRate" name="Taux de Pneus"/>
+                     <IndicatorDisplay title="TSR" value={totalIndicators.tsr.toFixed(2)} unit="%" status='neutral' indicatorKey="tsr" name="TSR"/>
+                    <IndicatorDisplay title="Coût du Mélange" value={totalIndicators.cost.toFixed(2) } unit="MAD/t" status='neutral' indicatorKey="cost" name="Coût du Mélange"/>
+                </div>
             </div>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
-          <IndicatorDisplay title="Débit des AFs" value={globalIndicators.flow.toFixed(2)} unit="t/h" status='neutral' indicatorKey="flow" name="Débit"/>
-          <IndicatorDisplay title="PCI moy" value={globalIndicators.pci.toFixed(0)} unit="kcal/kg" status={globalIndicators.status.pci} indicatorKey="pci" name="PCI Moyen"/>
-          <IndicatorDisplay title="% Humidité moy" value={globalIndicators.humidity.toFixed(2)} unit="%" status={globalIndicators.status.humidity} indicatorKey="humidity" name="Humidité Moyenne"/>
-          <IndicatorDisplay title="% Cendres moy" value={globalIndicators.ash.toFixed(2)} unit="%" status={globalIndicators.status.ash} indicatorKey="ash" name="Cendres Moyennes"/>
-          <IndicatorDisplay title="% Chlorures" value={globalIndicators.chlorine.toFixed(3)} unit="%" status={globalIndicators.status.chlorine} indicatorKey="chlorine" name="Chlorures Moyens"/>
-          <IndicatorDisplay title="Taux de pneus" value={globalIndicators.tireRate.toFixed(2)} unit="%" status={globalIndicators.status.tireRate} indicatorKey="tireRate" name="Taux de Pneus"/>
-          <IndicatorDisplay title="TSR" value={globalIndicators.tsr.toFixed(2)} unit="%" status={globalIndicators.status.tsr} indicatorKey="tsr" name="TSR"/>
-          <IndicatorDisplay title="Coût du Mélange" value={globalIndicators.cost.toFixed(2) } unit="MAD/t" status='neutral' indicatorKey="cost" name="Coût du Mélange"/>
+
+        <div className="flex justify-end gap-2">
+            <Popover>
+                <PopoverTrigger asChild>
+                <Button
+                    id="date"
+                    variant={"outline"}
+                    className={cn(
+                        "w-[300px] justify-start text-left font-normal",
+                        !globalDateRange && "text-muted-foreground"
+                    )}
+                >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {globalDateRange?.from ? (
+                    globalDateRange.to ? (
+                        <>
+                        {format(globalDateRange.from, "d MMM y", { locale: fr })} -{" "}
+                        {format(globalDateRange.to, "d MMM y", { locale: fr })}
+                        </>
+                    ) : (
+                        format(globalDateRange.from, "d MMM y", { locale: fr })
+                    )
+                    ) : (
+                    <span>Période d'analyse globale</span>
+                    )}
+                </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                    initialFocus
+                    mode="range"
+                    defaultMonth={globalDateRange?.from}
+                    selected={globalDateRange}
+                    onSelect={setGlobalDateRange}
+                    numberOfMonths={2}
+                    locale={fr}
+                />
+                </PopoverContent>
+            </Popover>
+            <Button disabled={isSaving || isReadOnly} onClick={handlePrepareSave}>
+                <Save className="mr-2 h-4 w-4" />
+                {isSaving ? "Enregistrement..." : "Enregistrer la Session"}
+            </Button>
+            <SaveConfirmationModal />
         </div>
       </div>
 
