@@ -81,7 +81,7 @@ const defaultThresholds: MixtureThresholds = {
 };
 
 type IndicatorStatus = 'alert' | 'warning' | 'conform' | 'neutral';
-export type IndicatorKey = 'pci' | 'humidity' | 'ash' | 'chlorine' | 'tireRate' | 'cost' | 'flow' | 'tsr';
+export type IndicatorKey = 'pci' | 'humidity' | 'ash' | 'chlorine' | 'tireRate' | 'cost' | 'flow' | 'tsr' | 'cl_fc';
 
 const ThresholdSettingsModal = ({
   isOpen,
@@ -205,6 +205,7 @@ export function IndicatorCard({
     'Humidité': { key: 'humidity', name: 'Humidité' },
     'TauxPneus': { key: 'tireRate', name: 'Taux Pneus' },
     'TSR': { key: 'tsr', name: 'TSR'},
+    '%Cl FC': { key: 'cl_fc', name: '%Cl FC'},
   };
   
     const statusClasses: Record<IndicatorStatus, string> = {
@@ -241,7 +242,7 @@ export function IndicatorCard({
                     <span className="text-base font-semibold">
                     {key === "PCI"
                         ? `${(value as number).toFixed(0)}`
-                        : `${(value as number).toFixed(key === 'Chlorures' ? 3 : 2)}%`
+                        : `${(value as number).toFixed(key === 'Chlorures' || key === '%Cl FC' ? 3 : 2)}%`
                     }
                     </span>
                 </motion.div>
@@ -335,13 +336,17 @@ function useMixtureCalculations(
     };
     
     let tireRateAf = 0;
-    if (totalAfFlow > 0) {
-        const totalTireWeight = afFlows.reduce((sum, item) => sum + item.flow * (item.indicators.tireWeight / item.indicators.weight), 0);
-        const totalWeight = afFlows.reduce((sum, item) => sum + item.flow, 0);
-        if (totalWeight > 0) {
-            tireRateAf = (totalTireWeight / totalWeight) * 100;
-        }
+    const totalAfWeightFromFlows = afFlows.reduce((sum, item) => sum + item.flow * (item.indicators.weight > 0 ? 1 : 0), 0);
+    if (totalAfWeightFromFlows > 0) {
+        const totalTireWeightContribution = afFlows.reduce((sum, item) => {
+            if (item.indicators.weight > 0) {
+                return sum + item.flow * (item.indicators.tireWeight / item.indicators.weight);
+            }
+            return sum;
+        }, 0);
+        tireRateAf = (totalTireWeightContribution / totalAfWeightFromFlows) * 100;
     }
+
 
     const afIndicators = {
         flow: totalAfFlow,
@@ -369,17 +374,12 @@ function useMixtureCalculations(
         return (afValue * totalAfFlow + grignonsValue * grignonsFlow) / totalAlternativeFlow;
     };
 
-    const totalIndicators = {
-        flow: totalAlternativeFlow,
-        pci: weightedTotalAvg(afIndicators.pci, pciGrignons),
-        humidity: weightedTotalAvg(afIndicators.humidity, humidityGrignons),
-        ash: weightedTotalAvg(afIndicators.ash, ashGrignons),
-        chlorine: weightedTotalAvg(afIndicators.chlorine, chlorineGrignons),
-        tireRate: afIndicators.tireRate, // tireRate is only for AFs
-        cost: weightedTotalAvg(afIndicators.cost, costGrignons),
-    };
-
-    // --- TSR Calculation ---
+    const totalPci = weightedTotalAvg(afIndicators.pci, pciGrignons);
+    const totalHumidity = weightedTotalAvg(afIndicators.humidity, humidityGrignons);
+    const totalAsh = weightedTotalAvg(afIndicators.ash, ashGrignons);
+    const totalChlorine = weightedTotalAvg(afIndicators.chlorine, chlorineGrignons);
+    
+    // TSR Calculation
     const getPci = (fuelName: string) => availableFuels[fuelName]?.pci_brut || 0;
     const afEnergy = totalAfFlow * afIndicators.pci;
     const grignonsEnergy = grignonsFlow * pciGrignons;
@@ -390,6 +390,20 @@ function useMixtureCalculations(
     const totalEnergy = totalAlternativeEnergy + petcokeEnergy;
     const tsr = totalEnergy > 0 ? (totalAlternativeEnergy / totalEnergy) * 100 : 0;
     
+    const clFc = 0.20 + (totalChlorine) * (0.23 + 4.85 * (tsr / 100));
+
+    const totalIndicators = {
+        flow: totalAlternativeFlow,
+        pci: totalPci,
+        humidity: totalHumidity,
+        ash: totalAsh,
+        chlorine: totalChlorine,
+        tireRate: afIndicators.tireRate, // tireRate is only for AFs
+        cost: weightedTotalAvg(afIndicators.cost, costGrignons),
+        tsr,
+        cl_fc: clFc
+    };
+
     const getStatus = (value: number, key: IndicatorKey): IndicatorStatus => {
        if(!thresholds) return 'neutral';
        switch (key) {
@@ -427,13 +441,14 @@ function useMixtureCalculations(
         tireRate: getStatus(afIndicators.tireRate, 'tireRate'),
         tsr: 'neutral' as IndicatorStatus,
       } },
-      totalIndicators: { ...totalIndicators, tsr, status: {
+      totalIndicators: { ...totalIndicators, status: {
         pci: getStatus(totalIndicators.pci, 'pci'),
         humidity: getStatus(totalIndicators.humidity, 'humidity'),
         ash: getStatus(totalIndicators.ash, 'ash'),
         chlorine: getStatus(totalIndicators.chlorine, 'chlorine'),
         tireRate: getStatus(totalIndicators.tireRate, 'tireRate'),
         tsr: 'neutral' as IndicatorStatus,
+        cl_fc: 'neutral' as IndicatorStatus,
       } },
     };
   }, [hallAF, ats, directInputs, availableFuels, fuelData, fuelCosts, thresholds]);
@@ -1001,6 +1016,7 @@ export function MixtureCalculator() {
                     <IndicatorDisplay title="Taux de pneus" value={totalIndicators.tireRate.toFixed(2)} unit="%" status={totalIndicators.status.tireRate} indicatorKey="tireRate" name="Taux de Pneus"/>
                      <IndicatorDisplay title="TSR" value={totalIndicators.tsr.toFixed(2)} unit="%" status='neutral' indicatorKey="tsr" name="TSR"/>
                     <IndicatorDisplay title="Coût du Mélange" value={totalIndicators.cost.toFixed(2) } unit="MAD/t" status='neutral' indicatorKey="cost" name="Coût du Mélange"/>
+                    <IndicatorDisplay title="%Cl FC" value={totalIndicators.cl_fc.toFixed(3)} unit="%" status='neutral' indicatorKey="cl_fc" name="%Cl FC" />
                 </div>
             </div>
         </div>
