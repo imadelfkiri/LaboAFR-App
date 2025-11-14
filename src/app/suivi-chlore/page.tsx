@@ -46,6 +46,7 @@ function ChlorineTrackingManager() {
   const [hotMealChlorine, setHotMealChlorine] = useState<string>('');
   
   const [latestMixtureChlorine, setLatestMixtureChlorine] = useState<number>(0);
+  const [latestClFcEstime, setLatestClFcEstime] = useState<number>(0);
   const [latestAfFlow, setLatestAfFlow] = useState<number>(0);
   const [latestGoFlow, setLatestGoFlow] = useState<number>(0);
 
@@ -59,6 +60,7 @@ function ChlorineTrackingManager() {
           const session = await getLatestMixtureSession();
           if (session) {
               setLatestMixtureChlorine(session.globalIndicators?.chlorine || 0);
+              setLatestClFcEstime(session.globalIndicators?.cl_fc || 0);
               const afFlow = (session.hallAF?.flowRate || 0) + (session.ats?.flowRate || 0);
               const goFlow = (session.directInputs?.['Grignons GO1']?.flowRate || 0) + (session.directInputs?.['Grignons GO2']?.flowRate || 0);
               setLatestAfFlow(afFlow);
@@ -117,6 +119,7 @@ function ChlorineTrackingManager() {
             date: Timestamp.fromDate(date),
             calculatedMixtureChlorine: latestMixtureChlorine,
             hotMealChlorine: chlorineValue,
+            clFcEstime: latestClFcEstime,
             afFlow: latestAfFlow,
             goFlow: latestGoFlow,
         });
@@ -166,7 +169,7 @@ function ChlorineTrackingManager() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="grid md:grid-cols-5 gap-4 items-end">
+          <form onSubmit={handleSubmit} className="grid md:grid-cols-6 gap-4 items-end">
             <div className="space-y-2">
               <label className="text-sm font-medium">Date de l'analyse</label>
               <Popover>
@@ -201,7 +204,11 @@ function ChlorineTrackingManager() {
               <label className="text-sm font-medium text-muted-foreground">% Chlore Mélange (auto)</label>
               <p className="font-bold text-lg">{latestMixtureChlorine.toFixed(3)} %</p>
             </div>
-            <div className="md:col-span-5 flex justify-end">
+            <div className="space-y-2 p-2 border rounded-md bg-purple-900/40 border-purple-500 text-purple-300">
+              <label className="text-sm font-medium">%Cl FC estimé (auto)</label>
+              <p className="font-bold text-lg">{latestClFcEstime.toFixed(3)} %</p>
+            </div>
+            <div className="md:col-span-6 flex justify-end">
               <Button type="submit" disabled={isSubmitting}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 {isSubmitting ? "Enregistrement..." : "Enregistrer l'entrée du jour"}
@@ -260,12 +267,13 @@ function ChlorineTrackingManager() {
                 <ComposedChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
-                    <YAxis yAxisId="left" label={{ value: '% Chlore', angle: -90, position: 'insideLeft' }} />
+                    <YAxis yAxisId="left" label={{ value: '% Chlore', angle: -90, position: 'insideLeft' }} domain={[0, 'dataMax + 0.05']} />
                     <YAxis yAxisId="right" orientation="right" label={{ value: 'Débit (t/h)', angle: -90, position: 'insideRight' }} />
                     <Tooltip />
                     <Legend />
-                    <Line yAxisId="left" type="monotone" dataKey="calculatedMixtureChlorine" name="% Cl (Mélange)" stroke="#8884d8" strokeWidth={2} />
-                    <Line yAxisId="left" type="monotone" dataKey="hotMealChlorine" name="% Cl (Farine)" stroke="#82ca9d" strokeWidth={2} />
+                    <Line yAxisId="left" type="monotone" dataKey="calculatedMixtureChlorine" name="% Cl (Mélange)" stroke="#8884d8" strokeWidth={2} dot={{ r: 4 }} />
+                    <Line yAxisId="left" type="monotone" dataKey="clFcEstime" name="% Cl FC (Estimé)" stroke="#A020F0" strokeWidth={2} dot={{ r: 4 }} />
+                    <Line yAxisId="left" type="monotone" dataKey="hotMealChlorine" name="% Cl (Analysé Farine)" stroke="#82ca9d" strokeWidth={3} />
                     <Line yAxisId="right" type="monotone" dataKey="afFlow" name="Débit AF" stroke="#ffc658" strokeDasharray="5 5" />
                     <Line yAxisId="right" type="monotone" dataKey="goFlow" name="Débit GO" stroke="#ff8042" strokeDasharray="5 5" />
                 </ComposedChart>
@@ -280,7 +288,8 @@ function ChlorineTrackingManager() {
                             <TableHead className="text-right">Débit AF (t/h)</TableHead>
                             <TableHead className="text-right">Débit GO (t/h)</TableHead>
                             <TableHead className="text-right">% Cl (Mélange)</TableHead>
-                            <TableHead className="text-right">% Cl (Farine)</TableHead>
+                            <TableHead className="text-right">% Cl FC (Estimé)</TableHead>
+                            <TableHead className="text-right">% Cl FC (Analysé)</TableHead>
                             <TableHead className="text-center">Action</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -291,7 +300,8 @@ function ChlorineTrackingManager() {
                                 <TableCell className="text-right">{(entry.afFlow ?? 0).toFixed(2)}</TableCell>
                                 <TableCell className="text-right">{(entry.goFlow ?? 0).toFixed(2)}</TableCell>
                                 <TableCell className="text-right">{entry.calculatedMixtureChlorine.toFixed(3)}</TableCell>
-                                <TableCell className="text-right">{entry.hotMealChlorine.toFixed(3)}</TableCell>
+                                <TableCell className="text-right font-medium text-purple-400">{(entry.clFcEstime ?? 0).toFixed(3)}</TableCell>
+                                <TableCell className="text-right font-bold text-emerald-400">{entry.hotMealChlorine.toFixed(3)}</TableCell>
                                 <TableCell className="text-center">
                                     <Button variant="ghost" size="icon" onClick={() => setDeletingId(entry.id)}>
                                         <Trash2 className="h-4 w-4 text-destructive" />
@@ -300,7 +310,7 @@ function ChlorineTrackingManager() {
                             </TableRow>
                         ))}
                          {entries.length === 0 && !loading && (
-                            <TableRow><TableCell colSpan={6} className="text-center h-24">Aucune donnée.</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={7} className="text-center h-24">Aucune donnée.</TableCell></TableRow>
                         )}
                     </TableBody>
                 </Table>
