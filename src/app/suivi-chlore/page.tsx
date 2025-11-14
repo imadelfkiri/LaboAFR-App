@@ -211,7 +211,7 @@ function ChlorineTrackingManager() {
       
       <Card>
         <CardHeader>
-            <CardTitle>Historique et Évolution</CardTitle>
+            <CardTitle>Historique des analyses</CardTitle>
             <div className="pt-2">
                  <Popover>
                     <PopoverTrigger asChild>
@@ -253,23 +253,6 @@ function ChlorineTrackingManager() {
             </div>
         </CardHeader>
         <CardContent>
-            <ResponsiveContainer width="100%" height={400}>
-                {loading ? <Skeleton className="h-full w-full" /> : entries.length > 0 ? (
-                <ComposedChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis yAxisId="left" label={{ value: '% Chlore', angle: -90, position: 'insideLeft' }} domain={[0, 'dataMax + 0.05']} />
-                    <YAxis yAxisId="right" orientation="right" label={{ value: 'TSR (%)', angle: -90, position: 'insideRight' }} />
-                    <Tooltip />
-                    <Legend />
-                    <Line yAxisId="left" type="monotone" dataKey="calculatedMixtureChlorine" name="% Cl (Mélange)" stroke="#8884d8" strokeWidth={2} dot={{ r: 4 }} />
-                    <Line yAxisId="left" type="monotone" dataKey="clFcEstime" name="% Cl FC (Estimé)" stroke="#A020F0" strokeWidth={2} dot={{ r: 4 }} />
-                    <Line yAxisId="left" type="monotone" dataKey="hotMealChlorine" name="% Cl FC (Analysé)" stroke="#82ca9d" strokeWidth={3} />
-                    <Line yAxisId="right" type="monotone" dataKey="tsr" name="TSR" stroke="#ffc658" strokeDasharray="5 5" />
-                </ComposedChart>
-                 ) : <div className="flex items-center justify-center h-full text-muted-foreground">Aucune donnée pour la période sélectionnée.</div>}
-            </ResponsiveContainer>
-            
             <div className="mt-8">
                 <Table>
                     <TableHeader>
@@ -284,7 +267,13 @@ function ChlorineTrackingManager() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {entries.map(entry => {
+                        {loading ? (
+                          [...Array(5)].map((_, i) => (
+                            <TableRow key={i}>
+                                <TableCell colSpan={7}><Skeleton className="h-6 w-full" /></TableCell>
+                            </TableRow>
+                          ))
+                        ) : entries.map(entry => {
                             const ecart = (entry.clFcEstime ?? 0) - entry.hotMealChlorine;
                             return (
                             <TableRow key={entry.id}>
@@ -302,7 +291,7 @@ function ChlorineTrackingManager() {
                             </TableRow>
                         )})}
                          {entries.length === 0 && !loading && (
-                            <TableRow><TableCell colSpan={7} className="text-center h-24">Aucune donnée.</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={7} className="text-center h-24">Aucune donnée pour la période sélectionnée.</TableCell></TableRow>
                         )}
                     </TableBody>
                 </Table>
