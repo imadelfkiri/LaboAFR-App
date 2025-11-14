@@ -1,4 +1,3 @@
-
 // src/lib/data.ts
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, arrayUnion, orderBy, Timestamp, setDoc,getCountFromServer, limit, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
@@ -230,6 +229,7 @@ export interface ChlorineTrackingEntry {
     hotMealChlorine: number;
     clFcEstime: number;
     tsr: number;
+    remarques?: string;
 }
 
 

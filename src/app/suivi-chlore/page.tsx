@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Calendar } from "@/components/ui/calendar";
@@ -31,7 +32,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { format, startOfDay, endOfDay, subDays } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Wind, CalendarIcon, PlusCircle, Trash2, Edit, TrendingUp } from 'lucide-react';
+import { Wind, CalendarIcon, PlusCircle, Trash2, Edit, TrendingUp, MessageSquare } from 'lucide-react';
 import { DateRange } from "react-day-picker";
 import { Timestamp } from 'firebase/firestore';
 import { ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Line, ComposedChart } from 'recharts';
@@ -44,6 +45,7 @@ function ChlorineTrackingManager() {
   
   const [date, setDate] = useState<Date>(new Date());
   const [hotMealChlorine, setHotMealChlorine] = useState<string>('');
+  const [remarques, setRemarques] = useState('');
   
   const [latestMixtureChlorine, setLatestMixtureChlorine] = useState<number>(0);
   const [latestClFcEstime, setLatestClFcEstime] = useState<number>(0);
@@ -117,9 +119,11 @@ function ChlorineTrackingManager() {
             hotMealChlorine: chlorineValue,
             clFcEstime: latestClFcEstime,
             tsr: latestTsr,
+            remarques: remarques
         });
         toast({ title: "Succès", description: "Entrée enregistrée." });
         setHotMealChlorine('');
+        setRemarques('');
         setDate(new Date());
         fetchEntries(); // Refresh list
     } catch (error) {
@@ -142,15 +146,6 @@ function ChlorineTrackingManager() {
     }
   };
 
-  const chartData = useMemo(() => {
-    return entries
-        .map(entry => ({
-            ...entry,
-            date: format(entry.date.toDate(), 'dd/MM/yy'),
-        }))
-        .sort((a,b) => a.date.localeCompare(b.date)); // Sort chronologically for chart
-  }, [entries]);
-
   return (
     <div className="space-y-6">
       <Card>
@@ -164,42 +159,52 @@ function ChlorineTrackingManager() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="grid md:grid-cols-6 gap-4 items-end">
-            <div className="md:col-span-2 space-y-2">
-              <label className="text-sm font-medium">Date de l'analyse</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                    <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !date && "text-muted-foreground")}>
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {date ? format(date, "PPP", { locale: fr }) : <span>Choisir une date</span>}
-                    </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} initialFocus locale={fr} /></PopoverContent>
-              </Popover>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid md:grid-cols-3 gap-6 items-end">
+                {/* --- Inputs --- */}
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">Date de l'analyse</label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !date && "text-muted-foreground")}>
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {date ? format(date, "PPP", { locale: fr }) : <span>Choisir une date</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} initialFocus locale={fr} /></PopoverContent>
+                        </Popover>
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">% Chlore Farine Chaude (Analysé)</label>
+                        <Input type="number" step="0.001" value={hotMealChlorine} onChange={(e) => setHotMealChlorine(e.target.value)} placeholder="Ex: 0.035"/>
+                    </div>
+                </div>
+
+                {/* --- Auto Values --- */}
+                <div className="md:col-span-2 grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="space-y-2 p-3 border rounded-lg bg-muted/30 flex flex-col justify-center">
+                        <label className="text-sm font-medium text-muted-foreground">TSR (auto)</label>
+                        <p className="font-bold text-lg">{latestTsr.toFixed(2)} %</p>
+                    </div>
+                    <div className="space-y-2 p-3 border rounded-lg bg-muted/30 flex flex-col justify-center">
+                        <label className="text-sm font-medium text-muted-foreground">% Chlore Mélange (auto)</label>
+                        <p className="font-bold text-lg">{latestMixtureChlorine.toFixed(3)} %</p>
+                    </div>
+                     <div className="space-y-2 p-3 border rounded-lg bg-purple-900/40 border-purple-500 text-purple-300 flex flex-col justify-center">
+                        <label className="text-sm font-medium">%Cl FC estimé (auto)</label>
+                        <p className="font-bold text-lg">{latestClFcEstime.toFixed(3)} %</p>
+                    </div>
+                </div>
             </div>
-            <div className="md:col-span-2 space-y-2">
-              <label className="text-sm font-medium">% Chlore Farine Chaude (Analysé)</label>
-              <Input
-                type="number"
-                step="0.001"
-                value={hotMealChlorine}
-                onChange={(e) => setHotMealChlorine(e.target.value)}
-                placeholder="Ex: 0.035"
-              />
+
+            {/* --- Remarques & Submit --- */}
+            <div className="space-y-2 pt-4">
+                <label className="text-sm font-medium flex items-center gap-2"><MessageSquare className="h-4 w-4" />Remarques</label>
+                <Textarea value={remarques} onChange={(e) => setRemarques(e.target.value)} placeholder="Ajoutez un commentaire... (optionnel)" />
             </div>
-             <div className="space-y-2 p-2 border rounded-md bg-muted/50">
-              <label className="text-sm font-medium text-muted-foreground">TSR (auto)</label>
-              <p className="font-bold text-lg">{latestTsr.toFixed(2)} %</p>
-            </div>
-            <div className="space-y-2 p-2 border rounded-md bg-muted/50">
-              <label className="text-sm font-medium text-muted-foreground">% Chlore Mélange (auto)</label>
-              <p className="font-bold text-lg">{latestMixtureChlorine.toFixed(3)} %</p>
-            </div>
-            <div className="space-y-2 p-2 border rounded-md bg-purple-900/40 border-purple-500 text-purple-300">
-              <label className="text-sm font-medium">%Cl FC estimé (auto)</label>
-              <p className="font-bold text-lg">{latestClFcEstime.toFixed(3)} %</p>
-            </div>
-            <div className="md:col-span-6 flex justify-end">
+
+            <div className="flex justify-end pt-4">
               <Button type="submit" disabled={isSubmitting}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 {isSubmitting ? "Enregistrement..." : "Enregistrer l'entrée du jour"}
@@ -263,6 +268,7 @@ function ChlorineTrackingManager() {
                             <TableHead className="text-right">% Cl FC (Estimé)</TableHead>
                             <TableHead className="text-right">% Cl FC (Analysé)</TableHead>
                             <TableHead className="text-right">Ecart (Est. - Réel)</TableHead>
+                            <TableHead>Remarques</TableHead>
                             <TableHead className="text-center">Action</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -270,7 +276,7 @@ function ChlorineTrackingManager() {
                         {loading ? (
                           [...Array(5)].map((_, i) => (
                             <TableRow key={i}>
-                                <TableCell colSpan={7}><Skeleton className="h-6 w-full" /></TableCell>
+                                <TableCell colSpan={8}><Skeleton className="h-6 w-full" /></TableCell>
                             </TableRow>
                           ))
                         ) : entries.map(entry => {
@@ -283,6 +289,7 @@ function ChlorineTrackingManager() {
                                 <TableCell className="text-right font-medium text-purple-400">{(entry.clFcEstime ?? 0).toFixed(3)}</TableCell>
                                 <TableCell className="text-right font-bold text-emerald-400">{entry.hotMealChlorine.toFixed(3)}</TableCell>
                                 <TableCell className={cn("text-right font-medium", ecart > 0.01 ? 'text-red-400' : ecart < -0.01 ? 'text-yellow-400' : 'text-gray-400')}>{ecart.toFixed(3)}</TableCell>
+                                <TableCell className="max-w-[200px] truncate" title={entry.remarques}>{entry.remarques}</TableCell>
                                 <TableCell className="text-center">
                                     <Button variant="ghost" size="icon" onClick={() => setDeletingId(entry.id)}>
                                         <Trash2 className="h-4 w-4 text-destructive" />
@@ -291,7 +298,7 @@ function ChlorineTrackingManager() {
                             </TableRow>
                         )})}
                          {entries.length === 0 && !loading && (
-                            <TableRow><TableCell colSpan={7} className="text-center h-24">Aucune donnée pour la période sélectionnée.</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={8} className="text-center h-24">Aucune donnée pour la période sélectionnée.</TableCell></TableRow>
                         )}
                     </TableBody>
                 </Table>
