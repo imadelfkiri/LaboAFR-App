@@ -30,12 +30,21 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { format, startOfDay, endOfDay, subDays } from 'date-fns';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { format, startOfDay, endOfDay, subDays, setHours, setMinutes, parse } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Wind, CalendarIcon, PlusCircle, Trash2, Edit, TrendingUp, MessageSquare } from 'lucide-react';
 import { DateRange } from "react-day-picker";
 import { Timestamp } from 'firebase/firestore';
-import { ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Line, ComposedChart } from 'recharts';
 import { cn } from "@/lib/utils";
 
 function ChlorineTrackingManager() {
@@ -44,6 +53,7 @@ function ChlorineTrackingManager() {
   const { toast } = useToast();
   
   const [date, setDate] = useState<Date>(new Date());
+  const [time, setTime] = useState(format(new Date(), 'HH:mm'));
   const [hotMealChlorine, setHotMealChlorine] = useState<string>('');
   const [remarques, setRemarques] = useState('');
   
@@ -55,6 +65,7 @@ function ChlorineTrackingManager() {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingEntry, setEditingEntry] = useState<ChlorineTrackingEntry | null>(null);
 
   const fetchLatestMixtureData = useCallback(async () => {
       try {
@@ -86,15 +97,12 @@ function ChlorineTrackingManager() {
     fetchLatestMixtureData();
     fetchEntries();
 
-    // Check for imported chlorine value from localStorage
     if (typeof window !== 'undefined') {
         const importedValue = localStorage.getItem('importedHotMealChlorine');
         if (importedValue) {
             try {
                 const parsedValue = JSON.parse(importedValue);
                 setHotMealChlorine(String(parsedValue));
-                // Optional: remove it after use to prevent re-populating on next visit
-                // localStorage.removeItem('importedHotMealChlorine');
                 toast({ title: "Donnée importée", description: "Le % de chlore de la farine chaude a été pré-rempli." });
             } catch (e) {
                 console.error("Failed to parse imported chlorine value", e);
@@ -113,8 +121,11 @@ function ChlorineTrackingManager() {
     
     setIsSubmitting(true);
     try {
+        const [hours, minutes] = time.split(':').map(Number);
+        const finalDate = setMinutes(setHours(date, hours), minutes);
+
         await addChlorineTrackingEntry({
-            date: Timestamp.fromDate(date),
+            date: Timestamp.fromDate(finalDate),
             calculatedMixtureChlorine: latestMixtureChlorine,
             hotMealChlorine: chlorineValue,
             clFcEstime: latestClFcEstime,
@@ -125,6 +136,7 @@ function ChlorineTrackingManager() {
         setHotMealChlorine('');
         setRemarques('');
         setDate(new Date());
+        setTime(format(new Date(), 'HH:mm'));
         fetchEntries(); // Refresh list
     } catch (error) {
         toast({ variant: "destructive", title: "Erreur", description: "Impossible d'enregistrer l'entrée." });
@@ -146,6 +158,23 @@ function ChlorineTrackingManager() {
     }
   };
 
+  const handleEdit = (entry: ChlorineTrackingEntry) => {
+    setEditingEntry(entry);
+  }
+
+  const handleUpdate = async (updatedData: Partial<ChlorineTrackingEntry>) => {
+    if (!editingEntry) return;
+    try {
+        await updateChlorineTrackingEntry(editingEntry.id, updatedData);
+        toast({ title: "Succès", description: "Enregistrement mis à jour." });
+        setEditingEntry(null);
+        fetchEntries();
+    } catch (error) {
+        toast({ variant: "destructive", title: "Erreur", description: "Impossible de mettre à jour l'enregistrement." });
+    }
+  }
+
+
   return (
     <div className="space-y-6">
       <Card>
@@ -161,19 +190,24 @@ function ChlorineTrackingManager() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid md:grid-cols-3 gap-6 items-end">
-                {/* --- Inputs --- */}
                 <div className="space-y-4">
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium">Date de l'analyse</label>
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !date && "text-muted-foreground")}>
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {date ? format(date, "PPP", { locale: fr }) : <span>Choisir une date</span>}
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} initialFocus locale={fr} /></PopoverContent>
-                        </Popover>
+                    <div className="flex gap-2">
+                        <div className="flex-grow space-y-2">
+                            <label className="text-sm font-medium">Date de l'analyse</label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !date && "text-muted-foreground")}>
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {date ? format(date, "PPP", { locale: fr }) : <span>Choisir une date</span>}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} initialFocus locale={fr} /></PopoverContent>
+                            </Popover>
+                        </div>
+                         <div className="space-y-2 w-28">
+                            <label className="text-sm font-medium">Heure</label>
+                            <Input type="time" value={time} onChange={e => setTime(e.target.value)} />
+                        </div>
                     </div>
                     <div className="space-y-2">
                         <label className="text-sm font-medium">% Chlore Farine Chaude (Analysé)</label>
@@ -181,7 +215,6 @@ function ChlorineTrackingManager() {
                     </div>
                 </div>
 
-                {/* --- Auto Values --- */}
                 <div className="md:col-span-2 grid grid-cols-2 md:grid-cols-3 gap-4">
                     <div className="space-y-2 p-3 border rounded-lg bg-muted/30 flex flex-col justify-center">
                         <label className="text-sm font-medium text-muted-foreground">TSR (auto)</label>
@@ -198,7 +231,6 @@ function ChlorineTrackingManager() {
                 </div>
             </div>
 
-            {/* --- Remarques & Submit --- */}
             <div className="space-y-2 pt-4">
                 <label className="text-sm font-medium flex items-center gap-2"><MessageSquare className="h-4 w-4" />Remarques</label>
                 <Textarea value={remarques} onChange={(e) => setRemarques(e.target.value)} placeholder="Ajoutez un commentaire... (optionnel)" />
@@ -283,7 +315,7 @@ function ChlorineTrackingManager() {
                             const ecart = (entry.clFcEstime ?? 0) - entry.hotMealChlorine;
                             return (
                             <TableRow key={entry.id}>
-                                <TableCell>{format(entry.date.toDate(), 'd MMM yyyy', { locale: fr })}</TableCell>
+                                <TableCell>{format(entry.date.toDate(), "d MMM yyyy 'à' HH:mm", { locale: fr })}</TableCell>
                                 <TableCell className="text-right">{(entry.tsr ?? 0).toFixed(2)}%</TableCell>
                                 <TableCell className="text-right">{entry.calculatedMixtureChlorine.toFixed(3)}</TableCell>
                                 <TableCell className="text-right font-medium text-purple-400">{(entry.clFcEstime ?? 0).toFixed(3)}</TableCell>
@@ -291,9 +323,14 @@ function ChlorineTrackingManager() {
                                 <TableCell className={cn("text-right font-medium", ecart > 0.01 ? 'text-red-400' : ecart < -0.01 ? 'text-yellow-400' : 'text-gray-400')}>{ecart.toFixed(3)}</TableCell>
                                 <TableCell className="max-w-[200px] truncate" title={entry.remarques}>{entry.remarques}</TableCell>
                                 <TableCell className="text-center">
-                                    <Button variant="ghost" size="icon" onClick={() => setDeletingId(entry.id)}>
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
+                                    <div className="flex justify-center items-center">
+                                        <Button variant="ghost" size="icon" onClick={() => handleEdit(entry)}>
+                                            <Edit className="h-4 w-4 text-muted-foreground" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" onClick={() => setDeletingId(entry.id)}>
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    </div>
                                 </TableCell>
                             </TableRow>
                         )})}
@@ -320,9 +357,87 @@ function ChlorineTrackingManager() {
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
+
+        {editingEntry && (
+            <EditEntryDialog 
+                entry={editingEntry} 
+                onClose={() => setEditingEntry(null)}
+                onSave={handleUpdate}
+            />
+        )}
     </div>
   );
 }
+
+const EditEntryDialog = ({ entry, onClose, onSave }: { entry: ChlorineTrackingEntry, onClose: () => void, onSave: (data: Partial<ChlorineTrackingEntry>) => void }) => {
+    const [date, setDate] = useState(entry.date.toDate());
+    const [time, setTime] = useState(format(entry.date.toDate(), 'HH:mm'));
+    const [chlorine, setChlorine] = useState(String(entry.hotMealChlorine));
+    const [remarques, setRemarques] = useState(entry.remarques || "");
+    const [isSaving, setIsSaving] = useState(false);
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        const [hours, minutes] = time.split(':').map(Number);
+        const finalDate = setMinutes(setHours(date, hours), minutes);
+
+        onSave({
+            date: Timestamp.fromDate(finalDate),
+            hotMealChlorine: parseFloat(chlorine),
+            remarques,
+        });
+    };
+    
+    return (
+        <Dialog open={true} onOpenChange={onClose}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Modifier l'enregistrement</DialogTitle>
+                    <DialogDescription>
+                        Mettez à jour les informations pour l'analyse du {format(entry.date.toDate(), 'd MMM yyyy', { locale: fr })}.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                     <div className="flex gap-2">
+                        <div className="flex-grow space-y-2">
+                            <label className="text-sm font-medium">Date de l'analyse</label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !date && "text-muted-foreground")}>
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {date ? format(date, "PPP", { locale: fr }) : <span>Choisir une date</span>}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} initialFocus locale={fr} /></PopoverContent>
+                            </Popover>
+                        </div>
+                         <div className="space-y-2 w-28">
+                            <label className="text-sm font-medium">Heure</label>
+                            <Input type="time" value={time} onChange={e => setTime(e.target.value)} />
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">% Chlore Farine Chaude</label>
+                        <Input type="number" step="0.001" value={chlorine} onChange={e => setChlorine(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">Remarques</label>
+                        <Textarea value={remarques} onChange={e => setRemarques(e.target.value)} />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button variant="secondary" onClick={onClose}>Annuler</Button>
+                    </DialogClose>
+                    <Button onClick={handleSave} disabled={isSaving}>
+                        {isSaving ? "Enregistrement..." : "Enregistrer les modifications"}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
 
 export default function SuiviChlorePage() {
     return (
