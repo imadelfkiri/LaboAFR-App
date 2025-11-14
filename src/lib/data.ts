@@ -228,10 +228,10 @@ export interface ChlorineTrackingEntry {
     date: Timestamp;
     calculatedMixtureChlorine: number;
     hotMealChlorine: number;
-    clFcEstime?: number;
-    afFlow: number;
-    goFlow: number;
+    clFcEstime: number;
+    tsr: number;
 }
+
 
 interface Result {
   id: string;

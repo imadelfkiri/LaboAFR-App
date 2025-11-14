@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { format, startOfDay, endOfDay, subDays } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Wind, CalendarIcon, PlusCircle, Trash2, Edit } from 'lucide-react';
+import { Wind, CalendarIcon, PlusCircle, Trash2, Edit, TrendingUp } from 'lucide-react';
 import { DateRange } from "react-day-picker";
 import { Timestamp } from 'firebase/firestore';
 import { ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Line, ComposedChart } from 'recharts';
@@ -47,8 +47,7 @@ function ChlorineTrackingManager() {
   
   const [latestMixtureChlorine, setLatestMixtureChlorine] = useState<number>(0);
   const [latestClFcEstime, setLatestClFcEstime] = useState<number>(0);
-  const [latestAfFlow, setLatestAfFlow] = useState<number>(0);
-  const [latestGoFlow, setLatestGoFlow] = useState<number>(0);
+  const [latestTsr, setLatestTsr] = useState<number>(0);
 
   const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: subDays(new Date(), 30), to: new Date() });
   
@@ -61,10 +60,7 @@ function ChlorineTrackingManager() {
           if (session) {
               setLatestMixtureChlorine(session.globalIndicators?.chlorine || 0);
               setLatestClFcEstime(session.globalIndicators?.cl_fc || 0);
-              const afFlow = (session.hallAF?.flowRate || 0) + (session.ats?.flowRate || 0);
-              const goFlow = (session.directInputs?.['Grignons GO1']?.flowRate || 0) + (session.directInputs?.['Grignons GO2']?.flowRate || 0);
-              setLatestAfFlow(afFlow);
-              setLatestGoFlow(goFlow);
+              setLatestTsr(session.globalIndicators?.tsr || 0);
           }
       } catch (error) {
           toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données du dernier mélange."});
@@ -120,8 +116,7 @@ function ChlorineTrackingManager() {
             calculatedMixtureChlorine: latestMixtureChlorine,
             hotMealChlorine: chlorineValue,
             clFcEstime: latestClFcEstime,
-            afFlow: latestAfFlow,
-            goFlow: latestGoFlow,
+            tsr: latestTsr,
         });
         toast({ title: "Succès", description: "Entrée enregistrée." });
         setHotMealChlorine('');
@@ -170,7 +165,7 @@ function ChlorineTrackingManager() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="grid md:grid-cols-6 gap-4 items-end">
-            <div className="space-y-2">
+            <div className="md:col-span-2 space-y-2">
               <label className="text-sm font-medium">Date de l'analyse</label>
               <Popover>
                 <PopoverTrigger asChild>
@@ -182,8 +177,8 @@ function ChlorineTrackingManager() {
                 <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={date} onSelect={(d) => d && setDate(d)} initialFocus locale={fr} /></PopoverContent>
               </Popover>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">% Chlore Farine Chaude</label>
+            <div className="md:col-span-2 space-y-2">
+              <label className="text-sm font-medium">% Chlore Farine Chaude (Analysé)</label>
               <Input
                 type="number"
                 step="0.001"
@@ -192,13 +187,9 @@ function ChlorineTrackingManager() {
                 placeholder="Ex: 0.035"
               />
             </div>
-            <div className="space-y-2 p-2 border rounded-md bg-muted/50">
-              <label className="text-sm font-medium text-muted-foreground">Débit AF (auto)</label>
-              <p className="font-bold text-lg">{latestAfFlow.toFixed(2)} t/h</p>
-            </div>
              <div className="space-y-2 p-2 border rounded-md bg-muted/50">
-              <label className="text-sm font-medium text-muted-foreground">Débit GO (auto)</label>
-              <p className="font-bold text-lg">{latestGoFlow.toFixed(2)} t/h</p>
+              <label className="text-sm font-medium text-muted-foreground">TSR (auto)</label>
+              <p className="font-bold text-lg">{latestTsr.toFixed(2)} %</p>
             </div>
             <div className="space-y-2 p-2 border rounded-md bg-muted/50">
               <label className="text-sm font-medium text-muted-foreground">% Chlore Mélange (auto)</label>
@@ -268,14 +259,13 @@ function ChlorineTrackingManager() {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
                     <YAxis yAxisId="left" label={{ value: '% Chlore', angle: -90, position: 'insideLeft' }} domain={[0, 'dataMax + 0.05']} />
-                    <YAxis yAxisId="right" orientation="right" label={{ value: 'Débit (t/h)', angle: -90, position: 'insideRight' }} />
+                    <YAxis yAxisId="right" orientation="right" label={{ value: 'TSR (%)', angle: -90, position: 'insideRight' }} />
                     <Tooltip />
                     <Legend />
                     <Line yAxisId="left" type="monotone" dataKey="calculatedMixtureChlorine" name="% Cl (Mélange)" stroke="#8884d8" strokeWidth={2} dot={{ r: 4 }} />
                     <Line yAxisId="left" type="monotone" dataKey="clFcEstime" name="% Cl FC (Estimé)" stroke="#A020F0" strokeWidth={2} dot={{ r: 4 }} />
-                    <Line yAxisId="left" type="monotone" dataKey="hotMealChlorine" name="% Cl (Analysé Farine)" stroke="#82ca9d" strokeWidth={3} />
-                    <Line yAxisId="right" type="monotone" dataKey="afFlow" name="Débit AF" stroke="#ffc658" strokeDasharray="5 5" />
-                    <Line yAxisId="right" type="monotone" dataKey="goFlow" name="Débit GO" stroke="#ff8042" strokeDasharray="5 5" />
+                    <Line yAxisId="left" type="monotone" dataKey="hotMealChlorine" name="% Cl FC (Analysé)" stroke="#82ca9d" strokeWidth={3} />
+                    <Line yAxisId="right" type="monotone" dataKey="tsr" name="TSR" stroke="#ffc658" strokeDasharray="5 5" />
                 </ComposedChart>
                  ) : <div className="flex items-center justify-center h-full text-muted-foreground">Aucune donnée pour la période sélectionnée.</div>}
             </ResponsiveContainer>
@@ -285,30 +275,32 @@ function ChlorineTrackingManager() {
                     <TableHeader>
                         <TableRow>
                             <TableHead>Date</TableHead>
-                            <TableHead className="text-right">Débit AF (t/h)</TableHead>
-                            <TableHead className="text-right">Débit GO (t/h)</TableHead>
+                            <TableHead className="text-right">TSR (%)</TableHead>
                             <TableHead className="text-right">% Cl (Mélange)</TableHead>
                             <TableHead className="text-right">% Cl FC (Estimé)</TableHead>
                             <TableHead className="text-right">% Cl FC (Analysé)</TableHead>
+                            <TableHead className="text-right">Ecart (Est. - Réel)</TableHead>
                             <TableHead className="text-center">Action</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {entries.map(entry => (
+                        {entries.map(entry => {
+                            const ecart = (entry.clFcEstime ?? 0) - entry.hotMealChlorine;
+                            return (
                             <TableRow key={entry.id}>
                                 <TableCell>{format(entry.date.toDate(), 'd MMM yyyy', { locale: fr })}</TableCell>
-                                <TableCell className="text-right">{(entry.afFlow ?? 0).toFixed(2)}</TableCell>
-                                <TableCell className="text-right">{(entry.goFlow ?? 0).toFixed(2)}</TableCell>
+                                <TableCell className="text-right">{(entry.tsr ?? 0).toFixed(2)}%</TableCell>
                                 <TableCell className="text-right">{entry.calculatedMixtureChlorine.toFixed(3)}</TableCell>
                                 <TableCell className="text-right font-medium text-purple-400">{(entry.clFcEstime ?? 0).toFixed(3)}</TableCell>
                                 <TableCell className="text-right font-bold text-emerald-400">{entry.hotMealChlorine.toFixed(3)}</TableCell>
+                                <TableCell className={cn("text-right font-medium", ecart > 0.01 ? 'text-red-400' : ecart < -0.01 ? 'text-yellow-400' : 'text-gray-400')}>{ecart.toFixed(3)}</TableCell>
                                 <TableCell className="text-center">
                                     <Button variant="ghost" size="icon" onClick={() => setDeletingId(entry.id)}>
                                         <Trash2 className="h-4 w-4 text-destructive" />
                                     </Button>
                                 </TableCell>
                             </TableRow>
-                        ))}
+                        )})}
                          {entries.length === 0 && !loading && (
                             <TableRow><TableCell colSpan={7} className="text-center h-24">Aucune donnée.</TableCell></TableRow>
                         )}
