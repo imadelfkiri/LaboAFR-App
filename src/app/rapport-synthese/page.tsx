@@ -164,7 +164,6 @@ export default function RapportSynthesePage() {
                 { label: "Chlorures", value: formatNumber(mixtureSession.globalIndicators.chlorine, 3), unit: "%" },
                 { label: "Cendres", value: formatNumber(mixtureSession.globalIndicators.ash, 2), unit: "%" },
                 { label: "H2O", value: formatNumber(mixtureSession.globalIndicators.humidity, 2), unit: "%" },
-                 { label: "%Cl FC estimé", value: formatNumber(mixtureSession.globalIndicators.cl_fc, 3), unit: "%" },
             ];
 
             doc.autoTable({
@@ -234,15 +233,17 @@ export default function RapportSynthesePage() {
 
         // Indicateurs
         children.push(new Paragraph({ text: "Indicateurs du Mélange", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }));
-        const indicatorRows = Object.entries(mixtureIndicators).map(([key, value]) => {
-            const indicatorMap = {'PCI': 'kcal/kg', 'Chlorures': '%', 'Cendres': '%', 'Humidité': '%', 'TauxPneus': '%', '%Cl- FC estimé': '%'};
-            return new DocxTableRow({
-                children: [
-                    new DocxTableCell({ children: [new Paragraph(key === 'TauxPneus' ? 'Taux Pneus' : key)] }),
-                    new DocxTableCell({ children: [new Paragraph(String(value))] }),
-                    new DocxTableCell({ children: [new Paragraph(indicatorMap[key as keyof typeof indicatorMap])] }),
-                ]
-            });
+        const indicatorRows = Object.entries(mixtureIndicators)
+            .filter(([key]) => key !== '%Cl- FC estimé')
+            .map(([key, value]) => {
+                const indicatorMap = {'PCI': 'kcal/kg', 'Chlorures': '%', 'Cendres': '%', 'Humidité': '%', 'TauxPneus': '%'};
+                return new DocxTableRow({
+                    children: [
+                        new DocxTableCell({ children: [new Paragraph(key === 'TauxPneus' ? 'Taux Pneus' : key)] }),
+                        new DocxTableCell({ children: [new Paragraph(String(value))] }),
+                        new DocxTableCell({ children: [new Paragraph(indicatorMap[key as keyof typeof indicatorMap])] }),
+                    ]
+                });
         });
         children.push(new DocxTable({
             width: { size: 100, type: WidthType.PERCENTAGE },
