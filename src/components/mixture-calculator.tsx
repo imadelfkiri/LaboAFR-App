@@ -984,95 +984,87 @@ export function MixtureCalculator() {
             </div>
         </div>
 
-      <div className="sticky top-0 z-10 bg-brand-bg/95 backdrop-blur-sm py-4 space-y-6 -mx-4 -mt-4 px-4 pt-4">
-        {/* Section Indicateurs */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Indicateurs AFs (sans GO) */}
-            <div>
-                 <div className="flex items-center gap-4 mb-3">
-                    <h2 className="text-xl font-bold text-white">Indicateurs Mélange AFs (sans GO)</h2>
-                     {thresholds && (
-                        <ThresholdSettingsModal 
-                            isOpen={isThresholdModalOpen}
-                            onOpenChange={setIsThresholdModalOpen}
-                            thresholds={thresholds}
-                            onSave={handleSaveThresholds}
-                            isReadOnly={isReadOnly}
+      <div className="sticky top-0 z-20 bg-brand-bg/95 backdrop-blur-sm py-4 -mx-8 px-8 border-b border-brand-line">
+            <div className="flex items-center gap-4 mb-4">
+                <h2 className="text-xl font-bold text-white whitespace-nowrap">Mélange Total (avec GO)</h2>
+                {thresholds && (
+                    <ThresholdSettingsModal 
+                        isOpen={isThresholdModalOpen}
+                        onOpenChange={setIsThresholdModalOpen}
+                        thresholds={thresholds}
+                        onSave={handleSaveThresholds}
+                        isReadOnly={isReadOnly}
+                    />
+                )}
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-9 gap-4">
+                <IndicatorDisplay title="Débit Total" value={totalIndicators.flow.toFixed(2)} unit="t/h" status='neutral' indicatorKey="flow" name="Débit"/>
+                <IndicatorDisplay title="PCI moy" value={totalIndicators.pci.toFixed(0)} unit="kcal/kg" status={totalIndicators.status.pci} indicatorKey="pci" name="PCI Moyen"/>
+                <IndicatorDisplay title="% Humidité moy" value={totalIndicators.humidity.toFixed(2)} unit="%" status={totalIndicators.status.humidity} indicatorKey="humidity" name="Humidité Moyenne"/>
+                <IndicatorDisplay title="% Cendres moy" value={totalIndicators.ash.toFixed(2)} unit="%" status={totalIndicators.status.ash} indicatorKey="ash" name="Cendres Moyennes"/>
+                <IndicatorDisplay title="% Chlorures" value={totalIndicators.chlorine.toFixed(3)} unit="%" status={totalIndicators.status.chlorine} indicatorKey="chlorine" name="Chlorures Moyens"/>
+                <IndicatorDisplay title="Taux de pneus" value={totalIndicators.tireRate.toFixed(2)} unit="%" status={totalIndicators.status.tireRate} indicatorKey="tireRate" name="Taux de Pneus"/>
+                <IndicatorDisplay title="TSR" value={totalIndicators.tsr.toFixed(2)} unit="%" status='neutral' indicatorKey="tsr" name="TSR"/>
+                <IndicatorDisplay title="Coût du Mélange" value={totalIndicators.cost.toFixed(2) } unit="MAD/t" status='neutral' indicatorKey="cost" name="Coût du Mélange"/>
+                <IndicatorDisplay title="%Cl- FC estimé" value={totalIndicators.cl_fc.toFixed(3)} unit="%" status='neutral' indicatorKey="cl_fc" name="%Cl- FC estimé" />
+            </div>
+            <Separator className="my-6" />
+            <div className="flex justify-between items-center">
+                <div>
+                     <h3 className="text-lg font-semibold text-white">Mélange AFs (sans GO)</h3>
+                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <span>Débit: <strong className="text-white">{afIndicators.flow.toFixed(2)} t/h</strong></span>
+                        <Separator orientation="vertical" className="h-4"/>
+                        <span>PCI: <strong className="text-white">{afIndicators.pci.toFixed(0)} kcal/kg</strong></span>
+                        <Separator orientation="vertical" className="h-4"/>
+                        <span>Chlorures: <strong className="text-white">{afIndicators.chlorine.toFixed(3)}%</strong></span>
+                     </div>
+                </div>
+                 <div className="flex items-center gap-2">
+                    <Popover>
+                        <PopoverTrigger asChild>
+                        <Button
+                            id="date"
+                            variant={"outline"}
+                            className={cn(
+                                "w-[300px] justify-start text-left font-normal",
+                                !globalDateRange && "text-muted-foreground"
+                            )}
+                        >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {globalDateRange?.from ? (
+                            globalDateRange.to ? (
+                                <>
+                                {format(globalDateRange.from, "d MMM y", { locale: fr })} -{" "}
+                                {format(globalDateRange.to, "d MMM y", { locale: fr })}
+                                </>
+                            ) : (
+                                format(globalDateRange.from, "d MMM y", { locale: fr })
+                            )
+                            ) : (
+                            <span>Période d'analyse globale</span>
+                            )}
+                        </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                        <Calendar
+                            initialFocus
+                            mode="range"
+                            defaultMonth={globalDateRange?.from}
+                            selected={globalDateRange}
+                            onSelect={setGlobalDateRange}
+                            numberOfMonths={2}
+                            locale={fr}
                         />
-                    )}
-                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    <IndicatorDisplay title="Débit AFs" value={afIndicators.flow.toFixed(2)} unit="t/h" status='neutral' indicatorKey="flow" name="Débit"/>
-                    <IndicatorDisplay title="PCI moy" value={afIndicators.pci.toFixed(0)} unit="kcal/kg" status={afIndicators.status.pci} indicatorKey="pci" name="PCI Moyen"/>
-                    <IndicatorDisplay title="% Humidité moy" value={afIndicators.humidity.toFixed(2)} unit="%" status={afIndicators.status.humidity} indicatorKey="humidity" name="Humidité Moyenne"/>
-                    <IndicatorDisplay title="% Cendres moy" value={afIndicators.ash.toFixed(2)} unit="%" status={afIndicators.status.ash} indicatorKey="ash" name="Cendres Moyennes"/>
-                    <IndicatorDisplay title="% Chlorures" value={afIndicators.chlorine.toFixed(3)} unit="%" status={afIndicators.status.chlorine} indicatorKey="chlorine" name="Chlorures Moyens"/>
-                    <IndicatorDisplay title="Taux de pneus" value={afIndicators.tireRate.toFixed(2)} unit="%" status={afIndicators.status.tireRate} indicatorKey="tireRate" name="Taux de Pneus"/>
-                     <IndicatorDisplay title="TSR" value={afIndicators.tsr.toFixed(2)} unit="%" status='neutral' indicatorKey="tsr" name="TSR"/>
-                    <IndicatorDisplay title="Coût du Mélange" value={afIndicators.cost.toFixed(2) } unit="MAD/t" status='neutral' indicatorKey="cost" name="Coût du Mélange"/>
+                        </PopoverContent>
+                    </Popover>
+                    <Button disabled={isSaving || isReadOnly} onClick={handlePrepareSave}>
+                        <Save className="mr-2 h-4 w-4" />
+                        {isSaving ? "Enregistrement..." : "Enregistrer la Session"}
+                    </Button>
+                    <SaveConfirmationModal />
                 </div>
             </div>
-            {/* Indicateurs Mélange Total (avec GO) */}
-            <div>
-                <h3 className="text-lg font-semibold text-white mb-3">Indicateurs Mélange Total (avec GO)</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    <IndicatorDisplay title="Débit Total" value={totalIndicators.flow.toFixed(2)} unit="t/h" status='neutral' indicatorKey="flow" name="Débit"/>
-                    <IndicatorDisplay title="PCI moy" value={totalIndicators.pci.toFixed(0)} unit="kcal/kg" status={totalIndicators.status.pci} indicatorKey="pci" name="PCI Moyen"/>
-                    <IndicatorDisplay title="% Humidité moy" value={totalIndicators.humidity.toFixed(2)} unit="%" status={totalIndicators.status.humidity} indicatorKey="humidity" name="Humidité Moyenne"/>
-                    <IndicatorDisplay title="% Cendres moy" value={totalIndicators.ash.toFixed(2)} unit="%" status={totalIndicators.status.ash} indicatorKey="ash" name="Cendres Moyennes"/>
-                    <IndicatorDisplay title="% Chlorures" value={totalIndicators.chlorine.toFixed(3)} unit="%" status={totalIndicators.status.chlorine} indicatorKey="chlorine" name="Chlorures Moyens"/>
-                    <IndicatorDisplay title="Taux de pneus" value={totalIndicators.tireRate.toFixed(2)} unit="%" status={totalIndicators.status.tireRate} indicatorKey="tireRate" name="Taux de Pneus"/>
-                     <IndicatorDisplay title="TSR" value={totalIndicators.tsr.toFixed(2)} unit="%" status='neutral' indicatorKey="tsr" name="TSR"/>
-                    <IndicatorDisplay title="Coût du Mélange" value={totalIndicators.cost.toFixed(2) } unit="MAD/t" status='neutral' indicatorKey="cost" name="Coût du Mélange"/>
-                    <IndicatorDisplay title="%Cl- FC estimé" value={totalIndicators.cl_fc.toFixed(3)} unit="%" status='neutral' indicatorKey="cl_fc" name="%Cl- FC estimé" />
-                </div>
-            </div>
-        </div>
-
-        <div className="flex justify-end gap-2">
-            <Popover>
-                <PopoverTrigger asChild>
-                <Button
-                    id="date"
-                    variant={"outline"}
-                    className={cn(
-                        "w-[300px] justify-start text-left font-normal",
-                        !globalDateRange && "text-muted-foreground"
-                    )}
-                >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {globalDateRange?.from ? (
-                    globalDateRange.to ? (
-                        <>
-                        {format(globalDateRange.from, "d MMM y", { locale: fr })} -{" "}
-                        {format(globalDateRange.to, "d MMM y", { locale: fr })}
-                        </>
-                    ) : (
-                        format(globalDateRange.from, "d MMM y", { locale: fr })
-                    )
-                    ) : (
-                    <span>Période d'analyse globale</span>
-                    )}
-                </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                    initialFocus
-                    mode="range"
-                    defaultMonth={globalDateRange?.from}
-                    selected={globalDateRange}
-                    onSelect={setGlobalDateRange}
-                    numberOfMonths={2}
-                    locale={fr}
-                />
-                </PopoverContent>
-            </Popover>
-            <Button disabled={isSaving || isReadOnly} onClick={handlePrepareSave}>
-                <Save className="mr-2 h-4 w-4" />
-                {isSaving ? "Enregistrement..." : "Enregistrer la Session"}
-            </Button>
-            <SaveConfirmationModal />
-        </div>
       </div>
 
       <Dialog open={!!historyChartIndicator} onOpenChange={(open) => !open && setHistoryChartIndicator(null)}>
@@ -1102,7 +1094,7 @@ export function MixtureCalculator() {
         </DialogContent>
       </Dialog>
 
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-6">
         <Card className="shadow-md rounded-xl lg:col-span-1">
           <CardHeader className="flex flex-row items-center justify-between p-6">
             <CardTitle>Hall des AF</CardTitle>
@@ -1243,6 +1235,7 @@ export function MixtureCalculator() {
 }
 
     
+
 
 
 
