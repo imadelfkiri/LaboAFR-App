@@ -45,8 +45,6 @@ const allLinks = [
   { href: '/donnees-combustibles', label: 'Données Combustibles', icon: Cog },
   { href: '/calcul-melange', label: 'Calcul de Mélange', icon: Beaker },
   { href: '/simulation-melange', label: 'Simulation de Mélange', icon: FlaskConical },
-  { href: '/gestion-couts', label: 'Gestion des Coûts', icon: DollarSign },
-  { href: '/gestion-stock', label: 'Gestion du Stock', icon: Archive },
   { href: '/indicateurs', label: 'Indicateurs', icon: TrendingUp },
   { href: '/calcul-impact', label: "Calcul d'Impact", icon: Activity },
   { href: '/bilan-cl-s', label: 'Bilan Cl & S', icon: Wind },

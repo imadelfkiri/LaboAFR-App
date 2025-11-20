@@ -76,12 +76,6 @@ const documentationArticles = [
     icon: Cog,
   },
   {
-    title: "Principe de la Gestion des Coûts",
-    description: "Définissez le coût par tonne pour chaque combustible et son impact sur le calcul de mélange.",
-    href: "/documentation/principe-gestion-couts",
-    icon: DollarSign,
-  },
-  {
     title: "Principe du Rapport de Synthèse",
     description: "Générez un rapport consolidé du mélange et de son impact, prêt à être partagé ou archivé.",
     href: "/documentation/rapport-synthese",
