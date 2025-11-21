@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from 'next/link';
@@ -47,7 +46,6 @@ const allLinks = [
   { href: '/simulation-melange', label: 'Simulation de Mélange', icon: FlaskConical },
   { href: '/indicateurs', label: 'Indicateurs', icon: TrendingUp },
   { href: '/calcul-impact', label: "Calcul d'Impact", icon: Activity },
-  { href: '/bilan-cl-s', label: 'Bilan Cl & S', icon: Wind },
   { href: '/historique-impact', label: "Historique Impact", icon: Book },
   { href: '/documentation', label: 'Documentation', icon: BookText },
   { href: '/suivi-chlore', label: 'Suivi Chlore', icon: Wind },
