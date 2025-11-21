@@ -95,7 +95,6 @@ interface Result {
   type_analyse: string;
   type_combustible: string;
   fournisseur: string;
-  tonnage?: number | null;
   pcs: number | null;
   h2o: number;
   cendres: number | null;
@@ -129,7 +128,6 @@ const formatNumberForPdf = (num: number | null | undefined, fractionDigits: numb
 const editSchema = z.object({
   pcs: z.coerce.number().positive(),
   h2o: z.coerce.number().min(0).max(100),
-  tonnage: z.coerce.number().min(0).optional().nullable(),
   chlore: z.coerce.number().min(0).optional().nullable(),
   cendres: z.coerce.number().min(0).optional().nullable(),
   remarques: z.string().optional().nullable(),
@@ -141,7 +139,6 @@ const importSchema = z.object({
   type_analyse: z.string().optional().nullable(),
   type_combustible: z.string().nonempty({message: "Le type de combustible est requis."}),
   fournisseur: z.string().nonempty({message: "Le fournisseur est requis."}),
-  tonnage: z.coerce.number({invalid_type_error: "Tonnage doit être un nombre."}).optional().nullable(),
   pcs: z.coerce.number({invalid_type_error: "PCS doit être un nombre."}).optional().nullable(),
   pci_brut: z.coerce.number({invalid_type_error: "PCI Brut doit être un nombre."}).optional().nullable(),
   h2o: z.coerce.number({invalid_type_error: "H2O doit être un nombre."}).min(0).max(100),
@@ -347,7 +344,6 @@ export default function ResultsTable() {
     form.reset({
         pcs: result.pcs ?? undefined,
         h2o: result.h2o,
-        tonnage: result.tonnage,
         chlore: result.chlore,
         cendres: result.cendres,
         remarques: result.remarques,
@@ -428,7 +424,6 @@ export default function ResultsTable() {
                           date_arrivage: rowArray[0], // A
                           type_combustible: rowArray[1], // B
                           fournisseur: rowArray[2], // C
-                          tonnage: rowArray[3], // D
                           pcs: rowArray[4], // E
                           pci_brut: rowArray[5], // F
                           h2o: rowArray[6], // G
@@ -522,7 +517,6 @@ export default function ResultsTable() {
               "Type Combustible": type_combustible,
               "Fournisseur": fournisseur,
               "Analyses": results.length,
-              "Tonnage (t)": results.reduce((s, r) => s + (r.tonnage ?? 0), 0),
               "PCS sur sec (kcal/kg)": avg('pcs'),
               "PCI sur Brut (kcal/kg)": avg('pci_brut'),
               "% H2O": avg('h2o'),
@@ -619,7 +613,6 @@ export default function ResultsTable() {
                     "Date Arrivage": date ? format(date, "dd/MM/yyyy") : "Date invalide",
                     "Type Combustible": row.type_combustible,
                     "Fournisseur": row.fournisseur,
-                    "Tonnage (t)": row.tonnage,
                     "PCS sur sec (kcal/kg)": row.pcs,
                     "PCI sur Brut (kcal/kg)": row.pci_brut,
                     "% H2O": row.h2o,
@@ -645,30 +638,29 @@ export default function ResultsTable() {
 
                 if (reportType === 'aggregated') {
                     const aggregatedData = aggregateResults(dataToExport);
-                    head = [["Combustible", "Fournisseur", "Analyses", "Tonnage", "Moy. PCS", "Moy. PCI", "Moy. H2O", "Moy. Cl-", "Moy. Cendres"]];
+                    head = [["Combustible", "Fournisseur", "Analyses", "Moy. PCS", "Moy. PCI", "Moy. H2O", "Moy. Cl-", "Moy. Cendres"]];
                     body = aggregatedData.map(row => [
                         row["Type Combustible"], row["Fournisseur"], row["Analyses"],
-                        formatNumberForPdf(row["Tonnage (t)"], 1), formatNumberForPdf(row["PCS sur sec (kcal/kg)"], 0),
+                        formatNumberForPdf(row["PCS sur sec (kcal/kg)"], 0),
                         formatNumberForPdf(row["PCI sur Brut (kcal/kg)"], 0), formatNumberForPdf(row["% H2O"], 1),
                         formatNumberForPdf(row["% Cl-"], 2), formatNumberForPdf(row["% Cendres"], 1)
                     ]);
                 } else {
-                    head = [["Date", "Combustible", "Fournisseur", "Tonnage (t)", "PCS", "PCI Brut", "H2O (%)", "Cl- (%)", "Cendres (%)", "Alertes", "Remarques"]];
+                    head = [["Date", "Combustible", "Fournisseur", "PCS", "PCI Brut", "H2O (%)", "Cl- (%)", "Cendres (%)", "Alertes", "Remarques"]];
                     body = dataToExport.map(row => {
                       const date = normalizeDate(row.date_arrivage);
                       return [
                         date ? format(date, "dd/MM/yy") : "Invalide", row.type_combustible, row.fournisseur,
-                        formatNumberForPdf(row.tonnage, 1),
                         formatNumberForPdf(row.pcs, 0), formatNumberForPdf(row.pci_brut, 0), formatNumberForPdf(row.h2o, 1), formatNumberForPdf(row.chlore, 2), formatNumberForPdf(row.cendres, 1),
                         generateAlerts(row).text,
                         row.remarques || "-",
                     ]});
 
                     columnStyles = {
-                        5: { cellWidth: 20 }, // PCI
-                        6: { cellWidth: 15 }, // H2O
-                        7: { cellWidth: 15 }, // Cl-
-                        8: { cellWidth: 20 }, // Cendres
+                        4: { cellWidth: 20 }, // PCI
+                        5: { cellWidth: 15 }, // H2O
+                        6: { cellWidth: 15 }, // Cl-
+                        7: { cellWidth: 20 }, // Cendres
                     };
                 }
         
@@ -687,11 +679,11 @@ export default function ResultsTable() {
 
                             const alertsInfo = generateAlerts(result);
                             
-                            if (data.column.index === 9) { // alerts column
+                            if (data.column.index === 8) { // alerts column
                                 data.cell.styles.textColor = alertsInfo.isConform ? '#16A34A' : '#8B0000';
                             }
                             
-                            const keyMap: {[key: number]: keyof typeof alertsInfo.details} = { 5: 'pci', 6: 'h2o', 7: 'chlore', 8: 'cendres'};
+                            const keyMap: {[key: number]: keyof typeof alertsInfo.details} = { 4: 'pci', 5: 'h2o', 6: 'chlore', 7: 'cendres'};
                             const alertKey = keyMap[data.column.index];
 
                             if (alertKey && alertsInfo.details[alertKey]) {
@@ -759,7 +751,6 @@ export default function ResultsTable() {
     { label: "Date Arrivage", key: "date_arrivage" },
     { label: "Type Combustible", key: "type_combustible" },
     { label: "Fournisseur", key: "fournisseur" },
-    { label: "Tonnage (t)", key: "tonnage" },
     { label: "PCS sur sec", key: "pcs" },
     { label: "PCI sur Brut", key: "pci" },
     { label: "% H2O", key: "h2o" },
@@ -794,7 +785,6 @@ export default function ResultsTable() {
     };
 
     return {
-      tonnage: sum('tonnage'),
       pcs: avg('pcs'),
       pci_brut: avg('pci_brut'),
       h2o: avg('h2o'),
@@ -928,7 +918,6 @@ export default function ResultsTable() {
                             <td className="p-1.5 text-muted-foreground whitespace-nowrap">{normalizeDate(r.date_arrivage) ? format(normalizeDate(r.date_arrivage)!, 'dd/MM/yyyy') : 'Date invalide'}</td>
                             <td className="p-1.5 font-medium">{r.type_combustible}</td>
                             <td className="p-1.5">{r.fournisseur}</td>
-                            <td className={`p-1.5 text-right tabular-nums`}>{formatNumber(r.tonnage, 1)}</td>
                             <td className={`p-1.5 text-right tabular-nums`}>{formatNumber(r.pcs, 0)}</td>
                             <td className={`p-1.5 text-right font-semibold tabular-nums ${alerte.details.pci ? "text-red-400" : ""}`}>{formatNumber(r.pci_brut, 0)}</td>
                             <td className={`p-1.5 text-right tabular-nums ${alerte.details.h2o ? "text-red-400" : ""}`}>{formatNumber(r.h2o, 1)}</td>
@@ -951,11 +940,10 @@ export default function ResultsTable() {
                           </tr>
                         );
                       })}
-                      {sortedAndFilteredResults.length===0 && ( <tr><td colSpan={12} className="p-6 text-center text-muted-foreground">Aucun résultat.</td></tr> )}
+                      {sortedAndFilteredResults.length===0 && ( <tr><td colSpan={11} className="p-6 text-center text-muted-foreground">Aucun résultat.</td></tr> )}
                        {averages && (
                             <tr className="font-semibold border-t-2 border-brand-line/80 bg-blue-900/30">
                                 <td className="p-2" colSpan={3}>Moyenne de la sélection</td>
-                                <td className="p-2 text-right tabular-nums">{formatNumber(averages.tonnage, 1)}</td>
                                 <td className="p-2 text-right tabular-nums">{formatNumber(averages.pcs, 0)}</td>
                                 <td className="p-2 text-right tabular-nums">{formatNumber(averages.pci_brut, 0)}</td>
                                 <td className="p-2 text-right tabular-nums">{formatNumber(averages.h2o, 1)}</td>
@@ -991,7 +979,6 @@ export default function ResultsTable() {
                         <div className="grid grid-cols-2 gap-4">
                             <FormField control={form.control} name="pcs" render={({ field }) => (<FormItem><FormLabel>PCS</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                             <FormField control={form.control} name="h2o" render={({ field }) => (<FormItem><FormLabel>% H2O</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                            <FormField control={form.control} name="tonnage" render={({ field }) => (<FormItem><FormLabel>Tonnage (t)</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                             <FormField control={form.control} name="chlore" render={({ field }) => (<FormItem><FormLabel>% Cl-</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                             <FormField control={form.control} name="cendres" render={({ field }) => (<FormItem><FormLabel>% Cendres</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
                             <FormField control={form.control} name="taux_metal" render={({ field }) => (<FormItem><FormLabel>Taux d'inertes (%)</FormLabel><FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
@@ -1005,3 +992,5 @@ export default function ResultsTable() {
       </>
   );
 }
+
+    
