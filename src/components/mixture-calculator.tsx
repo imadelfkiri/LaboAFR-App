@@ -264,13 +264,11 @@ function useMixtureCalculations(
     directInputs: Record<string, DirectInputState>,
     availableFuels: Record<string, AverageAnalysis>, 
     fuelData: Record<string, FuelData>, 
-    fuelCosts: Record<string, FuelCost>,
     thresholds?: MixtureThresholds
 ) {
    return useMemo(() => {
     const processInstallation = (state: InstallationState) => {
         let totalWeight = 0;
-        let tempTotalCost = 0;
         let tempTotalPci = 0;
         let tempTotalHumidity = 0;
         let tempTotalAsh = 0;
@@ -302,19 +300,15 @@ function useMixtureCalculations(
 
             let correctedPciBrut = analysisData.pci_brut;
             
-            const fuelCost = fuelCosts[fuelName]?.cost || 0;
-
             tempTotalPci += weight * correctedPciBrut;
             tempTotalHumidity += weight * analysisData.h2o;
             tempTotalAsh += weight * analysisData.cendres;
             tempTotalChlorine += weight * analysisData.chlore;
-            tempTotalCost += weight * fuelCost;
         }
 
         return { 
             weight: totalWeight, 
             tireWeight: tempTotalTireWeight,
-            cost: totalWeight > 0 ? tempTotalCost / totalWeight : 0,
             pci: totalWeight > 0 ? tempTotalPci / totalWeight : 0,
             humidity: totalWeight > 0 ? tempTotalHumidity / totalWeight : 0,
             ash: totalWeight > 0 ? tempTotalAsh / totalWeight : 0,
@@ -333,7 +327,7 @@ function useMixtureCalculations(
     ];
     const totalAfFlow = afFlows.reduce((sum, item) => sum + item.flow, 0);
 
-    const weightedAfAvg = (valueKey: 'pci' | 'humidity' | 'ash' | 'chlorine' | 'cost') => {
+    const weightedAfAvg = (valueKey: 'pci' | 'humidity' | 'ash' | 'chlorine') => {
         if (totalAfFlow === 0) return 0;
         const totalValue = afFlows.reduce((sum, item) => sum + item.flow * (item.indicators[valueKey] || 0), 0);
         return totalValue / totalAfFlow;
@@ -359,7 +353,6 @@ function useMixtureCalculations(
         ash: weightedAfAvg('ash'),
         chlorine: weightedAfAvg('chlorine'),
         tireRate: tireRateAf,
-        cost: weightedAfAvg('cost'),
     };
     
     // --- Total Indicators (avec GO) ---
@@ -371,7 +364,6 @@ function useMixtureCalculations(
     const humidityGrignons = grignonsAnalysis?.h2o || 0;
     const ashGrignons = grignonsAnalysis?.cendres || 0;
     const chlorineGrignons = grignonsAnalysis?.chlore || 0;
-    const costGrignons = fuelCosts['Grignons']?.cost || 0;
     
     const weightedTotalAvg = (afValue: number, grignonsValue: number) => {
         if (totalAlternativeFlow === 0) return 0;
@@ -403,7 +395,6 @@ function useMixtureCalculations(
         ash: totalAsh,
         chlorine: totalChlorine,
         tireRate: afIndicators.tireRate, // tireRate is only for AFs
-        cost: weightedTotalAvg(afIndicators.cost, costGrignons),
         tsr,
         cl_fc
     };
@@ -459,7 +450,7 @@ function useMixtureCalculations(
         flow: 'neutral' as IndicatorStatus,
       } },
     };
-  }, [hallAF, ats, directInputs, availableFuels, fuelData, fuelCosts, thresholds]);
+  }, [hallAF, ats, directInputs, availableFuels, fuelData, thresholds]);
 }
 
 
@@ -503,8 +494,6 @@ export function MixtureCalculator() {
   const [globalDateRange, setGlobalDateRange] = useState<DateRange | undefined>(undefined);
   const [fuelDateRanges, setFuelDateRanges] = useState<Record<string, DateRange | undefined>>({});
 
-  // Cost state
-  const [fuelCosts, setFuelCosts] = useState<Record<string, FuelCost>>({});
   
   // Thresholds state
   const [thresholds, setThresholds] = useState<MixtureThresholds | undefined>(undefined);
@@ -564,7 +553,6 @@ export function MixtureCalculator() {
         }
         const fuelDataMap = allFuelData.reduce((acc, fd) => { acc[fd.nom_combustible] = fd; return acc; }, {} as Record<string, FuelData>);
         setFuelData(fuelDataMap);
-        setFuelCosts(costs);
 
     } catch (error) {
         console.error("Error fetching fuel data:", error);
@@ -662,7 +650,7 @@ export function MixtureCalculator() {
     fetchHistoryData();
   }, [fetchHistoryData]);
 
-  const { afIndicators, totalIndicators } = useMixtureCalculations(hallAF, ats, directInputs, availableFuels, fuelData, fuelCosts, thresholds);
+  const { afIndicators, totalIndicators } = useMixtureCalculations(hallAF, ats, directInputs, availableFuels, fuelData, thresholds);
 
   const historyChartData = useMemo(() => {
     if (!historySessions || historySessions.length === 0 || !historyChartIndicator) return [];
@@ -997,7 +985,7 @@ export function MixtureCalculator() {
                     />
                 )}
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-9 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
                 <IndicatorDisplay title="Débit Total" value={totalIndicators.flow.toFixed(2)} unit="t/h" status='neutral' indicatorKey="flow" name="Débit"/>
                 <IndicatorDisplay title="PCI moy" value={totalIndicators.pci.toFixed(0)} unit="kcal/kg" status={totalIndicators.status.pci} indicatorKey="pci" name="PCI Moyen"/>
                 <IndicatorDisplay title="% Humidité moy" value={totalIndicators.humidity.toFixed(2)} unit="%" status={totalIndicators.status.humidity} indicatorKey="humidity" name="Humidité Moyenne"/>
@@ -1005,7 +993,6 @@ export function MixtureCalculator() {
                 <IndicatorDisplay title="% Chlorures" value={totalIndicators.chlorine.toFixed(3)} unit="%" status={totalIndicators.status.chlorine} indicatorKey="chlorine" name="Chlorures Moyens"/>
                 <IndicatorDisplay title="Taux de pneus" value={totalIndicators.tireRate.toFixed(2)} unit="%" status={totalIndicators.status.tireRate} indicatorKey="tireRate" name="Taux de Pneus"/>
                 <IndicatorDisplay title="TSR" value={totalIndicators.tsr.toFixed(2)} unit="%" status='neutral' indicatorKey="tsr" name="TSR"/>
-                <IndicatorDisplay title="Coût du Mélange" value={totalIndicators.cost.toFixed(2) } unit="MAD/t" status='neutral' indicatorKey="cost" name="Coût du Mélange"/>
                 <IndicatorDisplay title="%Cl- FC estimé" value={totalIndicators.cl_fc.toFixed(3)} unit="%" status='neutral' indicatorKey="cl_fc" name="%Cl- FC estimé" />
             </div>
             <Separator className="my-6" />
@@ -1235,6 +1222,7 @@ export function MixtureCalculator() {
 }
 
     
+
 
 
 
