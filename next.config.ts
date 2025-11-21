@@ -5,12 +5,10 @@ const nextConfig: NextConfig = {
   experimental: {
     serverComponentsExternalPackages: [],
   },
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
-      // Désactiver le cache pour les environnements de développement qui ont des problèmes de chargement de chunk
-      if (process.env.NODE_ENV === 'development') {
-        config.cache = false;
-      }
+  webpack: (config, { isServer, dev }) => {
+    if (dev && !isServer) {
+      // Désactiver le cache en développement pour éviter les erreurs de ChunkLoadError
+      config.cache = false;
     }
     return config;
   },
