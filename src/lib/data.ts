@@ -1,3 +1,4 @@
+
 // src/lib/data.ts
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, arrayUnion, orderBy, Timestamp, setDoc,getCountFromServer, limit, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
@@ -286,13 +287,10 @@ const defaultRoleAccess: Record<string, string[]> = {
     '/donnees-combustibles',
     '/calcul-melange',
     '/simulation-melange',
-    '/gestion-couts',
-    '/gestion-stock',
     '/indicateurs',
     '/calcul-impact',
     '/historique-impact',
     '/documentation',
-    '/bilan-cl-s',
     '/suivi-chlore',
     '/gestion-utilisateurs',
     '/gestion-seuils',
@@ -310,7 +308,6 @@ const defaultRoleAccess: Record<string, string[]> = {
     '/indicateurs',
     '/calcul-impact',
     '/historique-impact',
-    '/bilan-cl-s',
     '/suivi-chlore',
   ],
   viewer: [

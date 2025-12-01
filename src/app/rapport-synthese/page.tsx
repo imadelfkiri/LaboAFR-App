@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getFuelData, type FuelData, getThresholds, type MixtureThresholds } from '@/lib/data';
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from '@/components/ui/skeleton';
 import { Flame, Activity, BookOpen, Beaker, BarChart2, Download, FileText, FileJson, ChevronDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -91,7 +91,6 @@ export default function RapportSynthesePage() {
           'Cendres': indicators.ash,
           'Humidité': indicators.humidity,
           'TauxPneus': indicators.tireRate,
-          '%Cl- FC estimé': indicators.cl_fc,
         };
     }, [mixtureSession]);
 
@@ -234,7 +233,6 @@ export default function RapportSynthesePage() {
         // Indicateurs
         children.push(new Paragraph({ text: "Indicateurs du Mélange", heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 150 } }));
         const indicatorRows = Object.entries(mixtureIndicators)
-            .filter(([key]) => key !== '%Cl- FC estimé')
             .map(([key, value]) => {
                 const indicatorMap = {'PCI': 'kcal/kg', 'Chlorures': '%', 'Cendres': '%', 'Humidité': '%', 'TauxPneus': '%'};
                 return new DocxTableRow({
@@ -459,3 +457,4 @@ export default function RapportSynthesePage() {
         </div>
     );
 }
+
