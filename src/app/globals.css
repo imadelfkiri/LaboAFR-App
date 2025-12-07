@@ -4,41 +4,83 @@
 
 @layer base {
   :root {
-    color-scheme: dark;
+    /* Thème sombre (par défaut) */
+    --background: 220 41% 9%; /* #0B1220 */
+    --foreground: 210 20% 90%; /* #e2e8f0 */
 
-    --background: 224 71% 4%; /* Fallback */
-    --foreground: 0 0% 98%; /* Fallback */
-    
-    --brand-bg: 216 14% 5%; /* #0B0F0E */
-    --brand-surface: 210 13% 8%; /* #111516 */
-    --brand-accent: 145 100% 39%; /* #00C853 */
-    --brand-muted: 210 11% 11%; /* #1A1F20 */
-    --brand-line: 210 11% 14%; /* #212728 */
-    --brand-text: 200 33% 91%; /* #E7F6EE */
+    --card: 215 39% 14%; /* #1E293B */
+    --card-foreground: 210 20% 90%;
 
-    --positive: 145 63% 42%; /* #16A34A */
-    --warning: 38 92% 50%; /* #F59E0B */
-    --danger: 0 84% 60%; /* #EF4444 */
-    
-    --card: 210 13% 8%;
-    --card-foreground: 200 33% 91%;
-    --popover: 210 13% 8%;
-    --popover-foreground: 200 33% 91%;
-    --primary: 145 100% 39%;
-    --primary-foreground: 216 14% 5%;
-    --secondary: 210 11% 11%;
-    --secondary-foreground: 200 33% 91%;
-    --muted: 210 11% 11%;
-    --muted-foreground: 210 5% 63%;
-    --accent: 145 100% 39%;
-    --accent-foreground: 216 14% 5%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 210 11% 14%;
-    --input: 210 11% 14%;
-    --ring: 145 100% 39%;
+    --popover: 216 34% 11%; /* #0f172a */
+    --popover-foreground: 210 20% 90%;
+
+    --primary: 167 100% 36%; /* #00b894 */
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 215 28% 17%;
+    --muted-foreground: 215 20% 65%; /* #94a3b8 */
+
+    --accent: 217 33% 25%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 84% 60%; /* #EF4444 */
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 33% 20%;
+    --input: 217 33% 20%;
+    --ring: 166 84% 40%; /* #10B981 */
 
     --radius: 0.75rem;
+
+    /* Couleurs custom pour le branding */
+    --brand-bg: 220 41% 9%;
+    --brand-surface: 215 39% 14%;
+    --brand-accent: 167 100% 36%;
+    --brand-muted: 217 33% 25%;
+    --brand-line: 217 33% 20%;
+    --brand-text: 210 20% 90%;
+    --unauthorized-bg: 220 41% 9%;
+  }
+
+  .light {
+    /* Thème clair */
+    --background: 210 40% 98%; /* #f8fafc */
+    --foreground: 224 71% 4%; /* #111827 */
+
+    --card: 0 0% 100%; /* #ffffff */
+    --card-foreground: 224 71% 4%; /* #111827 */
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 84% 4%;
+
+    --primary: 167 100% 36%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 166 84% 40%;
+    
+    /* Couleurs custom pour le branding */
+    --brand-bg: 210 40% 98%;
+    --brand-surface: 0 0% 100%;
+    --brand-line: 214 32% 91%;
+    --brand-text: 222 84% 4%;
+    --unauthorized-bg: 210 40% 98%;
   }
 }
  
@@ -47,7 +89,14 @@
     @apply border-border;
   }
   body {
-    @apply bg-brand-bg text-brand-text;
-    font-family: 'Inter', sans-serif;
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+@layer components {
+  .bar:hover {
+    filter: brightness(1.2);
+    transition: 0.2s ease-in-out;
   }
 }

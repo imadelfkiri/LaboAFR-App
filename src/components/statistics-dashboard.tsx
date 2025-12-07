@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -34,12 +35,14 @@ import { useToast } from '@/hooks/use-toast';
 import {
     ResponsiveContainer,
     LineChart,
+    BarChart,
     CartesianGrid,
     XAxis,
     YAxis,
     Tooltip,
     Legend,
     Line,
+    Bar,
 } from 'recharts';
 
 import { getFuelTypes, FuelType } from '@/lib/data';
@@ -67,11 +70,11 @@ interface ChartData {
 
 type MetricKey = 'pci_brut' | 'h2o' | 'chlore' | 'cendres';
 
-const METRICS: { key: MetricKey; name: string; color: string; icon: React.ElementType }[] = [
-    { key: 'pci_brut', name: 'PCI (kcal/kg)', color: '#22c55e', icon: Fuel },
-    { key: 'h2o', name: 'H₂O (%)', color: '#3b82f6', icon: Droplets },
-    { key: 'chlore', name: 'Chlore (%)', color: '#f97316', icon: Wind },
-    { key: 'cendres', name: 'Cendres (%)', color: '#8b5cf6', icon: Percent },
+const METRICS: { key: MetricKey; name: string; color: string; icon: React.ElementType, chartType: 'line' | 'bar' }[] = [
+    { key: 'pci_brut', name: 'PCI (kcal/kg)', color: '#22c55e', icon: Fuel, chartType: 'line' },
+    { key: 'h2o', name: 'H₂O (%)', color: '#3b82f6', icon: Droplets, chartType: 'line' },
+    { key: 'chlore', name: 'Chlore (%)', color: '#f97316', icon: Wind, chartType: 'line' },
+    { key: 'cendres', name: 'Cendres (%)', color: '#8b5cf6', icon: Percent, chartType: 'bar' },
 ];
 
 export function StatisticsDashboard() {
@@ -275,38 +278,46 @@ export function StatisticsDashboard() {
             </Card>
 
             <div className="grid gap-6 md:grid-cols-2">
-                {METRICS.map(({ key, name, color, icon: Icon }) => (
-                    <Card key={key}>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Icon className="h-5 w-5" style={{ color }}/>
-                                Évolution de {name}
-                            </CardTitle>
-                             <CardDescription>Moyenne journalière basée sur les filtres</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <ResponsiveContainer width="100%" height={300}>
-                                {chartData.length > 0 ? (
-                                    <LineChart data={chartData}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis 
-                                            dataKey="date" 
-                                            tickFormatter={(value) => format(parseISO(value), 'd MMM', { locale: fr })}
-                                        />
-                                        <YAxis domain={['auto', 'auto']} />
-                                        <Tooltip content={<CustomTooltip />}/>
-                                        <Legend />
-                                        <Line type="monotone" dataKey={key} name={name} stroke={color} strokeWidth={2} dot={false} />
-                                    </LineChart>
-                                ) : (
-                                    <div className="flex items-center justify-center h-full text-muted-foreground">
-                                        Aucune donnée à afficher.
-                                    </div>
-                                )}
-                            </ResponsiveContainer>
-                        </CardContent>
-                    </Card>
-                ))}
+                {METRICS.map(({ key, name, color, icon: Icon, chartType }) => {
+                    const ChartComponent = chartType === 'bar' ? BarChart : LineChart;
+                    
+                    return (
+                        <Card key={key}>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Icon className="h-5 w-5" style={{ color }}/>
+                                    Évolution de {name}
+                                </CardTitle>
+                                <CardDescription>Moyenne journalière basée sur les filtres</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <ResponsiveContainer width="100%" height={300}>
+                                    {chartData.length > 0 ? (
+                                        <ChartComponent data={chartData}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis 
+                                                dataKey="date" 
+                                                tickFormatter={(value) => format(parseISO(value), 'd MMM', { locale: fr })}
+                                            />
+                                            <YAxis domain={['auto', 'auto']} />
+                                            <Tooltip content={<CustomTooltip />}/>
+                                            <Legend />
+                                            {chartType === 'line' ? (
+                                                <Line type="monotone" dataKey={key} name={name} stroke={color} strokeWidth={2} dot={false} />
+                                            ) : (
+                                                <Bar dataKey={key} name={name} fill={color} />
+                                            )}
+                                        </ChartComponent>
+                                    ) : (
+                                        <div className="flex items-center justify-center h-full text-muted-foreground">
+                                            Aucune donnée à afficher.
+                                        </div>
+                                    )}
+                                </ResponsiveContainer>
+                            </CardContent>
+                        </Card>
+                    );
+                })}
             </div>
         </div>
     );

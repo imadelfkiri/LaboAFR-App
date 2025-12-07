@@ -1,18 +1,18 @@
 
 import { SpecificationsTable } from "@/components/specifications-table";
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
+import { ClipboardCheck } from "lucide-react";
 
 export default function SpecificationsPage() {
   return (
-    <div className="flex flex-1 flex-col gap-4 p-4 lg:p-6 h-full">
-       <Card className="flex-1">
-        <CardContent className="p-0 h-full">
-            <SpecificationsTable />
-        </CardContent>
-       </Card>
+     <div className="space-y-6">
+        <div className="mb-8">
+            <h1 className="text-3xl font-bold tracking-tight text-primary flex items-center gap-3">
+                <ClipboardCheck className="h-8 w-8"/>
+                Spécifications des Combustibles
+            </h1>
+            <p className="text-muted-foreground mt-1">Définissez les seuils de qualité pour chaque couple combustible-fournisseur.</p>
+        </div>
+        <SpecificationsTable />
     </div>
   );
 }

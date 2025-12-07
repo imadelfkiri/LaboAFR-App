@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -69,6 +70,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Edit, Trash2, Database, PlusCircle } from 'lucide-react';
+import { useAuth } from '@/context/auth-provider';
 
 const fuelDataSchema = z.object({
   nom_combustible: z.string().nonempty({ message: "Le nom du combustible est requis." }),
@@ -77,6 +79,8 @@ const fuelDataSchema = z.object({
 });
 
 export function FuelDataManager() {
+    const { userProfile } = useAuth();
+    const isReadOnly = userProfile?.role === 'viewer';
     const [fuelDataList, setFuelDataList] = useState<FuelData[]>([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -120,6 +124,7 @@ export function FuelDataManager() {
     }, [fetchAllData]);
 
     const handleModalOpen = (data: FuelData | null = null) => {
+        if (isReadOnly) return;
         setEditingFuelData(data);
         if (data) {
             form.reset({
@@ -138,11 +143,13 @@ export function FuelDataManager() {
     };
 
     const handleDeleteConfirmation = (id: string) => {
+        if (isReadOnly) return;
         setDeletingFuelDataId(id);
         setIsDeleteDialogOpen(true);
     };
 
     const onSubmit = async (values: z.infer<typeof fuelDataSchema>) => {
+        if (isReadOnly) return;
         try {
             if (editingFuelData) {
                 await updateFuelData(editingFuelData.id, values);
@@ -172,7 +179,7 @@ export function FuelDataManager() {
     };
 
     const handleDelete = async () => {
-        if (!deletingFuelDataId) return;
+        if (isReadOnly || !deletingFuelDataId) return;
         try {
             await deleteFuelData(deletingFuelDataId);
             toast({ title: "Succès", description: "Données supprimées." });
@@ -207,10 +214,12 @@ export function FuelDataManager() {
                         Base de données centrale pour les caractéristiques physiques des combustibles.
                     </CardDescription>
                 </div>
-                <Button onClick={() => handleModalOpen()}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Ajouter des Données
-                </Button>
+                {!isReadOnly && (
+                    <Button onClick={() => handleModalOpen()}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Ajouter des Données
+                    </Button>
+                )}
             </CardHeader>
             <CardContent>
                 <ScrollArea className="h-[65vh] rounded-lg border">
@@ -220,7 +229,7 @@ export function FuelDataManager() {
                                 <TableHead>Nom du Combustible</TableHead>
                                 <TableHead className="text-right">Poids par Godet (tonnes)</TableHead>
                                 <TableHead className="text-right">Teneur en Hydrogène (%)</TableHead>
-                                <TableHead className="text-right w-[120px]">Actions</TableHead>
+                                {!isReadOnly && <TableHead className="text-right w-[120px]">Actions</TableHead>}
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -238,6 +247,7 @@ export function FuelDataManager() {
                                         <TableCell className="font-medium">{data.nom_combustible}</TableCell>
                                         <TableCell className="text-right">{formatNumber(data.poids_godet, 2)}</TableCell>
                                         <TableCell className="text-right">{formatNumber(data.teneur_hydrogene, 2)}</TableCell>
+                                        {!isReadOnly && (
                                         <TableCell className="text-right">
                                             <Button variant="ghost" size="icon" onClick={() => handleModalOpen(data)}>
                                                 <Edit className="h-4 w-4 text-muted-foreground" />
@@ -246,6 +256,7 @@ export function FuelDataManager() {
                                                 <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
                                             </Button>
                                         </TableCell>
+                                        )}
                                     </TableRow>
                                 ))
                             ) : (
@@ -276,7 +287,7 @@ export function FuelDataManager() {
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Combustible</FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value} disabled={!!editingFuelData}>
+                                        <Select onValueChange={field.onChange} value={field.value} disabled={!!editingFuelData || isReadOnly}>
                                             <FormControl>
                                                 <SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger>
                                             </FormControl>
@@ -288,14 +299,16 @@ export function FuelDataManager() {
                                     </FormItem>
                                 )}
                             />
-                            <FormField control={form.control} name="poids_godet" render={({ field }) => (<FormItem><FormLabel>Poids par Godet (tonnes)</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                            <FormField control={form.control} name="teneur_hydrogene" render={({ field }) => (<FormItem><FormLabel>Teneur en Hydrogène (%)</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)} />
-                            <DialogFooter>
-                                <DialogClose asChild>
-                                    <Button type="button" variant="secondary">Annuler</Button>
-                                </DialogClose>
-                                <Button type="submit">Enregistrer</Button>
-                            </DialogFooter>
+                            <FormField control={form.control} name="poids_godet" render={({ field }) => (<FormItem><FormLabel>Poids par Godet (tonnes)</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} readOnly={isReadOnly} /></FormControl><FormMessage /></FormItem>)} />
+                            <FormField control={form.control} name="teneur_hydrogene" render={({ field }) => (<FormItem><FormLabel>Teneur en Hydrogène (%)</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} readOnly={isReadOnly} /></FormControl><FormMessage /></FormItem>)} />
+                            {!isReadOnly && (
+                                <DialogFooter>
+                                    <DialogClose asChild>
+                                        <Button type="button" variant="secondary">Annuler</Button>
+                                    </DialogClose>
+                                    <Button type="submit">Enregistrer</Button>
+                                </DialogFooter>
+                            )}
                         </form>
                     </Form>
                 </DialogContent>

@@ -14,17 +14,6 @@ const config = {
         sans: ["var(--font-sans)", "system-ui", "ui-sans-serif", "Segoe UI", "Roboto", "Arial", "sans-serif"],
       },
       colors: {
-        brand: {
-          bg: "#0B0F0E",
-          surface: "#111516",
-          accent: "#00C853",
-          muted: "#1A1F20",
-          line: "#212728",
-          text: "#E7F6EE",
-        },
-        positive: "#16A34A",
-        warning: "#F59E0B",
-        danger: "#EF4444",
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
@@ -58,6 +47,24 @@ const config = {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
+        // Brand colors
+        brand: {
+          bg: 'hsl(var(--brand-bg))',
+          surface: 'hsl(var(--brand-surface))',
+          accent: 'hsl(var(--brand-accent))',
+          muted: 'hsl(var(--brand-muted))',
+          line: 'hsl(var(--brand-line))',
+          text: 'hsl(var(--brand-text))',
+        },
+        unauthorized: {
+          bg: 'hsl(var(--unauthorized-bg))',
+        },
+        danger: {
+          DEFAULT: 'hsl(var(--destructive))',
+        },
+        positive: {
+          DEFAULT: 'hsl(142.1 76.2% 36.3%)',
+        }
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -79,14 +86,32 @@ const config = {
           from: {height: 'var(--radix-accordion-content-height)'},
           to: {height: '0'},
         },
+        fadeIn: {
+          from: { opacity: '0', transform: 'translateY(20px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        fadeDown: {
+          from: { opacity: '0', transform: 'translateY(-10px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        slideUp: {
+          from: { opacity: '0', transform: 'translateY(15px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+        'fadeIn': 'fadeIn 0.8s ease',
+        'fadeDown': 'fadeDown 0.6s ease',
+        'slideUp': 'slideUp 0.8s ease',
       },
+      backdropBlur: {
+        lg: '10px',
+      }
     },
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [require('tailwindcss-animate')]
 } satisfies Config;
 
 export default config;

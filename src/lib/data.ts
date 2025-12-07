@@ -1,7 +1,10 @@
+
 // src/lib/data.ts
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, arrayUnion, orderBy, Timestamp, setDoc,getCountFromServer, limit } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, arrayUnion, orderBy, Timestamp, setDoc,getCountFromServer, limit, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
 import { startOfDay, endOfDay } from 'date-fns';
+import type { User } from 'firebase/auth';
+import { DateRange } from 'react-day-picker';
 
 export interface FuelType {
     id?: string;
@@ -18,13 +21,66 @@ export interface Specification {
     Cl_max?: number | null;
     Cendres_max?: number | null;
     Soufre_max?: number | null;
-    // Adding new fields for global mixture spec
-    pci_min?: number | null;
-    humidity_max?: number | null;
-    ash_max?: number | null;
-    chlorine_max?: number | null;
-    tireRate_max?: number | null;
 }
+
+export interface Thresholds {
+    melange?: MixtureThresholds;
+    impact?: ImpactThresholds;
+    indicateurs?: KeyIndicatorThresholds;
+}
+
+export interface MixtureThresholds {
+    pci_min?: number | null;
+    pci_max?: number | null;
+    pci_vert_min?: number | null;
+    pci_vert_max?: number | null;
+    chlorure_vert_max?: number | null;
+    chlorure_jaune_max?: number | null;
+    cendre_vert_max?: number | null;
+    cendre_jaune_max?: number | null;
+    h2o_vert_max?: number | null;
+    h2o_jaune_max?: number | null;
+    pneus_vert_max?: number | null;
+    pneus_jaune_max?: number | null;
+}
+
+export interface ImpactThresholds {
+    fe2o3_vert_max?: number | null;
+    fe2o3_jaune_max?: number | null;
+    lsf_vert_min?: number | null;
+    lsf_jaune_min?: number | null;
+    c3s_vert_min?: number | null;
+    c3s_jaune_min?: number | null;
+    ms_vert_min?: number | null;
+    ms_jaune_min?: number | null;
+    af_vert_min?: number | null;
+    af_jaune_min?: number | null;
+}
+
+export interface KeyIndicatorThresholds {
+    tsr_vert_min?: number | null;
+    tsr_jaune_min?: number | null;
+    conso_cal_rouge_min?: number | null;
+    conso_cal_vert_min?: number | null;
+    conso_cal_vert_max?: number | null;
+    conso_cal_rouge_max?: number | null;
+}
+
+
+export interface UserProfile {
+    id?: string;
+    uid: string;
+    email: string;
+    role: 'admin' | 'technician' | 'viewer';
+    active: boolean;
+    createdAt: Timestamp;
+}
+
+export interface Role {
+    id: string;
+    access: string[];
+}
+
 
 export interface AverageAnalysis {
     pci_brut: number;
@@ -33,6 +89,7 @@ export interface AverageAnalysis {
     cendres: number;
     taux_metal?: number;
     count: number;
+    fournisseur?: string;
 }
 
 export interface MixtureSession {
@@ -89,6 +146,7 @@ export interface AshAnalysis {
     type_combustible?: string;
     fournisseur?: string;
     pourcentage_cendres?: number | null;
+    pci_brut?: number;
     pf?: number | null;
     sio2?: number | null;
     al2o3?: number | null;
@@ -165,9 +223,144 @@ export interface ImpactAnalysis {
     };
 }
 
+export interface ChlorineTrackingEntry {
+    id: string;
+    date: Timestamp;
+    calculatedMixtureChlorine: number;
+    hotMealChlorine: number;
+    clFcEstime: number;
+    tsr: number;
+    remarques?: string;
+}
 
+
+interface Result {
+  id: string;
+  date_arrivage: Timestamp;
+  type_combustible: string;
+  fournisseur: string;
+  pci_brut?: number;
+  chlore?: number;
+}
+
+export interface BilanClSData {
+    id?: string;
+    savedAt: Timestamp;
+    inputs: any;
+    results: any;
+}
+
+
+export async function getResultsForPeriod(
+  dateRange: DateRange
+): Promise<Result[]> {
+  const resultsCollection = collection(db, 'resultats');
+  let q;
+  
+  if (dateRange.from && dateRange.to) {
+    q = query(
+      resultsCollection,
+      where('date_arrivage', '>=', Timestamp.fromDate(dateRange.from)),
+      where('date_arrivage', '<=', Timestamp.fromDate(dateRange.to)),
+      orderBy('date_arrivage', 'desc')
+    );
+  } else {
+    q = query(resultsCollection, orderBy('date_arrivage', 'desc'));
+  }
+
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Result));
+}
+
+
+// --- Role-based Access Control ---
+const defaultRoleAccess: Record<string, string[]> = {
+  admin: [
+    '/',
+    '/rapport-synthese',
+    '/calculateur',
+    '/resultats',
+    '/statistiques',
+    '/specifications',
+    '/analyses-cendres',
+    '/matieres-premieres',
+    '/donnees-combustibles',
+    '/calcul-melange',
+    '/simulation-melange',
+    '/indicateurs',
+    '/calcul-impact',
+    '/historique-impact',
+    '/documentation',
+    '/suivi-chlore',
+    '/gestion-utilisateurs',
+    '/gestion-seuils',
+  ],
+  technician: [
+    '/',
+    '/rapport-synthese',
+    '/calculateur',
+    '/resultats',
+    '/statistiques',
+    '/analyses-cendres',
+    '/donnees-combustibles',
+    '/calcul-melange',
+    '/simulation-melange',
+    '/indicateurs',
+    '/calcul-impact',
+    '/historique-impact',
+    '/suivi-chlore',
+  ],
+  viewer: [
+    '/',
+    '/rapport-synthese',
+    '/statistiques',
+    '/indicateurs',
+  ],
+};
+
+export const getAllowedRoutesForRole = async (role: string): Promise<string[]> => {
+    const roleDocRef = doc(db, 'roles', role);
+    const docSnap = await getDoc(roleDocRef);
+    if (docSnap.exists()) {
+        return docSnap.data().access || [];
+    }
+    // Fallback to hardcoded roles if not found in Firestore
+    return defaultRoleAccess[role] || [];
+};
+
+export const getRoles = async (): Promise<Role[]> => {
+    const rolesCollection = collection(db, 'roles');
+    const snapshot = await getDocs(rolesCollection);
+    if(snapshot.empty) {
+        // If roles collection is empty, populate with default
+        const batch = writeBatch(db);
+        Object.entries(defaultRoleAccess).forEach(([roleName, accessList]) => {
+            const roleRef = doc(db, 'roles', roleName);
+            batch.set(roleRef, { access: accessList });
+        });
+        await batch.commit();
+        const newSnapshot = await getDocs(rolesCollection);
+        return newSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Role));
+    }
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Role));
+}
+
+export const updateRoleAccess = async (roleId: string, access: string[]): Promise<void> => {
+    const roleRef = doc(db, 'roles', roleId);
+    await updateDoc(roleRef, { access });
+};
 
 export const SPEC_MAP = new Map<string, Specification>();
+
+export async function getUserProfile(user: User): Promise<UserProfile | null> {
+    if (!user) return null;
+    const userDocRef = doc(db, 'users', user.uid);
+    const userDoc = await getDoc(userDocRef);
+    if (userDoc.exists()) {
+        return { id: userDoc.id, uid: user.uid, ...userDoc.data() } as UserProfile;
+    }
+    return null;
+}
 
 export async function getFuelSupplierMap(): Promise<Record<string, string[]>> {
     const mapCollection = collection(db, 'fuel_supplier_map');
@@ -302,67 +495,49 @@ export async function deleteSpecification(id: string) {
 
 export async function getAverageAnalysisForFuels(
   fuelNames: string[],
-  dateRange: { from: Date; to: Date }
+  globalDateRange?: DateRange,
+  fuelSpecificDateRanges?: Record<string, DateRange | undefined>
 ): Promise<Record<string, AverageAnalysis>> {
-  if (!fuelNames || fuelNames.length === 0) return {};
-
-  const start = Timestamp.fromDate(startOfDay(dateRange.from));
-  const end = Timestamp.fromDate(endOfDay(dateRange.to));
-
-  const allResultsQuery = query(collection(db, "resultats"));
-  const allResultsSnapshot = await getDocs(allResultsQuery);
-  const allResults = allResultsSnapshot.docs.map(d => d.data());
-
   const analyses: Record<string, AverageAnalysis> = {};
 
-  for (const fuelName of fuelNames) {
-    const fuelResults = allResults.filter(r => r.type_combustible === fuelName);
+  for (const name of fuelNames) {
+    const specificRange = fuelSpecificDateRanges?.[name];
+    const dateRangeToUse = specificRange || globalDateRange;
 
-    let resultsInDateRange = fuelResults.filter(r => {
-      const date = r.date_arrivage.toDate();
-      return date >= start.toDate() && date <= end.toDate();
-    });
-
-    let finalResultsToAverage = resultsInDateRange;
-    if (resultsInDateRange.length === 0 && fuelResults.length > 0) {
-      fuelResults.sort((a, b) => b.date_arrivage.seconds - a.date_arrivage.seconds);
-      finalResultsToAverage = [fuelResults[0]];
+    const constraints = [where('type_combustible', '==', name)];
+    if (dateRangeToUse?.from && dateRangeToUse.to) {
+      constraints.push(where('date_arrivage', '>=', Timestamp.fromDate(startOfDay(dateRangeToUse.from))));
+      constraints.push(where('date_arrivage', '<=', Timestamp.fromDate(endOfDay(dateRangeToUse.to))));
     }
 
-    if (finalResultsToAverage.length > 0) {
-      const getAverage = (key: 'pci_brut' | 'h2o' | 'chlore' | 'cendres' | 'taux_metal') => {
-        const values = finalResultsToAverage
-          .map(r => r[key])
-          .filter((v): v is number => typeof v === 'number' && isFinite(v));
-        
-        if (values.length === 0) return { average: 0, count: 0 };
-        
-        const sum = values.reduce((acc, curr) => acc + curr, 0);
-        return { average: sum / values.length, count: values.length };
-      };
+    const q = query(collection(db, 'resultats'), ...constraints);
+    const resultsSnapshot = await getDocs(q);
+    const resultsForFuel = resultsSnapshot.docs.map(doc => doc.data());
 
-      const pciAvg = getAverage('pci_brut');
-      const h2oAvg = getAverage('h2o');
-      const chloreAvg = getAverage('chlore');
-      const cendresAvg = getAverage('cendres');
-      const metalAvg = getAverage('taux_metal');
+    if (resultsForFuel.length === 0) continue;
 
-      analyses[fuelName] = {
-        pci_brut: pciAvg.average,
-        h2o: h2oAvg.average,
-        chlore: chloreAvg.average,
-        cendres: cendresAvg.average,
-        taux_metal: metalAvg.average,
-        count: finalResultsToAverage.length,
-      };
+    const getAverage = (key: 'pci_brut' | 'h2o' | 'chlore' | 'cendres' | 'taux_metal') => {
+      const values = resultsForFuel
+        .map(r => r[key])
+        .filter((v): v is number => typeof v === 'number' && isFinite(v));
+      if (values.length === 0) return 0;
+      return values.reduce((acc, curr) => acc + curr, 0) / values.length;
+    };
 
-    } else {
-      analyses[fuelName] = { pci_brut: 0, h2o: 0, chlore: 0, cendres: 0, count: 0, taux_metal: 0 };
-    }
+    analyses[name] = {
+      pci_brut: getAverage('pci_brut'),
+      h2o: getAverage('h2o'),
+      chlore: getAverage('chlore'),
+      cendres: getAverage('cendres'),
+      taux_metal: getAverage('taux_metal'),
+      count: resultsForFuel.length,
+    };
   }
 
   return analyses;
 }
+
+
 
 
 export async function saveMixtureSession(sessionData: Omit<MixtureSession, 'id' | 'timestamp'>): Promise<void> {
@@ -601,29 +776,24 @@ export async function getUniqueFuelTypesFromResultats(): Promise<string[]> {
     return [...new Set(fuelTypes)];
 }
 
-const GLOBAL_MIXTURE_SPEC_ID = "_GLOBAL_MIXTURE_";
-
-export async function getGlobalMixtureSpecification(): Promise<Specification | null> {
-    const specRef = doc(db, 'specifications', GLOBAL_MIXTURE_SPEC_ID);
-    const docSnap = await getDoc(specRef);
-
+export async function getThresholds(): Promise<Thresholds> {
+    const docRef = doc(db, "seuils", "qualite");
+    const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
-        return { id: docSnap.id, ...docSnap.data() } as Specification;
-    } else {
-        console.log("No global mixture specification found.");
-        return null;
+      return docSnap.data() as Thresholds;
     }
+    return {};
 }
 
-export async function saveGlobalMixtureSpecification(spec: Partial<Specification>): Promise<void> {
-    const specRef = doc(db, 'specifications', GLOBAL_MIXTURE_SPEC_ID);
-    // Use setDoc with merge to create the document if it doesn't exist, or update it if it does.
-    await setDoc(specRef, {
-        ...spec,
-        type_combustible: "Mélange Global", // Add identifiers to distinguish it
-        fournisseur: "Système"
-    }, { merge: true });
+export async function saveThresholds(thresholds: Thresholds): Promise<void> {
+    const docRef = doc(db, "seuils", "qualite");
+    const dataToSave = {
+        ...thresholds,
+        updatedAt: serverTimestamp()
+    };
+    await setDoc(docRef, dataToSave, { merge: true });
 }
+
 
 // --- Mixture Scenarios (for simulator) ---
 
@@ -668,34 +838,35 @@ export async function getAshAnalyses(): Promise<AshAnalysis[]> {
 export async function getAverageAshAnalysisForFuels(
   fuelNames: string[],
   weights?: number[]
-): Promise<AshAnalysis> {
-  const finalAverages: AshAnalysis = {};
-
+): Promise<AshAnalysis | null> {
   if (!fuelNames || fuelNames.length === 0) {
     return {};
   }
-
-  const q = query(collection(db, 'analyses_cendres'), where('type_combustible', 'in', fuelNames));
-  const snapshot = await getDocs(q);
-  const dbResults = snapshot.docs.map(doc => doc.data() as AshAnalysis);
-
-  const analysesByFuel: Record<string, AshAnalysis[]> = {};
-  fuelNames.forEach(name => {
-    analysesByFuel[name] = [];
-  });
-  dbResults.forEach(res => {
-    if (res.type_combustible && analysesByFuel[res.type_combustible]) {
-      analysesByFuel[res.type_combustible].push(res);
-    }
-  });
+  
+  const resultsByFuel: Record<string, any[]> = {};
+  
+  for (const name of fuelNames) {
+      const resultsQuery = query(collection(db, 'resultats'), where('type_combustible', '==', name), limit(50));
+      const ashQuery = query(collection(db, 'analyses_cendres'), where('type_combustible', '==', name), limit(50));
+      
+      const [resultsSnapshot, ashSnapshot] = await Promise.all([getDocs(resultsQuery), getDocs(ashQuery)]);
+      
+      const combined = [...resultsSnapshot.docs.map(d => d.data()), ...ashSnapshot.docs.map(d => d.data())];
+      resultsByFuel[name] = combined;
+  }
 
   const averageByFuel: Record<string, AshAnalysis> = {};
-  const keysToAverage: (keyof AshAnalysis)[] = ['pf', 'pourcentage_cendres', 'sio2', 'al2o3', 'fe2o3', 'cao', 'mgo', 'so3', 'k2o', 'tio2', 'mno', 'p2o5'];
+  const keysToAverage: (keyof AshAnalysis)[] = ['pf', 'sio2', 'al2o3', 'fe2o3', 'cao', 'mgo', 'so3', 'k2o', 'tio2', 'mno', 'p2o5'];
 
   for (const fuelName of fuelNames) {
-    const fuelAnalyses = analysesByFuel[fuelName];
+    const fuelAnalyses = resultsByFuel[fuelName];
     const avg: AshAnalysis = {};
     if (fuelAnalyses.length > 0) {
+      const ashValues = fuelAnalyses.map(a => a.pourcentage_cendres ?? a.cendres).filter(v => typeof v === 'number') as number[];
+      if (ashValues.length > 0) {
+        avg.pourcentage_cendres = ashValues.reduce((sum, val) => sum + val, 0) / ashValues.length;
+      }
+
       for (const key of keysToAverage) {
         const values = fuelAnalyses.map(a => a[key]).filter(v => typeof v === 'number') as number[];
         if (values.length > 0) {
@@ -706,10 +877,17 @@ export async function getAverageAshAnalysisForFuels(
     averageByFuel[fuelName] = avg;
   }
   
+  if (Object.values(averageByFuel).every(val => Object.keys(val).length === 0)) {
+    return null; // Return null if no analysis found for any fuel
+  }
+  
+  const finalAverages: AshAnalysis = {};
+
   if (!weights || weights.length !== fuelNames.length) {
-    // Simple average if no weights provided
-    keysToAverage.forEach(key => {
-        const allValues = fuelNames.map(name => averageByFuel[name]?.[key]).filter(v => typeof v === 'number') as number[];
+    // Simple average
+    const allKeys = new Set([...keysToAverage, 'pourcentage_cendres']);
+    allKeys.forEach(key => {
+        const allValues = fuelNames.map(name => averageByFuel[name]?.[key as keyof AshAnalysis]).filter(v => typeof v === 'number') as number[];
         if (allValues.length > 0) {
            (finalAverages as any)[key] = allValues.reduce((sum, val) => sum + val, 0) / allValues.length;
         }
@@ -721,13 +899,14 @@ export async function getAverageAshAnalysisForFuels(
   const totalWeight = weights.reduce((sum, w) => sum + w, 0);
   if (totalWeight === 0) return {};
 
-  keysToAverage.forEach(key => {
+  const allKeys = new Set([...keysToAverage, 'pourcentage_cendres']);
+  allKeys.forEach(key => {
     let weightedSum = 0;
     let weightForSum = 0;
     for (let i = 0; i < fuelNames.length; i++) {
         const fuelName = fuelNames[i];
         const weight = weights[i];
-        const avgValue = averageByFuel[fuelName]?.[key];
+        const avgValue = averageByFuel[fuelName]?.[key as keyof AshAnalysis];
         if (typeof avgValue === 'number' && typeof weight === 'number') {
             weightedSum += avgValue * weight;
             weightForSum += weight;
@@ -740,6 +919,7 @@ export async function getAverageAshAnalysisForFuels(
 
   return finalAverages;
 }
+
 
 
 export async function addAshAnalysis(data: Omit<AshAnalysis, 'id'>): Promise<string> {
@@ -845,7 +1025,164 @@ export async function getImpactAnalyses(): Promise<ImpactAnalysis[]> {
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ImpactAnalysis));
 }
 
+export async function getImpactAnalysesForPeriod(from: Date, to: Date): Promise<ImpactAnalysis[]> {
+    const q = query(
+        collection(db, 'impact_analyses'),
+        where('createdAt', '>=', Timestamp.fromDate(from)),
+        where('createdAt', '<=', Timestamp.fromDate(to)),
+        orderBy('createdAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return [];
+
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ImpactAnalysis));
+}
+
+
 export async function deleteImpactAnalysis(id: string): Promise<void> {
     const analysisRef = doc(db, 'impact_analyses', id);
     await deleteDoc(analysisRef);
 }
+
+// --- Key Indicators ---
+export async function getLatestIndicatorData(): Promise<{ tsr: number; } | null> {
+    const session = await getLatestMixtureSession();
+    if (!session) return null;
+
+    const getPci = (fuelName: string) => session.availableFuels[fuelName]?.pci_brut || 0;
+    const getPetCokePci = () => getPci('Pet Coke') || getPci('Pet-Coke') || getPci('Pet-Coke Preca') || getPci('Pet-Coke Tuyere');
+
+    let afEnergyWeightedSum = 0;
+    let afTotalFlow = 0;
+
+    const processInstallation = (installation: any) => {
+         if (!installation?.fuels || !installation.flowRate || installation.flowRate === 0) return;
+         
+         let installationTotalWeight = 0;
+         const fuelWeights: Record<string, number> = {};
+
+         for (const [fuel, data] of Object.entries(installation.fuels as Record<string, {buckets: number}>)) {
+             const weight = (data.buckets || 0) * (session.availableFuels[fuel]?.poids_godet || 1.5);
+             installationTotalWeight += weight;
+             fuelWeights[fuel] = weight;
+         }
+         
+         if(installationTotalWeight === 0) return;
+         afTotalFlow += installation.flowRate;
+         
+         for (const [fuel, data] of Object.entries(installation.fuels as Record<string, {buckets: number}>)) {
+            if (fuel.toLowerCase().includes('grignons') || fuel.toLowerCase().includes('pet coke')) continue;
+            const pci = getPci(fuel);
+            const weight = fuelWeights[fuel] || 0;
+            const proportion = weight / installationTotalWeight;
+            const weightedEnergy = pci * proportion * installation.flowRate;
+            afEnergyWeightedSum += weightedEnergy;
+         }
+    }
+    
+    processInstallation(session.hallAF);
+    processInstallation(session.ats);
+    
+    const energyAFs = afEnergyWeightedSum / 1000;
+
+    const grignonsFlow = (session.directInputs?.['Grignons GO1']?.flowRate || 0) + (session.directInputs?.['Grignons GO2']?.flowRate || 0);
+    const energyGrignons = grignonsFlow * getPci('Grignons') / 1000;
+
+    const petCokeFlow = (session.directInputs?.['Pet-Coke Preca']?.flowRate || 0) + (session.directInputs?.['Pet-Coke Tuyere']?.flowRate || 0);
+    const energyPetCoke = petCokeFlow * getPetCokePci() / 1000;
+
+    const energyTotal = energyAFs + energyGrignons + energyPetCoke;
+    const energyAlternatives = energyAFs + energyGrignons;
+
+    const substitutionRate = energyTotal > 0 ? (energyAlternatives / energyTotal) * 100 : 0;
+    
+    return {
+        tsr: substitutionRate,
+    };
+}
+
+// --- Chlorine Tracking ---
+
+export async function addChlorineTrackingEntry(data: Omit<ChlorineTrackingEntry, 'id'>): Promise<string> {
+    const docRef = await addDoc(collection(db, 'chlorine_tracking'), data);
+    return docRef.id;
+}
+
+export async function getChlorineTrackingEntries(dateRange: { from: Date, to: Date }): Promise<ChlorineTrackingEntry[]> {
+    const q = query(
+        collection(db, 'chlorine_tracking'),
+        where('date', '>=', Timestamp.fromDate(dateRange.from)),
+        where('date', '<=', Timestamp.fromDate(dateRange.to)),
+        orderBy('date', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return [];
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ChlorineTrackingEntry));
+}
+
+export async function updateChlorineTrackingEntry(id: string, data: Partial<Omit<ChlorineTrackingEntry, 'id'>>): Promise<void> {
+    const entryRef = doc(db, 'chlorine_tracking', id);
+    await updateDoc(entryRef, data);
+}
+
+export async function deleteChlorineTrackingEntry(id: string): Promise<void> {
+    const entryRef = doc(db, 'chlorine_tracking', id);
+    await deleteDoc(entryRef);
+}
+
+// --- Bilan Chlore & Soufre ---
+
+export async function saveBilanClS(data: Omit<BilanClSData, 'id' | 'savedAt'>): Promise<void> {
+    const dataToSave = {
+        ...data,
+        savedAt: serverTimestamp(),
+    };
+    await addDoc(collection(db, 'bilans_cl_s'), dataToSave);
+}
+
+export async function getLatestBilanClS(): Promise<BilanClSData | null> {
+    const q = query(
+        collection(db, 'bilans_cl_s'),
+        orderBy('savedAt', 'desc'),
+        limit(1)
+    );
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) {
+        return null;
+    }
+    const docData = snapshot.docs[0];
+    return { id: docData.id, ...docData.data() } as BilanClSData;
+}
+
+
+// --- User Management ---
+
+export async function getAllUsers(): Promise<UserProfile[]> {
+    const usersCollection = collection(db, 'users');
+    const snapshot = await getDocs(usersCollection);
+    if (snapshot.empty) return [];
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserProfile));
+}
+
+export async function updateUserRole(uid: string, role: 'admin' | 'technician' | 'viewer'): Promise<void> {
+    const userRef = doc(db, 'users', uid);
+    await updateDoc(userRef, { role });
+}
+
+export async function createUser(userData: any): Promise<void> {
+    // This should call a Cloud Function for security reasons
+    // For now, we'll simulate the call. The actual implementation needs to use firebase.functions()
+    // const createUserFunc = httpsCallable(functions, 'adminCreateUser');
+    // await createUserFunc(userData);
+
+    // This is a temporary placeholder. In a real app, you would use:
+    // import { getFunctions, httpsCallable } from "firebase/functions";
+    // const functions = getFunctions();
+    // const adminCreateUser = httpsCallable(functions, 'adminCreateUser');
+    // await adminCreateUser({ email, password, role });
+
+    // The logic has been moved to user-management-table.tsx to use the functions instance there.
+    // This is not ideal, but necessary without a centralized functions service.
+}
+
+    

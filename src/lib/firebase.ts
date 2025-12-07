@@ -1,7 +1,9 @@
 
 // src/lib/firebase.ts
 import { initializeApp, getApp, getApps, type FirebaseApp } from "firebase/app";
-import { getFirestore, Firestore } from "firebase/firestore";
+import { getFirestore, Firestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
+import { getAuth, Auth } from "firebase/auth";
+import { getFunctions, Functions } from "firebase/functions";
 import { initializeAppCheck, ReCaptchaV3Provider, AppCheck } from "firebase/app-check";
 
 const firebaseConfig = {
@@ -15,7 +17,15 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app: FirebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const db: Firestore = getFirestore(app);
+
+// Activate local and multi-tab cache
+const db: Firestore = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+});
+
+const auth: Auth = getAuth(app);
+const functions: Functions = getFunctions(app);
+
 let appCheck: AppCheck | null = null;
 
 if (typeof window !== 'undefined') {
@@ -27,4 +37,4 @@ if (typeof window !== 'undefined') {
     });
 }
 
-export { db };
+export { db, auth, functions };

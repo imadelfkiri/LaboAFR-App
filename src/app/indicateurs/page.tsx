@@ -3,7 +3,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { getLatestMixtureSession, type MixtureSession } from '@/lib/data';
+import { getLatestMixtureSession, type MixtureSession, getAverageAnalysisForFuels } from '@/lib/data';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard } from '@/components/cards/StatCard';
@@ -34,6 +34,10 @@ function usePersistentValue<T>(key: string, defaultValue: T): T {
 
     useEffect(() => {
         try {
+            // Only run on client
+            if (typeof window === 'undefined') {
+                return;
+            }
             const storedValue = localStorage.getItem(key);
             if (storedValue !== null) {
                 setState(JSON.parse(storedValue));
@@ -50,20 +54,22 @@ function usePersistentValue<T>(key: string, defaultValue: T): T {
 export default function IndicateursPage() {
     const [loading, setLoading] = useState(true);
     const [session, setSession] = useState<MixtureSession | null>(null);
+    const [petCokeAnalysis, setPetCokeAnalysis] = useState<{pci_brut: number} | null>(null);
     const { toast } = useToast();
 
     // Read clinker production data from localStorage
-    const rawMealFlow = usePersistentValue<number>('calculImpact_rawMealFlow', 180);
-    const clinkerFactor = usePersistentValue<number>('calculImpact_clinkerFactor', 0.6);
-    
-    const debitClinker = useMemo(() => rawMealFlow * clinkerFactor, [rawMealFlow, clinkerFactor]);
+    const debitClinker = usePersistentValue<number>('debitClinker', 0);
 
 
     useEffect(() => {
         const fetchSession = async () => {
             setLoading(true);
             try {
-                const sessionData = await getLatestMixtureSession();
+                const [sessionData, petCokeAvg] = await Promise.all([
+                    getLatestMixtureSession(),
+                    getAverageAnalysisForFuels(['Pet-Coke', 'Pet Coke', 'Pet-Coke Preca', 'Pet-Coke Tuyere'])
+                ]);
+
                 if (!sessionData) {
                     toast({
                         variant: "destructive",
@@ -72,6 +78,12 @@ export default function IndicateursPage() {
                     });
                 }
                 setSession(sessionData);
+
+                const petCokeData = petCokeAvg['Pet-Coke'] || petCokeAvg['Pet Coke'] || petCokeAvg['Pet-Coke Preca'] || petCokeAvg['Pet-Coke Tuyere'];
+                if (petCokeData && petCokeData.pci_brut) {
+                    setPetCokeAnalysis({ pci_brut: petCokeData.pci_brut });
+                }
+
             } catch (error) {
                 console.error("Error fetching latest mixture session:", error);
                 toast({
@@ -92,8 +104,7 @@ export default function IndicateursPage() {
         const getPci = (fuelName: string) => session.availableFuels[fuelName]?.pci_brut || 0;
         
         const getPetCokePci = () => {
-             const pci = getPci('Pet Coke') || getPci('Pet-Coke') || getPci('Pet-Coke Preca') || getPci('Pet-Coke Tuyere');
-             return pci;
+            return petCokeAnalysis?.pci_brut || 0;
         }
 
         // --- Énergie des AFs (Hall + ATS) ---
@@ -117,9 +128,9 @@ export default function IndicateursPage() {
 
              afTotalFlow += installation.flowRate;
              
-             // Now, calculate the weighted energy contribution
+             // Now, calculate the weighted energy contribution, excluding grignons and petcoke from "Alternative Fuels"
              for (const [fuel, data] of Object.entries(installation.fuels as Record<string, {buckets: number}>)) {
-                if (fuel.toLowerCase().includes('grignons') || fuel.toLowerCase().includes('pet coke')) continue;
+                if (fuel.toLowerCase().includes('grignons') || /pet.?coke/i.test(fuel.replace(/\s|_/g, ''))) continue;
                 
                 const pci = getPci(fuel);
                 const weight = fuelWeights[fuel] || 0;
@@ -176,7 +187,7 @@ export default function IndicateursPage() {
             : 0;
 
         return { substitutionData: subData, calorificConsumption: consumption };
-    }, [session, debitClinker]);
+    }, [session, debitClinker, petCokeAnalysis]);
 
     if (loading) {
         return (
@@ -204,7 +215,10 @@ export default function IndicateursPage() {
   return (
     <div className="container mx-auto p-4 md:p-8 space-y-6">
         <div className="flex flex-col md:flex-row justify-between md:items-center gap-2">
-            <h1 className="text-3xl font-bold tracking-tight">Indicateurs de Performance</h1>
+             <h1 className="text-3xl font-bold tracking-tight text-primary flex items-center gap-3">
+                <TrendingUp className="h-8 w-8"/>
+                Indicateurs de Performance
+            </h1>
             {session.timestamp && (
                 <p className="text-sm text-muted-foreground">
                     Basé sur la session du {format(session.timestamp.toDate(), "d MMMM yyyy 'à' HH:mm", { locale: fr })}
@@ -284,5 +298,3 @@ export default function IndicateursPage() {
     </div>
   );
 }
-
-  

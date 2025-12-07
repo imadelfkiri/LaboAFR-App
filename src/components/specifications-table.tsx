@@ -65,7 +65,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { PlusCircle, Trash2, Edit } from 'lucide-react';
+import { PlusCircle, Trash2, Edit, ClipboardCheck } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 
 const specSchema = z.object({
   type_combustible: z.string().nonempty({ message: "Le type de combustible est requis." }),
@@ -124,11 +125,6 @@ export function SpecificationsTable() {
 
     useEffect(() => {
         fetchAllData();
-        (window as any).openSpecModal = () => handleModalOpen();
-
-        return () => {
-            delete (window as any).openSpecModal;
-        };
     }, [fetchAllData]);
 
     const uniqueFuelTypes = useMemo(() => {
@@ -210,52 +206,62 @@ export function SpecificationsTable() {
     }
     
     return (
-        <div className="flex flex-col gap-4 p-4 lg:p-6 h-full">
-            <ScrollArea className="flex-grow rounded-lg border">
-                <Table>
-                    <TableHeader>
-                        <TableRow className="bg-muted/50 hover:bg-muted/50">
-                            <TableHead>Type Combustible</TableHead>
-                            <TableHead>Fournisseur</TableHead>
-                            <TableHead className="text-right">PCI Min (kcal/kg)</TableHead>
-                            <TableHead className="text-right">H2O Max (%)</TableHead>
-                            <TableHead className="text-right">Cl- Max (%)</TableHead>
-                            <TableHead className="text-right">Cendres Max (%)</TableHead>
-                            <TableHead className="text-right">Soufre Max (%)</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {specs.length > 0 ? (
-                            specs.map((spec) => (
-                                <TableRow key={spec.id}>
-                                    <TableCell className="font-medium">{spec.type_combustible}</TableCell>
-                                    <TableCell>{spec.fournisseur}</TableCell>
-                                    <TableCell className="text-right">{formatNumber(spec.PCI_min)}</TableCell>
-                                    <TableCell className="text-right">{formatNumber(spec.H2O_max)}</TableCell>
-                                    <TableCell className="text-right">{formatNumber(spec.Cl_max)}</TableCell>
-                                    <TableCell className="text-right">{formatNumber(spec.Cendres_max)}</TableCell>
-                                    <TableCell className="text-right">{formatNumber(spec.Soufre_max)}</TableCell>
-                                    <TableCell className="text-right">
-                                        <Button variant="ghost" size="icon" onClick={() => handleModalOpen(spec)}>
-                                            <Edit className="h-4 w-4 text-muted-foreground" />
-                                        </Button>
-                                        <Button variant="ghost" size="icon" onClick={() => handleDeleteConfirmation(spec.id)}>
-                                            <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                                        </Button>
-                                    </TableCell>
+        <div className="space-y-4">
+             <Card>
+                <CardHeader className="flex flex-row items-center justify-end">
+                    <Button onClick={() => handleModalOpen()}>
+                        <PlusCircle className="w-4 h-4 mr-2" />
+                        Ajouter une spécification
+                    </Button>
+                </CardHeader>
+                <CardContent>
+                    <ScrollArea className="h-[calc(100vh-280px)] rounded-lg border">
+                        <Table>
+                            <TableHeader className="sticky top-0 bg-muted/50 z-10">
+                                <TableRow>
+                                    <TableHead>Type Combustible</TableHead>
+                                    <TableHead>Fournisseur</TableHead>
+                                    <TableHead className="text-right">PCI Min (kcal/kg)</TableHead>
+                                    <TableHead className="text-right">H2O Max (%)</TableHead>
+                                    <TableHead className="text-right">Cl- Max (%)</TableHead>
+                                    <TableHead className="text-right">Cendres Max (%)</TableHead>
+                                    <TableHead className="text-right">Soufre Max (%)</TableHead>
+                                    <TableHead className="text-right w-[100px]">Actions</TableHead>
                                 </TableRow>
-                            ))
-                        ) : (
-                            <TableRow>
-                                <TableCell colSpan={8} className="h-24 text-center">
-                                    Aucune spécification trouvée.
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
-            </ScrollArea>
+                            </TableHeader>
+                            <TableBody>
+                                {specs.length > 0 ? (
+                                    specs.map((spec) => (
+                                        <TableRow key={spec.id}>
+                                            <TableCell className="font-medium py-1 px-2">{spec.type_combustible}</TableCell>
+                                            <TableCell className="py-1 px-2">{spec.fournisseur}</TableCell>
+                                            <TableCell className="text-right py-1 px-2">{formatNumber(spec.PCI_min)}</TableCell>
+                                            <TableCell className="text-right py-1 px-2">{formatNumber(spec.H2O_max)}</TableCell>
+                                            <TableCell className="text-right py-1 px-2">{formatNumber(spec.Cl_max)}</TableCell>
+                                            <TableCell className="text-right py-1 px-2">{formatNumber(spec.Cendres_max)}</TableCell>
+                                            <TableCell className="text-right py-1 px-2">{formatNumber(spec.Soufre_max)}</TableCell>
+                                            <TableCell className="text-right py-1 px-2">
+                                                <Button variant="ghost" size="icon" onClick={() => handleModalOpen(spec)}>
+                                                    <Edit className="h-4 w-4 text-muted-foreground" />
+                                                </Button>
+                                                <Button variant="ghost" size="icon" onClick={() => handleDeleteConfirmation(spec.id)}>
+                                                    <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={8} className="h-24 text-center">
+                                            Aucune spécification trouvée.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </ScrollArea>
+                 </CardContent>
+            </Card>
 
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                 <DialogContent className="sm:max-w-[600px]">

@@ -11,8 +11,12 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DollarSign, Save } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
+import { useAuth } from '@/context/auth-provider';
 
 export function CostManager() {
+    const { userProfile } = useAuth();
+    const isReadOnly = userProfile?.role === 'viewer';
+
     const [costs, setCosts] = useState<Record<string, number>>({});
     const [fuelTypes, setFuelTypes] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
@@ -47,6 +51,7 @@ export function CostManager() {
     }, [fetchData]);
 
     const handleCostChange = (fuelType: string, value: string) => {
+        if (isReadOnly) return;
         const newCost = parseFloat(value);
         setCosts(prev => ({
             ...prev,
@@ -55,6 +60,7 @@ export function CostManager() {
     };
 
     const handleSaveCost = async (fuelType: string) => {
+        if (isReadOnly) return;
         setSaving(prev => ({...prev, [fuelType]: true}));
         try {
             const costToSave = costs[fuelType];
@@ -95,7 +101,7 @@ export function CostManager() {
                                 <TableRow>
                                     <TableHead>Type de Combustible</TableHead>
                                     <TableHead>Coût (MAD/t)</TableHead>
-                                    <TableHead className="text-right">Action</TableHead>
+                                    {!isReadOnly && <TableHead className="text-right">Action</TableHead>}
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -110,18 +116,21 @@ export function CostManager() {
                                                     onChange={(e) => handleCostChange(fuelType, e.target.value)}
                                                     className="max-w-xs"
                                                     placeholder="0.00"
+                                                    readOnly={isReadOnly}
                                                 />
                                             </TableCell>
-                                            <TableCell className="text-right">
-                                                <Button 
-                                                    size="sm"
-                                                    onClick={() => handleSaveCost(fuelType)}
-                                                    disabled={saving[fuelType]}
-                                                >
-                                                    <Save className="mr-2 h-4 w-4" />
-                                                    {saving[fuelType] ? 'En cours...' : 'Enregistrer'}
-                                                </Button>
-                                            </TableCell>
+                                            {!isReadOnly && (
+                                                <TableCell className="text-right">
+                                                    <Button 
+                                                        size="sm"
+                                                        onClick={() => handleSaveCost(fuelType)}
+                                                        disabled={saving[fuelType]}
+                                                    >
+                                                        <Save className="mr-2 h-4 w-4" />
+                                                        {saving[fuelType] ? 'En cours...' : 'Enregistrer'}
+                                                    </Button>
+                                                </TableCell>
+                                            )}
                                         </TableRow>
                                     )
                                 })}

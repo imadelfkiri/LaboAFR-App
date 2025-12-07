@@ -1,82 +1,97 @@
 
 "use client";
 
-import React from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import {
-  SidebarProvider,
-  Sidebar,
-  SidebarHeader,
-  SidebarContent,
-  SidebarInset,
-  SidebarTrigger,
-} from '@/components/ui/sidebar';
-import { Button } from '@/components/ui/button';
-import { Fuel, Plus, PlusCircle } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { SidebarNav } from './sidebar-nav';
-
-const pageTitles: { [key: string]: string } = {
-  '/': 'Tableau de Bord',
-  '/calculateur': 'Calculateur PCI',
-  '/resultats': 'Historique des Résultats',
-  '/statistiques': 'Tableau de Bord des Statistiques',
-  '/specifications': 'Spécifications Techniques',
-  '/analyses-cendres': 'Suivi Analyses des Cendres des AFs',
-  '/donnees-combustibles': 'Données de Référence',
-  '/calcul-melange': 'Calcul de Mélange',
-  '/simulation-melange': 'Simulation de Mélange',
-  '/gestion-couts': 'Gestion des Coûts',
-  '/gestion-stock': 'Gestion du Stock',
-  '/indicateurs': 'Indicateurs',
-  '/calcul-impact': "Calcul d'Impact Clinker",
-  '/historique-impact': "Historique des Calculs d'Impact",
-};
+import { auth } from '@/lib/firebase';
+import { Skeleton } from '../ui/skeleton';
+import { useAuth } from '@/context/auth-provider';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const title = pageTitles[pathname] || 'FuelTrack AFR';
+  const router = useRouter();
+  const { user, userProfile, loading: authLoading, allowedRoutes } = useAuth();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
-  const showHeader = !['/resultats'].includes(pathname);
+  const isPublicPage = ['/login', '/unauthorized'].includes(pathname);
+
+  useEffect(() => {
+    if (!authLoading) {
+      if (!user && !isPublicPage) {
+        router.push('/login');
+      } else if (user && userProfile && !allowedRoutes.includes(pathname) && !isPublicPage) {
+        // Exception for documentation sub-pages
+        if (!pathname.startsWith('/documentation')) {
+          router.push('/unauthorized');
+        }
+      }
+    }
+  }, [user, userProfile, authLoading, isPublicPage, router, pathname, allowedRoutes]);
+
+  if (authLoading) {
+    return (
+        <div className="flex h-screen w-screen items-center justify-center">
+            <div className="flex items-center space-x-4">
+                <Skeleton className="h-12 w-12 rounded-full bg-primary/20" />
+                <div className="space-y-2">
+                    <Skeleton className="h-4 w-[250px] bg-primary/10" />
+                    <Skeleton className="h-4 w-[200px] bg-primary/10" />
+                </div>
+            </div>
+        </div>
+    );
+  }
+
+  if (isPublicPage) {
+    return <>{children}</>;
+  }
+  
+  // If we are still loading profile or routes, show a loader
+  if (!userProfile) {
+     return (
+        <div className="flex h-screen w-screen items-center justify-center">
+             <div className="flex items-center space-x-4">
+                <Skeleton className="h-12 w-12 rounded-full bg-primary/20" />
+                <div className="space-y-2">
+                    <Skeleton className="h-4 w-[250px] bg-primary/10" />
+                    <Skeleton className="h-4 w-[200px] bg-primary/10" />
+                </div>
+            </div>
+        </div>
+    );
+  }
+
+
+  const handleLogout = () => {
+    auth.signOut();
+    router.push('/login');
+  };
 
   return (
-    <SidebarProvider>
-      <Sidebar>
-        <SidebarHeader className="p-4">
-          <div className="flex items-center gap-3">
-            <div className='flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar-primary'>
-                <Fuel className="h-6 w-6 text-sidebar-primary-foreground" />
-            </div>
-            <div className="flex flex-col">
-                <h2 className="text-lg font-bold tracking-tight text-sidebar-primary-foreground">
-                    FuelTrack
-                </h2>
-                <p className="text-xs text-sidebar-foreground/80">AFR Monitoring</p>
-            </div>
-          </div>
-        </SidebarHeader>
-        <SidebarContent>
-            <SidebarNav />
-        </SidebarContent>
-      </Sidebar>
-      <SidebarInset>
-        {showHeader && (
-            <header className="flex h-16 items-center justify-between gap-4 border-b bg-background/95 backdrop-blur-sm px-4 lg:px-6 sticky top-0 z-30">
-            <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold tracking-tight">{title}</h1>
-            </div>
-            <div className="flex items-center justify-end" style={{ minWidth: '180px' }}>
-                {pathname === '/specifications' && (
-                    <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={() => (window as any).openSpecModal()}>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Ajouter une spécification
-                    </Button>
-                )}
-            </div>
-            </header>
+    <div className="flex h-screen bg-[#080D16]">
+        
+        {userProfile && (
+            <SidebarNav 
+                userRole={userProfile.role}
+                isOpen={isSidebarOpen}
+                setIsOpen={setIsSidebarOpen}
+                onLogout={handleLogout}
+            />
         )}
-        {children}
-      </SidebarInset>
-    </SidebarProvider>
+        
+        <div className={cn(
+            "flex-1 flex flex-col overflow-hidden transition-all duration-300",
+             isSidebarOpen ? "ml-[250px]" : "ml-[80px]"
+        )}>
+             <ScrollArea className="flex-grow">
+                 <main className="p-6">
+                    {children}
+                 </main>
+            </ScrollArea>
+        </div>
+    </div>
   );
 }

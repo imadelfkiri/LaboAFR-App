@@ -42,8 +42,7 @@ export interface ImpactTableHorizontalProps {
   onPresetLoad: (id: string) => void;
   onPresetSave: () => void;
   onPresetDelete: (id: string) => void;
-  onImportRawMeal: () => void;
-  onImportRealClinker: () => void;
+  onImport: () => void;
   cendresMelange: ChemSet;
   clinkerSans: ChemSet;
   clinkerAvec: ChemSet;
@@ -119,7 +118,7 @@ const SavePresetDialog = ({ currentAnalysis, onSave }: { currentAnalysis: ChemSe
 
 // --- Composant
 export default function ImpactTableHorizontal({
-  rawMealAnalysis, onRawMealChange, presets, onPresetLoad, onPresetSave, onPresetDelete, onImportRawMeal, onImportRealClinker,
+  rawMealAnalysis, onRawMealChange, presets, onPresetLoad, onPresetSave, onPresetDelete, onImport,
   cendresMelange, clinkerSans, clinkerAvec, realClinkerAnalysis, modulesFarine, modulesCendres, modulesSans, modulesAvec, modulesReel, c3sSans, c3sAvec, c3sReel, showDelta = true
 }: ImpactTableHorizontalProps) {
 
@@ -147,11 +146,8 @@ export default function ImpactTableHorizontal({
                  <CardTitle>Calcul d'impact</CardTitle>
             </div>
              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="h-9" onClick={onImportRawMeal}>
-                    <Upload className="h-4 w-4 mr-2" /> Importer Farine
-                </Button>
-                 <Button variant="outline" size="sm" className="h-9" onClick={onImportRealClinker}>
-                    <Upload className="h-4 w-4 mr-2" /> Importer Clinker Réel
+                <Button variant="outline" size="sm" className="h-9" onClick={onImport}>
+                    <Upload className="h-4 w-4 mr-2" /> Importer Analyse (Excel)
                 </Button>
                 <Select onValueChange={onPresetLoad}>
                     <SelectTrigger className="w-[180px] h-9 text-xs bg-brand-surface border-brand-line"><SelectValue placeholder="Charger un preset..." /></SelectTrigger>

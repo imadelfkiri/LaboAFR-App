@@ -75,6 +75,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ClipboardList, PlusCircle, Trash2, Edit, Save, CalendarIcon, Search, FileUp, Download, ChevronDown, ArrowUpDown, Filter, Plus, Upload } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import ToolbarAnalysesCendres from './toolbar-analyses-cendres';
+import { useAuth } from '@/context/auth-provider';
 
 // Extend jsPDF for autoTable
 declare module "jspdf" {
@@ -136,12 +137,14 @@ const AnalysisForm = ({
   fuelTypes,
   fournisseurs,
   isSubmitting,
+  isReadOnly,
 }: {
   form: any;
   onSubmit: (values: FormValues) => void;
   fuelTypes: string[];
   fournisseurs: string[];
   isSubmitting: boolean;
+  isReadOnly: boolean;
 }) => (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -152,7 +155,7 @@ const AnalysisForm = ({
               <Popover>
                   <PopoverTrigger asChild>
                   <FormControl>
-                      <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal",!field.value && "text-muted-foreground")}>
+                      <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal",!field.value && "text-muted-foreground")} disabled={isReadOnly}>
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {field.value ? (format(field.value, "PPP", { locale: fr })) : (<span>Choisir une date</span>)}
                       </Button>
@@ -164,29 +167,29 @@ const AnalysisForm = ({
             </FormItem>
           )}/>
           <FormField control={form.control} name="type_combustible" render={({ field }) => (
-            <FormItem><FormLabel>Type Combustible</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl><SelectContent>{fuelTypes.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+            <FormItem><FormLabel>Type Combustible</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={isReadOnly}><FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl><SelectContent>{fuelTypes.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
           )}/>
           <FormField control={form.control} name="fournisseur" render={({ field }) => (
-            <FormItem><FormLabel>Fournisseur</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl><SelectContent>{fournisseurs.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+            <FormItem><FormLabel>Fournisseur</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={isReadOnly}><FormControl><SelectTrigger><SelectValue placeholder="Sélectionner..." /></SelectTrigger></FormControl><SelectContent>{fournisseurs.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
           )}/>
         </div>
         <Card><CardContent className="pt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-            <FormField control={form.control} name="pourcentage_cendres" render={({ field }) => (<FormItem><FormLabel>% Cendres</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
-            <FormField control={form.control} name="pf" render={({ field }) => (<FormItem><FormLabel>PF</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
-            <FormField control={form.control} name="sio2" render={({ field }) => (<FormItem><FormLabel>SiO2</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
-            <FormField control={form.control} name="al2o3" render={({ field }) => (<FormItem><FormLabel>Al2O3</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
-            <FormField control={form.control} name="fe2o3" render={({ field }) => (<FormItem><FormLabel>Fe2O3</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
-            <FormField control={form.control} name="cao" render={({ field }) => (<FormItem><FormLabel>CaO</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
-            <FormField control={form.control} name="mgo" render={({ field }) => (<FormItem><FormLabel>MgO</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
-            <FormField control={form.control} name="so3" render={({ field }) => (<FormItem><FormLabel>SO3</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
-            <FormField control={form.control} name="k2o" render={({ field }) => (<FormItem><FormLabel>K2O</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
-            <FormField control={form.control} name="tio2" render={({ field }) => (<FormItem><FormLabel>TiO2</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
-            <FormField control={form.control} name="mno" render={({ field }) => (<FormItem><FormLabel>MnO</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
-            <FormField control={form.control} name="p2o5" render={({ field }) => (<FormItem><FormLabel>P2O5</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="pourcentage_cendres" render={({ field }) => (<FormItem><FormLabel>% Cendres</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} disabled={isReadOnly} /></FormControl><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="pf" render={({ field }) => (<FormItem><FormLabel>PF</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} disabled={isReadOnly} /></FormControl><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="sio2" render={({ field }) => (<FormItem><FormLabel>SiO2</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} disabled={isReadOnly} /></FormControl><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="al2o3" render={({ field }) => (<FormItem><FormLabel>Al2O3</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} disabled={isReadOnly} /></FormControl><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="fe2o3" render={({ field }) => (<FormItem><FormLabel>Fe2O3</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} disabled={isReadOnly} /></FormControl><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="cao" render={({ field }) => (<FormItem><FormLabel>CaO</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} disabled={isReadOnly} /></FormControl><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="mgo" render={({ field }) => (<FormItem><FormLabel>MgO</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} disabled={isReadOnly} /></FormControl><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="so3" render={({ field }) => (<FormItem><FormLabel>SO3</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} disabled={isReadOnly} /></FormControl><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="k2o" render={({ field }) => (<FormItem><FormLabel>K2O</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} disabled={isReadOnly} /></FormControl><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="tio2" render={({ field }) => (<FormItem><FormLabel>TiO2</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} disabled={isReadOnly} /></FormControl><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="mno" render={({ field }) => (<FormItem><FormLabel>MnO</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} disabled={isReadOnly} /></FormControl><FormMessage /></FormItem>)}/>
+            <FormField control={form.control} name="p2o5" render={({ field }) => (<FormItem><FormLabel>P2O5</FormLabel><FormControl><Input type="number" step="any" {...field} value={field.value ?? ''} disabled={isReadOnly} /></FormControl><FormMessage /></FormItem>)}/>
         </CardContent></Card>
         <DialogFooter>
             <DialogClose asChild><Button type="button" variant="secondary">Annuler</Button></DialogClose>
-            <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Enregistrement..." : "Enregistrer"}</Button>
+            {!isReadOnly && <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Enregistrement..." : "Enregistrer"}</Button>}
         </DialogFooter>
       </form>
     </Form>
@@ -214,14 +217,11 @@ function AnalysesCendresView({
   setFrom = () => {},
   to = "",
   setTo = () => {},
+  isReadOnly = false,
 }) {
-  const chip = (v: number | undefined, t: "MS"|"AF"|"LSF") => {
-    const n = typeof v === "number" && isFinite(v) ? v : undefined
-    const base = "inline-flex items-center justify-center rounded-md px-1.5 py-0.5 text-[11px] font-medium tabular-nums"
-    if (n === undefined) return <span className={`${base} bg-muted text-muted-foreground`}>-</span>
-    if (t === "MS") return <span className={`${base} ${n<1.5?"bg-red-500/20 text-red-300":n<2.0?"bg-yellow-500/20 text-yellow-300":"bg-green-500/20 text-green-300"}`}>{n.toFixed(2)}</span>
-    if (t === "AF") return <span className={`${base} ${n<0.5?"bg-red-500/20 text-red-300":n<1.5?"bg-yellow-500/20 text-yellow-300":"bg-green-500/20 text-green-300"}`}>{n.toFixed(2)}</span>
-    return <span className={`${base} ${n<0.80?"bg-red-500/20 text-red-300":n<=1.00?"bg-yellow-500/20 text-yellow-300":"bg-green-500/20 text-green-300"}`}>{n.toFixed(2)}</span>
+  const chip = (v: number | undefined) => {
+    if (v === undefined || !isFinite(v)) return '-';
+    return v.toFixed(2);
   }
 
   const SortableHeader = ({ label, sortKey }: { label: string; sortKey: SortableKeys }) => {
@@ -229,7 +229,7 @@ function AnalysesCendresView({
     return (
       <th
         onClick={() => onSort(sortKey)}
-        className="sticky top-0 z-20 bg-brand-surface/95 backdrop-blur p-2 text-left font-semibold border-b border-brand-line/60 cursor-pointer hover:bg-brand-muted/50"
+        className="sticky top-0 z-20 bg-blue-900/40 backdrop-blur p-2 text-left font-semibold border-b border-brand-line/60 cursor-pointer hover:bg-brand-muted/50"
       >
         <div className="flex items-center gap-2">
             <span>{label}</span>
@@ -265,7 +265,7 @@ function AnalysesCendresView({
   const AverageRow = ({ label, data }: { label: string; data: any; }) => {
     if (!data || data.count === 0) return null;
     return (
-        <tr className="border-b border-brand-line/40 last:border-0 bg-brand-muted/50 hover:bg-brand-muted font-semibold">
+        <tr className="border-t-2 border-blue-400/30 bg-blue-900/30 hover:bg-blue-900/40 font-semibold">
             <td className="p-2 text-muted-foreground whitespace-nowrap" colSpan={3}>{label} ({data.count})</td>
             <td className="p-2 text-right tabular-nums">{data.oxides?.['%Cendres']}</td>
             <td className="p-2 text-right tabular-nums">{data.oxides?.PF}</td>
@@ -279,10 +279,10 @@ function AnalysesCendresView({
             <td className="p-2 text-right tabular-nums">{data.oxides?.TiO2}</td>
             <td className="p-2 text-right tabular-nums">{data.oxides?.MnO}</td>
             <td className="p-2 text-right tabular-nums">{data.oxides?.P2O5}</td>
-            <td className="p-2 text-center">{chip(data.modules?.MS, "MS")}</td>
-            <td className="p-2 text-center">{chip(data.modules?.AF, "AF")}</td>
-            <td className="p-2 text-center">{chip(data.modules?.LSF, "LSF")}</td>
-            <td className="p-2"></td>
+            <td className="p-2 text-center tabular-nums">{chip(data.modules?.MS)}</td>
+            <td className="p-2 text-center tabular-nums">{chip(data.modules?.AF)}</td>
+            <td className="p-2 text-center tabular-nums">{chip(data.modules?.LSF)}</td>
+            {!isReadOnly && <td className="p-2"></td>}
         </tr>
     );
   };
@@ -297,6 +297,7 @@ function AnalysesCendresView({
         to={to} setTo={setTo}
         fuels={fuels} suppliers={suppliers}
         onAdd={onAdd} onExport={onExport} onImport={onImport}
+        isReadOnly={isReadOnly}
       />
 
       <div className="flex-grow px-3 md:px-5 pb-3 md:pb-5">
@@ -307,7 +308,7 @@ function AnalysesCendresView({
                 <thead className="text-neutral-300">
                   <tr>
                     {headers.map(h => <SortableHeader key={h.key} label={h.label} sortKey={h.key} />)}
-                    <th className="sticky top-0 z-20 bg-brand-surface/95 backdrop-blur p-2 text-center font-semibold border-b border-brand-line/60">Actions</th>
+                    {!isReadOnly && <th className="sticky top-0 z-20 bg-blue-900/40 backdrop-blur p-2 text-center font-semibold border-b border-brand-line/60">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -328,9 +329,10 @@ function AnalysesCendresView({
                       <td className="p-2 text-right tabular-nums">{r.oxides?.TiO2}</td>
                       <td className="p-2 text-right tabular-nums">{r.oxides?.MnO}</td>
                       <td className="p-2 text-right tabular-nums">{r.oxides?.P2O5}</td>
-                      <td className="p-2 text-center">{chip(r.modules?.MS, "MS")}</td>
-                      <td className="p-2 text-center">{chip(r.modules?.AF, "AF")}</td>
-                      <td className="p-2 text-center">{chip(r.modules?.LSF, "LSF")}</td>
+                      <td className="p-2 text-center tabular-nums">{chip(r.modules?.MS)}</td>
+                      <td className="p-2 text-center tabular-nums">{chip(r.modules?.AF)}</td>
+                      <td className="p-2 text-center tabular-nums">{chip(r.modules?.LSF)}</td>
+                      {!isReadOnly && (
                       <td className="p-2 text-center">
                         <div className="inline-flex gap-1">
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(r.original)} title="Éditer">
@@ -341,17 +343,16 @@ function AnalysesCendresView({
                           </Button>
                         </div>
                       </td>
+                      )}
                     </tr>
                   ))}
                   {(!rows || rows.length === 0) && (
                     <tr><td colSpan={19} className="p-6 text-center text-muted-foreground">Aucune donnée.</td></tr>
                   )}
-                </tbody>
-                 <tfoot className="sticky bottom-0 bg-brand-surface/95 backdrop-blur-sm">
                     <AverageRow label="Moyenne Pet coke" data={averages.petCoke} />
                     <AverageRow label="Moyenne Grignons" data={averages.grignons} />
                     <AverageRow label="Moyenne AFs" data={averages.afs} />
-                </tfoot>
+                </tbody>
               </table>
             </div>
           </CardContent>
@@ -372,6 +373,9 @@ const fuelOrder = [
 ];
 
 export function AshAnalysisManager() {
+    const { userProfile } = useAuth();
+    const isReadOnly = userProfile?.role === 'viewer';
+
     const [analyses, setAnalyses] = useState<AshAnalysis[]>([]);
     const [loading, setLoading] = useState(true);
     const [deletingRowId, setDeletingRowId] = useState<string | null>(null);
@@ -433,6 +437,7 @@ export function AshAnalysisManager() {
     }, [fetchInitialData]);
 
     const handleModalOpen = (analysis: AshAnalysis | null = null) => {
+        if (isReadOnly) return;
         setEditingAnalysis(analysis);
         if (analysis) {
             reset({ ...analysis, date_arrivage: analysis.date_arrivage.toDate() });
@@ -449,6 +454,7 @@ export function AshAnalysisManager() {
     };
 
     const onSubmit = async (data: FormValues) => {
+        if (isReadOnly) return;
         const dataWithTimestamp = {
             ...data,
             date_arrivage: Timestamp.fromDate(data.date_arrivage),
@@ -471,7 +477,7 @@ export function AshAnalysisManager() {
     };
 
     const handleDelete = async () => {
-        if (!deletingRowId) return;
+        if (isReadOnly || !deletingRowId) return;
         try {
             await deleteAshAnalysis(deletingRowId);
             toast({ title: "Succès", description: "Analyse supprimée." });
@@ -544,6 +550,7 @@ export function AshAnalysisManager() {
     };
     
     const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        if (isReadOnly) return;
         const file = event.target.files?.[0];
         if (!file) return;
 
@@ -668,6 +675,7 @@ export function AshAnalysisManager() {
     }, [analyses, fuelTypeFilter, fournisseurFilter, dateFromFilter, dateToFilter, searchQuery, sortConfig, getSortableValue]);
 
     const exportData = (type: 'excel' | 'pdf') => {
+        if (isReadOnly) return;
         const dataToExport = sortedAndFilteredAnalyses;
         if (dataToExport.length === 0) {
             toast({ variant: "destructive", title: "Aucune donnée", description: "Il n'y a pas de données à exporter." });
@@ -872,6 +880,7 @@ export function AshAnalysisManager() {
             className="hidden"
             onChange={handleFileImport}
             accept=".xlsx, .xls"
+            disabled={isReadOnly}
         />
         <AnalysesCendresView
           rows={tableRows}
@@ -895,6 +904,7 @@ export function AshAnalysisManager() {
           setFrom={setDateFromFilter}
           to={dateToFilter}
           setTo={setDateToFilter}
+          isReadOnly={isReadOnly}
         />
 
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
@@ -909,6 +919,7 @@ export function AshAnalysisManager() {
                     fuelTypes={fuelTypes} 
                     fournisseurs={fournisseurs}
                     isSubmitting={isSubmitting}
+                    isReadOnly={isReadOnly}
                   />
                 </div>
             </DialogContent>
