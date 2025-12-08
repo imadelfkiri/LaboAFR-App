@@ -7,8 +7,9 @@ const nextConfig: NextConfig = {
   },
   webpack: (config, { isServer, dev }) => {
     if (dev && !isServer) {
-      // Désactiver le cache en développement pour éviter les erreurs de ChunkLoadError
-      config.cache = false;
+      // Merge all runtime chunks into a single chunk.
+      // This is a robust solution to prevent ChunkLoadError in some development environments.
+      config.optimization.runtimeChunk = 'single';
     }
     return config;
   },
