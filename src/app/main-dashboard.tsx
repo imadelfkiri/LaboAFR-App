@@ -73,8 +73,8 @@ export function MainDashboard() {
     const [showColors, setShowColors] = useState(true);
 
     const [dateRange, setDateRange] = useState<DateRange | undefined>({
-        from: startOfWeek(new Date(), { weekStartsOn: 1 }),
-        to: endOfWeek(new Date(), { weekStartsOn: 1 }),
+        from: subDays(new Date(), 30),
+        to: new Date(),
     });
 
     const [thresholds, setThresholds] = useState<{ melange?: MixtureThresholds, impact?: ImpactThresholds, indicateurs?: KeyIndicatorThresholds }>({});
@@ -675,3 +675,4 @@ export function MainDashboard() {
         </motion.div>
     );
 }
+
