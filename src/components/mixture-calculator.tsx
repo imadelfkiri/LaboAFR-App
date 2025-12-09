@@ -302,6 +302,8 @@ function useMixtureCalculations(
             tempTotalAsh += weight * analysisData.cendres;
             tempTotalChlorine += weight * analysisData.chlore;
         }
+        
+        const tireProportion = totalWeight > 0 ? (tempTotalTireWeight / totalWeight) : 0;
 
         return { 
             weight: totalWeight, 
@@ -310,7 +312,7 @@ function useMixtureCalculations(
             humidity: totalWeight > 0 ? tempTotalHumidity / totalWeight : 0,
             ash: totalWeight > 0 ? tempTotalAsh / totalWeight : 0,
             chlorine: totalWeight > 0 ? tempTotalChlorine / totalWeight : 0,
-            tireRate: totalWeight > 0 ? (tempTotalTireWeight / totalWeight) * 100 : 0,
+            tireProportion: tireProportion, // Proportion of tires within this installation's mix
             fuelWeights
         };
     };
@@ -319,29 +321,20 @@ function useMixtureCalculations(
     const atsIndicators = processInstallation(ats);
 
     // --- AFs Indicators (sans GO) ---
-    const afFlows = [
-      { flow: hallAF.flowRate || 0, indicators: hallIndicators },
-      { flow: ats.flowRate || 0, indicators: atsIndicators },
-    ];
-    const totalAfFlow = afFlows.reduce((sum, item) => sum + item.flow, 0);
+    const totalAfFlow = (hallAF.flowRate || 0) + (ats.flowRate || 0);
 
     const weightedAfAvg = (valueKey: 'pci' | 'humidity' | 'ash' | 'chlorine') => {
         if (totalAfFlow === 0) return 0;
-        const totalValue = afFlows.reduce((sum, item) => sum + item.flow * (item.indicators[valueKey] || 0), 0);
+        const totalValue = (hallAF.flowRate || 0) * (hallIndicators[valueKey] || 0) + 
+                             (ats.flowRate || 0) * (atsIndicators[valueKey] || 0);
         return totalValue / totalAfFlow;
     };
     
     const weightedTireRate = () => {
         if (totalAfFlow === 0) return 0;
-        
-        const hallTireProportion = hallIndicators.weight > 0 ? hallIndicators.tireWeight / hallIndicators.weight : 0;
-        const atsTireProportion = atsIndicators.weight > 0 ? atsIndicators.tireWeight / atsIndicators.weight : 0;
-        
-        const hallTireFlow = (hallAF.flowRate || 0) * hallTireProportion;
-        const atsTireFlow = (ats.flowRate || 0) * atsTireProportion;
-        
+        const hallTireFlow = (hallAF.flowRate || 0) * hallIndicators.tireProportion;
+        const atsTireFlow = (ats.flowRate || 0) * atsIndicators.tireProportion;
         const totalTireFlow = hallTireFlow + atsTireFlow;
-        
         return (totalTireFlow / totalAfFlow) * 100;
     };
 
@@ -982,13 +975,12 @@ export function MixtureCalculator() {
                         />
                     )}
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                     <IndicatorDisplay title="PCI moy" value={totalIndicators.pci.toFixed(0)} unit="kcal/kg" status={totalIndicators.status.pci} indicatorKey="pci" name="PCI Moyen"/>
                     <IndicatorDisplay title="% Humidité moy" value={totalIndicators.humidity.toFixed(2)} unit="%" status={totalIndicators.status.humidity} indicatorKey="humidity" name="Humidité Moyenne"/>
                     <IndicatorDisplay title="% Cendres moy" value={totalIndicators.ash.toFixed(2)} unit="%" status={totalIndicators.status.ash} indicatorKey="ash" name="Cendres Moyennes"/>
                     <IndicatorDisplay title="% Chlorures" value={totalIndicators.chlorine.toFixed(3)} unit="%" status={totalIndicators.status.chlorine} indicatorKey="chlorine" name="Chlorures Moyens"/>
                     <IndicatorDisplay title="Taux de pneus" value={totalIndicators.tireRate.toFixed(2)} unit="%" status={totalIndicators.status.tireRate} indicatorKey="tireRate" name="Taux de Pneus"/>
-                    <IndicatorDisplay title="TSR" value={totalIndicators.tsr.toFixed(2)} unit="%" status='neutral' indicatorKey="tsr" name="TSR"/>
                 </div>
             </div>
             
@@ -1072,7 +1064,7 @@ export function MixtureCalculator() {
                             </LineChart>
                         ) : (
                             <div className="flex items-center justify-center h-full text-muted-foreground">
-                                Aucune donnée historique pour cet indicateur dans la période sélectionnée.
+                                Aucune donnée historique pour la période sélectionnée.
                             </div>
                         )}
                     </ResponsiveContainer>
@@ -1093,7 +1085,7 @@ export function MixtureCalculator() {
              <div className="flex justify-around text-xs p-2 rounded-md bg-muted/40 mb-4">
                 <span className="font-semibold">PCI: <strong className="text-emerald-400">{hallIndicators.pci.toFixed(0)}</strong></span>
                 <span className="font-semibold">Cl: <strong className="text-orange-400">{hallIndicators.chlorine.toFixed(3)}%</strong></span>
-                <span className="font-semibold">Pneus: <strong className="text-sky-400">{hallIndicators.tireRate.toFixed(1)}%</strong></span>
+                <span className="font-semibold">Pneus: <strong className="text-sky-400">{(hallIndicators.tireProportion * 100).toFixed(1)}%</strong></span>
              </div>
             <FuelInputList installationState={hallAF} setInstallationState={setHallAF} installationName="hall" />
           </CardContent>
@@ -1111,7 +1103,7 @@ export function MixtureCalculator() {
              <div className="flex justify-around text-xs p-2 rounded-md bg-muted/40 mb-4">
                 <span className="font-semibold">PCI: <strong className="text-emerald-400">{atsIndicators.pci.toFixed(0)}</strong></span>
                 <span className="font-semibold">Cl: <strong className="text-orange-400">{atsIndicators.chlorine.toFixed(3)}%</strong></span>
-                <span className="font-semibold">Pneus: <strong className="text-sky-400">{atsIndicators.tireRate.toFixed(1)}%</strong></span>
+                <span className="font-semibold">Pneus: <strong className="text-sky-400">{(atsIndicators.tireProportion * 100).toFixed(1)}%</strong></span>
              </div>
             <FuelInputList installationState={ats} setInstallationState={setAts} installationName="ats" />
           </CardContent>
