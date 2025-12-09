@@ -331,17 +331,19 @@ function useMixtureCalculations(
         return totalValue / totalAfFlow;
     };
     
-    let tireRateAf = 0;
-    const totalAfWeightFromFlows = afFlows.reduce((sum, item) => sum + item.flow * (item.indicators.weight > 0 ? 1 : 0), 0);
-    if (totalAfWeightFromFlows > 0) {
-        const totalTireWeightContribution = afFlows.reduce((sum, item) => {
+    const weightedTireRate = () => {
+        if (totalAfFlow === 0) return 0;
+        const totalTireWeightFlow = afFlows.reduce((sum, item) => {
             if (item.indicators.weight > 0) {
-                return sum + item.flow * (item.indicators.tireWeight / item.indicators.weight);
+                // Calculate the proportion of tire weight inside the installation's mix
+                const tireProportionInMix = item.indicators.tireWeight / item.indicators.weight;
+                // Multiply this proportion by the installation's flow rate to get the "flow" of tire weight
+                return sum + (item.flow * tireProportionInMix);
             }
             return sum;
         }, 0);
-        tireRateAf = (totalTireWeightContribution / totalAfWeightFromFlows) * 100;
-    }
+        return (totalTireWeightFlow / totalAfFlow) * 100;
+    };
 
 
     const afIndicators = {
@@ -350,7 +352,7 @@ function useMixtureCalculations(
         humidity: weightedAfAvg('humidity'),
         ash: weightedAfAvg('ash'),
         chlorine: weightedAfAvg('chlorine'),
-        tireRate: tireRateAf,
+        tireRate: weightedTireRate(),
     };
     
     // --- Total Indicators (avec GO) ---
@@ -1214,6 +1216,7 @@ export function MixtureCalculator() {
 }
 
     
+
 
 
 
