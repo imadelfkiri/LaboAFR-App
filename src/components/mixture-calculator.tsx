@@ -969,38 +969,43 @@ export function MixtureCalculator() {
         </div>
 
       <div className="sticky top-0 z-20 bg-brand-bg/95 backdrop-blur-sm py-4 -mx-8 px-8 border-b border-brand-line">
-            <div className="flex items-center gap-4 mb-4">
-                <h2 className="text-xl font-bold text-white whitespace-nowrap">Mélange Total (avec GO)</h2>
-                {thresholds && (
-                    <ThresholdSettingsModal 
-                        isOpen={isThresholdModalOpen}
-                        onOpenChange={setIsThresholdModalOpen}
-                        thresholds={thresholds}
-                        onSave={handleSaveThresholds}
-                        isReadOnly={isReadOnly}
-                    />
-                )}
+            <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                    <h2 className="text-xl font-bold text-white whitespace-nowrap">Mélange Total (avec GO)</h2>
+                    {thresholds && (
+                        <ThresholdSettingsModal 
+                            isOpen={isThresholdModalOpen}
+                            onOpenChange={setIsThresholdModalOpen}
+                            thresholds={thresholds}
+                            onSave={handleSaveThresholds}
+                            isReadOnly={isReadOnly}
+                        />
+                    )}
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                    <IndicatorDisplay title="PCI moy" value={totalIndicators.pci.toFixed(0)} unit="kcal/kg" status={totalIndicators.status.pci} indicatorKey="pci" name="PCI Moyen"/>
+                    <IndicatorDisplay title="% Humidité moy" value={totalIndicators.humidity.toFixed(2)} unit="%" status={totalIndicators.status.humidity} indicatorKey="humidity" name="Humidité Moyenne"/>
+                    <IndicatorDisplay title="% Cendres moy" value={totalIndicators.ash.toFixed(2)} unit="%" status={totalIndicators.status.ash} indicatorKey="ash" name="Cendres Moyennes"/>
+                    <IndicatorDisplay title="% Chlorures" value={totalIndicators.chlorine.toFixed(3)} unit="%" status={totalIndicators.status.chlorine} indicatorKey="chlorine" name="Chlorures Moyens"/>
+                    <IndicatorDisplay title="Taux de pneus" value={totalIndicators.tireRate.toFixed(2)} unit="%" status={totalIndicators.status.tireRate} indicatorKey="tireRate" name="Taux de Pneus"/>
+                    <IndicatorDisplay title="TSR" value={totalIndicators.tsr.toFixed(2)} unit="%" status='neutral' indicatorKey="tsr" name="TSR"/>
+                </div>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                <IndicatorDisplay title="PCI moy" value={totalIndicators.pci.toFixed(0)} unit="kcal/kg" status={totalIndicators.status.pci} indicatorKey="pci" name="PCI Moyen"/>
-                <IndicatorDisplay title="% Humidité moy" value={totalIndicators.humidity.toFixed(2)} unit="%" status={totalIndicators.status.humidity} indicatorKey="humidity" name="Humidité Moyenne"/>
-                <IndicatorDisplay title="% Cendres moy" value={totalIndicators.ash.toFixed(2)} unit="%" status={totalIndicators.status.ash} indicatorKey="ash" name="Cendres Moyennes"/>
-                <IndicatorDisplay title="% Chlorures" value={totalIndicators.chlorine.toFixed(3)} unit="%" status={totalIndicators.status.chlorine} indicatorKey="chlorine" name="Chlorures Moyens"/>
-                <IndicatorDisplay title="Taux de pneus" value={totalIndicators.tireRate.toFixed(2)} unit="%" status={totalIndicators.status.tireRate} indicatorKey="tireRate" name="Taux de Pneus"/>
-                <IndicatorDisplay title="TSR" value={totalIndicators.tsr.toFixed(2)} unit="%" status='neutral' indicatorKey="tsr" name="TSR"/>
+            
+            <Separator className="my-6" />
+
+            <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-white">Mélange AFs (sans GO)</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                    <IndicatorDisplay title="PCI moy" value={afIndicators.pci.toFixed(0)} unit="kcal/kg" status={afIndicators.status.pci} indicatorKey="pci" name="PCI Moyen (AFs)"/>
+                    <IndicatorDisplay title="% Humidité moy" value={afIndicators.humidity.toFixed(2)} unit="%" status={afIndicators.status.humidity} indicatorKey="humidity" name="Humidité Moyenne (AFs)"/>
+                    <IndicatorDisplay title="% Cendres moy" value={afIndicators.ash.toFixed(2)} unit="%" status={afIndicators.status.ash} indicatorKey="ash" name="Cendres Moyennes (AFs)"/>
+                    <IndicatorDisplay title="% Chlorures" value={afIndicators.chlorine.toFixed(3)} unit="%" status={afIndicators.status.chlorine} indicatorKey="chlorine" name="Chlorures Moyens (AFs)"/>
+                    <IndicatorDisplay title="Taux de pneus" value={afIndicators.tireRate.toFixed(2)} unit="%" status={afIndicators.status.tireRate} indicatorKey="tireRate" name="Taux de Pneus (AFs)"/>
+                </div>
             </div>
             <Separator className="my-6" />
-            <div className="flex justify-between items-center">
-                <div>
-                     <h3 className="text-lg font-semibold text-white">Mélange AFs (sans GO)</h3>
-                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <span>Débit: <strong className="text-white">{afIndicators.flow.toFixed(2)} t/h</strong></span>
-                        <Separator orientation="vertical" className="h-4"/>
-                        <span>PCI: <strong className="text-white">{afIndicators.pci.toFixed(0)} kcal/kg</strong></span>
-                        <Separator orientation="vertical" className="h-4"/>
-                        <span>Chlorures: <strong className="text-white">{afIndicators.chlorine.toFixed(3)}%</strong></span>
-                     </div>
-                </div>
+            <div className="flex justify-end items-center">
                  <div className="flex items-center gap-2">
                     <Popover>
                         <PopoverTrigger asChild>
@@ -1204,12 +1209,9 @@ export function MixtureCalculator() {
                             <LineChart data={historyChartData}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                                 <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} yAxisId="left" orientation="left" />
-                                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} yAxisId="right" orientation="right" />
+                                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} domain={['dataMin', 'auto']} />
                                 <RechartsTooltip content={<CustomHistoryTooltip />} />
-                                <Legend />
-                                <Line yAxisId="left" type="monotone" dataKey="PCI" stroke="hsl(var(--primary))" name="PCI" dot={false} strokeWidth={2} />
-                                <Line yAxisId="right" type="monotone" dataKey="Chlorures" stroke="#ffc658" name="Chlorures (%)" dot={false} strokeWidth={2}/>
+                                <Line type="monotone" dataKey="value" name={historyChartIndicator?.name} stroke="hsl(var(--primary))" dot={false} strokeWidth={2} />
                             </LineChart>
                         ) : (
                             <div className="flex items-center justify-center h-full text-muted-foreground">
