@@ -310,6 +310,7 @@ function useMixtureCalculations(
             humidity: totalWeight > 0 ? tempTotalHumidity / totalWeight : 0,
             ash: totalWeight > 0 ? tempTotalAsh / totalWeight : 0,
             chlorine: totalWeight > 0 ? tempTotalChlorine / totalWeight : 0,
+            tireRate: totalWeight > 0 ? (tempTotalTireWeight / totalWeight) * 100 : 0,
             fuelWeights
         };
     };
@@ -424,6 +425,8 @@ function useMixtureCalculations(
     };
 
     return {
+      hallIndicators,
+      atsIndicators,
       afIndicators: { ...afIndicators, tsr, status: {
         pci: getStatus(afIndicators.pci, 'pci'),
         humidity: getStatus(afIndicators.humidity, 'humidity'),
@@ -645,7 +648,7 @@ export function MixtureCalculator() {
     fetchHistoryData();
   }, [fetchHistoryData]);
 
-  const { afIndicators, totalIndicators } = useMixtureCalculations(hallAF, ats, directInputs, availableFuels, fuelData, thresholds);
+  const { hallIndicators, atsIndicators, afIndicators, totalIndicators } = useMixtureCalculations(hallAF, ats, directInputs, availableFuels, fuelData, thresholds);
 
   const historyChartData = useMemo(() => {
     if (!historySessions || historySessions.length === 0 || !historyChartIndicator) return [];
@@ -1082,7 +1085,12 @@ export function MixtureCalculator() {
                 <Input id="flow-hall" type="number" className="w-32 h-9" value={hallAF.flowRate || ''} onChange={(e) => handleFlowRateChange(setHallAF, e.target.value)} readOnly={isReadOnly}/>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4 p-6">
+          <CardContent className="space-y-2 p-6 pt-0">
+             <div className="flex justify-around text-xs p-2 rounded-md bg-muted/40 mb-4">
+                <span className="font-semibold">PCI: <strong className="text-emerald-400">{hallIndicators.pci.toFixed(0)}</strong></span>
+                <span className="font-semibold">Cl: <strong className="text-orange-400">{hallIndicators.chlorine.toFixed(3)}%</strong></span>
+                <span className="font-semibold">Pneus: <strong className="text-sky-400">{hallIndicators.tireRate.toFixed(1)}%</strong></span>
+             </div>
             <FuelInputList installationState={hallAF} setInstallationState={setHallAF} installationName="hall" />
           </CardContent>
         </Card>
@@ -1095,7 +1103,12 @@ export function MixtureCalculator() {
                 <Input id="flow-ats" type="number" className="w-32 h-9" value={ats.flowRate || ''} onChange={(e) => handleFlowRateChange(setAts, e.target.value)} readOnly={isReadOnly}/>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4 p-6">
+           <CardContent className="space-y-2 p-6 pt-0">
+             <div className="flex justify-around text-xs p-2 rounded-md bg-muted/40 mb-4">
+                <span className="font-semibold">PCI: <strong className="text-emerald-400">{atsIndicators.pci.toFixed(0)}</strong></span>
+                <span className="font-semibold">Cl: <strong className="text-orange-400">{atsIndicators.chlorine.toFixed(3)}%</strong></span>
+                <span className="font-semibold">Pneus: <strong className="text-sky-400">{atsIndicators.tireRate.toFixed(1)}%</strong></span>
+             </div>
             <FuelInputList installationState={ats} setInstallationState={setAts} installationName="ats" />
           </CardContent>
         </Card>
@@ -1216,3 +1229,4 @@ export function MixtureCalculator() {
     
 
     
+
