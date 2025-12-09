@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -914,7 +915,7 @@ export function MixtureCalculator() {
     setHistoryChartIndicator({key, name});
   };
 
-  const IndicatorDisplay = ({ title, value, unit, status, indicatorKey, name }: { title: string; value: string | number; unit?: string; status: IndicatorStatus, indicatorKey: IndicatorKey, name: string }) => {
+  const IndicatorDisplay = ({ title, value, unit, status, indicatorKey, name, tooltipText }: { title: string; value: string | number; unit?: string; status: IndicatorStatus, indicatorKey: IndicatorKey, name: string, tooltipText?: string }) => {
     
     const statusClasses: Record<IndicatorStatus, string> = {
         alert: "bg-red-900/40 border-red-500 text-red-300",
@@ -923,28 +924,39 @@ export function MixtureCalculator() {
         neutral: "border-brand-line/60 bg-brand-surface/60",
     }
     
+    const cardContent = (
+      <Card 
+          onDoubleClick={() => handleIndicatorDoubleClick(indicatorKey, name)}
+          className={cn(
+              "text-center transition-colors rounded-xl cursor-pointer hover:bg-brand-muted/50",
+              statusClasses[status]
+          )}>
+          <CardHeader className="p-2 pb-1">
+              <CardTitle className={cn("text-xs font-medium", status === 'neutral' ? 'text-muted-foreground' : 'text-inherit')}>
+              <div className="flex items-center justify-center gap-1.5">
+                  {status === 'alert' && <AlertTriangle className="h-3 w-3" />}
+                  {status === 'conform' && <CheckCircle className="h-3 w-3" />}
+                  {title}
+              </div>
+              </CardTitle>
+          </CardHeader>
+          <CardContent className="p-2 pt-0">
+              <p className={cn("text-xl font-bold", status === 'neutral' ? 'text-white' : 'text-inherit')}>
+              {value} <span className="text-base opacity-70">{unit}</span>
+              </p>
+          </CardContent>
+      </Card>
+    );
+
+    if (!tooltipText) return cardContent;
+
     return (
-        <Card 
-            onDoubleClick={() => handleIndicatorDoubleClick(indicatorKey, name)}
-            className={cn(
-                "text-center transition-colors rounded-xl cursor-pointer hover:bg-brand-muted/50",
-                statusClasses[status]
-            )}>
-            <CardHeader className="p-2 pb-1">
-                <CardTitle className={cn("text-xs font-medium", status === 'neutral' ? 'text-muted-foreground' : 'text-inherit')}>
-                <div className="flex items-center justify-center gap-1.5">
-                    {status === 'alert' && <AlertTriangle className="h-3 w-3" />}
-                    {status === 'conform' && <CheckCircle className="h-3 w-3" />}
-                    {title}
-                </div>
-                </CardTitle>
-            </CardHeader>
-            <CardContent className="p-2 pt-0">
-                <p className={cn("text-xl font-bold", status === 'neutral' ? 'text-white' : 'text-inherit')}>
-                {value} <span className="text-base opacity-70">{unit}</span>
-                </p>
-            </CardContent>
-        </Card>
+      <TooltipProvider>
+          <Tooltip>
+              <TooltipTrigger asChild>{cardContent}</TooltipTrigger>
+              <TooltipContent><p>{tooltipText}</p></TooltipContent>
+          </Tooltip>
+      </TooltipProvider>
     );
   };
 
@@ -980,7 +992,7 @@ export function MixtureCalculator() {
                     <IndicatorDisplay title="% Humidité moy" value={totalIndicators.humidity.toFixed(2)} unit="%" status={totalIndicators.status.humidity} indicatorKey="humidity" name="Humidité Moyenne"/>
                     <IndicatorDisplay title="% Cendres moy" value={totalIndicators.ash.toFixed(2)} unit="%" status={totalIndicators.status.ash} indicatorKey="ash" name="Cendres Moyennes"/>
                     <IndicatorDisplay title="% Chlorures" value={totalIndicators.chlorine.toFixed(3)} unit="%" status={totalIndicators.status.chlorine} indicatorKey="chlorine" name="Chlorures Moyens"/>
-                    <IndicatorDisplay title="Taux de pneus" value={totalIndicators.tireRate.toFixed(2)} unit="%" status={totalIndicators.status.tireRate} indicatorKey="tireRate" name="Taux de Pneus"/>
+                    <IndicatorDisplay title="TSR" value={totalIndicators.tsr.toFixed(2)} unit="%" status={'neutral'} indicatorKey="tsr" name="TSR" tooltipText="Taux de Substitution Énergétique"/>
                 </div>
             </div>
             
@@ -1085,7 +1097,7 @@ export function MixtureCalculator() {
              <div className="flex justify-around text-xs p-2 rounded-md bg-muted/40 mb-4">
                 <span className="font-semibold">PCI: <strong className="text-emerald-400">{hallIndicators.pci.toFixed(0)}</strong></span>
                 <span className="font-semibold">Cl: <strong className="text-orange-400">{hallIndicators.chlorine.toFixed(3)}%</strong></span>
-                <span className="font-semibold">Pneus: <strong className="text-sky-400">{(hallIndicators.tireProportion * 100).toFixed(1)}%</strong></span>
+                <span className="font-semibold">Pneus: <strong className="text-sky-400">{(hallIndicators.tireRate).toFixed(1)}%</strong></span>
              </div>
             <FuelInputList installationState={hallAF} setInstallationState={setHallAF} installationName="hall" />
           </CardContent>
@@ -1103,7 +1115,7 @@ export function MixtureCalculator() {
              <div className="flex justify-around text-xs p-2 rounded-md bg-muted/40 mb-4">
                 <span className="font-semibold">PCI: <strong className="text-emerald-400">{atsIndicators.pci.toFixed(0)}</strong></span>
                 <span className="font-semibold">Cl: <strong className="text-orange-400">{atsIndicators.chlorine.toFixed(3)}%</strong></span>
-                <span className="font-semibold">Pneus: <strong className="text-sky-400">{(atsIndicators.tireProportion * 100).toFixed(1)}%</strong></span>
+                <span className="font-semibold">Pneus: <strong className="text-sky-400">{(atsIndicators.tireRate).toFixed(1)}%</strong></span>
              </div>
             <FuelInputList installationState={ats} setInstallationState={setAts} installationName="ats" />
           </CardContent>
@@ -1222,3 +1234,4 @@ export function MixtureCalculator() {
     
 
     
+
