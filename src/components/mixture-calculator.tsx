@@ -976,8 +976,23 @@ export function MixtureCalculator() {
       <div className="sticky top-0 z-20 bg-brand-bg/95 backdrop-blur-sm py-4 -mx-8 px-8 border-b border-brand-line">
             <div className="space-y-4">
                 <div className="flex items-center gap-4">
+                    <h2 className="text-xl font-bold text-white whitespace-nowrap">Mélange AFs (sans GO)</h2>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                    <IndicatorDisplay title="PCI moy" value={afIndicators.pci.toFixed(0)} unit="kcal/kg" status={afIndicators.status.pci} indicatorKey="pci" name="PCI Moyen (AFs)"/>
+                    <IndicatorDisplay title="% Humidité moy" value={afIndicators.humidity.toFixed(2)} unit="%" status={afIndicators.status.humidity} indicatorKey="humidity" name="Humidité Moyenne (AFs)"/>
+                    <IndicatorDisplay title="% Cendres moy" value={afIndicators.ash.toFixed(2)} unit="%" status={afIndicators.status.ash} indicatorKey="ash" name="Cendres Moyennes (AFs)"/>
+                    <IndicatorDisplay title="% Chlorures" value={afIndicators.chlorine.toFixed(3)} unit="%" status={afIndicators.status.chlorine} indicatorKey="chlorine" name="Chlorures Moyens (AFs)"/>
+                    <IndicatorDisplay title="Taux de pneus" value={afIndicators.tireRate.toFixed(2)} unit="%" status={afIndicators.status.tireRate} indicatorKey="tireRate" name="Taux de Pneus (AFs)"/>
+                </div>
+            </div>
+            
+            <Separator className="my-6" />
+
+            <div className="space-y-4">
+                 <div className="flex items-center gap-4">
                     <h2 className="text-xl font-bold text-white whitespace-nowrap">Mélange Total (avec GO)</h2>
-                    {thresholds && (
+                     {thresholds && (
                         <ThresholdSettingsModal 
                             isOpen={isThresholdModalOpen}
                             onOpenChange={setIsThresholdModalOpen}
@@ -993,19 +1008,6 @@ export function MixtureCalculator() {
                     <IndicatorDisplay title="% Cendres moy" value={totalIndicators.ash.toFixed(2)} unit="%" status={totalIndicators.status.ash} indicatorKey="ash" name="Cendres Moyennes"/>
                     <IndicatorDisplay title="% Chlorures" value={totalIndicators.chlorine.toFixed(3)} unit="%" status={totalIndicators.status.chlorine} indicatorKey="chlorine" name="Chlorures Moyens"/>
                     <IndicatorDisplay title="TSR" value={totalIndicators.tsr.toFixed(2)} unit="%" status={'neutral'} indicatorKey="tsr" name="TSR" tooltipText="Taux de Substitution Énergétique"/>
-                </div>
-            </div>
-            
-            <Separator className="my-6" />
-
-            <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-white">Mélange AFs (sans GO)</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                    <IndicatorDisplay title="PCI moy" value={afIndicators.pci.toFixed(0)} unit="kcal/kg" status={afIndicators.status.pci} indicatorKey="pci" name="PCI Moyen (AFs)"/>
-                    <IndicatorDisplay title="% Humidité moy" value={afIndicators.humidity.toFixed(2)} unit="%" status={afIndicators.status.humidity} indicatorKey="humidity" name="Humidité Moyenne (AFs)"/>
-                    <IndicatorDisplay title="% Cendres moy" value={afIndicators.ash.toFixed(2)} unit="%" status={afIndicators.status.ash} indicatorKey="ash" name="Cendres Moyennes (AFs)"/>
-                    <IndicatorDisplay title="% Chlorures" value={afIndicators.chlorine.toFixed(3)} unit="%" status={afIndicators.status.chlorine} indicatorKey="chlorine" name="Chlorures Moyens (AFs)"/>
-                    <IndicatorDisplay title="Taux de pneus" value={afIndicators.tireRate.toFixed(2)} unit="%" status={afIndicators.status.tireRate} indicatorKey="tireRate" name="Taux de Pneus (AFs)"/>
                 </div>
             </div>
             <Separator className="my-6" />
@@ -1097,7 +1099,7 @@ export function MixtureCalculator() {
              <div className="flex justify-around text-xs p-2 rounded-md bg-muted/40 mb-4">
                 <span className="font-semibold">PCI: <strong className="text-emerald-400">{hallIndicators.pci.toFixed(0)}</strong></span>
                 <span className="font-semibold">Cl: <strong className="text-orange-400">{hallIndicators.chlorine.toFixed(3)}%</strong></span>
-                <span className="font-semibold">Pneus: <strong className="text-sky-400">{(hallIndicators.tireRate).toFixed(1)}%</strong></span>
+                <span className="font-semibold">Pneus: <strong className="text-sky-400">{(hallIndicators.tireRate ?? 0).toFixed(1)}%</strong></span>
              </div>
             <FuelInputList installationState={hallAF} setInstallationState={setHallAF} installationName="hall" />
           </CardContent>
@@ -1115,7 +1117,7 @@ export function MixtureCalculator() {
              <div className="flex justify-around text-xs p-2 rounded-md bg-muted/40 mb-4">
                 <span className="font-semibold">PCI: <strong className="text-emerald-400">{atsIndicators.pci.toFixed(0)}</strong></span>
                 <span className="font-semibold">Cl: <strong className="text-orange-400">{atsIndicators.chlorine.toFixed(3)}%</strong></span>
-                <span className="font-semibold">Pneus: <strong className="text-sky-400">{(atsIndicators.tireRate).toFixed(1)}%</strong></span>
+                <span className="font-semibold">Pneus: <strong className="text-sky-400">{(atsIndicators.tireRate ?? 0).toFixed(1)}%</strong></span>
              </div>
             <FuelInputList installationState={ats} setInstallationState={setAts} installationName="ats" />
           </CardContent>
@@ -1235,3 +1237,4 @@ export function MixtureCalculator() {
 
     
 
+    
