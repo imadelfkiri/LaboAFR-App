@@ -333,13 +333,15 @@ function useMixtureCalculations(
     
     const weightedTireRate = () => {
         if (totalAfFlow === 0) return 0;
-        const totalTireFlow = afFlows.reduce((sum, item) => {
-            if (item.indicators.weight > 0) {
-                const tireProportion = item.indicators.tireWeight / item.indicators.weight;
-                return sum + (item.flow * tireProportion);
-            }
-            return sum;
-        }, 0);
+
+        const hallTireProportion = hallIndicators.weight > 0 ? hallIndicators.tireWeight / hallIndicators.weight : 0;
+        const atsTireProportion = atsIndicators.weight > 0 ? atsIndicators.tireWeight / atsIndicators.weight : 0;
+
+        const hallTireFlow = (hallAF.flowRate || 0) * hallTireProportion;
+        const atsTireFlow = (ats.flowRate || 0) * atsTireProportion;
+
+        const totalTireFlow = hallTireFlow + atsTireFlow;
+
         return (totalTireFlow / totalAfFlow) * 100;
     };
 
@@ -1213,6 +1215,7 @@ export function MixtureCalculator() {
 }
 
     
+
 
 
 
