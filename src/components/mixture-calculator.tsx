@@ -333,18 +333,15 @@ function useMixtureCalculations(
     
     const weightedTireRate = () => {
         if (totalAfFlow === 0) return 0;
-        const totalTireWeightFlow = afFlows.reduce((sum, item) => {
+        const totalTireFlow = afFlows.reduce((sum, item) => {
             if (item.indicators.weight > 0) {
-                // Calculate the proportion of tire weight inside the installation's mix
-                const tireProportionInMix = item.indicators.tireWeight / item.indicators.weight;
-                // Multiply this proportion by the installation's flow rate to get the "flow" of tire weight
-                return sum + (item.flow * tireProportionInMix);
+                const tireProportion = item.indicators.tireWeight / item.indicators.weight;
+                return sum + (item.flow * tireProportion);
             }
             return sum;
         }, 0);
-        return (totalTireWeightFlow / totalAfFlow) * 100;
+        return (totalTireFlow / totalAfFlow) * 100;
     };
-
 
     const afIndicators = {
         flow: totalAfFlow,
@@ -1216,6 +1213,7 @@ export function MixtureCalculator() {
 }
 
     
+
 
 
 
