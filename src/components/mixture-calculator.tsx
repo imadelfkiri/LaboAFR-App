@@ -272,7 +272,6 @@ function useMixtureCalculations(
         let tempTotalAsh = 0;
         let tempTotalChlorine = 0;
         let tempTotalTireWeight = 0;
-        const fuelWeights: Record<string, number> = {};
 
         for(const fuelName in state.fuels) {
             const fuelInput = state.fuels[fuelName];
@@ -285,7 +284,6 @@ function useMixtureCalculations(
             const poidsGodet = baseFuelData.poids_godet > 0 ? baseFuelData.poids_godet : 1.5; // Default 1.5 tonnes if not set
             const weight = fuelInput.buckets * poidsGodet;
             totalWeight += weight;
-            fuelWeights[fuelName] = (fuelWeights[fuelName] || 0) + weight;
 
             if (fuelName.toLowerCase().includes('pneu')) {
                 tempTotalTireWeight += weight;
@@ -295,10 +293,8 @@ function useMixtureCalculations(
             if (!analysisData || analysisData.count === 0) {
                 continue; 
             }
-
-            let correctedPciBrut = analysisData.pci_brut;
             
-            tempTotalPci += weight * correctedPciBrut;
+            tempTotalPci += weight * analysisData.pci_brut;
             tempTotalHumidity += weight * analysisData.h2o;
             tempTotalAsh += weight * analysisData.cendres;
             tempTotalChlorine += weight * analysisData.chlore;
@@ -311,8 +307,7 @@ function useMixtureCalculations(
             humidity: totalWeight > 0 ? tempTotalHumidity / totalWeight : 0,
             ash: totalWeight > 0 ? tempTotalAsh / totalWeight : 0,
             chlorine: totalWeight > 0 ? tempTotalChlorine / totalWeight : 0,
-            tireRate: totalWeight > 0 ? (tempTotalTireWeight / totalWeight) * 100 : 0, // Proportion of tires within this installation's mix
-            fuelWeights
+            tireRate: totalWeight > 0 ? (tempTotalTireWeight / totalWeight) * 100 : 0,
         };
     };
 
@@ -321,10 +316,6 @@ function useMixtureCalculations(
 
     // --- AFs Indicators (sans GO) ---
     const totalAfFlow = (hallAF.flowRate || 0) + (ats.flowRate || 0);
-    const hallTireFlow = (hallAF.flowRate || 0) * (hallIndicators.tireRate / 100);
-    const atsTireFlow = (ats.flowRate || 0) * (atsIndicators.tireRate / 100);
-    const totalTireFlow = hallTireFlow + atsTireFlow;
-
 
     const weightedAfAvg = (valueKey: 'pci' | 'humidity' | 'ash' | 'chlorine') => {
         if (totalAfFlow === 0) return 0;
@@ -335,6 +326,8 @@ function useMixtureCalculations(
     
     const weightedTireRate = () => {
         if (totalAfFlow === 0) return 0;
+        const totalTireFlow = (hallAF.flowRate || 0) * (hallIndicators.tireRate / 100) +
+                              (ats.flowRate || 0) * (atsIndicators.tireRate / 100);
         return (totalTireFlow / totalAfFlow) * 100;
     };
 
@@ -378,6 +371,7 @@ function useMixtureCalculations(
     const totalEnergy = totalAlternativeEnergy + petcokeEnergy;
     const tsr = totalEnergy > 0 ? (totalAlternativeEnergy / totalEnergy) * 100 : 0;
     
+    const clFc = 0.15 + (totalChlorine * (0.23 + 4.85 * (tsr / 100)));
 
     const totalIndicators = {
         flow: totalAlternativeFlow,
@@ -385,8 +379,9 @@ function useMixtureCalculations(
         humidity: totalHumidity,
         ash: totalAsh,
         chlorine: totalChlorine,
-        tireRate: afIndicators.tireRate, // tireRate is only for AFs
+        tireRate: afIndicators.tireRate,
         tsr,
+        cl_fc: clFc,
     };
 
     const getStatus = (value: number, key: IndicatorKey): IndicatorStatus => {
@@ -1098,7 +1093,7 @@ export function MixtureCalculator() {
              <div className="flex justify-around text-xs p-2 rounded-md bg-muted/40 mb-4">
                 <span className="font-semibold">PCI: <strong className="text-emerald-400">{hallIndicators.pci.toFixed(0)}</strong></span>
                 <span className="font-semibold">Cl: <strong className="text-orange-400">{hallIndicators.chlorine.toFixed(3)}%</strong></span>
-                <span className="font-semibold">Pneus: <strong className="text-sky-400">{(hallIndicators.tireRate ?? 0).toFixed(1)}%</strong></span>
+                <span className="font-semibold">Pneus: <strong className="text-sky-400">{hallIndicators.tireRate.toFixed(1)}%</strong></span>
              </div>
             <FuelInputList installationState={hallAF} setInstallationState={setHallAF} installationName="hall" />
           </CardContent>
@@ -1116,7 +1111,7 @@ export function MixtureCalculator() {
              <div className="flex justify-around text-xs p-2 rounded-md bg-muted/40 mb-4">
                 <span className="font-semibold">PCI: <strong className="text-emerald-400">{atsIndicators.pci.toFixed(0)}</strong></span>
                 <span className="font-semibold">Cl: <strong className="text-orange-400">{atsIndicators.chlorine.toFixed(3)}%</strong></span>
-                <span className="font-semibold">Pneus: <strong className="text-sky-400">{(atsIndicators.tireRate ?? 0).toFixed(1)}%</strong></span>
+                <span className="font-semibold">Pneus: <strong className="text-sky-400">{atsIndicators.tireRate.toFixed(1)}%</strong></span>
              </div>
             <FuelInputList installationState={ats} setInstallationState={setAts} installationName="ats" />
           </CardContent>
@@ -1237,3 +1232,4 @@ export function MixtureCalculator() {
     
 
     
+
