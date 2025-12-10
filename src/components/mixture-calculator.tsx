@@ -304,8 +304,6 @@ function useMixtureCalculations(
             tempTotalChlorine += weight * analysisData.chlore;
         }
         
-        const tireProportion = totalWeight > 0 ? (tempTotalTireWeight / totalWeight) : 0;
-
         return { 
             weight: totalWeight, 
             tireWeight: tempTotalTireWeight,
@@ -313,7 +311,7 @@ function useMixtureCalculations(
             humidity: totalWeight > 0 ? tempTotalHumidity / totalWeight : 0,
             ash: totalWeight > 0 ? tempTotalAsh / totalWeight : 0,
             chlorine: totalWeight > 0 ? tempTotalChlorine / totalWeight : 0,
-            tireProportion: tireProportion, // Proportion of tires within this installation's mix
+            tireRate: totalWeight > 0 ? (tempTotalTireWeight / totalWeight) * 100 : 0, // Proportion of tires within this installation's mix
             fuelWeights
         };
     };
@@ -323,6 +321,10 @@ function useMixtureCalculations(
 
     // --- AFs Indicators (sans GO) ---
     const totalAfFlow = (hallAF.flowRate || 0) + (ats.flowRate || 0);
+    const hallTireFlow = (hallAF.flowRate || 0) * (hallIndicators.tireRate / 100);
+    const atsTireFlow = (ats.flowRate || 0) * (atsIndicators.tireRate / 100);
+    const totalTireFlow = hallTireFlow + atsTireFlow;
+
 
     const weightedAfAvg = (valueKey: 'pci' | 'humidity' | 'ash' | 'chlorine') => {
         if (totalAfFlow === 0) return 0;
@@ -333,9 +335,6 @@ function useMixtureCalculations(
     
     const weightedTireRate = () => {
         if (totalAfFlow === 0) return 0;
-        const hallTireFlow = (hallAF.flowRate || 0) * hallIndicators.tireProportion;
-        const atsTireFlow = (ats.flowRate || 0) * atsIndicators.tireProportion;
-        const totalTireFlow = hallTireFlow + atsTireFlow;
         return (totalTireFlow / totalAfFlow) * 100;
     };
 
@@ -1002,7 +1001,7 @@ export function MixtureCalculator() {
                         />
                     )}
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                     <IndicatorDisplay title="PCI moy" value={totalIndicators.pci.toFixed(0)} unit="kcal/kg" status={totalIndicators.status.pci} indicatorKey="pci" name="PCI Moyen"/>
                     <IndicatorDisplay title="% Humidité moy" value={totalIndicators.humidity.toFixed(2)} unit="%" status={totalIndicators.status.humidity} indicatorKey="humidity" name="Humidité Moyenne"/>
                     <IndicatorDisplay title="% Cendres moy" value={totalIndicators.ash.toFixed(2)} unit="%" status={totalIndicators.status.ash} indicatorKey="ash" name="Cendres Moyennes"/>
