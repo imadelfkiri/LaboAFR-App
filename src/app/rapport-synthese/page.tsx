@@ -109,37 +109,46 @@ export default function RapportSynthesePage() {
 
     const chartColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F'];
 
-    const mixtureComposition = useMemo(() => {
-        if (!mixtureSession || !fuelDataMap || Object.keys(fuelDataMap).length === 0) return [];
+    const processInstallationComposition = (fuels: Record<string, { buckets: number }> | undefined) => {
+        if (!fuels || !fuelDataMap || Object.keys(fuelDataMap).length === 0) return [];
 
-        const allFuelNames = new Set([
-            ...Object.keys(mixtureSession.hallAF?.fuels || {}),
-            ...Object.keys(mixtureSession.ats?.fuels || {})
-        ]);
-
-        const combinedFuelsData = Array.from(allFuelNames).map(name => {
-            const hallBuckets = mixtureSession.hallAF?.fuels[name]?.buckets || 0;
-            const atsBuckets = mixtureSession.ats?.fuels[name]?.buckets || 0;
-            const totalBuckets = hallBuckets + atsBuckets;
-            
-            const poidsGodet = fuelDataMap[name]?.poids_godet || 1.5;
-            const weight = totalBuckets * poidsGodet;
-
-            return { name, buckets: totalBuckets, weight };
-        });
-
-        const totalWeight = combinedFuelsData.reduce((sum, data) => sum + data.weight, 0);
-
-        return combinedFuelsData
-            .filter(data => data.buckets > 0)
-            .map(data => ({
-                name: data.name,
-                buckets: data.buckets,
-                percentage: totalWeight > 0 ? Math.round((data.weight / totalWeight) * 100) : 0,
+        const fuelData = Object.entries(fuels)
+            .map(([name, data]) => ({
+                name,
+                buckets: data.buckets || 0,
             }))
+            .filter(item => item.buckets > 0)
             .sort((a, b) => b.buckets - a.buckets);
 
-    }, [mixtureSession, fuelDataMap]);
+        return fuelData;
+    };
+
+    const hallComposition = useMemo(() => processInstallation(mixtureSession?.hallAF?.fuels), [mixtureSession?.hallAF, fuelDataMap]);
+    const atsComposition = useMemo(() => processInstallation(mixtureSession?.ats?.fuels), [mixtureSession?.ats, fuelDataMap]);
+
+    const mixtureComposition = useMemo(() => {
+        const combined = [...hallComposition, ...atsComposition];
+        const byName = combined.reduce((acc, curr) => {
+            acc[curr.name] = (acc[curr.name] || 0) + curr.buckets;
+            return acc;
+        }, {} as Record<string, number>);
+
+        const totalWeight = Object.entries(byName).reduce((sum, [name, buckets]) => {
+            const poidsGodet = fuelDataMap[name]?.poids_godet || 1.5;
+            return sum + (buckets * poidsGodet);
+        }, 0);
+
+        return Object.entries(byName).map(([name, buckets]) => {
+            const poidsGodet = fuelDataMap[name]?.poids_godet || 1.5;
+            const weight = buckets * poidsGodet;
+            return {
+                name,
+                buckets,
+                percentage: totalWeight > 0 ? Math.round((weight / totalWeight) * 100) : 0,
+            };
+        });
+    }, [hallComposition, atsComposition, fuelDataMap]);
+
 
     const handleExportPDF = () => {
         const doc = new jsPDF();
@@ -402,20 +411,15 @@ export default function RapportSynthesePage() {
                 </Card>
             </section>
 
-             <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card>
-                    <CardHeader><CardTitle className="flex items-center gap-2"><Beaker /> Composition (Godets)</CardTitle></CardHeader>
+             <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <Card className="lg:col-span-1">
+                    <CardHeader><CardTitle className="flex items-center gap-2"><Beaker /> Composition Hall des AF</CardTitle></CardHeader>
                     <CardContent>
-                         {mixtureComposition.length > 0 ? (
+                         {hallComposition.length > 0 ? (
                             <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Combustible</TableHead>
-                                        <TableHead className="text-right">Nb. Godets</TableHead>
-                                    </TableRow>
-                                </TableHeader>
+                                <TableHeader><TableRow><TableHead>Combustible</TableHead><TableHead className="text-right">Nb. Godets</TableHead></TableRow></TableHeader>
                                 <TableBody>
-                                    {mixtureComposition.map(item => (
+                                    {hallComposition.map(item => (
                                         <TableRow key={item.name}>
                                             <TableCell className="font-medium">{item.name}</TableCell>
                                             <TableCell className="text-right">{item.buckets}</TableCell>
@@ -424,11 +428,31 @@ export default function RapportSynthesePage() {
                                 </TableBody>
                             </Table>
                         ) : (
-                            <p className="col-span-full text-center text-muted-foreground p-4">Aucune composition de mélange.</p>
+                            <p className="text-center text-muted-foreground p-4">Aucune composition.</p>
                         )}
                     </CardContent>
                 </Card>
-                 <Card>
+                <Card className="lg:col-span-1">
+                    <CardHeader><CardTitle className="flex items-center gap-2"><Beaker /> Composition ATS</CardTitle></CardHeader>
+                    <CardContent>
+                         {atsComposition.length > 0 ? (
+                            <Table>
+                                <TableHeader><TableRow><TableHead>Combustible</TableHead><TableHead className="text-right">Nb. Godets</TableHead></TableRow></TableHeader>
+                                <TableBody>
+                                    {atsComposition.map(item => (
+                                        <TableRow key={item.name}>
+                                            <TableCell className="font-medium">{item.name}</TableCell>
+                                            <TableCell className="text-right">{item.buckets}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        ) : (
+                            <p className="text-center text-muted-foreground p-4">Aucune composition.</p>
+                        )}
+                    </CardContent>
+                </Card>
+                 <Card className="lg:col-span-1">
                     <CardHeader><CardTitle className="flex items-center gap-2"><BarChart2 /> Répartition du Mélange (% Poids)</CardTitle></CardHeader>
                     <CardContent>
                           {mixtureComposition.length > 0 ? (
