@@ -123,8 +123,8 @@ export default function RapportSynthesePage() {
         return fuelData;
     };
 
-    const hallComposition = useMemo(() => processInstallation(mixtureSession?.hallAF?.fuels), [mixtureSession?.hallAF, fuelDataMap]);
-    const atsComposition = useMemo(() => processInstallation(mixtureSession?.ats?.fuels), [mixtureSession?.ats, fuelDataMap]);
+    const hallComposition = useMemo(() => processInstallationComposition(mixtureSession?.hallAF?.fuels), [mixtureSession?.hallAF, fuelDataMap]);
+    const atsComposition = useMemo(() => processInstallationComposition(mixtureSession?.ats?.fuels), [mixtureSession?.ats, fuelDataMap]);
 
     const mixtureComposition = useMemo(() => {
         const combined = [...hallComposition, ...atsComposition];
@@ -481,4 +481,5 @@ export default function RapportSynthesePage() {
         </div>
     );
 }
+
 
