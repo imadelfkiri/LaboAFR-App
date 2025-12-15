@@ -227,29 +227,31 @@ export function IndicatorCard({
             </CardDescription>
         </CardHeader>
         <CardContent>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 gap-3">
-                {Object.entries(data).map(([key, value]) => (
-                <motion.div
-                    key={key}
-                    whileHover={{ scale: 1.07 }}
-                    transition={{ type: "spring", stiffness: 250 }}
-                    className={cn(
-                        "flex flex-col items-center justify-center rounded-xl border py-3 px-2 font-medium cursor-pointer",
-                        statusClasses[getColorClass(key, value as number)]
-                    )}
-                    onDoubleClick={() => onIndicatorDoubleClick && keyMap[key] && onIndicatorDoubleClick(keyMap[key].key, keyMap[key].name)}
-                >
-                    <span className="text-xs opacity-80">{key === 'TauxPneus' ? 'Taux Pneus' : key}</span>
-                    <span className="text-base font-semibold">
-                    {typeof value !== 'number' || isNaN(value)
-                      ? '-'
-                      : key === "PCI"
-                        ? `${(value as number).toFixed(0)}`
-                        : `${(value as number).toFixed(key === 'Chlorures' ? 3 : 2)}%`}
-                    </span>
-                </motion.div>
-                ))}
-            </div>
+            {data && Object.keys(data).length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 gap-3">
+                    {Object.entries(data).map(([key, value]) => (
+                    <motion.div
+                        key={key}
+                        whileHover={{ scale: 1.07 }}
+                        transition={{ type: "spring", stiffness: 250 }}
+                        className={cn(
+                            "flex flex-col items-center justify-center rounded-xl border py-3 px-2 font-medium cursor-pointer",
+                            statusClasses[getColorClass(key, value as number)]
+                        )}
+                        onDoubleClick={() => onIndicatorDoubleClick && keyMap[key] && onIndicatorDoubleClick(keyMap[key].key, keyMap[key].name)}
+                    >
+                        <span className="text-xs opacity-80">{key === 'TauxPneus' ? 'Taux Pneus' : key}</span>
+                        <span className="text-base font-semibold">
+                        {typeof value !== 'number' || isNaN(value)
+                        ? '-'
+                        : key === "PCI"
+                            ? `${(value as number).toFixed(0)}`
+                            : `${(value as number).toFixed(key === 'Chlorures' ? 3 : 2)}%`}
+                        </span>
+                    </motion.div>
+                    ))}
+                </div>
+            ) : <p className="col-span-full text-center text-muted-foreground p-4">Aucune donnée pour les indicateurs.</p>}
         </CardContent>
     </Card>
   );
@@ -330,7 +332,18 @@ function useMixtureCalculations(
                               (ats.flowRate || 0) * (atsIndicators.tireRate / 100);
         return (totalTireFlow / totalAfFlow) * 100;
     };
+    
+    const getPci = (fuelName: string) => availableFuels[fuelName]?.pci_brut || 0;
+    const petcokeFlow = (directInputs['Pet-Coke Preca']?.flowRate || 0) + (directInputs['Pet-Coke Tuyere']?.flowRate || 0);
+    const pciPetcoke = getPci('Pet-Coke') || getPci('Pet-Coke Preca') || getPci('Pet-Coke Tuyere');
+    const petcokeEnergy = petcokeFlow * pciPetcoke;
+    
+    const afEnergy = totalAfFlow * weightedAfAvg('pci');
 
+    const totalEnergy = afEnergy + petcokeEnergy;
+    
+    const tsr = totalEnergy > 0 ? (afEnergy / totalEnergy) * 100 : 0;
+    
     const afIndicators = {
         flow: totalAfFlow,
         pci: weightedAfAvg('pci'),
@@ -338,50 +351,8 @@ function useMixtureCalculations(
         ash: weightedAfAvg('ash'),
         chlorine: weightedAfAvg('chlorine'),
         tireRate: weightedTireRate(),
-    };
-    
-    // --- Total Indicators (avec GO) ---
-    const grignonsFlow = (directInputs['Grignons GO1']?.flowRate || 0) + (directInputs['Grignons GO2']?.flowRate || 0);
-    const totalAlternativeFlow = totalAfFlow + grignonsFlow;
-    
-    const grignonsAnalysis = availableFuels['Grignons'];
-    const pciGrignons = grignonsAnalysis?.pci_brut || 0;
-    const humidityGrignons = grignonsAnalysis?.h2o || 0;
-    const ashGrignons = grignonsAnalysis?.cendres || 0;
-    const chlorineGrignons = grignonsAnalysis?.chlore || 0;
-    
-    const weightedTotalAvg = (afValue: number, grignonsValue: number) => {
-        if (totalAlternativeFlow === 0) return 0;
-        return (afValue * totalAfFlow + grignonsValue * grignonsFlow) / totalAlternativeFlow;
-    };
-
-    const totalPci = weightedTotalAvg(afIndicators.pci, pciGrignons);
-    const totalHumidity = weightedTotalAvg(afIndicators.humidity, humidityGrignons);
-    const totalAsh = weightedTotalAvg(afIndicators.ash, ashGrignons);
-    const totalChlorine = weightedTotalAvg(afIndicators.chlorine, chlorineGrignons);
-    
-    // TSR Calculation
-    const getPci = (fuelName: string) => availableFuels[fuelName]?.pci_brut || 0;
-    const afEnergy = totalAfFlow * afIndicators.pci;
-    const grignonsEnergy = grignonsFlow * pciGrignons;
-    const petcokeFlow = (directInputs['Pet-Coke Preca']?.flowRate || 0) + (directInputs['Pet-Coke Tuyere']?.flowRate || 0);
-    const pciPetcoke = getPci('Pet-Coke') || getPci('Pet-Coke Preca') || getPci('Pet-Coke Tuyere');
-    const petcokeEnergy = petcokeFlow * pciPetcoke;
-    const totalAlternativeEnergy = afEnergy + grignonsEnergy;
-    const totalEnergy = totalAlternativeEnergy + petcokeEnergy;
-    const tsr = totalEnergy > 0 ? (totalAlternativeEnergy / totalEnergy) * 100 : 0;
-    
-    const clFc = 0.15 + (totalChlorine * (0.23 + 4.85 * (tsr / 100)));
-
-    const totalIndicators = {
-        flow: totalAlternativeFlow,
-        pci: totalPci,
-        humidity: totalHumidity,
-        ash: totalAsh,
-        chlorine: totalChlorine,
-        tireRate: afIndicators.tireRate,
         tsr,
-        cl_fc: clFc,
+        cl_fc: 0.15 + (weightedAfAvg('chlorine') * (0.23 + 4.85 * (tsr / 100))),
     };
 
     const getStatus = (value: number, key: IndicatorKey): IndicatorStatus => {
@@ -415,22 +386,12 @@ function useMixtureCalculations(
     return {
       hallIndicators,
       atsIndicators,
-      afIndicators: { ...afIndicators, tsr, status: {
+      afIndicators: { ...afIndicators, status: {
         pci: getStatus(afIndicators.pci, 'pci'),
         humidity: getStatus(afIndicators.humidity, 'humidity'),
         ash: getStatus(afIndicators.ash, 'ash'),
         chlorine: getStatus(afIndicators.chlorine, 'chlorine'),
         tireRate: getStatus(afIndicators.tireRate, 'tireRate'),
-        tsr: 'neutral' as IndicatorStatus,
-        cost: 'neutral' as IndicatorStatus,
-        flow: 'neutral' as IndicatorStatus,
-      } },
-      totalIndicators: { ...totalIndicators, status: {
-        pci: getStatus(totalIndicators.pci, 'pci'),
-        humidity: getStatus(totalIndicators.humidity, 'humidity'),
-        ash: getStatus(totalIndicators.ash, 'ash'),
-        chlorine: getStatus(totalIndicators.chlorine, 'chlorine'),
-        tireRate: getStatus(totalIndicators.tireRate, 'tireRate'),
         tsr: 'neutral' as IndicatorStatus,
         cost: 'neutral' as IndicatorStatus,
         flow: 'neutral' as IndicatorStatus,
@@ -636,7 +597,7 @@ export function MixtureCalculator() {
     fetchHistoryData();
   }, [fetchHistoryData]);
 
-  const { hallIndicators, atsIndicators, afIndicators, totalIndicators } = useMixtureCalculations(hallAF, ats, directInputs, availableFuels, fuelData, thresholds);
+  const { hallIndicators, atsIndicators, afIndicators } = useMixtureCalculations(hallAF, ats, directInputs, availableFuels, fuelData, thresholds);
 
   const historyChartData = useMemo(() => {
     if (!historySessions || historySessions.length === 0 || !historyChartIndicator) return [];
@@ -722,7 +683,7 @@ export function MixtureCalculator() {
             hallAF,
             ats,
             directInputs,
-            globalIndicators: totalIndicators, // Save the total indicators
+            globalIndicators: afIndicators,
             availableFuels: availableFuelsToSave,
             analysisDateRange: globalDateRange?.from && globalDateRange.to ? {
                 from: Timestamp.fromDate(globalDateRange.from),
@@ -819,16 +780,16 @@ export function MixtureCalculator() {
     const { globalIndicators: summaryIndicators, flows } = mixtureSummary;
 
     const generateSummaryText = () => {
-        let textToCopy = "Voici le résumé de la nouvelle composition du mélange et de ses indicateurs clés :\n\n";
+        let textToCopy = "Voici le résumé de la nouvelle composition du mélange (AFs uniquement) :\n\n";
         textToCopy += `Basé sur la session du ${format(new Date(), 'dd/MM/yyyy HH:mm', { locale: fr })}\n\n`;
 
-        textToCopy += "Indicateurs du Mélange Total (AFs + GO)\n";
-        textToCopy += `- Débit: ${totalIndicators.flow.toFixed(2)} t/h\n`;
-        textToCopy += `- PCI moyen: ${totalIndicators.pci.toFixed(0)} kcal/kg\n`;
-        textToCopy += `- % Humidité: ${totalIndicators.humidity.toFixed(2)} %\n`;
-        textToCopy += `- % Cendres: ${totalIndicators.ash.toFixed(2)} %\n`;
-        textToCopy += `- % Chlorures: ${totalIndicators.chlorine.toFixed(3)} %\n\n`;
-        textToCopy += `- TSR: ${totalIndicators.tsr.toFixed(2)} %\n\n`;
+        textToCopy += `Débit Total AFs: ${summaryIndicators.flow.toFixed(2)} t/h\n`;
+        textToCopy += `PCI moyen: ${summaryIndicators.pci.toFixed(0)} kcal/kg\n`;
+        textToCopy += `% Humidité: ${summaryIndicators.humidity.toFixed(2)} %\n`;
+        textToCopy += `% Cendres: ${summaryIndicators.ash.toFixed(2)} %\n`;
+        textToCopy += `% Chlorures: ${summaryIndicators.chlorine.toFixed(3)} %\n`;
+        textToCopy += `Taux de pneus: ${summaryIndicators.tireRate.toFixed(2)} %\n`;
+        textToCopy += `TSR: ${summaryIndicators.tsr.toFixed(2)} %\n`;
 
         return textToCopy;
     };
@@ -859,11 +820,11 @@ export function MixtureCalculator() {
             <DialogTitle>Confirmer l'Enregistrement</DialogTitle>
           </DialogHeader>
            <DialogDescription>
-              Voulez-vous enregistrer la session avec les indicateurs du mélange total (AFs + GO) ?
+              Voulez-vous enregistrer la session avec les indicateurs du mélange des AFs (sans GO) ?
           </DialogDescription>
           <div className="py-4 space-y-2">
-            <div className="flex justify-between font-medium"><span>TSR Global:</span><span>{totalIndicators.tsr.toFixed(2)} %</span></div>
-            <div className="flex justify-between font-medium"><span>PCI Total:</span><span>{totalIndicators.pci.toFixed(0)} kcal/kg</span></div>
+            <div className="flex justify-between font-medium"><span>Débit Total AFs:</span><span>{summaryIndicators.flow.toFixed(2)} t/h</span></div>
+            <div className="flex justify-between font-medium"><span>PCI moyen:</span><span>{summaryIndicators.pci.toFixed(0)} kcal/kg</span></div>
           </div>
           <DialogFooter className="gap-2 sm:justify-between flex-wrap">
             <div>
@@ -970,22 +931,7 @@ export function MixtureCalculator() {
       <div className="sticky top-0 z-20 bg-brand-bg/95 backdrop-blur-sm py-4 -mx-8 px-8 border-b border-brand-line">
             <div className="space-y-4">
                 <div className="flex items-center gap-4">
-                    <h2 className="text-xl font-bold text-white whitespace-nowrap">Mélange AFs (sans GO)</h2>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                    <IndicatorDisplay title="PCI moy" value={afIndicators.pci.toFixed(0)} unit="kcal/kg" status={afIndicators.status.pci} indicatorKey="pci" name="PCI Moyen (AFs)"/>
-                    <IndicatorDisplay title="% Humidité moy" value={afIndicators.humidity.toFixed(2)} unit="%" status={afIndicators.status.humidity} indicatorKey="humidity" name="Humidité Moyenne (AFs)"/>
-                    <IndicatorDisplay title="% Cendres moy" value={afIndicators.ash.toFixed(2)} unit="%" status={afIndicators.status.ash} indicatorKey="ash" name="Cendres Moyennes (AFs)"/>
-                    <IndicatorDisplay title="% Chlorures" value={afIndicators.chlorine.toFixed(3)} unit="%" status={afIndicators.status.chlorine} indicatorKey="chlorine" name="Chlorures Moyens (AFs)"/>
-                    <IndicatorDisplay title="Taux de pneus" value={afIndicators.tireRate.toFixed(2)} unit="%" status={afIndicators.status.tireRate} indicatorKey="tireRate" name="Taux de Pneus (AFs)"/>
-                </div>
-            </div>
-            
-            <Separator className="my-6" />
-
-            <div className="space-y-4">
-                 <div className="flex items-center gap-4">
-                    <h2 className="text-xl font-bold text-white whitespace-nowrap">Mélange Total (avec GO)</h2>
+                    <h2 className="text-xl font-bold text-white whitespace-nowrap">Mélange AFs</h2>
                      {thresholds && (
                         <ThresholdSettingsModal 
                             isOpen={isThresholdModalOpen}
@@ -996,15 +942,18 @@ export function MixtureCalculator() {
                         />
                     )}
                 </div>
-                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                    <IndicatorDisplay title="PCI moy" value={totalIndicators.pci.toFixed(0)} unit="kcal/kg" status={totalIndicators.status.pci} indicatorKey="pci" name="PCI Moyen"/>
-                    <IndicatorDisplay title="% Humidité moy" value={totalIndicators.humidity.toFixed(2)} unit="%" status={totalIndicators.status.humidity} indicatorKey="humidity" name="Humidité Moyenne"/>
-                    <IndicatorDisplay title="% Cendres moy" value={totalIndicators.ash.toFixed(2)} unit="%" status={totalIndicators.status.ash} indicatorKey="ash" name="Cendres Moyennes"/>
-                    <IndicatorDisplay title="% Chlorures" value={totalIndicators.chlorine.toFixed(3)} unit="%" status={totalIndicators.status.chlorine} indicatorKey="chlorine" name="Chlorures Moyens"/>
-                    <IndicatorDisplay title="TSR" value={totalIndicators.tsr.toFixed(2)} unit="%" status={'neutral'} indicatorKey="tsr" name="TSR" tooltipText="Taux de Substitution Énergétique"/>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                    <IndicatorDisplay title="PCI moy" value={afIndicators.pci.toFixed(0)} unit="kcal/kg" status={afIndicators.status.pci} indicatorKey="pci" name="PCI Moyen (AFs)"/>
+                    <IndicatorDisplay title="% Humidité moy" value={afIndicators.humidity.toFixed(2)} unit="%" status={afIndicators.status.humidity} indicatorKey="humidity" name="Humidité Moyenne (AFs)"/>
+                    <IndicatorDisplay title="% Cendres moy" value={afIndicators.ash.toFixed(2)} unit="%" status={afIndicators.status.ash} indicatorKey="ash" name="Cendres Moyennes (AFs)"/>
+                    <IndicatorDisplay title="% Chlorures" value={afIndicators.chlorine.toFixed(3)} unit="%" status={afIndicators.status.chlorine} indicatorKey="chlorine" name="Chlorures Moyens (AFs)"/>
+                    <IndicatorDisplay title="Taux de pneus" value={afIndicators.tireRate.toFixed(2)} unit="%" status={afIndicators.status.tireRate} indicatorKey="tireRate" name="Taux de Pneus (AFs)"/>
+                    <IndicatorDisplay title="TSR" value={afIndicators.tsr.toFixed(2)} unit="%" status={'neutral'} indicatorKey="tsr" name="TSR" tooltipText="Taux de Substitution Énergétique"/>
                 </div>
             </div>
+            
             <Separator className="my-6" />
+
             <div className="flex justify-end items-center">
                  <div className="flex items-center gap-2">
                     <Popover>
@@ -1232,4 +1181,5 @@ export function MixtureCalculator() {
     
 
     
+
 
