@@ -269,8 +269,8 @@ export function MainDashboard() {
     }, [mixtureSession, debitClinker, petCokeAnalysis]);
 
     const mixtureIndicators = useMemo(() => {
-        if (!mixtureSession?.globalIndicators) return null;
-        const indicators = mixtureSession.globalIndicators;
+        if (!mixtureSession?.afIndicators) return null;
+        const indicators = mixtureSession.afIndicators;
         return {
           'PCI': indicators.pci,
           'Chlorures': indicators.chlorine,
@@ -675,6 +675,7 @@ export function MainDashboard() {
         </motion.div>
     );
 }
+
 
 
 
