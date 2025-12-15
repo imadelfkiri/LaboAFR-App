@@ -83,12 +83,12 @@ const InstallationIndicators = ({ name, indicators }: { name: string, indicators
 
 
 export default function RapportSynthesePage() {
+    const { toast } = useToast();
     const [loading, setLoading] = useState(true);
     const [mixtureSession, setMixtureSession] = useState<MixtureSession | null>(null);
     const [latestImpact, setLatestImpact] = useState<ImpactAnalysis | null>(null);
     const [fuelDataMap, setFuelDataMap] = useState<Record<string, FuelData>>({});
     const [thresholds, setThresholds] = useState<MixtureThresholds | undefined>(undefined);
-    const { toast } = useToast();
 
     const fetchData = useCallback(async () => {
         try {
@@ -212,30 +212,30 @@ export default function RapportSynthesePage() {
 
         const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
         const date = mixtureSession.timestamp ? format(mixtureSession.timestamp.toDate(), "dd/MM/yyyy 'à' HH:mm", { locale: fr }) : "N/A";
-        let y = 20;
+        let y = 15;
         const page_width = doc.internal.pageSize.getWidth();
-        const margin = 15;
+        const margin = 14;
         const primaryColor = '#00b894';
 
-        doc.setFontSize(20);
+        doc.setFontSize(18);
         doc.setFont("helvetica", "bold");
-        doc.text("Rapport de Synthèse du Mélange", margin, y);
-        y += 8;
+        doc.text("Rapport de Synthèse du Mélange", page_width / 2, y, { align: "center" });
+        y += 7;
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(150);
-        doc.text(date, margin, y);
+        doc.text(date, page_width / 2, y, { align: "center" });
         y += 5;
         doc.setDrawColor(primaryColor);
         doc.setLineWidth(0.5);
         doc.line(margin, y, page_width - margin, y);
-        y += 12;
+        y += 10;
 
-        doc.setFontSize(14);
+        doc.setFontSize(12);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(40);
         doc.text("Indicateurs du Mélange Global (AFs)", margin, y);
-        y += 7;
+        y += 6;
 
         const indicatorsBody = [
             ['Débit Total (t/h)', formatNumberForPdf(afIndicators.flow, 1)],
@@ -250,37 +250,35 @@ export default function RapportSynthesePage() {
             body: indicatorsBody,
             startY: y,
             theme: 'grid',
-            styles: { fontSize: 10, cellPadding: 3 },
-            headStyles: { fontStyle: 'bold' },
+            styles: { fontSize: 9, cellPadding: 2 },
             columnStyles: { 0: { fontStyle: 'bold' } }
         });
-        y = (doc as any).lastAutoTable.finalY + 12;
+        y = (doc as any).lastAutoTable.finalY + 8;
 
         if (latestImpact) {
-            doc.setFontSize(14);
+            doc.setFontSize(12);
             doc.setFont("helvetica", "bold");
             doc.text("Impact sur le Clinker (Δ)", margin, y);
-            y += 7;
+            y += 6;
             const impactBody = impactChartData.map(item => [item.name, (item.value > 0 ? "+" : "") + formatNumberForPdf(item.value, 2)]);
             doc.autoTable({
                 head: [['Indicateur', 'Variation']],
                 body: impactBody,
                 startY: y,
                 theme: 'grid',
-                headStyles: { fillColor: primaryColor, fontStyle: 'bold' },
-                styles: { fontSize: 10, cellPadding: 3 },
+                headStyles: { fillColor: [44, 62, 80], textColor: 255, fontStyle: 'bold' },
+                styles: { fontSize: 9, cellPadding: 2 },
                 columnStyles: { 0: { fontStyle: 'bold' } },
             });
-            y = (doc as any).lastAutoTable.finalY + 12;
+            y = (doc as any).lastAutoTable.finalY + 8;
         }
 
         const renderInstallationSection = (title: string, flowRate: number, indicators: any, composition: { name: string; buckets: number }[]) => {
             if (flowRate > 0) {
-                if (y > 220) { doc.addPage(); y = 20; }
-                doc.setFontSize(14);
+                doc.setFontSize(12);
                 doc.setFont("helvetica", "bold");
                 doc.text(`${title} (Débit: ${formatNumberForPdf(flowRate, 1)} t/h)`, margin, y);
-                y += 7;
+                y += 6;
                 
                 const indicatorText = [
                     `PCI: ${formatNumberForPdf(indicators.pci, 0)} kcal/kg`,
@@ -288,22 +286,22 @@ export default function RapportSynthesePage() {
                     `Cendres: ${formatNumberForPdf(indicators.ash, 1)}%`,
                     `Chlore: ${formatNumberForPdf(indicators.chlorine, 2)}%`,
                     `Pneus: ${formatNumberForPdf(indicators.tireRate, 1)}%`,
-                ].join('  |  ');
-                doc.setFontSize(9);
+                ].join(' | ');
+                doc.setFontSize(8);
                 doc.setFont("helvetica", "normal");
                 doc.setTextColor(100);
                 doc.text(indicatorText, margin, y);
-                y += 7;
+                y += 6;
 
                 doc.autoTable({
                     head: [['Combustible', 'Nb Godets']],
                     body: composition.map(c => [c.name, c.buckets]),
                     startY: y,
                     theme: 'striped',
-                    headStyles: { fillColor: [44, 62, 80], fontStyle: 'bold' },
-                    styles: { fontSize: 10, cellPadding: 3 },
+                    headStyles: { fillColor: [60, 60, 60], fontStyle: 'bold' },
+                    styles: { fontSize: 8, cellPadding: 1.5 },
                 });
-                y = (doc as any).lastAutoTable.finalY + 12;
+                y = (doc as any).lastAutoTable.finalY + 8;
             }
         };
 
@@ -473,3 +471,5 @@ export default function RapportSynthesePage() {
         </div>
     );
 }
+
+    
