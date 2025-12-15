@@ -73,8 +73,8 @@ export function MainDashboard() {
     const [showColors, setShowColors] = useState(true);
 
     const [dateRange, setDateRange] = useState<DateRange | undefined>({
-        from: startOfWeek(new Date(), { weekStartsOn: 1 }),
-        to: endOfWeek(new Date(), { weekStartsOn: 1 }),
+        from: subDays(new Date(), 30),
+        to: new Date(),
     });
 
     const [thresholds, setThresholds] = useState<{ melange?: MixtureThresholds, impact?: ImpactThresholds, indicateurs?: KeyIndicatorThresholds }>({});
@@ -504,7 +504,7 @@ export function MainDashboard() {
                  {mixtureIndicators ? (
                     <IndicatorCard data={mixtureIndicators} thresholds={thresholds.melange} onIndicatorDoubleClick={(key, name) => handleIndicatorDoubleClick(key, name)} />
                 ) : (
-                    <Card>
+                    <Card className="bg-brand-surface border-brand-line h-full">
                         <CardHeader>
                             <CardTitle className="text-lg flex items-center gap-2 text-white">
                                 <Recycle className="text-green-400 h-5 w-5" />
@@ -675,6 +675,7 @@ export function MainDashboard() {
         </motion.div>
     );
 }
+
 
 
 
