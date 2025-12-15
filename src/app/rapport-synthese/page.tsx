@@ -83,8 +83,8 @@ export default function RapportSynthesePage() {
     }, [fetchData]);
 
     const mixtureIndicators = useMemo(() => {
-        if (!mixtureSession?.globalIndicators) return null;
-        const indicators = mixtureSession.globalIndicators;
+        if (!mixtureSession?.afIndicators) return null;
+        const indicators = mixtureSession.afIndicators;
         return {
           'PCI': indicators.pci,
           'Chlorures': indicators.chlorine,
@@ -163,15 +163,15 @@ export default function RapportSynthesePage() {
         yPos += 15;
 
         // Section 1: Indicateurs du Mélange
-        if (mixtureIndicators && mixtureSession?.globalIndicators) {
+        if (mixtureIndicators && mixtureSession?.afIndicators) {
             doc.setFontSize(14);
             doc.text("Indicateurs du Mélange", 14, yPos);
             yPos += 6;
             const indicatorData = [
-                { label: "PCI", value: formatNumber(mixtureSession.globalIndicators.pci, 0), unit: "kcal/kg" },
-                { label: "Chlorures", value: formatNumber(mixtureSession.globalIndicators.chlorine, 3), unit: "%" },
-                { label: "Cendres", value: formatNumber(mixtureSession.globalIndicators.ash, 2), unit: "%" },
-                { label: "H2O", value: formatNumber(mixtureSession.globalIndicators.humidity, 2), unit: "%" },
+                { label: "PCI", value: formatNumber(mixtureSession.afIndicators.pci, 0), unit: "kcal/kg" },
+                { label: "Chlorures", value: formatNumber(mixtureSession.afIndicators.chlorine, 3), unit: "%" },
+                { label: "Cendres", value: formatNumber(mixtureSession.afIndicators.ash, 2), unit: "%" },
+                { label: "H2O", value: formatNumber(mixtureSession.afIndicators.humidity, 2), unit: "%" },
             ];
 
             doc.autoTable({
@@ -481,6 +481,7 @@ export default function RapportSynthesePage() {
         </div>
     );
 }
+
 
 
 
