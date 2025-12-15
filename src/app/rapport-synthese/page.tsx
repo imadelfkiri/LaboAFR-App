@@ -205,30 +205,39 @@ export default function RapportSynthesePage() {
             toast({ title: "Données manquantes", description: "Aucune session de mélange à exporter.", variant: "destructive" });
             return;
         }
-        
+
         const doc = new jsPDF({ orientation: 'portrait' });
         const date = mixtureSession.timestamp ? format(mixtureSession.timestamp.toDate(), "dd/MM/yyyy HH:mm", { locale: fr }) : "N/A";
-        let y = 15;
+        let y = 20;
+        const page_width = doc.internal.pageSize.getWidth();
+        const margin = 15;
+        const primaryColor = '#00b894'; // Emerald green from your theme
 
         // --- Header ---
-        doc.setFontSize(18);
+        doc.setFontSize(22);
         doc.setFont("helvetica", "bold");
-        doc.text("Rapport de Synthèse", doc.internal.pageSize.getWidth() / 2, y, { align: "center" });
+        doc.text("Rapport de Synthèse", margin, y);
         y += 8;
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
-        doc.text(`Session du: ${date}`, doc.internal.pageSize.getWidth() / 2, y, { align: "center" });
+        doc.setTextColor(150);
+        doc.text(`Session du: ${date}`, margin, y);
+        y += 5;
+        doc.setDrawColor(primaryColor);
+        doc.setLineWidth(0.5);
+        doc.line(margin, y, page_width - margin, y);
         y += 15;
 
         // --- Global Indicators ---
-        doc.setFontSize(12);
+        doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
-        doc.text("Indicateurs du Mélange Global des AFs", 14, y);
-        y += 5;
+        doc.setTextColor(40);
+        doc.text("Indicateurs du Mélange Global des AFs", margin, y);
+        y += 7;
         if (afIndicators) {
             const indicatorsBody = [
-                ['Débit (t/h)', formatNumber(afIndicators.flow, 2)],
-                ['PCI (kcal/kg)', formatNumber(afIndicators.pci, 0)],
+                ['Débit Total (t/h)', formatNumber(afIndicators.flow, 2)],
+                ['PCI moyen (kcal/kg)', formatNumber(afIndicators.pci, 0)],
                 ['% Humidité', formatNumber(afIndicators.humidity, 2)],
                 ['% Cendres', formatNumber(afIndicators.ash, 2)],
                 ['% Chlore', formatNumber(afIndicators.chlorine, 3)],
@@ -238,50 +247,52 @@ export default function RapportSynthesePage() {
                 body: indicatorsBody,
                 startY: y,
                 theme: 'grid',
-                styles: { fontSize: 9 },
+                styles: { fontSize: 10, cellPadding: 2.5 },
+                headStyles: { fontStyle: 'bold' },
+                columnStyles: { 0: { fontStyle: 'bold' } }
             });
-            y = (doc as any).lastAutoTable.finalY + 10;
+            y = (doc as any).lastAutoTable.finalY + 15;
         }
 
         // --- Hall AF Section ---
         if (mixtureSession.hallAF && mixtureSession.hallAF.flowRate > 0) {
-            doc.setFontSize(12);
+            doc.setFontSize(14);
             doc.setFont("helvetica", "bold");
-            doc.text(`Hall des AF (Débit: ${formatNumber(mixtureSession.hallAF.flowRate, 2)} t/h)`, 14, y);
-            y += 5;
+            doc.text(`Hall des AF (Débit: ${formatNumber(mixtureSession.hallAF.flowRate, 2)} t/h)`, margin, y);
+            y += 7;
             doc.autoTable({
                 head: [['Combustible', 'Nb Godets']],
                 body: hallComposition.map(c => [c.name, c.buckets]),
                 startY: y,
                 theme: 'striped',
-                headStyles: { fillColor: [52, 73, 94] },
-                styles: { fontSize: 9 },
+                headStyles: { fillColor: [44, 62, 80], fontStyle: 'bold' },
+                styles: { fontSize: 10, cellPadding: 2.5 },
             });
-            y = (doc as any).lastAutoTable.finalY + 10;
+            y = (doc as any).lastAutoTable.finalY + 15;
         }
 
         // --- ATS Section ---
         if (mixtureSession.ats && mixtureSession.ats.flowRate > 0) {
-            doc.setFontSize(12);
+            doc.setFontSize(14);
             doc.setFont("helvetica", "bold");
-            doc.text(`ATS (Débit: ${formatNumber(mixtureSession.ats.flowRate, 2)} t/h)`, 14, y);
-            y += 5;
+            doc.text(`ATS (Débit: ${formatNumber(mixtureSession.ats.flowRate, 2)} t/h)`, margin, y);
+            y += 7;
             doc.autoTable({
                 head: [['Combustible', 'Nb Godets']],
                 body: atsComposition.map(c => [c.name, c.buckets]),
                 startY: y,
                 theme: 'striped',
-                headStyles: { fillColor: [52, 73, 94] },
-                styles: { fontSize: 9 },
+                headStyles: { fillColor: [44, 62, 80], fontStyle: 'bold' },
+                styles: { fontSize: 10, cellPadding: 2.5 },
             });
-            y = (doc as any).lastAutoTable.finalY + 10;
+            y = (doc as any).lastAutoTable.finalY + 15;
         }
         
         // --- Impact on Clinker ---
-        doc.setFontSize(12);
+        doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
-        doc.text("Impact sur le Clinker (Δ)", 14, y);
-        y += 5;
+        doc.text("Impact sur le Clinker (Δ)", margin, y);
+        y += 7;
         if (latestImpact) {
             const impactBody = impactChartData.map(item => [item.name, formatNumber(item.value, 2)]);
             doc.autoTable({
@@ -289,10 +300,13 @@ export default function RapportSynthesePage() {
                 body: impactBody,
                 startY: y,
                 theme: 'grid',
+                headStyles: { fillColor: primaryColor, fontStyle: 'bold' },
+                styles: { fontSize: 10, cellPadding: 2.5 },
+                columnStyles: { 0: { fontStyle: 'bold' } },
             });
         } else {
              doc.setFontSize(10);
-             doc.text("Aucune donnée d'impact disponible.", 14, y);
+             doc.text("Aucune donnée d'impact disponible.", margin, y);
         }
 
         doc.save(`Rapport_Synthese_${format(new Date(), "yyyy-MM-dd_HH-mm")}.pdf`);
