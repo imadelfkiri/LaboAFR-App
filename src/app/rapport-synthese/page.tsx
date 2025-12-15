@@ -205,22 +205,21 @@ export default function RapportSynthesePage() {
     const chartColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F'];
 
     const handleExportPDF = () => {
-        if (!mixtureSession) {
+        if (!mixtureSession || !afIndicators) {
             toast({ title: "Données manquantes", description: "Aucune session de mélange à exporter.", variant: "destructive" });
             return;
         }
 
-        const doc = new jsPDF({ orientation: 'portrait' });
-        const date = mixtureSession.timestamp ? format(mixtureSession.timestamp.toDate(), "dd/MM/yyyy HH:mm", { locale: fr }) : "N/A";
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const date = mixtureSession.timestamp ? format(mixtureSession.timestamp.toDate(), "dd/MM/yyyy 'à' HH:mm", { locale: fr }) : "N/A";
         let y = 20;
         const page_width = doc.internal.pageSize.getWidth();
         const margin = 15;
-        const primaryColor = '#00b894'; // Emerald green from your theme
+        const primaryColor = '#00b894';
 
-        // --- Header ---
-        doc.setFontSize(22);
+        doc.setFontSize(20);
         doc.setFont("helvetica", "bold");
-        doc.text("Rapport de Synthèse", margin, y);
+        doc.text("Rapport de Synthèse du Mélange", margin, y);
         y += 8;
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
@@ -230,88 +229,86 @@ export default function RapportSynthesePage() {
         doc.setDrawColor(primaryColor);
         doc.setLineWidth(0.5);
         doc.line(margin, y, page_width - margin, y);
-        y += 15;
+        y += 12;
 
-        // --- Global Indicators ---
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(40);
-        doc.text("Indicateurs du Mélange Global des AFs", margin, y);
+        doc.text("Indicateurs du Mélange Global (AFs)", margin, y);
         y += 7;
-        if (afIndicators) {
-            const indicatorsBody = [
-                ['Débit Total (t/h)', formatNumberForPdf(afIndicators.flow, 2)],
-                ['PCI moyen (kcal/kg)', formatNumberForPdf(afIndicators.pci, 0)],
-                ['% Humidité', formatNumberForPdf(afIndicators.humidity, 2)],
-                ['% Cendres', formatNumberForPdf(afIndicators.ash, 2)],
-                ['% Chlore', formatNumberForPdf(afIndicators.chlorine, 3)],
-                ['% Pneus', formatNumberForPdf(afIndicators.tireRate, 2)],
-            ];
-            doc.autoTable({
-                body: indicatorsBody,
-                startY: y,
-                theme: 'grid',
-                styles: { fontSize: 10, cellPadding: 2.5 },
-                headStyles: { fontStyle: 'bold' },
-                columnStyles: { 0: { fontStyle: 'bold' } }
-            });
-            y = (doc as any).lastAutoTable.finalY + 15;
-        }
 
-        // --- Hall AF Section ---
-        if (mixtureSession.hallAF && mixtureSession.hallAF.flowRate > 0) {
-            doc.setFontSize(14);
-            doc.setFont("helvetica", "bold");
-            doc.text(`Hall des AF (Débit: ${formatNumber(mixtureSession.hallAF.flowRate, 2)} t/h)`, margin, y);
-            y += 7;
-            doc.autoTable({
-                head: [['Combustible', 'Nb Godets']],
-                body: hallComposition.map(c => [c.name, c.buckets]),
-                startY: y,
-                theme: 'striped',
-                headStyles: { fillColor: [44, 62, 80], fontStyle: 'bold' },
-                styles: { fontSize: 10, cellPadding: 2.5 },
-            });
-            y = (doc as any).lastAutoTable.finalY + 15;
-        }
+        const indicatorsBody = [
+            ['Débit Total (t/h)', formatNumberForPdf(afIndicators.flow, 1)],
+            ['PCI moyen (kcal/kg)', formatNumberForPdf(afIndicators.pci, 0)],
+            ['Humidité (%)', formatNumberForPdf(afIndicators.humidity, 1)],
+            ['Cendres (%)', formatNumberForPdf(afIndicators.ash, 1)],
+            ['Chlorures (%)', formatNumberForPdf(afIndicators.chlorine, 2)],
+            ['Taux de Pneus (%)', formatNumberForPdf(afIndicators.tireRate, 1)],
+        ];
 
-        // --- ATS Section ---
-        if (mixtureSession.ats && mixtureSession.ats.flowRate > 0) {
-            doc.setFontSize(14);
-            doc.setFont("helvetica", "bold");
-            doc.text(`ATS (Débit: ${formatNumber(mixtureSession.ats.flowRate, 2)} t/h)`, margin, y);
-            y += 7;
-            doc.autoTable({
-                head: [['Combustible', 'Nb Godets']],
-                body: atsComposition.map(c => [c.name, c.buckets]),
-                startY: y,
-                theme: 'striped',
-                headStyles: { fillColor: [44, 62, 80], fontStyle: 'bold' },
-                styles: { fontSize: 10, cellPadding: 2.5 },
-            });
-            y = (doc as any).lastAutoTable.finalY + 15;
-        }
-        
-        // --- Impact on Clinker ---
-        doc.setFontSize(14);
-        doc.setFont("helvetica", "bold");
-        doc.text("Impact sur le Clinker (Δ)", margin, y);
-        y += 7;
+        doc.autoTable({
+            body: indicatorsBody,
+            startY: y,
+            theme: 'grid',
+            styles: { fontSize: 10, cellPadding: 3 },
+            headStyles: { fontStyle: 'bold' },
+            columnStyles: { 0: { fontStyle: 'bold' } }
+        });
+        y = (doc as any).lastAutoTable.finalY + 12;
+
         if (latestImpact) {
-            const impactBody = impactChartData.map(item => [item.name, formatNumberForPdf(item.value, 2)]);
+            doc.setFontSize(14);
+            doc.setFont("helvetica", "bold");
+            doc.text("Impact sur le Clinker (Δ)", margin, y);
+            y += 7;
+            const impactBody = impactChartData.map(item => [item.name, (item.value > 0 ? "+" : "") + formatNumberForPdf(item.value, 2)]);
             doc.autoTable({
                 head: [['Indicateur', 'Variation']],
                 body: impactBody,
                 startY: y,
                 theme: 'grid',
                 headStyles: { fillColor: primaryColor, fontStyle: 'bold' },
-                styles: { fontSize: 10, cellPadding: 2.5 },
+                styles: { fontSize: 10, cellPadding: 3 },
                 columnStyles: { 0: { fontStyle: 'bold' } },
             });
-        } else {
-             doc.setFontSize(10);
-             doc.text("Aucune donnée d'impact disponible.", margin, y);
+            y = (doc as any).lastAutoTable.finalY + 12;
         }
+
+        const renderInstallationSection = (title: string, flowRate: number, indicators: any, composition: { name: string; buckets: number }[]) => {
+            if (flowRate > 0) {
+                if (y > 220) { doc.addPage(); y = 20; }
+                doc.setFontSize(14);
+                doc.setFont("helvetica", "bold");
+                doc.text(`${title} (Débit: ${formatNumberForPdf(flowRate, 1)} t/h)`, margin, y);
+                y += 7;
+                
+                const indicatorText = [
+                    `PCI: ${formatNumberForPdf(indicators.pci, 0)} kcal/kg`,
+                    `H2O: ${formatNumberForPdf(indicators.humidity, 1)}%`,
+                    `Cendres: ${formatNumberForPdf(indicators.ash, 1)}%`,
+                    `Chlore: ${formatNumberForPdf(indicators.chlorine, 2)}%`,
+                    `Pneus: ${formatNumberForPdf(indicators.tireRate, 1)}%`,
+                ].join('  |  ');
+                doc.setFontSize(9);
+                doc.setFont("helvetica", "normal");
+                doc.setTextColor(100);
+                doc.text(indicatorText, margin, y);
+                y += 7;
+
+                doc.autoTable({
+                    head: [['Combustible', 'Nb Godets']],
+                    body: composition.map(c => [c.name, c.buckets]),
+                    startY: y,
+                    theme: 'striped',
+                    headStyles: { fillColor: [44, 62, 80], fontStyle: 'bold' },
+                    styles: { fontSize: 10, cellPadding: 3 },
+                });
+                y = (doc as any).lastAutoTable.finalY + 12;
+            }
+        };
+
+        renderInstallationSection("Hall des AF", mixtureSession.hallAF?.flowRate || 0, hallIndicators, hallComposition);
+        renderInstallationSection("ATS", mixtureSession.ats?.flowRate || 0, atsIndicators, atsComposition);
 
         doc.save(`Rapport_Synthese_${format(new Date(), "yyyy-MM-dd_HH-mm")}.pdf`);
     };
