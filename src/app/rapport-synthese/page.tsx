@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -19,6 +18,7 @@ import { Document, Packer, Paragraph, TextRun, HeadingLevel, Table as DocxTable,
 import { saveAs } from 'file-saver';
 import { IndicatorCard } from '@/components/mixture-calculator';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 
 // Extend jsPDF for autoTable
@@ -87,6 +87,7 @@ export default function RapportSynthesePage() {
     const [latestImpact, setLatestImpact] = useState<ImpactAnalysis | null>(null);
     const [fuelDataMap, setFuelDataMap] = useState<Record<string, FuelData>>({});
     const [thresholds, setThresholds] = useState<MixtureThresholds | undefined>(undefined);
+    const { toast } = useToast();
 
     const fetchData = useCallback(async () => {
         try {
@@ -117,7 +118,7 @@ export default function RapportSynthesePage() {
     }, [fetchData]);
 
     const { afIndicators, hallIndicators, atsIndicators, hallComposition, atsComposition, mixtureComposition, afFlow } = useMemo(() => {
-        if (!mixtureSession || !fuelDataMap) return { afIndicators: null, hallIndicators: null, atsIndicators: null, hallComposition: [], atsComposition: [], mixtureComposition: [], afFlow: 0 };
+        if (!mixtureSession || !fuelDataMap || !mixtureSession.availableFuels) return { afIndicators: null, hallIndicators: null, atsIndicators: null, hallComposition: [], atsComposition: [], mixtureComposition: [], afFlow: 0 };
 
         const processInstallation = (installation: any, fuelData: Record<string, FuelData>, availableFuels: Record<string, any>) => {
             if (!installation?.fuels) return { weight: 0, pci: 0, humidity: 0, ash: 0, chlorine: 0, tireRate: 0 };
@@ -132,13 +133,14 @@ export default function RapportSynthesePage() {
                 const weight = data.buckets * (fuelDetails.poids_godet || 1.5);
                 totalWeight += weight;
 
+                if (fuelName.toLowerCase().includes('pneu')) {
+                    tireWeight += weight;
+                }
+                
                 pciSum += weight * analysis.pci_brut;
                 humiditySum += weight * analysis.h2o;
                 ashSum += weight * analysis.cendres;
                 chlorineSum += weight * analysis.chlore;
-                if (fuelName.toLowerCase().includes('pneu')) {
-                    tireWeight += weight;
-                }
             }
 
             return {
@@ -277,8 +279,8 @@ export default function RapportSynthesePage() {
             </div>
             
             <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {afIndicators ? (
-                    <IndicatorCard data={afIndicators} thresholds={thresholds} />
+                {mixtureSession?.afIndicators ? (
+                    <IndicatorCard data={mixtureSession.afIndicators} thresholds={thresholds} />
                 ) : (
                     <Card>
                         <CardHeader><CardTitle className="flex items-center gap-2"><Flame /> Indicateurs du Mélange AFs</CardTitle></CardHeader>
