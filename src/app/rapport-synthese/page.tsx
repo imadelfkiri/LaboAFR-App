@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getFuelData, type FuelData, getThresholds, type MixtureThresholds } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Flame, Activity, BookOpen, Beaker, BarChart2, Download, FileText, FileJson, ChevronDown } from 'lucide-react';
+import { Activity, BookOpen, Beaker, BarChart2, Download, FileText, FileJson, ChevronDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,6 @@ import "jspdf-autotable";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, Table as DocxTable, TableRow as DocxTableRow, TableCell as DocxTableCell, WidthType } from 'docx';
 import { saveAs } from 'file-saver';
 import { IndicatorCard } from '@/components/mixture-calculator';
-import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
 
@@ -29,7 +28,7 @@ declare module "jspdf" {
 }
 
 const formatNumber = (num: number | null | undefined, digits: number = 2) => {
-    if (num === null || num === undefined || isNaN(num)) return '0.00';
+    if (num === null || num === undefined || isNaN(num)) return '0,00';
     return num.toLocaleString('fr-FR', {
         minimumFractionDigits: digits,
         maximumFractionDigits: digits,
@@ -39,10 +38,8 @@ const formatNumber = (num: number | null | undefined, digits: number = 2) => {
 const formatNumberForPdf = (num: number | null | undefined, digits: number = 2): string => {
     if (num === null || num === undefined || isNaN(num)) return '0,00';
     const fixed = num.toFixed(digits);
-    // Remplacer le point par une virgule pour le format français
     const [integerPart, decimalPart] = fixed.split('.');
     
-    // Utilise un espace comme séparateur de milliers
     const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 
     return decimalPart ? `${formattedInteger},${decimalPart}` : formattedInteger;
@@ -117,8 +114,8 @@ export default function RapportSynthesePage() {
         fetchData();
     }, [fetchData]);
 
-    const { afIndicators, hallIndicators, atsIndicators, hallComposition, atsComposition, mixtureComposition, afFlow } = useMemo(() => {
-        if (!mixtureSession || !fuelDataMap || !mixtureSession.availableFuels) return { afIndicators: null, hallIndicators: null, atsIndicators: null, hallComposition: [], atsComposition: [], mixtureComposition: [], afFlow: 0 };
+    const { afIndicators, hallIndicators, atsIndicators, hallComposition, atsComposition, mixtureComposition } = useMemo(() => {
+        if (!mixtureSession || !fuelDataMap || !mixtureSession.availableFuels) return { afIndicators: null, hallIndicators: null, atsIndicators: null, hallComposition: [], atsComposition: [], mixtureComposition: [] };
 
         const processInstallation = (installation: any, fuelData: Record<string, FuelData>, availableFuels: Record<string, any>) => {
             if (!installation?.fuels) return { weight: 0, pci: 0, humidity: 0, ash: 0, chlorine: 0, tireRate: 0 };
@@ -155,23 +152,6 @@ export default function RapportSynthesePage() {
 
         const hallIndicators = processInstallation(mixtureSession.hallAF, fuelDataMap, mixtureSession.availableFuels);
         const atsIndicators = processInstallation(mixtureSession.ats, fuelDataMap, mixtureSession.availableFuels);
-
-        const flowHall = mixtureSession.hallAF?.flowRate || 0;
-        const flowAts = mixtureSession.ats?.flowRate || 0;
-        const totalAfFlow = flowHall + flowAts;
-
-        const weightedAvg = (valHall: number, valAts: number) => {
-            if (totalAfFlow === 0) return 0;
-            return (valHall * flowHall + valAts * flowAts) / totalAfFlow;
-        };
-
-        const afIndicators = {
-            'PCI': weightedAvg(hallIndicators.pci, atsIndicators.pci),
-            'Chlorures': weightedAvg(hallIndicators.chlorine, atsIndicators.chlorine),
-            'Cendres': weightedAvg(hallIndicators.ash, atsIndicators.ash),
-            'Humidité': weightedAvg(hallIndicators.humidity, atsIndicators.humidity),
-            'TauxPneus': weightedAvg(hallIndicators.tireRate, atsIndicators.tireRate),
-        };
         
         const processComposition = (fuels: Record<string, { buckets: number }>) => {
             return Object.entries(fuels)
@@ -201,7 +181,7 @@ export default function RapportSynthesePage() {
             }
         });
 
-        return { afIndicators, hallIndicators, atsIndicators, hallComposition: hallComp, atsComposition: atsComp, mixtureComposition: mixtureComp, afFlow: totalAfFlow };
+        return { afIndicators: mixtureSession.afIndicators, hallIndicators, atsIndicators, hallComposition: hallComp, atsComposition: atsComp, mixtureComposition: mixtureComp };
 
     }, [mixtureSession, fuelDataMap]);
 
@@ -221,11 +201,103 @@ export default function RapportSynthesePage() {
     const chartColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F'];
 
     const handleExportPDF = () => {
-        // This function will need to be updated to reflect the new layout.
-        // For brevity, I'm leaving the existing export logic which will now be partially incorrect.
-        toast({ title: "Fonctionnalité à mettre à jour", description: "L'export PDF doit être adapté au nouveau design."});
+        if (!mixtureSession) {
+            toast({ title: "Données manquantes", description: "Aucune session de mélange à exporter.", variant: "destructive" });
+            return;
+        }
+        
+        const doc = new jsPDF({ orientation: 'portrait' });
+        const date = mixtureSession.timestamp ? format(mixtureSession.timestamp.toDate(), "dd/MM/yyyy HH:mm", { locale: fr }) : "N/A";
+        let y = 15;
+
+        // --- Header ---
+        doc.setFontSize(18);
+        doc.setFont("helvetica", "bold");
+        doc.text("Rapport de Synthèse", doc.internal.pageSize.getWidth() / 2, y, { align: "center" });
+        y += 8;
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Session du: ${date}`, doc.internal.pageSize.getWidth() / 2, y, { align: "center" });
+        y += 15;
+
+        // --- Global Indicators ---
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("Indicateurs du Mélange Global des AFs", 14, y);
+        y += 5;
+        if (afIndicators) {
+            const indicatorsBody = [
+                ['Débit (t/h)', formatNumber(afIndicators.flow, 2)],
+                ['PCI (kcal/kg)', formatNumber(afIndicators.pci, 0)],
+                ['% Humidité', formatNumber(afIndicators.humidity, 2)],
+                ['% Cendres', formatNumber(afIndicators.ash, 2)],
+                ['% Chlore', formatNumber(afIndicators.chlorine, 3)],
+                ['% Pneus', formatNumber(afIndicators.tireRate, 2)],
+            ];
+            doc.autoTable({
+                body: indicatorsBody,
+                startY: y,
+                theme: 'grid',
+                styles: { fontSize: 9 },
+            });
+            y = (doc as any).lastAutoTable.finalY + 10;
+        }
+
+        // --- Hall AF Section ---
+        if (mixtureSession.hallAF && mixtureSession.hallAF.flowRate > 0) {
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "bold");
+            doc.text(`Hall des AF (Débit: ${formatNumber(mixtureSession.hallAF.flowRate, 2)} t/h)`, 14, y);
+            y += 5;
+            doc.autoTable({
+                head: [['Combustible', 'Nb Godets']],
+                body: hallComposition.map(c => [c.name, c.buckets]),
+                startY: y,
+                theme: 'striped',
+                headStyles: { fillColor: [52, 73, 94] },
+                styles: { fontSize: 9 },
+            });
+            y = (doc as any).lastAutoTable.finalY + 10;
+        }
+
+        // --- ATS Section ---
+        if (mixtureSession.ats && mixtureSession.ats.flowRate > 0) {
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "bold");
+            doc.text(`ATS (Débit: ${formatNumber(mixtureSession.ats.flowRate, 2)} t/h)`, 14, y);
+            y += 5;
+            doc.autoTable({
+                head: [['Combustible', 'Nb Godets']],
+                body: atsComposition.map(c => [c.name, c.buckets]),
+                startY: y,
+                theme: 'striped',
+                headStyles: { fillColor: [52, 73, 94] },
+                styles: { fontSize: 9 },
+            });
+            y = (doc as any).lastAutoTable.finalY + 10;
+        }
+        
+        // --- Impact on Clinker ---
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("Impact sur le Clinker (Δ)", 14, y);
+        y += 5;
+        if (latestImpact) {
+            const impactBody = impactChartData.map(item => [item.name, formatNumber(item.value, 2)]);
+            doc.autoTable({
+                head: [['Indicateur', 'Variation']],
+                body: impactBody,
+                startY: y,
+                theme: 'grid',
+            });
+        } else {
+             doc.setFontSize(10);
+             doc.text("Aucune donnée d'impact disponible.", 14, y);
+        }
+
+        doc.save(`Rapport_Synthese_${format(new Date(), "yyyy-MM-dd_HH-mm")}.pdf`);
     };
-    
+
     const handleExportWord = () => {
         toast({ title: "Fonctionnalité à mettre à jour", description: "L'export Word doit être adapté au nouveau design."});
     };
@@ -279,11 +351,11 @@ export default function RapportSynthesePage() {
             </div>
             
             <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {mixtureSession?.afIndicators ? (
-                    <IndicatorCard data={mixtureSession.afIndicators} thresholds={thresholds} />
+                {mixtureSession && afIndicators ? (
+                    <IndicatorCard data={afIndicators} thresholds={thresholds} />
                 ) : (
                     <Card>
-                        <CardHeader><CardTitle className="flex items-center gap-2"><Flame /> Indicateurs du Mélange AFs</CardTitle></CardHeader>
+                        <CardHeader><CardTitle className="flex items-center gap-2"><Beaker /> Indicateurs du Mélange AFs</CardTitle></CardHeader>
                         <CardContent>
                             <p className="col-span-full text-center text-muted-foreground p-4">Aucune session de mélange.</p>
                         </CardContent>
