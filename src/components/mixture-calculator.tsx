@@ -19,7 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getAverageAnalysisForFuels, saveMixtureSession, getMixtureSessions, MixtureSession, getFuelCosts, FuelCost, getLatestMixtureSession, getStocks, getFuelData, FuelData, getThresholds, saveThresholds, Specification, MixtureThresholds, getAverageAnalysisForFuels as getAverageAnalysisForFuelsNew } from '@/lib/data';
+import { getAverageAnalysisForFuels, saveMixtureSession, getMixtureSessions, MixtureSession, getFuelCosts, FuelCost, getLatestMixtureSession, getStocks, getFuelData, FuelData, getThresholds, saveThresholds, Specification, MixtureThresholds, getAverageAnalysisForFuels as getAverageAnalysisForFuelsNew, AFIndicators, TotalIndicators } from '@/lib/data';
 import type { AverageAnalysis } from '@/lib/data';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -169,7 +169,7 @@ export function IndicatorCard({
     thresholds?: MixtureThresholds,
     onIndicatorDoubleClick?: (key: IndicatorKey, name: string) => void,
 }) {
-  if (!data) {
+  if (!data || Object.keys(data).length === 0) {
     return (
         <Card className="bg-brand-surface border-brand-line h-full">
             <CardHeader>
@@ -178,7 +178,7 @@ export function IndicatorCard({
                 </CardTitle>
             </CardHeader>
             <CardContent>
-                <p className="col-span-full text-center text-muted-foreground p-4">Calcul en cours...</p>
+                <p className="col-span-full text-center text-muted-foreground p-4">Aucune session de mélange.</p>
             </CardContent>
         </Card>
     );
@@ -679,20 +679,28 @@ export function MixtureCalculator() {
             availableFuelsToSave[name] = availableFuels[name];
           }
         });
+        
+        const afIndicatorsToSave: AFIndicators = {
+            pci: afIndicators.pci,
+            humidity: afIndicators.humidity,
+            chlorine: afIndicators.chlorine,
+            ash: afIndicators.ash,
+            tireRate: afIndicators.tireRate,
+            flow: afIndicators.flow,
+        };
 
-
-        const sessionData: Omit<MixtureSession, 'id' | 'timestamp'> = {
+        const sessionData = {
             hallAF,
             ats,
             directInputs,
-            globalIndicators: afIndicators,
+            afIndicators: afIndicatorsToSave,
             availableFuels: availableFuelsToSave,
             analysisDateRange: globalDateRange?.from && globalDateRange.to ? {
                 from: Timestamp.fromDate(globalDateRange.from),
                 to: Timestamp.fromDate(globalDateRange.to),
             } : undefined,
         };
-        await saveMixtureSession(sessionData);
+        await saveMixtureSession(sessionData as any);
         toast({ title: "Succès", description: "La session de mélange a été enregistrée." });
         fetchHistoryData(); // Refresh history
     } catch(error) {

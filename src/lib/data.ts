@@ -81,6 +81,30 @@ export interface Role {
     access: string[];
 }
 
+/** Indicateurs AF uniquement (sans grignons / GO) */
+export interface AFIndicators {
+  pci: number;
+  humidity: number;
+  chlorine: number;
+  ash: number;
+  tireRate: number;
+  flow: number;
+  // S: number;
+}
+
+/** Indicateurs globaux (AF + grignons + GO) */
+export interface TotalIndicators {
+  tsr: number;
+  // ThermalSubstitution: number;
+  // CalorificConsumption: number;
+  // ImpactClinker: {
+  //   LSF: number;
+  //   SM: number;
+  //   AM: number;
+  //   C3S: number;
+  //   Fe2O3: number;
+  // };
+}
 
 export interface AverageAnalysis {
     pci_brut: number;
@@ -92,15 +116,21 @@ export interface AverageAnalysis {
     fournisseur?: string;
 }
 
+/** Session de mélange – STRUCTURE UNIQUE */
 export interface MixtureSession {
-    id: string;
-    timestamp: Timestamp;
-    hallAF: any;
-    ats: any;
-    directInputs: any;
-    globalIndicators: any;
-    availableFuels: Record<string, AverageAnalysis>;
-    analysisDateRange?: { from: Timestamp; to: Timestamp };
+  id: string;
+  createdAt: Timestamp;
+  timestamp: Timestamp;
+
+  afIndicators: AFIndicators;
+  // totalIndicators: TotalIndicators;
+
+  hallAF: any;
+  ats: any;
+  directInputs: any;
+  globalIndicators: any;
+  availableFuels: Record<string, AverageAnalysis>;
+  analysisDateRange?: { from: Timestamp; to: Timestamp };
 }
 
 export interface FuelCost {
