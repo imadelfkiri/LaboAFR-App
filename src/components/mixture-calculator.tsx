@@ -169,6 +169,21 @@ export function IndicatorCard({
     thresholds?: MixtureThresholds,
     onIndicatorDoubleClick?: (key: IndicatorKey, name: string) => void,
 }) {
+  if (!data) {
+    return (
+        <Card className="bg-brand-surface border-brand-line h-full">
+            <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2 text-white">
+                    <span>⚗️</span> Indicateurs du Mélange
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
+                <p className="col-span-full text-center text-muted-foreground p-4">Calcul en cours...</p>
+            </CardContent>
+        </Card>
+    );
+  }
+
   const getColorClass = (key: string, value: number): IndicatorStatus => {
     if(!thresholds) return 'neutral';
 
@@ -333,17 +348,6 @@ function useMixtureCalculations(
         return (totalTireFlow / totalAfFlow) * 100;
     };
     
-    const getPci = (fuelName: string) => availableFuels[fuelName]?.pci_brut || 0;
-    const petcokeFlow = (directInputs['Pet-Coke Preca']?.flowRate || 0) + (directInputs['Pet-Coke Tuyere']?.flowRate || 0);
-    const pciPetcoke = getPci('Pet-Coke') || getPci('Pet-Coke Preca') || getPci('Pet-Coke Tuyere');
-    const petcokeEnergy = petcokeFlow * pciPetcoke;
-    
-    const afEnergy = totalAfFlow * weightedAfAvg('pci');
-
-    const totalEnergy = afEnergy + petcokeEnergy;
-    
-    const tsr = totalEnergy > 0 ? (afEnergy / totalEnergy) * 100 : 0;
-    
     const afIndicators = {
         flow: totalAfFlow,
         pci: weightedAfAvg('pci'),
@@ -351,8 +355,6 @@ function useMixtureCalculations(
         ash: weightedAfAvg('ash'),
         chlorine: weightedAfAvg('chlorine'),
         tireRate: weightedTireRate(),
-        tsr,
-        cl_fc: 0.15 + (weightedAfAvg('chlorine') * (0.23 + 4.85 * (tsr / 100))),
     };
 
     const getStatus = (value: number, key: IndicatorKey): IndicatorStatus => {
@@ -789,7 +791,6 @@ export function MixtureCalculator() {
         textToCopy += `% Cendres: ${summaryIndicators.ash.toFixed(2)} %\n`;
         textToCopy += `% Chlorures: ${summaryIndicators.chlorine.toFixed(3)} %\n`;
         textToCopy += `Taux de pneus: ${summaryIndicators.tireRate.toFixed(2)} %\n`;
-        textToCopy += `TSR: ${summaryIndicators.tsr.toFixed(2)} %\n`;
 
         return textToCopy;
     };
@@ -942,13 +943,12 @@ export function MixtureCalculator() {
                         />
                     )}
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                     <IndicatorDisplay title="PCI moy" value={afIndicators.pci.toFixed(0)} unit="kcal/kg" status={afIndicators.status.pci} indicatorKey="pci" name="PCI Moyen (AFs)"/>
                     <IndicatorDisplay title="% Humidité moy" value={afIndicators.humidity.toFixed(2)} unit="%" status={afIndicators.status.humidity} indicatorKey="humidity" name="Humidité Moyenne (AFs)"/>
                     <IndicatorDisplay title="% Cendres moy" value={afIndicators.ash.toFixed(2)} unit="%" status={afIndicators.status.ash} indicatorKey="ash" name="Cendres Moyennes (AFs)"/>
                     <IndicatorDisplay title="% Chlorures" value={afIndicators.chlorine.toFixed(3)} unit="%" status={afIndicators.status.chlorine} indicatorKey="chlorine" name="Chlorures Moyens (AFs)"/>
                     <IndicatorDisplay title="Taux de pneus" value={afIndicators.tireRate.toFixed(2)} unit="%" status={afIndicators.status.tireRate} indicatorKey="tireRate" name="Taux de Pneus (AFs)"/>
-                    <IndicatorDisplay title="TSR" value={afIndicators.tsr.toFixed(2)} unit="%" status={'neutral'} indicatorKey="tsr" name="TSR" tooltipText="Taux de Substitution Énergétique"/>
                 </div>
             </div>
             
@@ -1183,3 +1183,4 @@ export function MixtureCalculator() {
     
 
 
+    
