@@ -38,16 +38,17 @@ const formatNumber = (num: number | null | undefined, digits: number = 2) => {
 const formatNumberForPdf = (num: number | null | undefined, digits: number = 0): string => {
     if (num === null || num === undefined || Number.isNaN(num)) return "-";
     
-    // Pour les nombres entiers (comme le PCI), ne pas utiliser de séparateur de milliers
-    if (digits === 0) {
-        return num.toFixed(0);
-    }
-    
-    // Pour les nombres avec décimales, remplacer le point par une virgule
     const fixed = num.toFixed(digits);
     const [integerPart, decimalPart] = fixed.split('.');
+    
+    // For integers like PCI, avoid thousand separators
+    if (digits === 0) {
+        return integerPart;
+    }
+    
     return `${integerPart},${decimalPart}`;
 };
+
 
 const InstallationIndicators = ({ name, indicators }: { name: string, indicators: any }) => {
     if (!indicators || Object.keys(indicators).length === 0) {
@@ -211,13 +212,13 @@ export default function RapportSynthesePage() {
         }
 
         const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-        const date = mixtureSession.timestamp ? format(mixtureSession.timestamp.toDate(), "dd/MM/yyyy 'à' HH:mm", { locale: fr }) : "N/A";
+        const date = mixtureSession.timestamp ? format(mixtureSession.timestamp.toDate(), "d MMMM yyyy 'à' HH:mm", { locale: fr }) : "N/A";
         let y = 15;
         const page_width = doc.internal.pageSize.getWidth();
         const margin = 14;
         const primaryColor = '#00b894';
 
-        doc.setFontSize(18);
+        doc.setFontSize(20);
         doc.setFont("helvetica", "bold");
         doc.text("Rapport de Synthèse du Mélange", page_width / 2, y, { align: "center" });
         y += 7;
@@ -225,17 +226,17 @@ export default function RapportSynthesePage() {
         doc.setFont("helvetica", "normal");
         doc.setTextColor(150);
         doc.text(date, page_width / 2, y, { align: "center" });
-        y += 5;
+        y += 3;
         doc.setDrawColor(primaryColor);
-        doc.setLineWidth(0.5);
+        doc.setLineWidth(0.3);
         doc.line(margin, y, page_width - margin, y);
-        y += 10;
+        y += 8;
 
-        doc.setFontSize(12);
+        doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(40);
         doc.text("Indicateurs du Mélange Global (AFs)", margin, y);
-        y += 6;
+        y += 5;
 
         const indicatorsBody = [
             ['Débit Total (t/h)', formatNumberForPdf(afIndicators.flow, 1)],
@@ -250,16 +251,16 @@ export default function RapportSynthesePage() {
             body: indicatorsBody,
             startY: y,
             theme: 'grid',
-            styles: { fontSize: 9, cellPadding: 2 },
+            styles: { fontSize: 8, cellPadding: 1.5 },
             columnStyles: { 0: { fontStyle: 'bold' } }
         });
-        y = (doc as any).lastAutoTable.finalY + 8;
+        y = (doc as any).lastAutoTable.finalY + 7;
 
         if (latestImpact) {
-            doc.setFontSize(12);
+            doc.setFontSize(11);
             doc.setFont("helvetica", "bold");
             doc.text("Impact sur le Clinker (Δ)", margin, y);
-            y += 6;
+            y += 5;
             const impactBody = impactChartData.map(item => [item.name, (item.value > 0 ? "+" : "") + formatNumberForPdf(item.value, 2)]);
             doc.autoTable({
                 head: [['Indicateur', 'Variation']],
@@ -267,10 +268,10 @@ export default function RapportSynthesePage() {
                 startY: y,
                 theme: 'grid',
                 headStyles: { fillColor: [44, 62, 80], textColor: 255, fontStyle: 'bold' },
-                styles: { fontSize: 9, cellPadding: 2 },
+                styles: { fontSize: 8, cellPadding: 1.5 },
                 columnStyles: { 0: { fontStyle: 'bold' } },
             });
-            y = (doc as any).lastAutoTable.finalY + 8;
+            y = (doc as any).lastAutoTable.finalY + 7;
         }
 
         const renderInstallationSection = (title: string, flowRate: number, indicators: any, composition: { name: string; buckets: number }[]) => {
@@ -278,7 +279,7 @@ export default function RapportSynthesePage() {
                 doc.setFontSize(12);
                 doc.setFont("helvetica", "bold");
                 doc.text(`${title} (Débit: ${formatNumberForPdf(flowRate, 1)} t/h)`, margin, y);
-                y += 6;
+                y += 5;
                 
                 const indicatorText = [
                     `PCI: ${formatNumberForPdf(indicators.pci, 0)} kcal/kg`,
@@ -291,17 +292,23 @@ export default function RapportSynthesePage() {
                 doc.setFont("helvetica", "normal");
                 doc.setTextColor(100);
                 doc.text(indicatorText, margin, y);
-                y += 6;
+                y += 5;
+
+                const compositionBody = composition.map(c => {
+                    const weight = (c.buckets || 0) * (fuelDataMap[c.name]?.poids_godet || 1.5);
+                    const percentage = indicators.weight > 0 ? (weight / indicators.weight) * 100 : 0;
+                    return [c.name, c.buckets, formatNumberForPdf(percentage, 1) + '%'];
+                });
 
                 doc.autoTable({
-                    head: [['Combustible', 'Nb Godets']],
-                    body: composition.map(c => [c.name, c.buckets]),
+                    head: [['Combustible', 'Nb Godets', '%']],
+                    body: compositionBody,
                     startY: y,
                     theme: 'striped',
                     headStyles: { fillColor: [60, 60, 60], fontStyle: 'bold' },
                     styles: { fontSize: 8, cellPadding: 1.5 },
                 });
-                y = (doc as any).lastAutoTable.finalY + 8;
+                y = (doc as any).lastAutoTable.finalY + 7;
             }
         };
 
@@ -365,7 +372,13 @@ export default function RapportSynthesePage() {
             
             <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {mixtureSession && afIndicators ? (
-                    <IndicatorCard data={afIndicators} thresholds={thresholds} />
+                    <IndicatorCard data={{
+                        'PCI': afIndicators.pci,
+                        'Chlorures': afIndicators.chlorine,
+                        'Cendres': afIndicators.ash,
+                        'Humidité': afIndicators.humidity,
+                        'TauxPneus': afIndicators.tireRate,
+                    }} thresholds={thresholds} />
                 ) : (
                     <Card>
                         <CardHeader><CardTitle className="flex items-center gap-2"><Beaker /> Indicateurs du Mélange AFs</CardTitle></CardHeader>
