@@ -35,14 +35,18 @@ const formatNumber = (num: number | null | undefined, digits: number = 2) => {
     });
 };
 
-const formatNumberForPdf = (num: number | null | undefined, digits: number = 2): string => {
-    if (num === null || num === undefined || isNaN(num)) return '0,00';
+const formatNumberForPdf = (num: number | null | undefined, digits: number = 0): string => {
+    if (num === null || num === undefined || Number.isNaN(num)) return "-";
+    
+    // Pour les nombres entiers (comme le PCI), ne pas utiliser de séparateur de milliers
+    if (digits === 0) {
+        return num.toFixed(0);
+    }
+    
+    // Pour les nombres avec décimales, remplacer le point par une virgule
     const fixed = num.toFixed(digits);
     const [integerPart, decimalPart] = fixed.split('.');
-    
-    const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-
-    return decimalPart ? `${formattedInteger},${decimalPart}` : formattedInteger;
+    return `${integerPart},${decimalPart}`;
 };
 
 const InstallationIndicators = ({ name, indicators }: { name: string, indicators: any }) => {
@@ -221,7 +225,7 @@ export default function RapportSynthesePage() {
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(150);
-        doc.text(`Session du: ${date}`, margin, y);
+        doc.text(date, margin, y);
         y += 5;
         doc.setDrawColor(primaryColor);
         doc.setLineWidth(0.5);
@@ -236,12 +240,12 @@ export default function RapportSynthesePage() {
         y += 7;
         if (afIndicators) {
             const indicatorsBody = [
-                ['Débit Total (t/h)', formatNumber(afIndicators.flow, 2)],
-                ['PCI moyen (kcal/kg)', formatNumber(afIndicators.pci, 0)],
-                ['% Humidité', formatNumber(afIndicators.humidity, 2)],
-                ['% Cendres', formatNumber(afIndicators.ash, 2)],
-                ['% Chlore', formatNumber(afIndicators.chlorine, 3)],
-                ['% Pneus', formatNumber(afIndicators.tireRate, 2)],
+                ['Débit Total (t/h)', formatNumberForPdf(afIndicators.flow, 2)],
+                ['PCI moyen (kcal/kg)', formatNumberForPdf(afIndicators.pci, 0)],
+                ['% Humidité', formatNumberForPdf(afIndicators.humidity, 2)],
+                ['% Cendres', formatNumberForPdf(afIndicators.ash, 2)],
+                ['% Chlore', formatNumberForPdf(afIndicators.chlorine, 3)],
+                ['% Pneus', formatNumberForPdf(afIndicators.tireRate, 2)],
             ];
             doc.autoTable({
                 body: indicatorsBody,
@@ -294,7 +298,7 @@ export default function RapportSynthesePage() {
         doc.text("Impact sur le Clinker (Δ)", margin, y);
         y += 7;
         if (latestImpact) {
-            const impactBody = impactChartData.map(item => [item.name, formatNumber(item.value, 2)]);
+            const impactBody = impactChartData.map(item => [item.name, formatNumberForPdf(item.value, 2)]);
             doc.autoTable({
                 head: [['Indicateur', 'Variation']],
                 body: impactBody,
@@ -339,7 +343,7 @@ export default function RapportSynthesePage() {
                 <div className='flex items-center gap-4'>
                     {mixtureSession?.timestamp && (
                         <p className="text-sm text-muted-foreground">
-                            Données de la session du {format(mixtureSession.timestamp.toDate(), "d MMMM yyyy 'à' HH:mm", { locale: fr })}
+                            {format(mixtureSession.timestamp.toDate(), "d MMMM yyyy 'à' HH:mm", { locale: fr })}
                         </p>
                     )}
                      <DropdownMenu>
