@@ -48,7 +48,7 @@
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.8.2",
     "lucide-react": "^0.475.0",
-    "next": "14.2.5",
+    "next": "14.2.35",
     "react": "18.3.1",
     "react-countup": "^6.5.3",
     "react-day-picker": "^8.10.1",

@@ -41,7 +41,6 @@ const formatNumberForPdf = (num: number | null | undefined, digits: number = 0):
     const fixed = num.toFixed(digits);
     const [integerPart, decimalPart] = fixed.split('.');
     
-    // For integers like PCI, avoid thousand separators
     if (digits === 0) {
         return integerPart;
     }
@@ -218,10 +217,10 @@ export default function RapportSynthesePage() {
         const margin = 14;
         const primaryColor = '#00b894';
 
-        doc.setFontSize(20);
+        doc.setFontSize(18);
         doc.setFont("helvetica", "bold");
         doc.text("Rapport de Synthèse du Mélange", page_width / 2, y, { align: "center" });
-        y += 7;
+        y += 6;
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(150);
@@ -235,7 +234,7 @@ export default function RapportSynthesePage() {
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(40);
-        doc.text("Indicateurs du Mélange Global (AFs)", margin, y);
+        doc.text("Indicateurs du Mélange Global (AFs) (sans GO)", margin, y);
         y += 5;
 
         const indicatorsBody = [
@@ -251,8 +250,8 @@ export default function RapportSynthesePage() {
             body: indicatorsBody,
             startY: y,
             theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 1.5 },
-            columnStyles: { 0: { fontStyle: 'bold' } }
+            styles: { fontSize: 8, cellPadding: 1.5, lineColor: [221, 221, 221], lineWidth: 0.1 },
+            columnStyles: { 0: { fontStyle: 'bold', fillColor: [245, 245, 245] } }
         });
         y = (doc as any).lastAutoTable.finalY + 7;
 
@@ -268,7 +267,7 @@ export default function RapportSynthesePage() {
                 startY: y,
                 theme: 'grid',
                 headStyles: { fillColor: [44, 62, 80], textColor: 255, fontStyle: 'bold' },
-                styles: { fontSize: 8, cellPadding: 1.5 },
+                styles: { fontSize: 8, cellPadding: 1.5, lineColor: [221, 221, 221], lineWidth: 0.1 },
                 columnStyles: { 0: { fontStyle: 'bold' } },
             });
             y = (doc as any).lastAutoTable.finalY + 7;
@@ -276,7 +275,11 @@ export default function RapportSynthesePage() {
 
         const renderInstallationSection = (title: string, flowRate: number, indicators: any, composition: { name: string; buckets: number }[]) => {
             if (flowRate > 0) {
-                doc.setFontSize(12);
+                 if (y > 250) { // Check if there's enough space
+                    doc.addPage();
+                    y = 20;
+                }
+                doc.setFontSize(11);
                 doc.setFont("helvetica", "bold");
                 doc.text(`${title} (Débit: ${formatNumberForPdf(flowRate, 1)} t/h)`, margin, y);
                 y += 5;
@@ -301,7 +304,7 @@ export default function RapportSynthesePage() {
                 });
 
                 doc.autoTable({
-                    head: [['Combustible', 'Nb Godets', '%']],
+                    head: [['Combustible', 'Nb Godets', '% Poids']],
                     body: compositionBody,
                     startY: y,
                     theme: 'striped',
