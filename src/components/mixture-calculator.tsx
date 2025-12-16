@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -604,11 +605,15 @@ export function MixtureCalculator() {
     if (!historySessions || historySessions.length === 0 || !historyChartIndicator) return [];
     
     return historySessions
-        .map(session => ({
-            date: session.timestamp.toDate(),
-            value: (session.afIndicators as any)[historyChartIndicator.key]
-        }))
-        .filter(item => typeof item.value === 'number')
+        .map(session => {
+            const indicators = session.afIndicators || session.globalIndicators;
+            if (!indicators) return null;
+            return {
+                date: session.timestamp.toDate(),
+                value: (indicators as any)[historyChartIndicator.key]
+            };
+        })
+        .filter((item): item is { date: Date; value: number } => item !== null && typeof item.value === 'number')
         .sort((a, b) => a.date.valueOf() - b.date.valueOf())
         .map(item => ({
             date: format(item.date, 'dd/MM HH:mm'),
@@ -1182,5 +1187,7 @@ export function MixtureCalculator() {
     </div>
   );
 }
+
+    
 
     
