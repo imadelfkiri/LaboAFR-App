@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from 'react';
@@ -12,7 +11,7 @@ export function RawMaterialsManager() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Factory className="h-6 w-6 text-primary" />
-          Gestion des Matières Premières
+          Raw Materials Management
         </CardTitle>
         <CardDescription>
           Centralisez et gérez les informations sur vos matières premières ici.

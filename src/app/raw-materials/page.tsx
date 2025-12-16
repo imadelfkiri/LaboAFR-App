@@ -3,7 +3,7 @@ import { RawMaterialsManager } from '@/components/raw-materials-manager';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: "Matières Premières | FuelTrack AFR",
+  title: "Raw Materials | FuelTrack AFR",
   description: "Gérer les données des matières premières.",
 };
 
@@ -14,3 +14,4 @@ export default function RawMaterialsPage() {
     </div>
   );
 }
+
