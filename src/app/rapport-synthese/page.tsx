@@ -38,12 +38,13 @@ const formatNumber = (num: number | null | undefined, digits: number = 2) => {
 const formatNumberForPdf = (num: number | null | undefined, digits: number = 0): string => {
     if (num === null || num === undefined || Number.isNaN(num)) return "-";
     
+    // For integer values, remove the separator logic
+    if (digits === 0) {
+        return num.toFixed(0);
+    }
+    
     const fixed = num.toFixed(digits);
     const [integerPart, decimalPart] = fixed.split('.');
-    
-    if (digits === 0) {
-        return integerPart;
-    }
     
     return `${integerPart},${decimalPart}`;
 };
@@ -146,6 +147,7 @@ export default function RapportSynthesePage() {
 
             return {
                 weight: totalWeight,
+                tireWeight: tempTotalTireWeight,
                 pci: totalWeight > 0 ? pciSum / totalWeight : 0,
                 humidity: totalWeight > 0 ? humiditySum / totalWeight : 0,
                 ash: totalWeight > 0 ? ashSum / totalWeight : 0,
@@ -157,15 +159,22 @@ export default function RapportSynthesePage() {
         const hallIndicators = processInstallation(mixtureSession.hallAF, fuelDataMap, mixtureSession.availableFuels);
         const atsIndicators = processInstallation(mixtureSession.ats, fuelDataMap, mixtureSession.availableFuels);
         
-        const processComposition = (fuels: Record<string, { buckets: number }>) => {
+        const processComposition = (fuels: Record<string, { buckets: number }>, installationWeight: number) => {
             return Object.entries(fuels)
-                .map(([name, data]) => ({ name, buckets: data.buckets || 0 }))
+                .map(([name, data]) => {
+                    const weight = (data.buckets || 0) * (fuelDataMap[name]?.poids_godet || 1.5);
+                    return { 
+                        name, 
+                        buckets: data.buckets || 0,
+                        percentage: installationWeight > 0 ? (weight / installationWeight) * 100 : 0
+                    };
+                })
                 .filter(item => item.buckets > 0)
                 .sort((a, b) => b.buckets - a.buckets);
         };
         
-        const hallComp = processComposition(mixtureSession.hallAF?.fuels || {});
-        const atsComp = processComposition(mixtureSession.ats?.fuels || {});
+        const hallComp = processComposition(mixtureSession.hallAF?.fuels || {}, hallIndicators.weight);
+        const atsComp = processComposition(mixtureSession.ats?.fuels || {}, atsIndicators.weight);
 
         const combinedBuckets = [...hallComp, ...atsComp].reduce((acc, curr) => {
             acc[curr.name] = (acc[curr.name] || 0) + curr.buckets;
@@ -205,120 +214,124 @@ export default function RapportSynthesePage() {
     const chartColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F'];
 
     const handleExportPDF = () => {
-        if (!mixtureSession || !afIndicators) {
-            toast({ title: "Données manquantes", description: "Aucune session de mélange à exporter.", variant: "destructive" });
-            return;
-        }
+    if (!mixtureSession || !afIndicators) {
+        toast({ title: "Données manquantes", description: "Aucune session de mélange à exporter.", variant: "destructive" });
+        return;
+    }
 
-        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-        const date = mixtureSession.timestamp ? format(mixtureSession.timestamp.toDate(), "d MMMM yyyy 'à' HH:mm", { locale: fr }) : "N/A";
-        let y = 15;
-        const page_width = doc.internal.pageSize.getWidth();
-        const margin = 14;
-        const primaryColor = '#00b894';
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const date = mixtureSession.timestamp ? format(mixtureSession.timestamp.toDate(), "dd MMMM yyyy 'à' HH:mm", { locale: fr }) : "N/A";
+    let y = 20; // Increased top margin
+    const page_width = doc.internal.pageSize.getWidth();
+    const margin = 14;
+    const primaryColor = '#00b894'; // Teal/Cyan color from the app
+    const textColor = '#333333';
+    const headerColor = '#2d3748';
+    const lightGray = '#f7fafc';
 
-        doc.setFontSize(18);
-        doc.setFont("helvetica", "bold");
-        doc.text("Rapport de Synthèse du Mélange", page_width / 2, y, { align: "center" });
-        y += 6;
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(150);
-        doc.text(date, page_width / 2, y, { align: "center" });
-        y += 3;
-        doc.setDrawColor(primaryColor);
-        doc.setLineWidth(0.3);
-        doc.line(margin, y, page_width - margin, y);
-        y += 8;
+    // --- MAIN HEADER ---
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(headerColor);
+    doc.text("Rapport de Synthèse du Mélange", page_width / 2, y, { align: "center" });
+    y += 8;
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor('#718096');
+    doc.text(date, page_width / 2, y, { align: "center" });
+    y += 4;
+    doc.setDrawColor(primaryColor);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, page_width - margin, y);
+    y += 10;
 
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(40);
-        doc.text("Indicateurs du Mélange Global (AFs) (sans GO)", margin, y);
-        y += 5;
+    // --- INDICATORS SECTION ---
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(headerColor);
+    doc.text("Indicateurs du Mélange Global (AFs) (sans GO)", margin, y);
+    y += 6;
 
-        const indicatorsBody = [
+    doc.autoTable({
+        body: [
             ['Débit Total (t/h)', formatNumberForPdf(afIndicators.flow, 1)],
             ['PCI moyen (kcal/kg)', formatNumberForPdf(afIndicators.pci, 0)],
             ['Humidité (%)', formatNumberForPdf(afIndicators.humidity, 1)],
             ['Cendres (%)', formatNumberForPdf(afIndicators.ash, 1)],
             ['Chlorures (%)', formatNumberForPdf(afIndicators.chlorine, 2)],
             ['Taux de Pneus (%)', formatNumberForPdf(afIndicators.tireRate, 1)],
-        ];
+        ],
+        startY: y,
+        theme: 'grid',
+        styles: { fontSize: 9, cellPadding: 2, lineColor: '#e2e8f0', textColor: textColor },
+        headStyles: { fillColor: headerColor, textColor: '#ffffff' },
+        columnStyles: { 0: { fontStyle: 'bold', fillColor: lightGray } },
+        didDrawPage: (data) => { // To keep y position updated after table
+             y = data.cursor?.y || y;
+        }
+    });
+    y += 8;
+
+    // --- IMPACT SECTION ---
+    if (latestImpact) {
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(headerColor);
+        doc.text("Impact sur le Clinker", margin, y);
+        y += 6;
 
         doc.autoTable({
-            body: indicatorsBody,
+            head: [['Indicateur', 'Variation']],
+            body: impactChartData.map(item => [item.name, (item.value > 0 ? "+" : "") + formatNumberForPdf(item.value, 2)]),
             startY: y,
-            theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 1.5, lineColor: [221, 221, 221], lineWidth: 0.1 },
-            columnStyles: { 0: { fontStyle: 'bold', fillColor: [245, 245, 245] } }
+            theme: 'striped',
+            headStyles: { fillColor: headerColor, textColor: '#ffffff' },
+            styles: { fontSize: 9, cellPadding: 2, lineColor: '#e2e8f0' },
+            didDrawPage: (data) => { y = data.cursor?.y || y; }
         });
-        y = (doc as any).lastAutoTable.finalY + 7;
+        y += 8;
+    }
 
-        if (latestImpact) {
-            doc.setFontSize(11);
+    const renderInstallationSection = (title: string, flowRate: number, indicators: any, composition: { name: string; buckets: number, percentage: number }[]) => {
+        if (flowRate > 0) {
+            if (y > 220) { doc.addPage(); y = 20; }
+            doc.setFontSize(12);
             doc.setFont("helvetica", "bold");
-            doc.text("Impact sur le Clinker (Δ)", margin, y);
+            doc.setTextColor(headerColor);
+            doc.text(`${title} (Débit: ${formatNumberForPdf(flowRate, 1)} t/h)`, margin, y);
             y += 5;
-            const impactBody = impactChartData.map(item => [item.name, (item.value > 0 ? "+" : "") + formatNumberForPdf(item.value, 2)]);
+
+            doc.setFontSize(8);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor('#718096');
+            const indicatorText = [
+                `PCI: ${formatNumberForPdf(indicators.pci, 0)} kcal/kg`,
+                `H2O: ${formatNumberForPdf(indicators.humidity, 1)}%`,
+                `Cendres: ${formatNumberForPdf(indicators.ash, 1)}%`,
+                `Chlore: ${formatNumberForPdf(indicators.chlorine, 2)}%`,
+                `Pneus: ${formatNumberForPdf(indicators.tireRate, 1)}%`,
+            ].join(' | ');
+            doc.text(indicatorText, margin, y);
+            y += 6;
+
             doc.autoTable({
-                head: [['Indicateur', 'Variation']],
-                body: impactBody,
+                head: [['Combustible', 'Nb Godets', '% Poids']],
+                body: composition.map(c => [c.name, c.buckets, formatNumberForPdf(c.percentage, 1) + '%']),
                 startY: y,
-                theme: 'grid',
-                headStyles: { fillColor: [44, 62, 80], textColor: 255, fontStyle: 'bold' },
-                styles: { fontSize: 8, cellPadding: 1.5, lineColor: [221, 221, 221], lineWidth: 0.1 },
-                columnStyles: { 0: { fontStyle: 'bold' } },
+                theme: 'striped',
+                headStyles: { fillColor: headerColor, textColor: '#ffffff' },
+                styles: { fontSize: 9, cellPadding: 2, lineColor: '#e2e8f0' },
+                didDrawPage: (data) => { y = data.cursor?.y || y; }
             });
-            y = (doc as any).lastAutoTable.finalY + 7;
+            y += 8;
         }
+    };
+    
+    // --- INSTALLATION SECTIONS ---
+    renderInstallationSection("Hall des AF", mixtureSession.hallAF?.flowRate || 0, hallIndicators, hallComposition);
+    renderInstallationSection("ATS", mixtureSession.ats?.flowRate || 0, atsIndicators, atsComposition);
 
-        const renderInstallationSection = (title: string, flowRate: number, indicators: any, composition: { name: string; buckets: number }[]) => {
-            if (flowRate > 0) {
-                 if (y > 250) { // Check if there's enough space
-                    doc.addPage();
-                    y = 20;
-                }
-                doc.setFontSize(11);
-                doc.setFont("helvetica", "bold");
-                doc.text(`${title} (Débit: ${formatNumberForPdf(flowRate, 1)} t/h)`, margin, y);
-                y += 5;
-                
-                const indicatorText = [
-                    `PCI: ${formatNumberForPdf(indicators.pci, 0)} kcal/kg`,
-                    `H2O: ${formatNumberForPdf(indicators.humidity, 1)}%`,
-                    `Cendres: ${formatNumberForPdf(indicators.ash, 1)}%`,
-                    `Chlore: ${formatNumberForPdf(indicators.chlorine, 2)}%`,
-                    `Pneus: ${formatNumberForPdf(indicators.tireRate, 1)}%`,
-                ].join(' | ');
-                doc.setFontSize(8);
-                doc.setFont("helvetica", "normal");
-                doc.setTextColor(100);
-                doc.text(indicatorText, margin, y);
-                y += 5;
-
-                const compositionBody = composition.map(c => {
-                    const weight = (c.buckets || 0) * (fuelDataMap[c.name]?.poids_godet || 1.5);
-                    const percentage = indicators.weight > 0 ? (weight / indicators.weight) * 100 : 0;
-                    return [c.name, c.buckets, formatNumberForPdf(percentage, 1) + '%'];
-                });
-
-                doc.autoTable({
-                    head: [['Combustible', 'Nb Godets', '% Poids']],
-                    body: compositionBody,
-                    startY: y,
-                    theme: 'striped',
-                    headStyles: { fillColor: [60, 60, 60], fontStyle: 'bold' },
-                    styles: { fontSize: 8, cellPadding: 1.5 },
-                });
-                y = (doc as any).lastAutoTable.finalY + 7;
-            }
-        };
-
-        renderInstallationSection("Hall des AF", mixtureSession.hallAF?.flowRate || 0, hallIndicators, hallComposition);
-        renderInstallationSection("ATS", mixtureSession.ats?.flowRate || 0, atsIndicators, atsComposition);
-
-        doc.save(`Rapport_Synthese_${format(new Date(), "yyyy-MM-dd_HH-mm")}.pdf`);
+    doc.save(`Rapport_Synthese_${format(new Date(), "yyyy-MM-dd")}.pdf`);
     };
 
     const handleExportWord = () => {
@@ -425,12 +438,13 @@ export default function RapportSynthesePage() {
                     <CardContent className="space-y-4">
                         <InstallationIndicators name="Hall des AF" indicators={hallIndicators} />
                         <Table>
-                            <TableHeader><TableRow><TableHead>Combustible</TableHead><TableHead className="text-right">Nb. Godets</TableHead></TableRow></TableHeader>
+                            <TableHeader><TableRow><TableHead>Combustible</TableHead><TableHead className="text-right">Nb. Godets</TableHead><TableHead className="text-right">% Poids</TableHead></TableRow></TableHeader>
                             <TableBody>
                                 {hallComposition.map(item => (
                                     <TableRow key={item.name}>
                                         <TableCell className="font-medium">{item.name}</TableCell>
                                         <TableCell className="text-right">{item.buckets}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(item.percentage, 1)}%</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -445,12 +459,13 @@ export default function RapportSynthesePage() {
                     <CardContent className="space-y-4">
                         <InstallationIndicators name="ATS" indicators={atsIndicators} />
                         <Table>
-                            <TableHeader><TableRow><TableHead>Combustible</TableHead><TableHead className="text-right">Nb. Godets</TableHead></TableRow></TableHeader>
+                            <TableHeader><TableRow><TableHead>Combustible</TableHead><TableHead className="text-right">Nb. Godets</TableHead><TableHead className="text-right">% Poids</TableHead></TableRow></TableHeader>
                             <TableBody>
                                 {atsComposition.map(item => (
                                     <TableRow key={item.name}>
                                         <TableCell className="font-medium">{item.name}</TableCell>
                                         <TableCell className="text-right">{item.buckets}</TableCell>
+                                        <TableCell className="text-right">{formatNumber(item.percentage, 1)}%</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -487,5 +502,3 @@ export default function RapportSynthesePage() {
         </div>
     );
 }
-
-    
