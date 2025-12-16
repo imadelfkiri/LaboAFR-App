@@ -147,7 +147,7 @@ export default function RapportSynthesePage() {
 
             return {
                 weight: totalWeight,
-                tireWeight: tempTotalTireWeight,
+                tireWeight: tireWeight,
                 pci: totalWeight > 0 ? pciSum / totalWeight : 0,
                 humidity: totalWeight > 0 ? humiditySum / totalWeight : 0,
                 ash: totalWeight > 0 ? ashSum / totalWeight : 0,
@@ -220,37 +220,38 @@ export default function RapportSynthesePage() {
     }
 
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const date = mixtureSession.timestamp ? format(mixtureSession.timestamp.toDate(), "dd MMMM yyyy 'à' HH:mm", { locale: fr }) : "N/A";
-    let y = 20; // Increased top margin
+    const date = mixtureSession.timestamp ? format(mixtureSession.timestamp.toDate(), "d MMMM yyyy 'à' HH:mm", { locale: fr }) : "N/A";
+    let y = 15;
     const page_width = doc.internal.pageSize.getWidth();
     const margin = 14;
-    const primaryColor = '#00b894'; // Teal/Cyan color from the app
+    const primaryColor = '#00b894';
     const textColor = '#333333';
     const headerColor = '#2d3748';
     const lightGray = '#f7fafc';
+    const darkGray = '#edf2f7';
 
     // --- MAIN HEADER ---
-    doc.setFontSize(22);
+    doc.setFontSize(20);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(headerColor);
     doc.text("Rapport de Synthèse du Mélange", page_width / 2, y, { align: "center" });
-    y += 8;
-    doc.setFontSize(11);
+    y += 7;
+    doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.setTextColor('#718096');
     doc.text(date, page_width / 2, y, { align: "center" });
-    y += 4;
+    y += 3;
     doc.setDrawColor(primaryColor);
     doc.setLineWidth(0.5);
     doc.line(margin, y, page_width - margin, y);
-    y += 10;
+    y += 8;
 
     // --- INDICATORS SECTION ---
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(headerColor);
     doc.text("Indicateurs du Mélange Global (AFs) (sans GO)", margin, y);
-    y += 6;
+    y += 5;
 
     doc.autoTable({
         body: [
@@ -263,43 +264,40 @@ export default function RapportSynthesePage() {
         ],
         startY: y,
         theme: 'grid',
-        styles: { fontSize: 9, cellPadding: 2, lineColor: '#e2e8f0', textColor: textColor },
+        styles: { fontSize: 9, cellPadding: 2.5, lineColor: '#e2e8f0', textColor: textColor },
         headStyles: { fillColor: headerColor, textColor: '#ffffff' },
-        columnStyles: { 0: { fontStyle: 'bold', fillColor: lightGray } },
-        didDrawPage: (data) => { // To keep y position updated after table
-             y = data.cursor?.y || y;
-        }
+        columnStyles: { 0: { fontStyle: 'bold', fillColor: lightGray, cellWidth: 50 }, 1: { halign: 'right', cellWidth: 40 } },
+        tableWidth: 90,
+        margin: { left: margin },
+        didDrawPage: (data) => { y = data.cursor?.y || y; }
     });
-    y += 8;
+    y += 2;
 
     // --- IMPACT SECTION ---
     if (latestImpact) {
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(headerColor);
-        doc.text("Impact sur le Clinker", margin, y);
-        y += 6;
-
         doc.autoTable({
-            head: [['Indicateur', 'Variation']],
+            head: [['Impact sur le Clinker (Δ)', 'Variation']],
             body: impactChartData.map(item => [item.name, (item.value > 0 ? "+" : "") + formatNumberForPdf(item.value, 2)]),
             startY: y,
             theme: 'striped',
-            headStyles: { fillColor: headerColor, textColor: '#ffffff' },
+            headStyles: { fillColor: primaryColor, textColor: '#ffffff' },
             styles: { fontSize: 9, cellPadding: 2, lineColor: '#e2e8f0' },
-            didDrawPage: (data) => { y = data.cursor?.y || y; }
+            columnStyles: { 1: { halign: 'right' } },
+            tableWidth: 80,
+            margin: { left: page_width - margin - 80 },
+            didDrawPage: (data) => { y = Math.max(y, data.cursor?.y || y); }
         });
-        y += 8;
     }
+    y += 8;
 
     const renderInstallationSection = (title: string, flowRate: number, indicators: any, composition: { name: string; buckets: number, percentage: number }[]) => {
         if (flowRate > 0) {
-            if (y > 220) { doc.addPage(); y = 20; }
-            doc.setFontSize(12);
+             if (y > 220) { doc.addPage(); y = 20; }
+            doc.setFontSize(11);
             doc.setFont("helvetica", "bold");
             doc.setTextColor(headerColor);
             doc.text(`${title} (Débit: ${formatNumberForPdf(flowRate, 1)} t/h)`, margin, y);
-            y += 5;
+            y += 4;
 
             doc.setFontSize(8);
             doc.setFont("helvetica", "normal");
@@ -319,15 +317,16 @@ export default function RapportSynthesePage() {
                 body: composition.map(c => [c.name, c.buckets, formatNumberForPdf(c.percentage, 1) + '%']),
                 startY: y,
                 theme: 'striped',
-                headStyles: { fillColor: headerColor, textColor: '#ffffff' },
-                styles: { fontSize: 9, cellPadding: 2, lineColor: '#e2e8f0' },
+                headStyles: { fillColor: headerColor, textColor: '#ffffff', fontSize: 9 },
+                bodyStyles: { fontSize: 8 },
+                styles: { cellPadding: 1.5, lineColor: '#e2e8f0' },
+                columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' } },
                 didDrawPage: (data) => { y = data.cursor?.y || y; }
             });
             y += 8;
         }
     };
     
-    // --- INSTALLATION SECTIONS ---
     renderInstallationSection("Hall des AF", mixtureSession.hallAF?.flowRate || 0, hallIndicators, hallComposition);
     renderInstallationSection("ATS", mixtureSession.ats?.flowRate || 0, atsIndicators, atsComposition);
 
@@ -388,16 +387,10 @@ export default function RapportSynthesePage() {
             
             <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {mixtureSession && afIndicators ? (
-                    <IndicatorCard data={{
-                        'PCI': afIndicators.pci,
-                        'Chlorures': afIndicators.chlorine,
-                        'Cendres': afIndicators.ash,
-                        'Humidité': afIndicators.humidity,
-                        'TauxPneus': afIndicators.tireRate,
-                    }} thresholds={thresholds} />
+                    <IndicatorCard data={afIndicators} thresholds={thresholds} />
                 ) : (
                     <Card>
-                        <CardHeader><CardTitle className="flex items-center gap-2"><Beaker /> Indicateurs du Mélange AFs</CardTitle></CardHeader>
+                        <CardHeader><CardTitle className="flex items-center gap-2"><Beaker /> Indicateurs du Mélange AFs (sans GO)</CardTitle></CardHeader>
                         <CardContent>
                             <p className="col-span-full text-center text-muted-foreground p-4">Aucune session de mélange.</p>
                         </CardContent>
