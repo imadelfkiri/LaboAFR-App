@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -607,7 +606,7 @@ export function MixtureCalculator() {
     return historySessions
         .map(session => ({
             date: session.timestamp.toDate(),
-            value: (session.globalIndicators as any)[historyChartIndicator.key]
+            value: (session.afIndicators as any)[historyChartIndicator.key]
         }))
         .filter(item => typeof item.value === 'number')
         .sort((a, b) => a.date.valueOf() - b.date.valueOf())
@@ -1183,12 +1182,5 @@ export function MixtureCalculator() {
     </div>
   );
 }
-
-    
-
-    
-
-    
-
 
     
