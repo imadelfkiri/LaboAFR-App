@@ -4,17 +4,14 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getFuelData, type FuelData, getThresholds, type MixtureThresholds } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Activity, BookOpen, Beaker, BarChart2, Download, FileText, ChevronDown, FileJson } from 'lucide-react';
+import { Activity, BookOpen, Beaker, BarChart2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, Cell, LabelList } from 'recharts';
 import { useToast } from '@/hooks/use-toast';
 import { IndicatorCard } from '@/components/mixture-calculator';
-import { generateReportAction } from '@/lib/actions';
 
 
 const formatNumber = (num: number | null | undefined, digits: number = 2) => {
@@ -61,7 +58,6 @@ const InstallationIndicators = ({ name, indicators }: { name: string, indicators
 export default function RapportSynthesePage() {
     const { toast } = useToast();
     const [loading, setLoading] = useState(true);
-    const [isExporting, setIsExporting] = useState(false);
     const [mixtureSession, setMixtureSession] = useState<MixtureSession | null>(null);
     const [latestImpact, setLatestImpact] = useState<ImpactAnalysis | null>(null);
     const [fuelDataMap, setFuelDataMap] = useState<Record<string, FuelData>>({});
@@ -189,53 +185,6 @@ export default function RapportSynthesePage() {
 
     const chartColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F'];
 
-    const handleExport = async (type: 'pdf' | 'word', action: 'download' | 'share') => {
-        if (!mixtureSession || !afIndicators) {
-            toast({ title: "Données manquantes", description: "Aucune session de mélange à exporter.", variant: "destructive" });
-            return;
-        }
-        setIsExporting(true);
-        try {
-            const reportData = {
-                date: mixtureSession.timestamp ? format(mixtureSession.timestamp.toDate(), "d MMMM yyyy 'à' HH:mm", { locale: fr }) : "N/A",
-                afIndicators: afIndicators,
-                impactData: impactChartData,
-                hallData: {
-                    flowRate: mixtureSession.hallAF?.flowRate || 0,
-                    indicators: hallIndicators,
-                    composition: hallComposition,
-                },
-                atsData: {
-                    flowRate: mixtureSession.ats?.flowRate || 0,
-                    indicators: atsIndicators,
-                    composition: atsComposition,
-                }
-            };
-            
-            const result = await generateReportAction(reportData);
-
-            if (result.error) {
-                throw new Error(result.error);
-            }
-
-            if (action === 'download' && result.downloadUrl) {
-                window.open(result.downloadUrl, '_blank');
-            } else if (action === 'share' && result.downloadUrl) {
-                const subject = `Rapport de Synthèse du Mélange - ${reportData.date}`;
-                const body = `Bonjour,\n\nVeuillez trouver ci-joint le rapport de synthèse du mélange.\n\nLien de téléchargement : ${result.downloadUrl}\n\nCordialement.`;
-                window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-            }
-            toast({ title: "Succès", description: "Le rapport a été généré et est prêt." });
-        } catch(error: any) {
-            console.error("Export error:", error);
-            const errorMessage = error.message || "Une erreur inconnue est survenue lors de l'exportation.";
-            toast({ variant: "destructive", title: "Erreur d'exportation", description: errorMessage });
-        } finally {
-            setIsExporting(false);
-        }
-    };
-
-
     if (loading) {
         return (
             <div className="p-4 md:p-6 lg:p-8 space-y-6">
@@ -262,29 +211,6 @@ export default function RapportSynthesePage() {
                             {format(mixtureSession.timestamp.toDate(), "d MMMM yyyy 'à' HH:mm", { locale: fr })}
                         </p>
                     )}
-                     <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline" disabled={isExporting}>
-                                <Download className="mr-2 h-4 w-4" />
-                                {isExporting ? 'Génération...' : 'Exporter'}
-                                <ChevronDown className="ml-2 h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                            <DropdownMenuItem onSelect={() => handleExport('pdf', 'download')}>
-                                <FileText className="mr-2 h-4 w-4" />
-                                Télécharger en PDF
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => handleExport('word', 'download')} disabled>
-                                <FileJson className="mr-2 h-4 w-4" />
-                                Télécharger en Word
-                            </DropdownMenuItem>
-                             <DropdownMenuSeparator />
-                             <DropdownMenuItem onSelect={() => handleExport('pdf', 'share')}>
-                                Partager le lien par Email
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
                 </div>
             </div>
             
