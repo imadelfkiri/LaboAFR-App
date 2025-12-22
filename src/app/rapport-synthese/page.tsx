@@ -2,19 +2,19 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getFuelData, type FuelData, getThresholds, type MixtureThresholds } from '@/lib/data';
+import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getFuelData, type FuelData } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Activity, BookOpen, Beaker, BarChart2, Flame } from 'lucide-react';
+import { Activity, BookOpen, Beaker, BarChart2, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, Cell, LabelList } from 'recharts';
 import { useToast } from '@/hooks/use-toast';
-import { IndicatorCard } from '@/components/mixture-calculator';
 import { Separator } from '@/components/ui/separator';
-import { cn } from '@/lib/utils';
-
+import { Button } from '@/components/ui/button';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { functions } from '@/lib/firebase';
 
 const formatNumber = (num: number | null | undefined, digits: number = 2) => {
     if (num === null || num === undefined || isNaN(num)) return '–';
@@ -24,10 +24,10 @@ const formatNumber = (num: number | null | undefined, digits: number = 2) => {
     });
 };
 
-const InstallationCompositionCard = ({ name, flowRate, composition }: { name: string, flowRate: number, composition: { name: string, buckets: number, percentage: number }[] }) => {
+const InstallationCompositionCard = ({ name, flowRate, composition, pci, chlore, pneus }: { name: string, flowRate: number, composition: { name: string, buckets: number, percentage: number }[], pci: number, chlore: number, pneus: number }) => {
     if (!composition || composition.length === 0) {
         return (
-             <Card>
+             <Card className="h-full">
                 <CardHeader>
                     <CardTitle className="text-lg">{name}</CardTitle>
                     <CardDescription>Débit: {formatNumber(flowRate, 1)} t/h</CardDescription>
@@ -39,35 +39,41 @@ const InstallationCompositionCard = ({ name, flowRate, composition }: { name: st
         )
     }
      return (
-        <Card className="h-full">
+        <Card className="h-full flex flex-col">
             <CardHeader>
                 <CardTitle className="text-lg">{name}</CardTitle>
                 <CardDescription>Débit: <span className="font-semibold text-white">{formatNumber(flowRate, 1)} t/h</span></CardDescription>
             </CardHeader>
-            <CardContent>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Combustible</TableHead>
-                            <TableHead className="text-right">Nb. Godets</TableHead>
-                            <TableHead className="text-right">% Poids</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {composition.map(item => (
-                            <TableRow key={item.name}>
-                                <TableCell className="font-medium">{item.name}</TableCell>
-                                <TableCell className="text-right">{item.buckets}</TableCell>
-                                <TableCell className="text-right">{formatNumber(item.percentage, 1)}%</TableCell>
+            <CardContent className="flex-grow flex flex-col">
+                <div className="flex justify-around text-xs p-2 rounded-md bg-muted/40 mb-4">
+                    <span className="font-semibold">PCI: <strong className="text-emerald-400">{formatNumber(pci, 0)}</strong></span>
+                    <span className="font-semibold">Cl: <strong className="text-orange-400">{formatNumber(chlore, 3)}%</strong></span>
+                    <span className="font-semibold">Pneus: <strong className="text-sky-400">{formatNumber(pneus, 1)}%</strong></span>
+                </div>
+                <div className="flex-grow overflow-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Combustible</TableHead>
+                                <TableHead className="text-right">Godets</TableHead>
+                                <TableHead className="text-right">% Poids</TableHead>
                             </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                        </TableHeader>
+                        <TableBody>
+                            {composition.map(item => (
+                                <TableRow key={item.name}>
+                                    <TableCell className="font-medium">{item.name}</TableCell>
+                                    <TableCell className="text-right">{item.buckets}</TableCell>
+                                    <TableCell className="text-right">{formatNumber(item.percentage, 1)}%</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
             </CardContent>
         </Card>
     );
 };
-
 
 const IndicatorGrid = ({ indicators, title }: { indicators: Record<string, { value: number, unit: string, digits: number }> | null, title: string }) => {
     if (!indicators) return null;
@@ -92,6 +98,7 @@ const IndicatorGrid = ({ indicators, title }: { indicators: Record<string, { val
 export default function RapportSynthesePage() {
     const { toast } = useToast();
     const [loading, setLoading] = useState(true);
+    const [isExporting, setIsExporting] = useState(false);
     const [mixtureSession, setMixtureSession] = useState<MixtureSession | null>(null);
     const [latestImpact, setLatestImpact] = useState<ImpactAnalysis | null>(null);
     const [fuelDataMap, setFuelDataMap] = useState<Record<string, FuelData>>({});
@@ -120,9 +127,9 @@ export default function RapportSynthesePage() {
         fetchData();
     }, [fetchData]);
 
-    const { afIndicators, hallComposition, atsComposition, mixtureComposition, afFlow, goFlow } = useMemo(() => {
+    const { hallData, atsData, afIndicators, mixtureComposition, afFlow, goFlow } = useMemo(() => {
         if (!mixtureSession || !fuelDataMap || !mixtureSession.availableFuels) {
-            return { afIndicators: null, hallComposition: [], atsComposition: [], mixtureComposition: [], afFlow: 0, goFlow: 0 };
+            return { afIndicators: null, hallData: null, atsData: null, mixtureComposition: [], afFlow: 0, goFlow: 0 };
         }
 
         const hallState = mixtureSession.hallAF;
@@ -132,22 +139,42 @@ export default function RapportSynthesePage() {
         const afFlow = (hallState?.flowRate || 0) + (atsState?.flowRate || 0);
         const goFlow = (directInputs['Grignons GO1']?.flowRate || 0) + (directInputs['Grignons GO2']?.flowRate || 0);
 
-        const processComposition = (fuels: Record<string, { buckets: number }>) => {
-             if (!fuels) return { composition: [], totalWeight: 0 };
-            const composition = Object.entries(fuels)
+        const processComposition = (fuels: Record<string, { buckets: number }>, flowRate: number) => {
+            if (!fuels) return { composition: [], totalWeight: 0, pci: 0, chlore: 0, pneus: 0 };
+            
+            const fuelDetails = Object.entries(fuels)
                 .map(([name, data]) => ({ name, buckets: data.buckets || 0, weight: (data.buckets || 0) * (fuelDataMap[name]?.poids_godet || 1.5) }))
                 .filter(item => item.buckets > 0);
             
-            const totalWeight = composition.reduce((sum, item) => sum + item.weight, 0);
+            const totalWeight = fuelDetails.reduce((sum, item) => sum + item.weight, 0);
+
+            let totalPciWeight = 0;
+            let totalChlorineWeight = 0;
+            let tireWeight = 0;
             
+            fuelDetails.forEach(item => {
+                const analysis = mixtureSession.availableFuels[item.name];
+                if (analysis) {
+                    totalPciWeight += (analysis.pci_brut || 0) * item.weight;
+                    totalChlorineWeight += (analysis.chlore || 0) * item.weight;
+                    if(item.name.toLowerCase().includes('pneu')) {
+                        tireWeight += item.weight;
+                    }
+                }
+            });
+
             return {
-                composition: composition.map(item => ({...item, percentage: totalWeight > 0 ? (item.weight / totalWeight) * 100 : 0})).sort((a,b) => b.percentage - a.percentage),
-                totalWeight
+                composition: fuelDetails.map(item => ({...item, percentage: totalWeight > 0 ? (item.weight / totalWeight) * 100 : 0})).sort((a,b) => b.percentage - a.percentage),
+                totalWeight,
+                flowRate: flowRate,
+                pci: totalWeight > 0 ? totalPciWeight / totalWeight : 0,
+                chlore: totalWeight > 0 ? totalChlorineWeight / totalWeight : 0,
+                pneus: totalWeight > 0 ? (tireWeight / totalWeight) * 100 : 0,
             };
         };
 
-        const hallData = processComposition(hallState?.fuels);
-        const atsData = processComposition(atsState?.fuels);
+        const hallData = processComposition(hallState?.fuels, hallState?.flowRate || 0);
+        const atsData = processComposition(atsState?.fuels, atsState?.flowRate || 0);
 
         const afIndicators = {
             'PCI': { value: mixtureSession.afIndicators.pci, unit: 'kcal/kg', digits: 0 },
@@ -171,8 +198,8 @@ export default function RapportSynthesePage() {
 
         return { 
             afIndicators, 
-            hallComposition: hallData.composition,
-            atsComposition: atsData.composition,
+            hallData,
+            atsData,
             mixtureComposition: mixtureComp.map(item => ({...item, percentage: totalMixtureWeight > 0 ? (item.weight / totalMixtureWeight) * 100 : 0})).sort((a,b) => b.percentage - a.percentage),
             afFlow,
             goFlow,
@@ -193,6 +220,43 @@ export default function RapportSynthesePage() {
     }, [latestImpact]);
 
     const chartColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F'];
+
+    const handleExport = async () => {
+        if (!mixtureSession) {
+            toast({ variant: "destructive", title: "Erreur", description: "Aucune donnée de session à exporter." });
+            return;
+        }
+
+        setIsExporting(true);
+        try {
+            const functionsInstance = getFunctions();
+            const generateAndSaveReport = httpsCallable(functionsInstance, 'generateAndSaveReport');
+            
+            const reportData = {
+                date: mixtureSession.timestamp ? format(mixtureSession.timestamp.toDate(), "d MMMM yyyy 'à' HH:mm", { locale: fr }) : "N/A",
+                afIndicators: mixtureSession.afIndicators,
+                hallData,
+                atsData,
+            };
+            
+            const result = await generateAndSaveReport({ reportData });
+            const { downloadUrl } = result.data as { downloadUrl: string };
+
+            if (downloadUrl) {
+                window.open(downloadUrl, '_blank');
+                toast({ title: "Succès", description: "Le rapport est en cours de téléchargement." });
+            } else {
+                throw new Error("L'URL de téléchargement est manquante.");
+            }
+        } catch (error: any) {
+            console.error("Export error:", error);
+            const errorMessage = error.message || "Une erreur inconnue est survenue lors de l'exportation.";
+            toast({ variant: "destructive", title: "Erreur d'exportation", description: errorMessage });
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
 
     if (loading) {
         return (
@@ -230,12 +294,16 @@ export default function RapportSynthesePage() {
                         <p className="text-xs text-muted-foreground">Débit Grignons</p>
                         <p className="text-xl font-bold">{formatNumber(goFlow, 1)} t/h</p>
                     </div>
+                    <Button onClick={handleExport} disabled={isExporting}>
+                        <FileText className="mr-2 h-4 w-4" />
+                        {isExporting ? "Génération..." : "Exporter en PDF"}
+                    </Button>
                 </div>
             </div>
             
-            <Card>
+             <Card>
                 <CardHeader>
-                    <CardTitle className="text-lg">Indicateurs de Performance</CardTitle>
+                    <CardTitle className="text-lg">Indicateurs de Performance du Mélange AFs</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <IndicatorGrid indicators={afIndicators} title="Mélange AFs (sans GO)" />
@@ -243,8 +311,8 @@ export default function RapportSynthesePage() {
             </Card>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <InstallationCompositionCard name="Hall des AF" composition={hallComposition} flowRate={mixtureSession?.hallAF?.flowRate || 0} />
-                <InstallationCompositionCard name="ATS" composition={atsComposition} flowRate={mixtureSession?.ats?.flowRate || 0} />
+                {hallData && <InstallationCompositionCard name="Hall des AF" {...hallData} />}
+                {atsData && <InstallationCompositionCard name="ATS" {...atsData} />}
             </div>
 
             <Card>
@@ -302,3 +370,4 @@ export default function RapportSynthesePage() {
         </div>
     );
 }
+

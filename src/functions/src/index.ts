@@ -1,7 +1,7 @@
 
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
-import * as jspdf from "jspdf";
+import { jsPDF } from "jspdf";
 import "jspdf-autotable";
 
 // Correction : Initialiser l'application admin
@@ -12,7 +12,7 @@ const bucket = admin.storage().bucket();
 // Extend jsPDF for autoTable
 declare module "jspdf" {
   interface jsPDF {
-    autoTable: (options: any) => jspdf.jsPDF;
+    autoTable: (options: any) => jsPDF;
   }
 }
 
@@ -35,7 +35,7 @@ export const generateAndSaveReport = functions.region("us-central1").https.onCal
   }
 
   try {
-    const doc = new jspdf.jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+    const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
     const date = reportData.date || "N/A";
     let yPos = 20;
 
@@ -57,11 +57,11 @@ export const generateAndSaveReport = functions.region("us-central1").https.onCal
     (doc as any).autoTable({
         startY: yPos,
         body: [
-            ["PCI moyen", `${formatNumber(reportData.afIndicators?.pci, 0)} kcal/kg`],
-            ["% Humidité", `${formatNumber(reportData.afIndicators?.humidity, 2)} %`],
-            ["% Cendres", `${formatNumber(reportData.afIndicators?.ash, 2)} %`],
-            ["% Chlore", `${formatNumber(reportData.afIndicators?.chlorine, 3)} %`],
-            ["Taux de pneus", `${formatNumber(reportData.afIndicators?.tireRate, 1)} %`],
+            ["PCI moyen", `${formatNumber(reportData.afIndicators?.PCI.value, 0)} kcal/kg`],
+            ["% Humidité", `${formatNumber(reportData.afIndicators?.Humidité.value, 2)} %`],
+            ["% Cendres", `${formatNumber(reportData.afIndicators?.Cendres.value, 2)} %`],
+            ["% Chlore", `${formatNumber(reportData.afIndicators?.Chlore.value, 3)} %`],
+            ["Taux de pneus", `${formatNumber(reportData.afIndicators?.Pneus.value, 1)} %`],
         ],
         theme: 'striped',
         styles: { fontSize: 10 },
@@ -69,16 +69,16 @@ export const generateAndSaveReport = functions.region("us-central1").https.onCal
     yPos = (doc as any).lastAutoTable.finalY + 15;
 
      // --- Hall & ATS Composition ---
-    const generateCompositionTable = (title: string, composition: any[], flowRate: number) => {
-        if (composition.length === 0) return;
+    const generateCompositionTable = (title: string, compositionData: any) => {
+        if (!compositionData || compositionData.composition.length === 0) return;
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
-        doc.text(`${title} (Débit: ${formatNumber(flowRate, 1)} t/h)`, 14, yPos);
+        doc.text(`${title} (Débit: ${formatNumber(compositionData.flowRate, 1)} t/h)`, 14, yPos);
         yPos += 8;
         (doc as any).autoTable({
             startY: yPos,
             head: [['Combustible', 'Nb. Godets', '% Poids']],
-            body: composition.map(c => [c.name, c.buckets, `${formatNumber(c.percentage, 1)}%`]),
+            body: compositionData.composition.map((c: any) => [c.name, c.buckets, `${formatNumber(c.percentage, 1)}%`]),
             theme: 'grid',
             headStyles: { fillColor: [41, 128, 185] },
             styles: { fontSize: 9 },
@@ -86,9 +86,9 @@ export const generateAndSaveReport = functions.region("us-central1").https.onCal
         yPos = (doc as any).lastAutoTable.finalY + 12;
     };
 
-    generateCompositionTable("Composition Hall des AF", reportData.hallData?.composition || [], reportData.hallData?.flowRate || 0);
+    generateCompositionTable("Composition Hall des AF", reportData.hallData);
     if(yPos > 250) { doc.addPage(); yPos = 20; }
-    generateCompositionTable("Composition ATS", reportData.atsData?.composition || [], reportData.atsData?.flowRate || 0);
+    generateCompositionTable("Composition ATS", reportData.atsData);
 
     const pdfBuffer = doc.output('arraybuffer');
     const fileBuffer = Buffer.from(pdfBuffer);
