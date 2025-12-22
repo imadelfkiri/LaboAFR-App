@@ -100,13 +100,15 @@ export const generateAndSaveReport = functions.region("us-central1").https.onCal
       metadata: {
         contentType: 'application/pdf',
       },
-      public: true, // Make file publicly readable
     });
     
-    // Construct the public URL
-    const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+    // Use getSignedUrl for a secure, temporary download link
+    const [url] = await file.getSignedUrl({
+        action: 'read',
+        expires: Date.now() + 1000 * 60 * 15, // 15 minutes
+    });
 
-    return { downloadUrl: publicUrl };
+    return { downloadUrl: url };
 
   } catch (error) {
     console.error("Erreur lors de la génération du PDF:", error);
