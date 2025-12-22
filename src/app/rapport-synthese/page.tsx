@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getFuelData, type FuelData, getThresholds, type MixtureThresholds } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Activity, BookOpen, Beaker, BarChart2, Download, FileText, FileJson, ChevronDown } from 'lucide-react';
+import { Activity, BookOpen, Beaker, BarChart2, Download, FileText, ChevronDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,8 @@ import { Document, Packer, Paragraph, TextRun, HeadingLevel, Table as DocxTable,
 import { saveAs } from 'file-saver';
 import { IndicatorCard } from '@/components/mixture-calculator';
 import { useToast } from '@/hooks/use-toast';
+import { httpsCallable, getFunctions } from 'firebase/functions';
+import { functions } from '@/lib/firebase';
 
 
 // Extend jsPDF for autoTable
@@ -34,21 +36,6 @@ const formatNumber = (num: number | null | undefined, digits: number = 2) => {
         maximumFractionDigits: digits,
     });
 };
-
-const formatNumberForPdf = (num: number | null | undefined, digits: number = 0): string => {
-    if (num === null || num === undefined || Number.isNaN(num)) return "-";
-    
-    // For integer values, remove the separator logic
-    if (digits === 0) {
-        return num.toFixed(0);
-    }
-    
-    const fixed = num.toFixed(digits);
-    const [integerPart, decimalPart] = fixed.split('.');
-    
-    return `${integerPart},${decimalPart}`;
-};
-
 
 const InstallationIndicators = ({ name, indicators }: { name: string, indicators: any }) => {
     if (!indicators || Object.keys(indicators).length === 0) {
@@ -86,6 +73,7 @@ const InstallationIndicators = ({ name, indicators }: { name: string, indicators
 export default function RapportSynthesePage() {
     const { toast } = useToast();
     const [loading, setLoading] = useState(true);
+    const [isExporting, setIsExporting] = useState(false);
     const [mixtureSession, setMixtureSession] = useState<MixtureSession | null>(null);
     const [latestImpact, setLatestImpact] = useState<ImpactAnalysis | null>(null);
     const [fuelDataMap, setFuelDataMap] = useState<Record<string, FuelData>>({});
@@ -213,143 +201,54 @@ export default function RapportSynthesePage() {
 
     const chartColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F'];
 
-    const handleExportPDF = () => {
+    const handleExport = async (type: 'pdf' | 'word', action: 'download' | 'share') => {
         if (!mixtureSession || !afIndicators) {
             toast({ title: "Données manquantes", description: "Aucune session de mélange à exporter.", variant: "destructive" });
             return;
         }
-    
-        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-        const date = mixtureSession.timestamp ? format(mixtureSession.timestamp.toDate(), "d MMMM yyyy 'à' HH:mm", { locale: fr }) : "N/A";
-        let y = 20;
-        const page_width = doc.internal.pageSize.getWidth();
-        const margin = 14;
-        const primaryColor = '#00b894';
-        const textColor = '#333333';
-        const headerColor = '#2d3748';
-        const lightGray = '#f7fafc';
-        const darkGray = '#edf2f7';
-    
-        // --- MAIN HEADER ---
-        doc.setFontSize(18);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(headerColor);
-        doc.text("Rapport de Synthèse du Mélange", page_width / 2, y, { align: "center" });
-        y += 8;
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor('#718096');
-        doc.text(date, page_width / 2, y, { align: "center" });
-        y += 4;
-        doc.setDrawColor(primaryColor);
-        doc.setLineWidth(0.5);
-        doc.line(margin, y, page_width - margin, y);
-        y += 10;
-    
-        // --- INDICATORS & IMPACT (two columns) ---
-        const col1_x = margin;
-        const col2_x = page_width / 2 + 5;
-        const col_width = page_width / 2 - margin - 5;
-    
-        // Column 1: Global Indicators
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(headerColor);
-        doc.text("Indicateurs du Mélange Global (AFs) (sans GO)", col1_x, y);
-        y += 5;
-    
-        doc.autoTable({
-            body: [
-                ['Débit Total (t/h)', formatNumberForPdf(afIndicators.flow, 1)],
-                ['PCI moyen (kcal/kg)', formatNumberForPdf(afIndicators.pci, 0)],
-                ['Humidité (%)', formatNumberForPdf(afIndicators.humidity, 1)],
-                ['Cendres (%)', formatNumberForPdf(afIndicators.ash, 1)],
-                ['Chlorures (%)', formatNumberForPdf(afIndicators.chlorine, 2)],
-                ['Taux de Pneus (%)', formatNumberForPdf(afIndicators.tireRate, 1)],
-            ],
-            startY: y,
-            theme: 'striped',
-            styles: { fontSize: 9, cellPadding: 2.5, lineColor: '#e2e8f0', textColor: textColor },
-            headStyles: { fillColor: headerColor, textColor: '#ffffff' },
-            bodyStyles: { alternateRowStyles: { fillColor: lightGray } },
-            columnStyles: { 0: { fontStyle: 'bold' } },
-            tableWidth: col_width,
-            margin: { left: col1_x },
-        });
-        
-        const indicators_y_end = (doc as any).lastAutoTable.finalY;
-    
-        // Column 2: Impact on Clinker
-        let impact_y = y;
-        if (latestImpact) {
-            doc.setFontSize(11);
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(headerColor);
-            doc.text("Impact sur le Clinker (Variation)", col2_x, impact_y);
-            impact_y += 5;
-    
-            doc.autoTable({
-                head: [['Paramètre', 'Variation']],
-                body: impactChartData.map(item => [item.name, (item.value > 0 ? "+" : "") + formatNumberForPdf(item.value, 2)]),
-                startY: impact_y,
-                theme: 'grid',
-                headStyles: { fillColor: primaryColor, textColor: '#ffffff', fontSize: 9, halign: 'center' },
-                styles: { fontSize: 9, cellPadding: 2, lineColor: '#e2e8f0' },
-                columnStyles: { 1: { halign: 'right' } },
-                tableWidth: col_width,
-                margin: { left: col2_x },
-            });
-        }
-    
-        y = indicators_y_end + 12;
-    
-        // --- INSTALLATION DETAILS ---
-        const renderInstallationSection = (title: string, flowRate: number, indicators: any, composition: { name: string; buckets: number, percentage: number }[]) => {
-            if (flowRate > 0) {
-                 if (y > 230) { doc.addPage(); y = 20; }
-                doc.setFontSize(11);
-                doc.setFont("helvetica", "bold");
-                doc.setTextColor(headerColor);
-                doc.text(`${title} (Débit: ${formatNumberForPdf(flowRate, 1)} t/h)`, margin, y);
-                y += 4;
-    
-                doc.setFontSize(8);
-                doc.setFont("helvetica", "normal");
-                doc.setTextColor('#718096');
-                const indicatorText = [
-                    `PCI: ${formatNumberForPdf(indicators.pci, 0)} kcal/kg`,
-                    `H2O: ${formatNumberForPdf(indicators.humidity, 1)}%`,
-                    `Cendres: ${formatNumberForPdf(indicators.ash, 1)}%`,
-                    `Chlore: ${formatNumberForPdf(indicators.chlorine, 2)}%`,
-                    `Pneus: ${formatNumberForPdf(indicators.tireRate, 1)}%`,
-                ].join(' | ');
-                doc.text(indicatorText, margin, y);
-                y += 7;
-    
-                doc.autoTable({
-                    head: [['Combustible', 'Nb Godets', '% Poids']],
-                    body: composition.map(c => [c.name, c.buckets, formatNumberForPdf(c.percentage, 1) + '%']),
-                    startY: y,
-                    theme: 'striped',
-                    headStyles: { fillColor: headerColor, textColor: '#ffffff', fontSize: 9 },
-                    bodyStyles: { fontSize: 8.5 },
-                    styles: { cellPadding: 2, lineColor: '#e2e8f0' },
-                    columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' } },
-                    didDrawPage: (data: any) => { y = data.cursor?.y || y; }
-                });
-                y = (doc as any).lastAutoTable.finalY + 10;
+
+        setIsExporting(true);
+        try {
+            const reportData = {
+                date: mixtureSession.timestamp ? format(mixtureSession.timestamp.toDate(), "d MMMM yyyy 'à' HH:mm", { locale: fr }) : "N/A",
+                afIndicators: afIndicators,
+                impactData: impactChartData,
+                hallData: {
+                    flowRate: mixtureSession.hallAF?.flowRate || 0,
+                    indicators: hallIndicators,
+                    composition: hallComposition,
+                },
+                atsData: {
+                    flowRate: mixtureSession.ats?.flowRate || 0,
+                    indicators: atsIndicators,
+                    composition: atsComposition,
+                }
+            };
+            
+            const callGenerate = httpsCallable(functions, 'generateAndSaveReport');
+
+            const result = await callGenerate({ reportData, format: type });
+            
+            const { downloadUrl } = result.data as { downloadUrl: string };
+
+            if (action === 'download') {
+                window.open(downloadUrl, '_blank');
+            } else if (action === 'share') {
+                const subject = `Rapport de Synthèse du Mélange - ${reportData.date}`;
+                const body = `Bonjour,\n\nVeuillez trouver ci-joint le rapport de synthèse du mélange.\n\nLien de téléchargement : ${downloadUrl}\n\nCordialement.`;
+                window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
             }
-        };
-        
-        renderInstallationSection("Hall des AF", mixtureSession.hallAF?.flowRate || 0, hallIndicators, hallComposition);
-        renderInstallationSection("ATS", mixtureSession.ats?.flowRate || 0, atsIndicators, atsComposition);
-    
-        doc.save(`Rapport_Synthese_${format(new Date(), "yyyy-MM-dd")}.pdf`);
+            toast({ title: "Succès", description: "Le rapport a été généré et est prêt." });
+
+        } catch(error: any) {
+            console.error("Export error:", error);
+            const errorMessage = error.message || "Une erreur inconnue est survenue lors de l'exportation.";
+            toast({ variant: "destructive", title: "Erreur d'exportation", description: errorMessage });
+        } finally {
+            setIsExporting(false);
+        }
     };
 
-    const handleExportWord = () => {
-        toast({ title: "Fonctionnalité à mettre à jour", description: "L'export Word doit être adapté au nouveau design."});
-    };
 
     if (loading) {
         return (
@@ -379,20 +278,16 @@ export default function RapportSynthesePage() {
                     )}
                      <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="outline">
+                            <Button variant="outline" disabled={isExporting}>
                                 <Download className="mr-2 h-4 w-4" />
-                                Exporter
+                                {isExporting ? 'Génération...' : 'Exporter'}
                                 <ChevronDown className="ml-2 h-4 w-4" />
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
-                            <DropdownMenuItem onClick={handleExportPDF}>
+                            <DropdownMenuItem onSelect={() => handleExport('pdf', 'download')}>
                                 <FileText className="mr-2 h-4 w-4" />
-                                Exporter en PDF
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={handleExportWord}>
-                                <FileJson className="mr-2 h-4 w-4" />
-                                Exporter en Word
+                                Télécharger en PDF
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
@@ -509,5 +404,3 @@ export default function RapportSynthesePage() {
         </div>
     );
 }
-
-    
