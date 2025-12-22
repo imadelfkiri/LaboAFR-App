@@ -4,7 +4,6 @@ import * as admin from "firebase-admin";
 import { jsPDF } from "jspdf";
 import "jspdf-autotable";
 
-// Correction : Initialiser l'application admin
 admin.initializeApp();
 
 const bucket = admin.storage().bucket();
@@ -57,11 +56,11 @@ export const generateAndSaveReport = functions.region("us-central1").https.onCal
     (doc as any).autoTable({
         startY: yPos,
         body: [
-            ["PCI moyen", `${formatNumber(reportData.afIndicators?.PCI.value, 0)} kcal/kg`],
-            ["% Humidité", `${formatNumber(reportData.afIndicators?.Humidité.value, 2)} %`],
-            ["% Cendres", `${formatNumber(reportData.afIndicators?.Cendres.value, 2)} %`],
-            ["% Chlore", `${formatNumber(reportData.afIndicators?.Chlore.value, 3)} %`],
-            ["Taux de pneus", `${formatNumber(reportData.afIndicators?.Pneus.value, 1)} %`],
+            ["PCI moyen", `${formatNumber(reportData.afIndicators?.pci, 0)} kcal/kg`],
+            ["% Humidité", `${formatNumber(reportData.afIndicators?.humidity, 2)} %`],
+            ["% Cendres", `${formatNumber(reportData.afIndicators?.ash, 2)} %`],
+            ["% Chlore", `${formatNumber(reportData.afIndicators?.chlorine, 3)} %`],
+            ["Taux de pneus", `${formatNumber(reportData.afIndicators?.tireRate, 1)} %`],
         ],
         theme: 'striped',
         styles: { fontSize: 10 },
@@ -102,7 +101,6 @@ export const generateAndSaveReport = functions.region("us-central1").https.onCal
       },
     });
     
-    // Use getSignedUrl for a secure, temporary download link
     const [url] = await file.getSignedUrl({
         action: 'read',
         expires: Date.now() + 1000 * 60 * 15, // 15 minutes
