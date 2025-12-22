@@ -2,21 +2,13 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { jsPDF } from "jspdf";
-import "jspdf-autotable";
 
 admin.initializeApp();
 
-const bucket = admin.storage().bucket();
-
-// Extend jsPDF for autoTable
-declare module "jspdf" {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-  }
-}
+const bucket = admin.storage().bucket(process.env.GCLOUD_STORAGE_BUCKET);
 
 const formatNumber = (num: number | null | undefined, digits = 2) => {
-  if (num === null || num === undefined || isNaN(num)) return '0,00';
+  if (num === null || num === undefined || isNaN(num)) return 'N/A';
   return num.toLocaleString('fr-FR', {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
@@ -53,41 +45,38 @@ export const generateAndSaveReport = functions.region("us-central1").https.onCal
     doc.setFont("helvetica", "bold");
     doc.text("Indicateurs du Mélange AFs", 14, yPos);
     yPos += 8;
-    (doc as any).autoTable({
-        startY: yPos,
-        body: [
-            ["PCI moyen", `${formatNumber(reportData.afIndicators?.pci, 0)} kcal/kg`],
-            ["% Humidité", `${formatNumber(reportData.afIndicators?.humidity, 2)} %`],
-            ["% Cendres", `${formatNumber(reportData.afIndicators?.ash, 2)} %`],
-            ["% Chlore", `${formatNumber(reportData.afIndicators?.chlorine, 3)} %`],
-            ["Taux de pneus", `${formatNumber(reportData.afIndicators?.tireRate, 1)} %`],
-        ],
-        theme: 'striped',
-        styles: { fontSize: 10 },
-    });
-    yPos = (doc as any).lastAutoTable.finalY + 15;
+
+    const indicators = reportData.afIndicators;
+    if (indicators) {
+        doc.setFontSize(10);
+        doc.text(`- PCI moyen: ${formatNumber(indicators.pci, 0)} kcal/kg`, 20, yPos); yPos += 7;
+        doc.text(`- % Humidité: ${formatNumber(indicators.humidity, 2)} %`, 20, yPos); yPos += 7;
+        doc.text(`- % Cendres: ${formatNumber(indicators.ash, 2)} %`, 20, yPos); yPos += 7;
+        doc.text(`- % Chlore: ${formatNumber(indicators.chlorine, 3)} %`, 20, yPos); yPos += 7;
+        doc.text(`- Taux de pneus: ${formatNumber(indicators.tireRate, 1)} %`, 20, yPos); yPos += 7;
+    }
+    yPos += 10;
 
      // --- Hall & ATS Composition ---
-    const generateCompositionTable = (title: string, compositionData: any) => {
+    const generateCompositionText = (title: string, compositionData: any) => {
         if (!compositionData || compositionData.composition.length === 0) return;
+        if (yPos > 250) { doc.addPage(); yPos = 20; }
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
         doc.text(`${title} (Débit: ${formatNumber(compositionData.flowRate, 1)} t/h)`, 14, yPos);
-        yPos += 8;
-        (doc as any).autoTable({
-            startY: yPos,
-            head: [['Combustible', 'Nb. Godets', '% Poids']],
-            body: compositionData.composition.map((c: any) => [c.name, c.buckets, `${formatNumber(c.percentage, 1)}%`]),
-            theme: 'grid',
-            headStyles: { fillColor: [41, 128, 185] },
-            styles: { fontSize: 9 },
+        yPos += 10;
+
+        doc.setFontSize(10);
+        compositionData.composition.forEach((c: any) => {
+            if (yPos > 270) { doc.addPage(); yPos = 20; }
+            doc.text(`- ${c.name}: ${c.buckets} godets (${formatNumber(c.percentage, 1)}%)`, 20, yPos);
+            yPos += 6;
         });
-        yPos = (doc as any).lastAutoTable.finalY + 12;
+        yPos += 8;
     };
 
-    generateCompositionTable("Composition Hall des AF", reportData.hallData);
-    if(yPos > 250) { doc.addPage(); yPos = 20; }
-    generateCompositionTable("Composition ATS", reportData.atsData);
+    generateCompositionText("Composition Hall des AF", reportData.hallData);
+    generateCompositionText("Composition ATS", reportData.atsData);
 
     const pdfBuffer = doc.output('arraybuffer');
     const fileBuffer = Buffer.from(pdfBuffer);
@@ -99,14 +88,13 @@ export const generateAndSaveReport = functions.region("us-central1").https.onCal
       metadata: {
         contentType: 'application/pdf',
       },
+      public: true, // Make file public
     });
     
-    const [url] = await file.getSignedUrl({
-        action: 'read',
-        expires: Date.now() + 1000 * 60 * 15, // 15 minutes
-    });
+    // Return the public URL
+    const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
 
-    return { downloadUrl: url };
+    return { downloadUrl: publicUrl };
 
   } catch (error) {
     console.error("Erreur lors de la génération du PDF:", error);
