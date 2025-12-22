@@ -74,7 +74,7 @@ const IndicatorGrid = ({ indicators, title }: { indicators: Record<string, { val
     return (
         <div>
             <h3 className="text-md font-semibold text-neutral-300 mb-2">{title}</h3>
-            <div className="grid grid-cols-3 lg:grid-cols-6 gap-2">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
                 {Object.entries(indicators).map(([key, { value, unit, digits }]) => (
                     <div key={key} className="bg-brand-muted/50 border border-brand-line/50 rounded-lg p-2 text-center">
                         <p className="text-xs text-muted-foreground">{key}</p>
@@ -120,9 +120,9 @@ export default function RapportSynthesePage() {
         fetchData();
     }, [fetchData]);
 
-    const { afIndicators, totalIndicators, hallComposition, atsComposition, mixtureComposition, afFlow, goFlow } = useMemo(() => {
+    const { afIndicators, hallComposition, atsComposition, mixtureComposition, afFlow, goFlow } = useMemo(() => {
         if (!mixtureSession || !fuelDataMap || !mixtureSession.availableFuels) {
-            return { afIndicators: null, totalIndicators: null, hallComposition: [], atsComposition: [], mixtureComposition: [], afFlow: 0, goFlow: 0 };
+            return { afIndicators: null, hallComposition: [], atsComposition: [], mixtureComposition: [], afFlow: 0, goFlow: 0 };
         }
 
         const hallState = mixtureSession.hallAF;
@@ -157,23 +157,6 @@ export default function RapportSynthesePage() {
             'Pneus': { value: mixtureSession.afIndicators.tireRate, unit: '%', digits: 1 },
         };
         
-         const totalAlternativeFlow = afFlow + goFlow;
-         const weightedAvg = (key: 'pci' | 'humidity' | 'ash' | 'chlorine') => {
-            if (totalAlternativeFlow === 0) return 0;
-            const afValue = (mixtureSession.afIndicators as any)[key] || 0;
-            const goAnalysis = mixtureSession.availableFuels['Grignons'];
-            const goValue = goAnalysis ? (goAnalysis as any)[`${key === 'pci' ? 'pci_brut' : key}`] : 0;
-            return (afValue * afFlow + goValue * goFlow) / totalAlternativeFlow;
-         };
-        
-        const totalIndicators = {
-            'PCI': { value: weightedAvg('pci'), unit: 'kcal/kg', digits: 0 },
-            'Humidité': { value: weightedAvg('humidity'), unit: '%', digits: 2 },
-            'Cendres': { value: weightedAvg('ash'), unit: '%', digits: 2 },
-            'Chlore': { value: weightedAvg('chlorine'), unit: '%', digits: 3 },
-        };
-
-
         const mixtureComp = [...hallData.composition, ...atsData.composition].reduce((acc, curr) => {
             const existing = acc.find(item => item.name === curr.name);
             if(existing) {
@@ -188,7 +171,6 @@ export default function RapportSynthesePage() {
 
         return { 
             afIndicators, 
-            totalIndicators,
             hallComposition: hallData.composition,
             atsComposition: atsData.composition,
             mixtureComposition: mixtureComp.map(item => ({...item, percentage: totalMixtureWeight > 0 ? (item.weight / totalMixtureWeight) * 100 : 0})).sort((a,b) => b.percentage - a.percentage),
@@ -257,8 +239,6 @@ export default function RapportSynthesePage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <IndicatorGrid indicators={afIndicators} title="Mélange AFs (sans GO)" />
-                    <Separator />
-                    <IndicatorGrid indicators={totalIndicators} title="Mélange Total Alternatifs (avec GO)" />
                 </CardContent>
             </Card>
 
@@ -322,4 +302,3 @@ export default function RapportSynthesePage() {
         </div>
     );
 }
-
