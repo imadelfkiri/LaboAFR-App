@@ -13,8 +13,8 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, Cell, LabelList } from 'recharts';
 import { useToast } from '@/hooks/use-toast';
-import { httpsCallable, getFunctions } from 'firebase/functions';
 import { IndicatorCard } from '@/components/mixture-calculator';
+import { generateReportAction } from '@/lib/actions';
 
 
 const formatNumber = (num: number | null | undefined, digits: number = 2) => {
@@ -213,18 +213,17 @@ export default function RapportSynthesePage() {
                 }
             };
             
-            const functions = getFunctions();
-            const callGenerate = httpsCallable(functions, 'generateAndSaveReport');
+            const result = await generateReportAction(reportData);
 
-            const result = await callGenerate({ reportData, format: type });
-            
-            const { downloadUrl } = result.data as { downloadUrl: string };
+            if (result.error) {
+                throw new Error(result.error);
+            }
 
-            if (action === 'download') {
-                window.open(downloadUrl, '_blank');
-            } else if (action === 'share') {
+            if (action === 'download' && result.downloadUrl) {
+                window.open(result.downloadUrl, '_blank');
+            } else if (action === 'share' && result.downloadUrl) {
                 const subject = `Rapport de Synthèse du Mélange - ${reportData.date}`;
-                const body = `Bonjour,\n\nVeuillez trouver ci-joint le rapport de synthèse du mélange.\n\nLien de téléchargement : ${downloadUrl}\n\nCordialement.`;
+                const body = `Bonjour,\n\nVeuillez trouver ci-joint le rapport de synthèse du mélange.\n\nLien de téléchargement : ${result.downloadUrl}\n\nCordialement.`;
                 window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
             }
             toast({ title: "Succès", description: "Le rapport a été généré et est prêt." });
@@ -278,10 +277,11 @@ export default function RapportSynthesePage() {
                                 <FileText className="mr-2 h-4 w-4" />
                                 Télécharger en PDF
                             </DropdownMenuItem>
-                             <DropdownMenuItem onSelect={() => handleExport('word', 'download')}>
+                            {/* Option Word désactivée pour le moment */}
+                            {/* <DropdownMenuItem onSelect={() => handleExport('word', 'download')}>
                                 <FileJson className="mr-2 h-4 w-4" />
                                 Télécharger en Word
-                            </DropdownMenuItem>
+                            </DropdownMenuItem> */}
                              <DropdownMenuSeparator />
                              <DropdownMenuItem onSelect={() => handleExport('pdf', 'share')}>
                                 Partager le lien par Email
