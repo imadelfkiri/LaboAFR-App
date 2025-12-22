@@ -4,30 +4,18 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getFuelData, type FuelData, getThresholds, type MixtureThresholds } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Activity, BookOpen, Beaker, BarChart2, Download, FileText, ChevronDown } from 'lucide-react';
+import { Activity, BookOpen, Beaker, BarChart2, Download, FileText, ChevronDown, FileJson } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, Cell, LabelList } from 'recharts';
-import jsPDF from "jspdf";
-import "jspdf-autotable";
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, Table as DocxTable, TableRow as DocxTableRow, TableCell as DocxTableCell, WidthType } from 'docx';
-import { saveAs } from 'file-saver';
-import { IndicatorCard } from '@/components/mixture-calculator';
 import { useToast } from '@/hooks/use-toast';
 import { httpsCallable, getFunctions } from 'firebase/functions';
-import { functions } from '@/lib/firebase';
+import { IndicatorCard } from '@/components/mixture-calculator';
 
-
-// Extend jsPDF for autoTable
-declare module "jspdf" {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-  }
-}
 
 const formatNumber = (num: number | null | undefined, digits: number = 2) => {
     if (num === null || num === undefined || isNaN(num)) return '0,00';
@@ -225,6 +213,7 @@ export default function RapportSynthesePage() {
                 }
             };
             
+            const functions = getFunctions();
             const callGenerate = httpsCallable(functions, 'generateAndSaveReport');
 
             const result = await callGenerate({ reportData, format: type });
@@ -288,6 +277,14 @@ export default function RapportSynthesePage() {
                             <DropdownMenuItem onSelect={() => handleExport('pdf', 'download')}>
                                 <FileText className="mr-2 h-4 w-4" />
                                 Télécharger en PDF
+                            </DropdownMenuItem>
+                             <DropdownMenuItem onSelect={() => handleExport('word', 'download')}>
+                                <FileJson className="mr-2 h-4 w-4" />
+                                Télécharger en Word
+                            </DropdownMenuItem>
+                             <DropdownMenuSeparator />
+                             <DropdownMenuItem onSelect={() => handleExport('pdf', 'share')}>
+                                Partager le lien par Email
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
