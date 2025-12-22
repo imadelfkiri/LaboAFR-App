@@ -4,8 +4,8 @@ import { optimizeMixture } from "@/ai/flows/mixture-optimizer-flow";
 import type { MixtureOptimizerInput, MixtureOptimizerOutput } from "@/ai/flows/mixture-optimizer-flow";
 import { interpretImpact } from "@/ai/flows/impact-interpreter-flow";
 import type { ImpactInterpreterInput, ImpactInterpreterOutput } from "@/ai/flows/impact-interpreter-flow";
-import { getFunctions, httpsCallable } from "firebase/functions";
 import { functions } from "./firebase";
+import { httpsCallable } from "firebase/functions";
 
 
 export async function handleGenerateSuggestion(input: MixtureOptimizerInput): Promise<MixtureOptimizerOutput | null> {
@@ -36,11 +36,16 @@ export async function generateReportAction(reportData: any) {
   try {
     const callGenerate = httpsCallable(functions, 'generateAndSaveReport');
     const result = await callGenerate({ reportData });
-    const { downloadUrl } = result.data as { downloadUrl: string };
-    return { downloadUrl };
+    const data = result.data as { downloadUrl?: string; error?: string };
+
+    if (data.error) {
+      throw new Error(data.error);
+    }
+    
+    return { downloadUrl: data.downloadUrl };
+
   } catch (error: any) {
     console.error("Cloud function error:", error);
-    // Renvoyer un objet d'erreur sérialisable
     return { error: error.message || "Une erreur interne est survenue lors de la génération du rapport." };
   }
 }

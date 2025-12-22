@@ -194,7 +194,6 @@ export default function RapportSynthesePage() {
             toast({ title: "Données manquantes", description: "Aucune session de mélange à exporter.", variant: "destructive" });
             return;
         }
-
         setIsExporting(true);
         try {
             const reportData = {
@@ -227,7 +226,6 @@ export default function RapportSynthesePage() {
                 window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
             }
             toast({ title: "Succès", description: "Le rapport a été généré et est prêt." });
-
         } catch(error: any) {
             console.error("Export error:", error);
             const errorMessage = error.message || "Une erreur inconnue est survenue lors de l'exportation.";
@@ -277,11 +275,10 @@ export default function RapportSynthesePage() {
                                 <FileText className="mr-2 h-4 w-4" />
                                 Télécharger en PDF
                             </DropdownMenuItem>
-                            {/* Option Word désactivée pour le moment */}
-                            {/* <DropdownMenuItem onSelect={() => handleExport('word', 'download')}>
+                            <DropdownMenuItem onSelect={() => handleExport('word', 'download')} disabled>
                                 <FileJson className="mr-2 h-4 w-4" />
                                 Télécharger en Word
-                            </DropdownMenuItem> */}
+                            </DropdownMenuItem>
                              <DropdownMenuSeparator />
                              <DropdownMenuItem onSelect={() => handleExport('pdf', 'share')}>
                                 Partager le lien par Email
