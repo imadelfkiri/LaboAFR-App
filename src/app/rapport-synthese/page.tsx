@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -11,10 +10,15 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid, Cell, LabelList } from 'recharts';
 import { useToast } from '@/hooks/use-toast';
-import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import { functions } from '@/lib/firebase';
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+
+declare module "jspdf" {
+  interface jsPDF {
+    autoTable: (options: any) => jsPDF;
+  }
+}
 
 const formatNumber = (num: number | null | undefined, digits: number = 2) => {
     if (num === null || num === undefined || isNaN(num)) return '–';
@@ -220,37 +224,63 @@ export default function RapportSynthesePage() {
     }, [latestImpact]);
 
     const chartColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F'];
-
-    const handleExport = async () => {
-        if (!mixtureSession) {
+    
+    const handleExport = () => {
+        if (!mixtureSession || !afIndicators) {
             toast({ variant: "destructive", title: "Erreur", description: "Aucune donnée de session à exporter." });
             return;
         }
 
         setIsExporting(true);
         try {
-            const functionsInstance = getFunctions();
-            const generateAndSaveReport = httpsCallable(functionsInstance, 'generateAndSaveReport');
-            
-            const reportData = {
-                date: mixtureSession.timestamp ? format(mixtureSession.timestamp.toDate(), "d MMMM yyyy 'à' HH:mm", { locale: fr }) : "N/A",
-                afIndicators: mixtureSession.afIndicators,
-                hallData,
-                atsData,
-            };
-            
-            const result = await generateAndSaveReport({ reportData });
-            const { downloadUrl } = result.data as { downloadUrl: string };
+            const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+            let yPos = 20;
 
-            if (downloadUrl) {
-                window.open(downloadUrl, '_blank');
-                toast({ title: "Succès", description: "Le rapport est en cours de téléchargement." });
-            } else {
-                throw new Error("L'URL de téléchargement est manquante.");
-            }
-        } catch (error: any) {
-            console.error("Export error:", error);
-            const errorMessage = error.message || "Une erreur inconnue est survenue lors de l'exportation.";
+            doc.setFontSize(18);
+            doc.setFont("helvetica", "bold");
+            doc.text("Rapport de Synthèse du Mélange", 105, yPos, { align: "center" });
+            yPos += 8;
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Basé sur la session du ${format(mixtureSession.timestamp.toDate(), "d MMMM yyyy 'à' HH:mm", { locale: fr })}`, 105, yPos, { align: "center" });
+            yPos += 15;
+
+            // Global Indicators
+            doc.setFontSize(14); doc.setFont("helvetica", "bold");
+            doc.text("Indicateurs du Mélange AFs (sans GO)", 14, yPos);
+            yPos += 8;
+            doc.setFontSize(10);
+            Object.entries(afIndicators).forEach(([key, { value, unit, digits }]) => {
+                doc.text(`- ${key}: ${formatNumber(value, digits)} ${unit}`, 20, yPos); yPos += 6;
+            });
+            yPos += 4;
+            
+            // Composition Tables
+            const drawCompositionTable = (title: string, data: any) => {
+                if (!data || data.composition.length === 0) return;
+                if (yPos > 240) { doc.addPage(); yPos = 20; }
+                doc.setFontSize(12); doc.setFont("helvetica", "bold");
+                doc.text(`${title} (Débit: ${formatNumber(data.flowRate, 1)} t/h)`, 14, yPos);
+                yPos += 6;
+                (doc as any).autoTable({
+                    startY: yPos,
+                    head: [['Combustible', 'Godets', '% Poids']],
+                    body: data.composition.map((c: any) => [c.name, c.buckets, formatNumber(c.percentage, 1) + ' %']),
+                    theme: 'grid',
+                    headStyles: { fillColor: [22, 163, 74] },
+                    styles: { fontSize: 8 },
+                });
+                yPos = (doc as any).lastAutoTable.finalY + 10;
+            };
+
+            drawCompositionTable("Composition Hall des AF", hallData);
+            drawCompositionTable("Composition ATS", atsData);
+
+            doc.save(`Rapport_Melange_${format(new Date(), "yyyy-MM-dd")}.pdf`);
+            toast({ title: "Succès", description: "Le rapport a été téléchargé." });
+        } catch (error) {
+            console.error("Client-side export error:", error);
+            const errorMessage = error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
             toast({ variant: "destructive", title: "Erreur d'exportation", description: errorMessage });
         } finally {
             setIsExporting(false);
@@ -304,6 +334,7 @@ export default function RapportSynthesePage() {
              <Card>
                 <CardHeader>
                     <CardTitle className="text-lg">Indicateurs de Performance du Mélange AFs</CardTitle>
+                    <CardDescription>Cette section ne prend pas en compte les apports des Grignons (GO).</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <IndicatorGrid indicators={afIndicators} title="Mélange AFs (sans GO)" />
@@ -370,4 +401,3 @@ export default function RapportSynthesePage() {
         </div>
     );
 }
-
