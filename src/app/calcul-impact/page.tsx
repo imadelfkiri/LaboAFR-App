@@ -454,8 +454,6 @@ export default function CalculImpactPage() {
         ];
     }, [clinkerWithAsh, clinkerWithoutAsh, modulesAvec, modulesSans, c3sAvec, c3sSans]);
 
-    const chartColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F'];
-
     const onInterpret = async () => {
         if (isReadOnly) return;
         setIsInterpreting(true);
@@ -618,7 +616,7 @@ export default function CalculImpactPage() {
                         />
                         <Bar dataKey="value" name="Variation" radius={[4, 4, 0, 0]}>
                             {deltaChartData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
+                                <Cell key={`cell-${index}`} fill={entry.value >= 0 ? '#22c55e' : '#3b82f6'} />
                             ))}
                             <LabelList 
                                 dataKey="value" 

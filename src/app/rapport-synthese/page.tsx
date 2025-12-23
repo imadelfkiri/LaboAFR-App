@@ -1,10 +1,11 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getFuelData, type FuelData } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Activity, BookOpen, Beaker, BarChart2, FileText } from 'lucide-react';
+import { Activity, BookOpen, Beaker, BarChart2, FileText, Download } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from 'date-fns';
@@ -328,7 +329,7 @@ export default function RapportSynthesePage() {
                         <p className="text-xl font-bold">{formatNumber(goFlow, 1)} t/h</p>
                     </div>
                     <Button onClick={handleExport} disabled={isExporting}>
-                        <FileText className="mr-2 h-4 w-4" />
+                        <Download className="mr-2 h-4 w-4" />
                         {isExporting ? "Génération..." : "Exporter en PDF"}
                     </Button>
                 </div>
@@ -385,7 +386,7 @@ export default function RapportSynthesePage() {
                                     />
                                     <Bar dataKey="value" name="Variation">
                                         {impactChartData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.value < 0 ? 'hsl(var(--destructive))' : 'hsl(var(--primary))'} />
+                                            <Cell key={`cell-${index}`} fill={entry.value >= 0 ? '#22c55e' : '#3b82f6'} />
                                         ))}
                                         <LabelList dataKey="value" position="top" formatter={(value: number) => formatNumber(value, 2)} fontSize={12} fill="hsl(var(--foreground))" />
                                     </Bar>
