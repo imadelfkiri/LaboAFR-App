@@ -26,7 +26,7 @@ const formatNumber = (num: number | null | undefined, digits: number = 2) => {
     return num.toLocaleString('fr-FR', {
         minimumFractionDigits: digits,
         maximumFractionDigits: digits,
-    });
+    }).replace(/\s/g, ' ');
 };
 
 const InstallationCompositionCard = ({ name, flowRate, pci, chlore, pneus, composition }: { name: string, flowRate: number, pci: number, chlore: number, pneus: number, composition: { name: string, buckets: number, percentage: number }[] }) => {
@@ -172,7 +172,7 @@ export default function RapportSynthesePage() {
     }, [latestImpact]);
     
     const handleExport = () => {
-        if (!mixtureSession) {
+        if (!mixtureSession || !hallData || !atsData) {
             toast({ variant: "destructive", title: "Erreur", description: "Aucune donnée de session à exporter." });
             return;
         }
@@ -181,73 +181,77 @@ export default function RapportSynthesePage() {
         try {
             const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
             let yPos = 20;
+            const page_width = doc.internal.pageSize.getWidth();
+            const margin = 14;
 
+            // --- HEADER ---
             doc.setFontSize(18);
             doc.setFont("helvetica", "bold");
-            doc.text("Rapport de Synthèse du Mélange", 105, yPos, { align: "center" });
+            doc.text("Rapport de Synthèse du Mélange", page_width / 2, yPos, { align: "center" });
             yPos += 8;
             doc.setFontSize(10);
             doc.setFont("helvetica", "normal");
-            doc.text(`Basé sur la session du ${format(mixtureSession.timestamp.toDate(), "d MMMM yyyy 'à' HH:mm", { locale: fr })}`, 105, yPos, { align: "center" });
+            doc.text(`Session du ${format(mixtureSession.timestamp.toDate(), "d MMMM yyyy 'à' HH:mm", { locale: fr })}`, page_width / 2, yPos, { align: "center" });
             yPos += 15;
 
-            // Global Indicators
+            // --- INDICATEURS GLOBAUX ---
             if (afIndicators) {
                 doc.setFontSize(14); doc.setFont("helvetica", "bold");
-                doc.text("Indicateurs du Mélange AFs", 14, yPos);
-                yPos += 6;
+                doc.text("Indicateurs du Mélange AFs (sans GO)", margin, yPos);
+                yPos += 7;
                 const indicatorsBody = Object.entries(afIndicators).map(([key, { value, unit, digits }]) => [key, `${formatNumber(value, digits)} ${unit}`]);
                 doc.autoTable({
                     startY: yPos,
                     body: indicatorsBody,
                     theme: 'plain',
-                    styles: { fontSize: 10, cellPadding: 1.5 },
+                    styles: { fontSize: 10, cellPadding: 2, lineColor: [200,200,200], lineWidth: 0.1 },
+                    columnStyles: { 0: { fontStyle: 'bold' } },
                 });
-                yPos = (doc as any).lastAutoTable.finalY + 10;
+                yPos = (doc as any).lastAutoTable.finalY + 12;
             }
             
-            // Composition Tables
+            // --- COMPOSITIONS HALL & ATS ---
             const drawCompositionTable = (title: string, data: any) => {
                 if (!data || data.composition.length === 0) return;
-                if (yPos > 220) { doc.addPage(); yPos = 20; }
+                if (yPos > 240) { doc.addPage(); yPos = 20; }
+                
                 doc.setFontSize(12); doc.setFont("helvetica", "bold");
-                doc.text(title, 14, yPos);
-                yPos += 4;
-                doc.setFontSize(9); doc.setFont("helvetica", "normal");
-                const indicatorsText = `Débit: ${formatNumber(data.flowRate, 1)} t/h  |  PCI: ${formatNumber(data.pci, 0)}  |  Cl: ${formatNumber(data.chlore, 3)}%  |  Pneus: ${formatNumber(data.pneus, 1)}%`;
-                doc.text(indicatorsText, 14, yPos);
+                doc.text(title, margin, yPos);
                 yPos += 6;
+                doc.setFontSize(9); doc.setFont("helvetica", "normal");
+                const indicatorsText = `Débit: ${formatNumber(data.flowRate, 1)} t/h  |  PCI: ${formatNumber(data.pci, 0)} kcal/kg  |  Cl: ${formatNumber(data.chlore, 3)}%  |  Pneus: ${formatNumber(data.pneus, 1)}%`;
+                doc.text(indicatorsText, margin, yPos);
+                yPos += 7;
 
                 doc.autoTable({
                     startY: yPos,
                     head: [['Combustible', 'Godets', '% Poids']],
                     body: data.composition.map((c: any) => [c.name, c.buckets, formatNumber(c.percentage, 1) + ' %']),
-                    theme: 'grid',
-                    headStyles: { fillColor: [34, 46, 68] },
+                    theme: 'striped',
+                    headStyles: { fillColor: [30, 41, 59] },
                     styles: { fontSize: 9, cellPadding: 2 },
                 });
                 yPos = (doc as any).lastAutoTable.finalY + 12;
             };
 
-            if(hallData) drawCompositionTable("Composition Hall des AF", hallData);
-            if(atsData) drawCompositionTable("Composition ATS", atsData);
+            drawCompositionTable("Composition Hall des AF", hallData);
+            drawCompositionTable("Composition ATS", atsData);
             
-            // Impact
+            // --- IMPACT ---
             if(impactChartData.length > 0) {
-              if (yPos > 230) { doc.addPage(); yPos = 20; }
+              if (yPos > 240) { doc.addPage(); yPos = 20; }
               doc.setFontSize(14); doc.setFont("helvetica", "bold");
-              doc.text("Impact sur le Clinker (Δ)", 14, yPos);
+              doc.text("Impact sur le Clinker (Δ Calculé - Sans Cendres)", margin, yPos);
               yPos += 8;
               doc.autoTable({
                 startY: yPos,
-                head: [['Indicateur', 'Variation']],
+                head: [['Indicateur', 'Variation (Calculé - Sans Cendres)']],
                 body: impactChartData.map(item => [item.name, formatNumber(item.value, 2)]),
-                theme: 'striped',
-                headStyles: { fillColor: [34, 46, 68] },
+                theme: 'grid',
+                headStyles: { fillColor: [30, 41, 59] },
               });
               yPos = (doc as any).lastAutoTable.finalY + 10;
             }
-
 
             doc.save(`Rapport_Melange_${format(new Date(), "yyyy-MM-dd")}.pdf`);
             toast({ title: "Succès", description: "Le rapport a été téléchargé." });
