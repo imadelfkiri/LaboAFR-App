@@ -47,7 +47,7 @@ const InstallationCompositionCard = ({ name, flowRate, composition, pci, chlore,
         <Card className="h-full flex flex-col">
             <CardHeader>
                 <CardTitle className="text-lg">{name}</CardTitle>
-                <CardDescription>Débit: <span className="font-semibold text-white">{formatNumber(flowRate, 1)} t/h</span></CardDescription>
+                <CardDescription>Débit estimé: <span className="font-semibold text-white">{formatNumber(flowRate, 1)} t/h</span></CardDescription>
             </CardHeader>
             <CardContent className="flex-grow flex flex-col">
                 <div className="flex justify-around text-xs p-2 rounded-md bg-muted/40 mb-4">
@@ -225,8 +225,6 @@ export default function RapportSynthesePage() {
             { name: "AF", value: delta(results.modulesAvec.af, results.modulesSans.af) },
         ];
     }, [latestImpact]);
-
-    const chartColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F'];
     
     const handleExport = () => {
         if (!mixtureSession || !afIndicators) {
@@ -318,83 +316,43 @@ export default function RapportSynthesePage() {
                         </p>
                     )}
                 </div>
-                <div className='flex items-center gap-4 text-right'>
-                    <div>
-                        <p className="text-xs text-muted-foreground">Débit AFs</p>
-                        <p className="text-xl font-bold">{formatNumber(afFlow, 1)} t/h</p>
-                    </div>
-                     <div>
-                        <p className="text-xs text-muted-foreground">Débit Grignons</p>
-                        <p className="text-xl font-bold">{formatNumber(goFlow, 1)} t/h</p>
-                    </div>
-                    <Button onClick={handleExport} disabled={isExporting}>
-                        <Download className="mr-2 h-4 w-4" />
-                        {isExporting ? "Génération..." : "Exporter en PDF"}
-                    </Button>
-                </div>
+                <Button onClick={handleExport} disabled={isExporting}>
+                    <Download className="mr-2 h-4 w-4" />
+                    {isExporting ? "Génération..." : "Exporter en PDF"}
+                </Button>
             </div>
             
-             <IndicatorGrid indicators={afIndicators} title="Indicateurs de Performance du Mélange AFs (sans GO)" />
+             <IndicatorGrid indicators={afIndicators} title="Indicateurs du Mélange AFs (sans GO)" />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {hallData && <InstallationCompositionCard name="Hall des AF" {...hallData} />}
-                {atsData && <InstallationCompositionCard name="ATS" {...atsData} />}
+                {hallData && <InstallationCompositionCard name="Composition Hall des AF" {...hallData} />}
+                {atsData && <InstallationCompositionCard name="Composition ATS" {...atsData} />}
             </div>
+            <Card>
+                <CardHeader><CardTitle className="flex items-center gap-2"><Activity /> Impact sur le Clinker (Δ Calculé - Sans Cendres)</CardTitle></CardHeader>
+                <CardContent>
+                    {impactChartData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height={300}>
+                            <BarChart data={impactChartData} margin={{ top: 20, right: 20, bottom: 0, left: -20}}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                                <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                                <Tooltip
+                                    contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))" }}
+                                    cursor={{ fill: 'hsl(var(--muted))' }}
+                                />
+                                <Bar dataKey="value" name="Variation">
+                                    {impactChartData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.value >= 0 ? '#22c55e' : '#3b82f6'} />
+                                    ))}
+                                    <LabelList dataKey="value" position="top" formatter={(value: number) => formatNumber(value, 2)} fontSize={12} fill="hsl(var(--foreground))" />
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    ) : <p className="text-center text-muted-foreground p-4">Aucune donnée d'impact.</p>}
+                </CardContent>
+            </Card>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><BarChart2 /> Répartition Globale du Mélange AFs (% Poids)</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {mixtureComposition.length > 0 ? (
-                            <ResponsiveContainer width="100%" height={300}>
-                                <BarChart data={mixtureComposition} margin={{ top: 20, right: 20, bottom: 0, left: -10}}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                                    <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} unit="%" />
-                                    <Tooltip
-                                        formatter={(value) => `${formatNumber(value as number, 1)}%`}
-                                        contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))" }}
-                                        cursor={{ fill: 'hsl(var(--muted))' }}
-                                    />
-                                    <Bar dataKey="percentage" name="% Poids">
-                                        {mixtureComposition.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
-                                        ))}
-                                        <LabelList dataKey="percentage" position="top" formatter={(value: number) => `${formatNumber(value, 1)}%`} fontSize={12} fill="hsl(var(--foreground))" />
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
-                        ) : <p className="text-center text-muted-foreground p-4">Aucune donnée pour le graphique.</p>}
-                    </CardContent>
-                </Card>
-
-                 <Card>
-                    <CardHeader><CardTitle className="flex items-center gap-2"><Activity /> Impact sur le Clinker (Δ Calculé - Sans Cendres)</CardTitle></CardHeader>
-                    <CardContent>
-                        {impactChartData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height={300}>
-                                <BarChart data={impactChartData} margin={{ top: 20, right: 20, bottom: 0, left: -20}}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                                    <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                                    <Tooltip
-                                        contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))" }}
-                                        cursor={{ fill: 'hsl(var(--muted))' }}
-                                    />
-                                    <Bar dataKey="value" name="Variation">
-                                        {impactChartData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.value >= 0 ? '#22c55e' : '#3b82f6'} />
-                                        ))}
-                                        <LabelList dataKey="value" position="top" formatter={(value: number) => formatNumber(value, 2)} fontSize={12} fill="hsl(var(--foreground))" />
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
-                        ) : <p className="text-center text-muted-foreground p-4">Aucune donnée d'impact.</p>}
-                    </CardContent>
-                </Card>
-            </div>
         </div>
     );
 }
