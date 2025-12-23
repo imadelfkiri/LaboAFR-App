@@ -29,28 +29,18 @@ const formatNumber = (num: number | null | undefined, digits: number = 2) => {
     });
 };
 
-const IndicatorBlock = ({ title, value, unit }: { title: string, value: string | number, unit?: string}) => (
-    <div className="bg-brand-surface/80 rounded-xl p-4 text-center border border-brand-line/50">
-        <p className="text-sm text-muted-foreground">{title}</p>
-        <p className="text-2xl font-bold text-white">
-            {value}
-            {unit && <span className="text-base text-muted-foreground ml-1">{unit}</span>}
-        </p>
-    </div>
-);
-
-const InstallationCompositionCard = ({ name, flowRate, composition, pci, chlore, pneus }: { name: string, flowRate: number, composition: { name: string, buckets: number, percentage: number }[], pci: number, chlore: number, pneus: number }) => {
+const InstallationCompositionCard = ({ name, flowRate, pci, chlore, pneus, composition }: { name: string, flowRate: number, pci: number, chlore: number, pneus: number, composition: { name: string, buckets: number, percentage: number }[] }) => {
     return (
-        <div className="bg-brand-surface rounded-xl border border-brand-line/50 overflow-hidden">
-            <div className="p-4 border-b border-brand-line/50">
-                <h3 className="font-semibold text-lg text-white">{name}</h3>
-                <p className="text-sm text-muted-foreground">Débit estimé: <span className="font-bold text-white">{formatNumber(flowRate, 1)} t/h</span></p>
-            </div>
-            <div className="p-4 grid grid-cols-3 gap-2 text-center text-xs bg-brand-surface/50">
-                <div><span className="font-semibold text-muted-foreground">PCI:</span> <strong className="text-emerald-400">{formatNumber(pci, 0)}</strong></div>
-                <div><span className="font-semibold text-muted-foreground">Cl:</span> <strong className="text-orange-400">{formatNumber(chlore, 3)}%</strong></div>
-                <div><span className="font-semibold text-muted-foreground">Pneus:</span> <strong className="text-sky-400">{formatNumber(pneus, 1)}%</strong></div>
-            </div>
+        <Card className="bg-brand-surface rounded-xl border-brand-line/50 overflow-hidden flex-1">
+            <CardHeader className="p-4 border-b border-brand-line/50">
+                <CardTitle className="text-lg text-white">{name}</CardTitle>
+                <div className="flex justify-between items-center text-xs text-muted-foreground pt-1">
+                    <span>Débit: <strong className="text-white">{formatNumber(flowRate, 1)} t/h</strong></span>
+                    <span>PCI: <strong className="text-emerald-400">{formatNumber(pci, 0)}</strong></span>
+                    <span>Cl: <strong className="text-orange-400">{formatNumber(chlore, 3)}%</strong></span>
+                    <span>Pneus: <strong className="text-sky-400">{formatNumber(pneus, 1)}%</strong></span>
+                </div>
+            </CardHeader>
             {composition.length > 0 ? (
                 <Table>
                     <TableHeader>
@@ -71,7 +61,7 @@ const InstallationCompositionCard = ({ name, flowRate, composition, pci, chlore,
                     </TableBody>
                 </Table>
             ) : <p className="text-center text-muted-foreground p-6">Aucune donnée</p>}
-        </div>
+        </Card>
     );
 };
 
@@ -117,7 +107,7 @@ export default function RapportSynthesePage() {
         const atsState = mixtureSession.ats;
 
         const processComposition = (fuels: Record<string, { buckets: number }>, flowRate: number) => {
-            if (!fuels) return { composition: [], totalWeight: 0, pci: 0, chlore: 0, pneus: 0 };
+            if (!fuels) return { composition: [], totalWeight: 0, pci: 0, chlore: 0, pneus: 0, flowRate: 0 };
             
             const fuelDetails = Object.entries(fuels)
                 .map(([name, data]) => ({ name, buckets: data.buckets || 0, weight: (data.buckets || 0) * (fuelDataMap[name]?.poids_godet || 1.5) }))
@@ -153,13 +143,13 @@ export default function RapportSynthesePage() {
         const hallData = processComposition(hallState?.fuels, hallState?.flowRate || 0);
         const atsData = processComposition(atsState?.fuels, atsState?.flowRate || 0);
 
-        const afIndicators = {
+        const afIndicators = mixtureSession.afIndicators ? {
             'PCI': { value: mixtureSession.afIndicators.pci, unit: 'kcal/kg', digits: 0 },
             'Humidité': { value: mixtureSession.afIndicators.humidity, unit: '%', digits: 2 },
             'Cendres': { value: mixtureSession.afIndicators.ash, unit: '%', digits: 2 },
             'Chlore': { value: mixtureSession.afIndicators.chlorine, unit: '%', digits: 3 },
-            'Pneus': { value: mixtureSession.afIndicators.tireRate, unit: '%', digits: 1 },
-        };
+            'Taux Pneus': { value: mixtureSession.afIndicators.tireRate, unit: '%', digits: 1 },
+        } : null;
         
         return { 
             afIndicators, 
@@ -202,37 +192,62 @@ export default function RapportSynthesePage() {
             yPos += 15;
 
             // Global Indicators
-            doc.setFontSize(14); doc.setFont("helvetica", "bold");
-            doc.text("Indicateurs du Mélange AFs (sans GO)", 14, yPos);
-            yPos += 8;
-            doc.setFontSize(10);
             if (afIndicators) {
-                Object.entries(afIndicators).forEach(([key, { value, unit, digits }]) => {
-                    doc.text(`- ${key}: ${formatNumber(value, digits)} ${unit}`, 20, yPos); yPos += 6;
+                doc.setFontSize(14); doc.setFont("helvetica", "bold");
+                doc.text("Indicateurs du Mélange AFs", 14, yPos);
+                yPos += 6;
+                const indicatorsBody = Object.entries(afIndicators).map(([key, { value, unit, digits }]) => [key, `${formatNumber(value, digits)} ${unit}`]);
+                doc.autoTable({
+                    startY: yPos,
+                    body: indicatorsBody,
+                    theme: 'plain',
+                    styles: { fontSize: 10, cellPadding: 1.5 },
                 });
+                yPos = (doc as any).lastAutoTable.finalY + 10;
             }
-            yPos += 4;
             
             // Composition Tables
             const drawCompositionTable = (title: string, data: any) => {
                 if (!data || data.composition.length === 0) return;
-                if (yPos > 240) { doc.addPage(); yPos = 20; }
+                if (yPos > 220) { doc.addPage(); yPos = 20; }
                 doc.setFontSize(12); doc.setFont("helvetica", "bold");
-                doc.text(`${title} (Débit: ${formatNumber(data.flowRate, 1)} t/h)`, 14, yPos);
+                doc.text(title, 14, yPos);
+                yPos += 4;
+                doc.setFontSize(9); doc.setFont("helvetica", "normal");
+                const indicatorsText = `Débit: ${formatNumber(data.flowRate, 1)} t/h  |  PCI: ${formatNumber(data.pci, 0)}  |  Cl: ${formatNumber(data.chlore, 3)}%  |  Pneus: ${formatNumber(data.pneus, 1)}%`;
+                doc.text(indicatorsText, 14, yPos);
                 yPos += 6;
-                (doc as any).autoTable({
+
+                doc.autoTable({
                     startY: yPos,
                     head: [['Combustible', 'Godets', '% Poids']],
                     body: data.composition.map((c: any) => [c.name, c.buckets, formatNumber(c.percentage, 1) + ' %']),
                     theme: 'grid',
-                    headStyles: { fillColor: [22, 163, 74] },
-                    styles: { fontSize: 8 },
+                    headStyles: { fillColor: [34, 46, 68] },
+                    styles: { fontSize: 9, cellPadding: 2 },
                 });
-                yPos = (doc as any).lastAutoTable.finalY + 10;
+                yPos = (doc as any).lastAutoTable.finalY + 12;
             };
 
-            drawCompositionTable("Composition Hall des AF", hallData);
-            drawCompositionTable("Composition ATS", atsData);
+            if(hallData) drawCompositionTable("Composition Hall des AF", hallData);
+            if(atsData) drawCompositionTable("Composition ATS", atsData);
+            
+            // Impact
+            if(impactChartData.length > 0) {
+              if (yPos > 230) { doc.addPage(); yPos = 20; }
+              doc.setFontSize(14); doc.setFont("helvetica", "bold");
+              doc.text("Impact sur le Clinker (Δ)", 14, yPos);
+              yPos += 8;
+              doc.autoTable({
+                startY: yPos,
+                head: [['Indicateur', 'Variation']],
+                body: impactChartData.map(item => [item.name, formatNumber(item.value, 2)]),
+                theme: 'striped',
+                headStyles: { fillColor: [34, 46, 68] },
+              });
+              yPos = (doc as any).lastAutoTable.finalY + 10;
+            }
+
 
             doc.save(`Rapport_Melange_${format(new Date(), "yyyy-MM-dd")}.pdf`);
             toast({ title: "Succès", description: "Le rapport a été téléchargé." });
@@ -258,32 +273,42 @@ export default function RapportSynthesePage() {
     }
     
     return (
-        <div className="max-w-5xl mx-auto p-4 md:p-6 lg:p-8 space-y-8">
-            <div className="text-center space-y-2">
-                <h1 className="text-3xl font-bold tracking-tight text-primary">Rapport de Synthèse</h1>
+        <div className="max-w-4xl mx-auto p-4 md:p-6 lg:p-8 space-y-8">
+            <header className="space-y-2">
+                <div className="flex justify-between items-center">
+                    <h1 className="text-3xl font-bold tracking-tight text-primary">Rapport de Synthèse</h1>
+                    <Button onClick={handleExport} disabled={isExporting} variant="outline" size="sm">
+                        <Download className="mr-2 h-4 w-4" />
+                        {isExporting ? "Génération..." : "Exporter en PDF"}
+                    </Button>
+                </div>
                 {mixtureSession?.timestamp && (
                     <p className="text-sm text-muted-foreground">
                         Basé sur la session du {format(mixtureSession.timestamp.toDate(), "d MMMM yyyy 'à' HH:mm", { locale: fr })}
                     </p>
                 )}
-                 <Button onClick={handleExport} disabled={isExporting} variant="outline" size="sm">
-                    <Download className="mr-2 h-4 w-4" />
-                    {isExporting ? "Génération..." : "Exporter en PDF"}
-                </Button>
-            </div>
+            </header>
             
             <section>
                 <h2 className="text-xl font-semibold mb-4">Indicateurs Globaux du Mélange AFs (sans GO)</h2>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                    {afIndicators ? Object.entries(afIndicators).map(([key, { value, unit, digits }]) => (
-                        <IndicatorBlock key={key} title={key} value={formatNumber(value, digits)} unit={unit} />
-                    )) : <p className="col-span-full text-center text-muted-foreground py-4">Aucun indicateur de mélange disponible.</p>}
-                </div>
+                {afIndicators ? (
+                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                        {Object.entries(afIndicators).map(([key, { value, unit, digits }]) => (
+                            <Card key={key} className="text-center p-3 bg-brand-surface/80 border-brand-line/50">
+                                <p className="text-sm text-muted-foreground">{key}</p>
+                                <p className="text-2xl font-bold text-white">
+                                    {formatNumber(value, digits)}
+                                    {unit && <span className="text-base text-muted-foreground ml-1">{unit}</span>}
+                                </p>
+                            </Card>
+                        ))}
+                    </div>
+                ) : <p className="col-span-full text-center text-muted-foreground py-4">Aucun indicateur de mélange disponible.</p>}
             </section>
 
             <section className="space-y-4">
                 <h2 className="text-xl font-semibold mb-4">Composition du Mélange</h2>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="flex flex-col lg:flex-row gap-6">
                     {hallData && <InstallationCompositionCard name="Hall des AF" {...hallData} />}
                     {atsData && <InstallationCompositionCard name="ATS" {...atsData} />}
                 </div>
