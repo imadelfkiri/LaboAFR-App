@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -82,20 +83,22 @@ const InstallationCompositionCard = ({ name, flowRate, composition, pci, chlore,
 const IndicatorGrid = ({ indicators, title }: { indicators: Record<string, { value: number, unit: string, digits: number }> | null, title: string }) => {
     if (!indicators) return null;
     return (
-        <div>
-            <h3 className="text-md font-semibold text-neutral-300 mb-2">{title}</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+        <Card>
+            <CardHeader>
+                <CardTitle className="text-lg">{title}</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                 {Object.entries(indicators).map(([key, { value, unit, digits }]) => (
-                    <div key={key} className="bg-brand-muted/50 border border-brand-line/50 rounded-lg p-2 text-center">
-                        <p className="text-xs text-muted-foreground">{key}</p>
-                        <p className="text-md font-bold text-white">
+                    <div key={key} className="bg-brand-muted/50 border border-brand-line/50 rounded-xl p-3 text-center">
+                        <p className="text-sm text-muted-foreground">{key}</p>
+                        <p className="text-xl font-bold text-white">
                             {formatNumber(value, digits)}
-                            <span className="text-xs text-muted-foreground ml-1">{unit}</span>
+                            <span className="text-sm text-muted-foreground ml-1">{unit}</span>
                         </p>
                     </div>
                 ))}
-            </div>
-        </div>
+            </CardContent>
+        </Card>
     );
 }
 
@@ -331,73 +334,70 @@ export default function RapportSynthesePage() {
                 </div>
             </div>
             
-             <Card>
-                <CardHeader>
-                    <CardTitle className="text-lg">Indicateurs de Performance du Mélange AFs</CardTitle>
-                    <CardDescription>Cette section ne prend pas en compte les apports des Grignons (GO).</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <IndicatorGrid indicators={afIndicators} title="Mélange AFs (sans GO)" />
-                </CardContent>
-            </Card>
+             <IndicatorGrid indicators={afIndicators} title="Indicateurs de Performance du Mélange AFs (sans GO)" />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {hallData && <InstallationCompositionCard name="Hall des AF" {...hallData} />}
                 {atsData && <InstallationCompositionCard name="ATS" {...atsData} />}
             </div>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><BarChart2 /> Répartition Globale du Mélange AFs (% Poids)</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    {mixtureComposition.length > 0 ? (
-                        <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={mixtureComposition} margin={{ top: 20, right: 20, bottom: 0, left: -10}}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                                <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} unit="%" />
-                                <Tooltip
-                                    formatter={(value) => `${formatNumber(value as number, 1)}%`}
-                                    contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))" }}
-                                    cursor={{ fill: 'hsl(var(--muted))' }}
-                                />
-                                <Bar dataKey="percentage" name="% Poids">
-                                    {mixtureComposition.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
-                                    ))}
-                                    <LabelList dataKey="percentage" position="top" formatter={(value: number) => `${formatNumber(value, 1)}%`} fontSize={12} fill="hsl(var(--foreground))" />
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    ) : <p className="text-center text-muted-foreground p-4">Aucune donnée pour le graphique.</p>}
-                </CardContent>
-            </Card>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><BarChart2 /> Répartition Globale du Mélange AFs (% Poids)</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {mixtureComposition.length > 0 ? (
+                            <ResponsiveContainer width="100%" height={300}>
+                                <BarChart data={mixtureComposition} margin={{ top: 20, right: 20, bottom: 0, left: -10}}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                                    <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} unit="%" />
+                                    <Tooltip
+                                        formatter={(value) => `${formatNumber(value as number, 1)}%`}
+                                        contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))" }}
+                                        cursor={{ fill: 'hsl(var(--muted))' }}
+                                    />
+                                    <Bar dataKey="percentage" name="% Poids">
+                                        {mixtureComposition.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
+                                        ))}
+                                        <LabelList dataKey="percentage" position="top" formatter={(value: number) => `${formatNumber(value, 1)}%`} fontSize={12} fill="hsl(var(--foreground))" />
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        ) : <p className="text-center text-muted-foreground p-4">Aucune donnée pour le graphique.</p>}
+                    </CardContent>
+                </Card>
 
-             <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><Activity /> Impact sur le Clinker (Δ Calculé - Sans Cendres)</CardTitle></CardHeader>
-                <CardContent>
-                     {impactChartData.length > 0 ? (
-                         <ResponsiveContainer width="100%" height={250}>
-                            <BarChart data={impactChartData} margin={{ top: 20, right: 20, bottom: 0, left: -20}}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                                <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                                <Tooltip
-                                    contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))" }}
-                                    cursor={{ fill: 'hsl(var(--muted))' }}
-                                />
-                                <Bar dataKey="value" name="Variation">
-                                    {impactChartData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.value < 0 ? 'hsl(var(--destructive))' : 'hsl(var(--primary))'} />
-                                    ))}
-                                    <LabelList dataKey="value" position="top" formatter={(value: number) => formatNumber(value, 2)} fontSize={12} fill="hsl(var(--foreground))" />
-                                </Bar>
-                            </BarChart>
-                         </ResponsiveContainer>
-                     ) : <p className="text-center text-muted-foreground p-4">Aucune donnée d'impact.</p>}
-                </CardContent>
-            </Card>
+                 <Card>
+                    <CardHeader><CardTitle className="flex items-center gap-2"><Activity /> Impact sur le Clinker (Δ Calculé - Sans Cendres)</CardTitle></CardHeader>
+                    <CardContent>
+                        {impactChartData.length > 0 ? (
+                            <ResponsiveContainer width="100%" height={300}>
+                                <BarChart data={impactChartData} margin={{ top: 20, right: 20, bottom: 0, left: -20}}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                                    <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                                    <Tooltip
+                                        contentStyle={{ background: "hsl(var(--background))", border: "1px solid hsl(var(--border))" }}
+                                        cursor={{ fill: 'hsl(var(--muted))' }}
+                                    />
+                                    <Bar dataKey="value" name="Variation">
+                                        {impactChartData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.value < 0 ? 'hsl(var(--destructive))' : 'hsl(var(--primary))'} />
+                                        ))}
+                                        <LabelList dataKey="value" position="top" formatter={(value: number) => formatNumber(value, 2)} fontSize={12} fill="hsl(var(--foreground))" />
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        ) : <p className="text-center text-muted-foreground p-4">Aucune donnée d'impact.</p>}
+                    </CardContent>
+                </Card>
+            </div>
         </div>
     );
 }
+
+
+    
