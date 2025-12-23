@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { getLatestMixtureSession, type MixtureSession, getImpactAnalyses, type ImpactAnalysis, getFuelData, type FuelData } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Activity, BookOpen, Beaker, BarChart2, FileText, Download } from 'lucide-react';
+import { Activity, BookOpen, Download } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from 'date-fns';
@@ -48,13 +48,13 @@ const InstallationCompositionCard = ({ name, flowRate, composition, pci, chlore,
             <CardHeader>
                 <CardTitle className="text-lg">{name}</CardTitle>
                 <CardDescription>Débit estimé: <span className="font-semibold text-white">{formatNumber(flowRate, 1)} t/h</span></CardDescription>
-            </CardHeader>
-            <CardContent className="flex-grow flex flex-col">
-                <div className="flex justify-around text-xs p-2 rounded-md bg-muted/40 mb-4">
+                 <div className="flex justify-around text-xs p-2 rounded-md bg-muted/40 mt-2">
                     <span className="font-semibold">PCI: <strong className="text-emerald-400">{formatNumber(pci, 0)}</strong></span>
                     <span className="font-semibold">Cl: <strong className="text-orange-400">{formatNumber(chlore, 3)}%</strong></span>
                     <span className="font-semibold">Pneus: <strong className="text-sky-400">{formatNumber(pneus, 1)}%</strong></span>
                 </div>
+            </CardHeader>
+            <CardContent className="flex-grow flex flex-col pt-0">
                 <div className="flex-grow overflow-auto">
                     <Table>
                         <TableHeader>
@@ -80,27 +80,16 @@ const InstallationCompositionCard = ({ name, flowRate, composition, pci, chlore,
     );
 };
 
-const IndicatorGrid = ({ indicators, title }: { indicators: Record<string, { value: number, unit: string, digits: number }> | null, title: string }) => {
-    if (!indicators) return null;
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="text-lg">{title}</CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                {Object.entries(indicators).map(([key, { value, unit, digits }]) => (
-                    <div key={key} className="bg-brand-muted/50 border border-brand-line/50 rounded-xl p-3 text-center">
-                        <p className="text-sm text-muted-foreground">{key}</p>
-                        <p className="text-xl font-bold text-white">
-                            {formatNumber(value, digits)}
-                            <span className="text-sm text-muted-foreground ml-1">{unit}</span>
-                        </p>
-                    </div>
-                ))}
-            </CardContent>
-        </Card>
-    );
-}
+const IndicatorBlock = ({ title, value, unit }: { title: string, value: string | number, unit?: string}) => (
+    <div className="bg-brand-surface/80 rounded-xl p-4 text-center">
+        <p className="text-sm text-muted-foreground">{title}</p>
+        <p className="text-2xl font-bold text-white">
+            {value}
+            {unit && <span className="text-base text-muted-foreground ml-1">{unit}</span>}
+        </p>
+    </div>
+);
+
 
 export default function RapportSynthesePage() {
     const { toast } = useToast();
@@ -134,17 +123,13 @@ export default function RapportSynthesePage() {
         fetchData();
     }, [fetchData]);
 
-    const { hallData, atsData, afIndicators, mixtureComposition, afFlow, goFlow } = useMemo(() => {
+    const { hallData, atsData, afIndicators } = useMemo(() => {
         if (!mixtureSession || !fuelDataMap || !mixtureSession.availableFuels) {
-            return { afIndicators: null, hallData: null, atsData: null, mixtureComposition: [], afFlow: 0, goFlow: 0 };
+            return { afIndicators: null, hallData: null, atsData: null };
         }
 
         const hallState = mixtureSession.hallAF;
         const atsState = mixtureSession.ats;
-        const directInputs = mixtureSession.directInputs || {};
-
-        const afFlow = (hallState?.flowRate || 0) + (atsState?.flowRate || 0);
-        const goFlow = (directInputs['Grignons GO1']?.flowRate || 0) + (directInputs['Grignons GO2']?.flowRate || 0);
 
         const processComposition = (fuels: Record<string, { buckets: number }>, flowRate: number) => {
             if (!fuels) return { composition: [], totalWeight: 0, pci: 0, chlore: 0, pneus: 0 };
@@ -191,25 +176,10 @@ export default function RapportSynthesePage() {
             'Pneus': { value: mixtureSession.afIndicators.tireRate, unit: '%', digits: 1 },
         };
         
-        const mixtureComp = [...hallData.composition, ...atsData.composition].reduce((acc, curr) => {
-            const existing = acc.find(item => item.name === curr.name);
-            if(existing) {
-                existing.weight += curr.weight;
-            } else {
-                acc.push({ name: curr.name, weight: curr.weight });
-            }
-            return acc;
-        }, [] as {name: string, weight: number}[]);
-
-        const totalMixtureWeight = mixtureComp.reduce((sum, item) => sum + item.weight, 0);
-
         return { 
             afIndicators, 
             hallData,
             atsData,
-            mixtureComposition: mixtureComp.map(item => ({...item, percentage: totalMixtureWeight > 0 ? (item.weight / totalMixtureWeight) * 100 : 0})).sort((a,b) => b.percentage - a.percentage),
-            afFlow,
-            goFlow,
         };
     }, [mixtureSession, fuelDataMap]);
 
@@ -322,14 +292,27 @@ export default function RapportSynthesePage() {
                 </Button>
             </div>
             
-             <IndicatorGrid indicators={afIndicators} title="Indicateurs du Mélange AFs (sans GO)" />
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {hallData && <InstallationCompositionCard name="Composition Hall des AF" {...hallData} />}
-                {atsData && <InstallationCompositionCard name="Composition ATS" {...atsData} />}
-            </div>
             <Card>
-                <CardHeader><CardTitle className="flex items-center gap-2"><Activity /> Impact sur le Clinker (Δ Calculé - Sans Cendres)</CardTitle></CardHeader>
+                <CardHeader>
+                    <CardTitle className="text-lg">Indicateurs Globaux du Mélange AFs (sans GO)</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                    {afIndicators ? Object.entries(afIndicators).map(([key, { value, unit, digits }]) => (
+                        <IndicatorBlock key={key} title={key} value={formatNumber(value, digits)} unit={unit} />
+                    )) : <p className="col-span-full text-center text-muted-foreground py-4">Aucun indicateur de mélange disponible.</p>}
+                </CardContent>
+            </Card>
+
+            <div className="space-y-4">
+                <h2 className="text-xl font-semibold">Composition du Mélange</h2>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {hallData && <InstallationCompositionCard name="Hall des AF" {...hallData} />}
+                    {atsData && <InstallationCompositionCard name="ATS" {...atsData} />}
+                </div>
+            </div>
+
+            <Card>
+                <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><Activity /> Impact sur le Clinker (Δ Calculé - Sans Cendres)</CardTitle></CardHeader>
                 <CardContent>
                     {impactChartData.length > 0 ? (
                         <ResponsiveContainer width="100%" height={300}>
@@ -349,10 +332,9 @@ export default function RapportSynthesePage() {
                                 </Bar>
                             </BarChart>
                         </ResponsiveContainer>
-                    ) : <p className="text-center text-muted-foreground p-4">Aucune donnée d'impact.</p>}
+                    ) : <p className="text-center text-muted-foreground p-4">Aucune donnée d'impact à afficher.</p>}
                 </CardContent>
             </Card>
-
         </div>
     );
 }
