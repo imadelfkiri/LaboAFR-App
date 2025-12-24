@@ -49,7 +49,6 @@ const allLinks = [
   { href: '/historique-impact', label: "Historique Impact", icon: Book },
   { href: '/documentation', label: 'Documentation', icon: BookText },
   { href: '/suivi-chlore', label: 'Suivi Chlore', icon: Wind },
-  { href: '/gestion-donnees', label: 'Gestion Données', icon: Database, adminOnly: true },
   { href: '/gestion-utilisateurs', label: 'Gestion Utilisateurs', icon: Users, adminOnly: true },
   { href: '/gestion-seuils', label: 'Gestion des Seuils', icon: SlidersHorizontal, adminOnly: true },
 ];
