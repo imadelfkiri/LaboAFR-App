@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { BookText, BookOpen, Flame, Beaker, FlaskConical, BarChart3, ClipboardCheck, ClipboardList, FilePieChart, LayoutDashboard, Cog, DollarSign, TrendingUp, SlidersHorizontal, Calculator } from "lucide-react";
+import { BookText, BookOpen, Flame, Beaker, FlaskConical, BarChart3, ClipboardCheck, ClipboardList, FilePieChart, LayoutDashboard, Cog, DollarSign, TrendingUp, SlidersHorizontal, Calculator, Cloud } from "lucide-react";
 import Link from 'next/link';
 import type { Metadata } from 'next';
 
@@ -74,6 +74,12 @@ const documentationArticles = [
     description: "Gérez les données de base (poids godet, teneur H) cruciales pour les calculs de l'application.",
     href: "/documentation/principe-donnees-combustibles",
     icon: Cog,
+  },
+  {
+    title: "Guide d'Utilisation de Cloud Storage",
+    description: "Apprenez à stocker et gérer des fichiers dans le cloud avec Firebase Storage.",
+    href: "/documentation/principe-stockage-cloud",
+    icon: Cloud,
   },
   {
     title: "Principe du Rapport de Synthèse",

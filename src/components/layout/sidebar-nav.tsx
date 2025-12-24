@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from 'next/link';
@@ -31,6 +30,7 @@ import {
   Factory,
   LogOut,
   BookText,
+  Cloud,
 } from "lucide-react";
 
 const allLinks = [
