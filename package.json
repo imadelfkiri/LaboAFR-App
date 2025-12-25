@@ -4,10 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run build:functions && next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:functions": "cd functions && npm install && npm run build",
+    "deploy": "firebase deploy --only hosting,functions"
   },
   "dependencies": {
     "@genkit-ai/google-genai": "^1.0.0",
