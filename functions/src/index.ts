@@ -1,10 +1,11 @@
+import * as functions from "firebase-functions";
+import * as admin from "firebase-admin";
 
-const functions = require("firebase-functions");
-const admin = require("firebase-admin");
 admin.initializeApp();
 
+
 // ✅ Fonction pour créer un utilisateur dans Auth + Firestore
-exports.adminCreateUser = functions.https.onCall(async (data, context) => {
+export const adminCreateUser = functions.https.onCall(async (data, context) => {
   // Vérifie que l'appelant est connecté
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "Vous devez être connecté");
