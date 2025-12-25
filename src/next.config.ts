@@ -5,13 +5,6 @@ const nextConfig: NextConfig = {
   experimental: {
     serverComponentsExternalPackages: [],
   },
-  webpack: (config, { isServer, dev }) => {
-    if (dev && !isServer) {
-      // Désactiver le cache en développement pour éviter les erreurs de ChunkLoadError
-      config.cache = false;
-    }
-    return config;
-  },
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -23,6 +16,12 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'picsum.photos',
+        port: '',
+        pathname: '/**',
+      }
     ],
   },
 };
