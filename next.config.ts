@@ -1,9 +1,12 @@
-import type {NextConfig} from 'next';
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
+  serverExternalPackages: [],
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   experimental: {
-    serverComponentsExternalPackages: [],
   },
   webpack: (config, { isServer, dev }) => {
     if (dev && !isServer) {

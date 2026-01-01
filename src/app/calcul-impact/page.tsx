@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { getLatestMixtureSession, getAverageAshAnalysisForFuels, getFuelData, type MixtureSession, type AshAnalysis, type FuelData, getRawMealPresets, saveRawMealPreset, deleteRawMealPreset, type RawMealPreset, saveImpactAnalysis, ImpactAnalysis } from '@/lib/data';
 import ImpactTableHorizontal from "@/components/impact-table-horizontal";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LabelList, Cell } from 'recharts';
-import* as XLSX from 'xlsx';
+import * as XLSX from 'xlsx';
 import { Label } from "@/components/ui/label"
 import { handleInterpretImpact } from "@/lib/actions"
 import type { ImpactInterpreterInput, ImpactInterpreterOutput } from "@/ai/flows/impact-interpreter-flow"
@@ -23,20 +23,20 @@ import { useAuth } from "@/context/auth-provider";
 
 
 // --- Type Definitions ---
-export type OxideAnalysis = {
+type OxideAnalysis = {
     [key: string]: number | undefined | null;
     pf?: number | null; sio2?: number | null; al2o3?: number | null; fe2o3?: number | null;
     cao?: number | null; mgo?: number | null; so3?: number | null; k2o?: number | null;
     tio2?: number | null; mno?: number | null; p2o5?: number | null;
 };
-export const OXIDE_KEYS: (keyof OxideAnalysis)[] = ['pf', 'sio2', 'al2o3', 'fe2o3', 'cao', 'mgo', 'so3', 'k2o', 'tio2', 'mno', 'p2o5'];
-export const OXIDE_LABELS: Record<keyof OxideAnalysis, string> = {
+const OXIDE_KEYS: (keyof OxideAnalysis)[] = ['pf', 'sio2', 'al2o3', 'fe2o3', 'cao', 'mgo', 'so3', 'k2o', 'tio2', 'mno', 'p2o5'];
+const OXIDE_LABELS: Record<keyof OxideAnalysis, string> = {
     pf: 'PF', sio2: 'SiO2', al2o3: 'Al2O3', fe2o3: 'Fe2O3',
     cao: 'CaO', mgo: 'MgO', so3: 'SO3', k2o: 'K2O',
     tio2: 'TiO2', mno: 'MnO', p2o5: 'P2O5'
 };
 const initialOxideState: OxideAnalysis = { pf: 34.5, sio2: 13.5, al2o3: 3.5, fe2o3: 2.2, cao: 42.5, mgo: 1.5, so3: 0.5, k2o: 0.8, tio2: 0.2, mno: 0.1, p2o5: 0.1 };
-const initialRealClinkerState: OxideAnalysis = OXIDE_KEYS.reduce((acc, key) => ({...acc, [key]: 0}), {});
+const initialRealClinkerState: OxideAnalysis = OXIDE_KEYS.reduce((acc, key) => ({ ...acc, [key]: 0 }), {});
 
 // --- LocalStorage Hook ---
 function usePersistentState<T>(key: string, defaultValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
@@ -78,20 +78,20 @@ const calculateModules = (analysis: OxideAnalysis) => {
 };
 
 const calculateC3S = (analysis: OxideAnalysis, freeLime: number, targetSo3?: number) => {
-  const s = analysis.sio2 || 0;
-  const a = analysis.al2o3 || 0;
-  const f = analysis.fe2o3 || 0;
-  const c = analysis.cao || 0;
-  const pf = analysis.pf || 0;
-  const so3 = targetSo3 ?? (analysis.so3 || 0);
+    const s = analysis.sio2 || 0;
+    const a = analysis.al2o3 || 0;
+    const f = analysis.fe2o3 || 0;
+    const c = analysis.cao || 0;
+    const pf = analysis.pf || 0;
+    const so3 = targetSo3 ?? (analysis.so3 || 0);
 
-  // Formule de Bogue corrigée selon la capture d'écran
-  // (4,07*(%CaO-(0,7*%SO3)-(1,27*%PF/2)-%CaO libre))-((7,6*%SiO2)+(6,72*%Al2O3)+(1,43*%Fe2o3))
-  const term1 = 4.07 * (c - (0.7 * so3) - (1.27 * pf / 2) - freeLime);
-  const term2 = (7.6 * s) + (6.72 * a) + (1.43 * f);
-  const c3s = term1 - term2;
-  
-  return Math.max(0, c3s);
+    // Formule de Bogue corrigée selon la capture d'écran
+    // (4,07*(%CaO-(0,7*%SO3)-(1,27*%PF/2)-%CaO libre))-((7,6*%SiO2)+(6,72*%Al2O3)+(1,43*%Fe2o3))
+    const term1 = 4.07 * (c - (0.7 * so3) - (1.27 * pf / 2) - freeLime);
+    const term2 = (7.6 * s) + (6.72 * a) + (1.43 * f);
+    const c3s = term1 - term2;
+
+    return Math.max(0, c3s);
 };
 
 
@@ -106,11 +106,11 @@ const useClinkerCalculations = (
                 }
                 return acc;
             }, 0);
-            
+
             const factor = sumNonVolatile > 0 ? (100 - targetPf) / sumNonVolatile : 0;
 
             const clinkerized: OxideAnalysis = { pf: targetPf };
-             OXIDE_KEYS.forEach(key => {
+            OXIDE_KEYS.forEach(key => {
                 if (key !== 'pf' && input[key] != null) {
                     clinkerized[key] = (input[key] as number) * factor;
                 }
@@ -124,10 +124,10 @@ const useClinkerCalculations = (
         const resolveAshPercent = (name: string, analysis: OxideAnalysis) => Number((analysis as any)?.pourcentage_cendres ?? fuelDataMap[name]?.taux_cendres ?? 0);
 
         const fuelSources = [
-          { name: "AF", flow: afFlow, analysis: afAshAnalysis },
-          { name: "Grignons", flow: grignonsFlow, analysis: grignonsAshAnalysis },
-          // { name: "Pet-Coke Preca", flow: petCokePrecaFlow, analysis: petCokePrecaAsh },
-          // { name: "Pet-Coke Tuyere", flow: petCokeTuyereFlow, analysis: petCokeTuyereAsh },
+            { name: "AF", flow: afFlow, analysis: afAshAnalysis },
+            { name: "Grignons", flow: grignonsFlow, analysis: grignonsAshAnalysis },
+            // { name: "Pet-Coke Preca", flow: petCokePrecaFlow, analysis: petCokePrecaAsh },
+            // { name: "Pet-Coke Tuyere", flow: petCokeTuyereFlow, analysis: petCokeTuyereAsh },
         ].filter(s => s.flow > 0 && s.analysis && Object.keys(s.analysis).length > 0);
 
         const totalAshFlow = fuelSources.reduce((sum, s) => sum + (s.flow * (resolveAshPercent(s.name, s.analysis) / 100)), 0);
@@ -143,22 +143,22 @@ const useClinkerCalculations = (
                 averageAshAnalysis[key] = (totalOxideInAsh / totalAshFlow) * 100;
             });
         }
-        
+
         const rawMealNonVolatileFlow = rawMealFlow * (100 - (rawMealAnalysis.pf ?? 0)) / 100;
         const clinkerProduction = rawMealNonVolatileFlow;
         const totalClinkerWithAshFlow = clinkerProduction + totalAshFlow;
 
         const clinkerWithAsh_preNormalization: OxideAnalysis = {};
         OXIDE_KEYS.forEach(key => {
-             const rawMealOxideFlow = rawMealNonVolatileFlow * ((clinkerize(rawMealAnalysis, 0)[key] ?? 0) / 100);
-             const ashOxideFlow = totalAshFlow * ((averageAshAnalysis[key] ?? 0) / 100);
-             const totalOxideFlow = rawMealOxideFlow + ashOxideFlow;
+            const rawMealOxideFlow = rawMealNonVolatileFlow * ((clinkerize(rawMealAnalysis, 0)[key] ?? 0) / 100);
+            const ashOxideFlow = totalAshFlow * ((averageAshAnalysis[key] ?? 0) / 100);
+            const totalOxideFlow = rawMealOxideFlow + ashOxideFlow;
 
-             if (totalClinkerWithAshFlow > 0) {
+            if (totalClinkerWithAshFlow > 0) {
                 clinkerWithAsh_preNormalization[key] = (totalOxideFlow / totalClinkerWithAshFlow) * 100;
-             } else {
+            } else {
                 clinkerWithAsh_preNormalization[key] = 0;
-             }
+            }
         });
 
         // --- Normalization Step for SO3 and PF ---
@@ -169,8 +169,8 @@ const useClinkerCalculations = (
             }
             return acc;
         }, 0);
-        
-        const dilutionFactor = sumPreNormalization > 0 
+
+        const dilutionFactor = sumPreNormalization > 0
             ? (100 - so3Target - pfClinkerTarget) / sumPreNormalization
             : 0;
 
@@ -178,12 +178,12 @@ const useClinkerCalculations = (
             if (key === 'so3') {
                 clinkerWithAsh[key] = so3Target;
             } else if (key === 'pf') {
-                 clinkerWithAsh[key] = pfClinkerTarget;
+                clinkerWithAsh[key] = pfClinkerTarget;
             } else {
-                 clinkerWithAsh[key] = (clinkerWithAsh_preNormalization[key] ?? 0) * dilutionFactor;
+                clinkerWithAsh[key] = (clinkerWithAsh_preNormalization[key] ?? 0) * dilutionFactor;
             }
         });
-        
+
         const modulesSans = calculateModules(clinkerWithoutAsh);
         const c3sSans = calculateC3S(clinkerWithoutAsh, freeLime, clinkerWithoutAsh.so3);
         const modulesAvec = calculateModules(clinkerWithAsh);
@@ -219,7 +219,7 @@ export default function CalculImpactPage() {
     const [grignonsAshAnalysis, setGrignonsAshAnalysis] = useState<OxideAnalysis>({});
     const [petCokePrecaAsh, setPetCokePrecaAsh] = useState<OxideAnalysis>({});
     const [petCokeTuyereAsh, setPetCokeTuyereAsh] = useState<OxideAnalysis>({});
-    
+
     const [presets, setPresets] = useState<RawMealPreset[]>([]);
     const analysisFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -238,7 +238,7 @@ export default function CalculImpactPage() {
             // Only set from preset if localStorage is empty
             const savedAnalysis = localStorage.getItem('calculImpact_rawMealAnalysis');
             if (!savedAnalysis && fetchedPresets.length > 0) {
-                 setRawMealAnalysis(fetchedPresets[0].analysis);
+                setRawMealAnalysis(fetchedPresets[0].analysis);
             }
         };
         fetchInitialPresets();
@@ -248,15 +248,15 @@ export default function CalculImpactPage() {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const [session, allFuelData, mealPresets] = await Promise.all([ getLatestMixtureSession(), getFuelData(), getRawMealPresets() ]);
-            
+            const [session, allFuelData, mealPresets] = await Promise.all([getLatestMixtureSession(), getFuelData(), getRawMealPresets()]);
+
             const fuelDataMap = allFuelData.reduce((acc, fd) => ({ ...acc, [fd.nom_combustible]: fd }), {} as Record<string, FuelData>);
             setFuelDataMap(fuelDataMap);
             setPresets(mealPresets);
 
             const savedAnalysis = localStorage.getItem('calculImpact_rawMealAnalysis');
             if (mealPresets.length > 0 && !savedAnalysis) {
-                 setRawMealAnalysis(mealPresets[0].analysis);
+                setRawMealAnalysis(mealPresets[0].analysis);
             }
 
             if (!session) {
@@ -278,7 +278,7 @@ export default function CalculImpactPage() {
             const afFuelWeights = Object.values(allAfFuelsInSession);
 
             const petCokeKeys = Object.keys(fuelDataMap).filter(k => /pet.?coke/i.test(k.replace(/\s|_/g, '')));
-            
+
             const [avgAfAsh, avgGrignonsAsh, avgPetCokeAsh] = await Promise.all([
                 getAverageAshAnalysisForFuels(afFuelNames, afFuelWeights),
                 getAverageAshAnalysisForFuels(['Grignons']),
@@ -287,7 +287,7 @@ export default function CalculImpactPage() {
 
             setAfAshAnalysis(avgAfAsh || {});
             setGrignonsAshAnalysis(avgGrignonsAsh || {});
-            
+
             const petCokeAnalysis = avgPetCokeAsh || {};
             setPetCokePrecaAsh(petCokeAnalysis);
             setPetCokeTuyereAsh(petCokeAnalysis);
@@ -306,7 +306,7 @@ export default function CalculImpactPage() {
     const grignonsFlow = useMemo(() => (latestSession?.directInputs?.['Grignons GO1']?.flowRate || 0) + (latestSession?.directInputs?.['Grignons GO2']?.flowRate || 0), [latestSession]);
     const petCokePrecaFlow = useMemo(() => latestSession?.directInputs?.['Pet-Coke Preca']?.flowRate || 0, [latestSession]);
     const petCokeTuyereFlow = useMemo(() => latestSession?.directInputs?.['Pet-Coke Tuyere']?.flowRate || 0, [latestSession]);
-    
+
     const { clinkerWithoutAsh, clinkerWithAsh, averageAshAnalysis, modulesFarine, modulesSans, modulesAvec, modulesCendres, c3sSans, c3sAvec } = useClinkerCalculations(
         rawMealFlow, rawMealAnalysis, afFlow, afAshAnalysis, grignonsFlow, grignonsAshAnalysis, petCokePrecaFlow, petCokePrecaAsh, petCokeTuyereFlow, petCokeTuyereAsh, fuelDataMap, so3Target, pfClinkerTarget, freeLime
     );
@@ -393,12 +393,12 @@ export default function CalculImpactPage() {
                 } else {
                     throw new Error("L'analyse de la farine n'a pas pu être importée (ligne 24 manquante).");
                 }
-                
+
                 // --- 2. Import Real Clinker ---
                 if (jsonData.length >= 37) {
                     const realClinkerRow: any[] = jsonData[36]; // Line 37
                     const newRealClinkerAnalysis: OxideAnalysis = {};
-                    const oxideValues = [ realClinkerRow[1], ...realClinkerRow.slice(3, 13) ]; // B, D to M
+                    const oxideValues = [realClinkerRow[1], ...realClinkerRow.slice(3, 13)]; // B, D to M
                     OXIDE_KEYS.forEach((key, index) => {
                         const value = oxideValues[index];
                         if (typeof value === 'number' && !isNaN(value)) newRealClinkerAnalysis[key] = value;
@@ -427,7 +427,7 @@ export default function CalculImpactPage() {
                         notifications.push("Taux de chlore importé pour le suivi.");
                     }
                 }
-                
+
                 toast({ title: "Importation réussie", description: notifications.join(' ') });
 
             } catch (error) {
@@ -473,10 +473,10 @@ export default function CalculImpactPage() {
             if (result) {
                 setInterpretation(result.interpretation);
             } else {
-                 throw new Error("L'assistant n'a pas retourné de réponse.");
+                throw new Error("L'assistant n'a pas retourné de réponse.");
             }
         } catch (error) {
-             const errorMessage = error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
+            const errorMessage = error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
             toast({ variant: "destructive", title: "Erreur d'interprétation", description: errorMessage });
         } finally {
             setIsInterpreting(false);
@@ -487,180 +487,180 @@ export default function CalculImpactPage() {
         return (
             <div className="mx-auto w-full max-w-7xl px-4 py-6 space-y-6">
                 <Skeleton className="h-12 w-1/3" />
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Skeleton className="h-28"/><Skeleton className="h-28"/><Skeleton className="h-28"/><Skeleton className="h-28"/></div>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /></div>
                 <div className="space-y-3 pt-6"><Skeleton className="h-8 w-1/4" /><Skeleton className="h-64 w-full" /></div>
             </div>
         );
     }
-  
-  return (
-    <div className="mx-auto w-full max-w-[90rem] px-4 py-6 space-y-6">
-      <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight text-primary flex items-center gap-3">
-              <Activity className="h-8 w-8"/>
-              Calcul d'Impact sur le Clinker
-          </h1>
-          <p className="text-muted-foreground mt-1">Simulez l'effet des cendres de combustibles sur la composition et la qualité du clinker.</p>
-      </div>
-       <input
-        type="file"
-        ref={analysisFileInputRef}
-        onChange={handleCombinedImport}
-        className="hidden"
-        accept=".xlsx, .xls"
-        disabled={isReadOnly}
-      />
-      <section>
-          <Card>
-            <CardHeader>
-                <div className="flex justify-between items-center">
-                    <CardTitle>Paramètres du Four</CardTitle>
-                    {!isReadOnly && (
-                        <Button onClick={handleSave} disabled={isSaving}>
-                            <Save className="mr-2 h-4 w-4" />
-                            {isSaving ? "Sauvegarde..." : "Sauvegarder l'Analyse"}
-                        </Button>
-                    )}
-                </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-                
-                <div className="space-y-2">
-                  <Label htmlFor="debit-farine" className="flex items-center gap-2 text-sm text-muted-foreground"><Beaker className="h-4 w-4" />Débit Farine (t/h)</Label>
-                  <Input id="debit-farine" type="number" value={rawMealFlow} onChange={e => setRawMealFlow(parseFloat(e.target.value) || 0)} className="h-10 text-lg" readOnly={isReadOnly} />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="facteur-clinkerisation" className="flex items-center gap-2 text-sm text-muted-foreground"><Gauge className="h-4 w-4" />Facteur Clinkérisation</Label>
-                  <Input id="facteur-clinkerisation" type="number" step="0.01" value={clinkerFactor} onChange={e => setClinkerFactor(parseFloat(e.target.value) || 0)} className="h-10 text-lg" readOnly={isReadOnly}/>
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="debit-clinker" className="flex items-center gap-2 text-sm text-muted-foreground"><Flame className="h-4 w-4" />Débit Clinker (t/h)</Label>
-                   <Input id="debit-clinker" type="text" value={debitClinker.toFixed(2)} readOnly disabled className="h-10 text-lg font-bold text-brand-accent bg-brand-muted border-brand-line/50" />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="chaux-libre" className="flex items-center gap-2 text-sm text-muted-foreground"><Zap className="h-4 w-4" />Chaux Libre (calcul C₃S)</Label>
-                  <Input id="chaux-libre" type="number" step="0.1" value={freeLime} onChange={e => setFreeLime(parseFloat(e.target.value) || 0)} className="h-10 text-lg" readOnly={isReadOnly}/>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="cible-so3" className="flex items-center gap-2 text-sm text-muted-foreground"><Wind className="h-4 w-4" />Cible SO₃ Clinker (%)</Label>
-                  <Input id="cible-so3" type="number" step="0.1" value={so3Target} onChange={e => setSo3Target(parseFloat(e.target.value) || 0)} className="h-10 text-lg" readOnly={isReadOnly}/>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="pf-clinker" className="flex items-center gap-2 text-sm text-muted-foreground"><Zap className="h-4 w-4" />PF Clinker (%)</Label>
-                  <Input id="pf-clinker" type="number" step="0.1" value={pfClinkerTarget} onChange={e => setPfClinkerTarget(parseFloat(e.target.value) || 0)} className="h-10 text-lg" readOnly={isReadOnly}/>
-                </div>
-
-              </div>
-            </CardContent>
-          </Card>
-      </section>
-      
-      <div className="space-y-6">
-        <div>
-            <ImpactTableHorizontal
-                rawMealAnalysis={rawMealAnalysis}
-                onRawMealChange={setRawMealAnalysis}
-                presets={presets}
-                onPresetLoad={(id) => { const p = presets.find(p => p.id === id); if(p) setRawMealAnalysis(p.analysis); }}
-                onPresetSave={fetchPresets}
-                onPresetDelete={handleDeletePreset}
-                onImport={() => analysisFileInputRef.current?.click()}
-                cendresMelange={averageAshAnalysis}
-                clinkerSans={clinkerWithoutAsh}
-                clinkerAvec={clinkerWithAsh}
-                realClinkerAnalysis={realClinkerAnalysis}
-                modulesFarine={modulesFarine}
-                modulesCendres={modulesCendres}
-                modulesSans={modulesSans}
-                modulesAvec={modulesAvec}
-                modulesReel={modulesReel}
-                c3sSans={c3sSans}
-                c3sAvec={c3sAvec}
-                c3sReel={c3sReel}
-                showDelta={true}
-                isReadOnly={isReadOnly}
+    return (
+        <div className="mx-auto w-full max-w-[90rem] px-4 py-6 space-y-6">
+            <div className="mb-8">
+                <h1 className="text-3xl font-bold tracking-tight text-primary flex items-center gap-3">
+                    <Activity className="h-8 w-8" />
+                    Calcul d'Impact sur le Clinker
+                </h1>
+                <p className="text-muted-foreground mt-1">Simulez l'effet des cendres de combustibles sur la composition et la qualité du clinker.</p>
+            </div>
+            <input
+                type="file"
+                ref={analysisFileInputRef}
+                onChange={handleCombinedImport}
+                className="hidden"
+                accept=".xlsx, .xls"
+                disabled={isReadOnly}
             />
-        </div>
-        <Card>
-            <CardHeader>
-                <div className="flex justify-between items-center">
-                    <div>
-                        <CardTitle>Impact sur les Indicateurs Clés</CardTitle>
-                        <CardDescription>Variation absolue (Avec Cendres - Sans Cendres)</CardDescription>
-                    </div>
-                    {!isReadOnly && (
-                        <Button onClick={onInterpret} disabled={isInterpreting}>
-                            <BrainCircuit className="mr-2 h-4 w-4" />
-                            {isInterpreting ? "Analyse en cours..." : "Interpréter l'Impact"}
-                        </Button>
-                    )}
-                </div>
-            </CardHeader>
-            <CardContent>
-                 <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={deltaChartData} margin={{ top: 20, right: 20, left: -10, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                        <Tooltip
-                            contentStyle={{
-                                background: "hsl(var(--background))",
-                                border: "1px solid hsl(var(--border))",
-                                color: "hsl(var(--foreground))"
-                            }}
-                            cursor={{ fill: 'hsl(var(--muted))' }}
-                        />
-                        <Bar dataKey="value" name="Variation" radius={[4, 4, 0, 0]}>
-                            {deltaChartData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
-                            ))}
-                            <LabelList 
-                                dataKey="value" 
-                                position="top" 
-                                formatter={(value: number) => value.toFixed(2)}
-                                fill="hsl(var(--foreground))"
-                                fontSize={12}
-                            />
-                        </Bar>
-                    </BarChart>
-                </ResponsiveContainer>
-            </CardContent>
-        </Card>
-
-        {isInterpreting && (
-            <Card>
-                <CardContent className="p-6">
-                     <div className="flex items-center space-x-4">
-                        <Skeleton className="h-12 w-12 rounded-full" />
-                        <div className="space-y-2">
-                            <Skeleton className="h-4 w-[250px]" />
-                            <Skeleton className="h-4 w-[200px]" />
+            <section>
+                <Card>
+                    <CardHeader>
+                        <div className="flex justify-between items-center">
+                            <CardTitle>Paramètres du Four</CardTitle>
+                            {!isReadOnly && (
+                                <Button onClick={handleSave} disabled={isSaving}>
+                                    <Save className="mr-2 h-4 w-4" />
+                                    {isSaving ? "Sauvegarde..." : "Sauvegarder l'Analyse"}
+                                </Button>
+                            )}
                         </div>
-                    </div>
-                </CardContent>
-            </Card>
-        )}
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
 
-        {interpretation && (
-            <Card>
-                <CardHeader>
-                    <CardTitle>Interprétation de l'IA</CardTitle>
-                </CardHeader>
-                <CardContent className="prose prose-sm prose-invert max-w-none">
-                    {interpretation.split('\n').map((line, index) => (
-                        <p key={index}>{line}</p>
-                    ))}
-                </CardContent>
-            </Card>
-        )}
-      </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="debit-farine" className="flex items-center gap-2 text-sm text-muted-foreground"><Beaker className="h-4 w-4" />Débit Farine (t/h)</Label>
+                                <Input id="debit-farine" type="number" value={rawMealFlow} onChange={e => setRawMealFlow(parseFloat(e.target.value) || 0)} className="h-10 text-lg" readOnly={isReadOnly} />
+                            </div>
 
-    </div>
-  )
+                            <div className="space-y-2">
+                                <Label htmlFor="facteur-clinkerisation" className="flex items-center gap-2 text-sm text-muted-foreground"><Gauge className="h-4 w-4" />Facteur Clinkérisation</Label>
+                                <Input id="facteur-clinkerisation" type="number" step="0.01" value={clinkerFactor} onChange={e => setClinkerFactor(parseFloat(e.target.value) || 0)} className="h-10 text-lg" readOnly={isReadOnly} />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="debit-clinker" className="flex items-center gap-2 text-sm text-muted-foreground"><Flame className="h-4 w-4" />Débit Clinker (t/h)</Label>
+                                <Input id="debit-clinker" type="text" value={debitClinker.toFixed(2)} readOnly disabled className="h-10 text-lg font-bold text-brand-accent bg-brand-muted border-brand-line/50" />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="chaux-libre" className="flex items-center gap-2 text-sm text-muted-foreground"><Zap className="h-4 w-4" />Chaux Libre (calcul C₃S)</Label>
+                                <Input id="chaux-libre" type="number" step="0.1" value={freeLime} onChange={e => setFreeLime(parseFloat(e.target.value) || 0)} className="h-10 text-lg" readOnly={isReadOnly} />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="cible-so3" className="flex items-center gap-2 text-sm text-muted-foreground"><Wind className="h-4 w-4" />Cible SO₃ Clinker (%)</Label>
+                                <Input id="cible-so3" type="number" step="0.1" value={so3Target} onChange={e => setSo3Target(parseFloat(e.target.value) || 0)} className="h-10 text-lg" readOnly={isReadOnly} />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="pf-clinker" className="flex items-center gap-2 text-sm text-muted-foreground"><Zap className="h-4 w-4" />PF Clinker (%)</Label>
+                                <Input id="pf-clinker" type="number" step="0.1" value={pfClinkerTarget} onChange={e => setPfClinkerTarget(parseFloat(e.target.value) || 0)} className="h-10 text-lg" readOnly={isReadOnly} />
+                            </div>
+
+                        </div>
+                    </CardContent>
+                </Card>
+            </section>
+
+            <div className="space-y-6">
+                <div>
+                    <ImpactTableHorizontal
+                        rawMealAnalysis={rawMealAnalysis}
+                        onRawMealChange={setRawMealAnalysis}
+                        presets={presets}
+                        onPresetLoad={(id) => { const p = presets.find(p => p.id === id); if (p) setRawMealAnalysis(p.analysis); }}
+                        onPresetSave={fetchPresets}
+                        onPresetDelete={handleDeletePreset}
+                        onImport={() => analysisFileInputRef.current?.click()}
+                        cendresMelange={averageAshAnalysis}
+                        clinkerSans={clinkerWithoutAsh}
+                        clinkerAvec={clinkerWithAsh}
+                        realClinkerAnalysis={realClinkerAnalysis}
+                        modulesFarine={modulesFarine}
+                        modulesCendres={modulesCendres}
+                        modulesSans={modulesSans}
+                        modulesAvec={modulesAvec}
+                        modulesReel={modulesReel}
+                        c3sSans={c3sSans}
+                        c3sAvec={c3sAvec}
+                        c3sReel={c3sReel}
+                        showDelta={true}
+                        isReadOnly={isReadOnly}
+                    />
+                </div>
+                <Card>
+                    <CardHeader>
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <CardTitle>Impact sur les Indicateurs Clés</CardTitle>
+                                <CardDescription>Variation absolue (Avec Cendres - Sans Cendres)</CardDescription>
+                            </div>
+                            {!isReadOnly && (
+                                <Button onClick={onInterpret} disabled={isInterpreting}>
+                                    <BrainCircuit className="mr-2 h-4 w-4" />
+                                    {isInterpreting ? "Analyse en cours..." : "Interpréter l'Impact"}
+                                </Button>
+                            )}
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <ResponsiveContainer width="100%" height={300}>
+                            <BarChart data={deltaChartData} margin={{ top: 20, right: 20, left: -10, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                                <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                                <Tooltip
+                                    contentStyle={{
+                                        background: "hsl(var(--background))",
+                                        border: "1px solid hsl(var(--border))",
+                                        color: "hsl(var(--foreground))"
+                                    }}
+                                    cursor={{ fill: 'hsl(var(--muted))' }}
+                                />
+                                <Bar dataKey="value" name="Variation" radius={[4, 4, 0, 0]}>
+                                    {deltaChartData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
+                                    ))}
+                                    <LabelList
+                                        dataKey="value"
+                                        position="top"
+                                        formatter={(value: number) => value.toFixed(2)}
+                                        fill="hsl(var(--foreground))"
+                                        fontSize={12}
+                                    />
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </CardContent>
+                </Card>
+
+                {isInterpreting && (
+                    <Card>
+                        <CardContent className="p-6">
+                            <div className="flex items-center space-x-4">
+                                <Skeleton className="h-12 w-12 rounded-full" />
+                                <div className="space-y-2">
+                                    <Skeleton className="h-4 w-[250px]" />
+                                    <Skeleton className="h-4 w-[200px]" />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {interpretation && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Interprétation de l'IA</CardTitle>
+                        </CardHeader>
+                        <CardContent className="prose prose-sm prose-invert max-w-none">
+                            {interpretation.split('\n').map((line, index) => (
+                                <p key={index}>{line}</p>
+                            ))}
+                        </CardContent>
+                    </Card>
+                )}
+            </div>
+
+        </div>
+    )
 }
