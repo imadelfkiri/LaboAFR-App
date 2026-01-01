@@ -9,6 +9,9 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
   },
+  "engines": {
+    "node": "20"
+  },
   "dependencies": {
     "@genkit-ai/google-genai": "^1.0.0",
     "@hookform/resolvers": "^3.9.0",

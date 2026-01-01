@@ -100,9 +100,10 @@ const useClinkerCalculations = (
 ) => {
     return useMemo(() => {
         const clinkerize = (input: OxideAnalysis, targetPf: number) => {
-            const sumNonVolatile = OXIDE_KEYS.reduce((acc, key) => {
-                if (key !== 'pf' && input[key] != null) {
-                    return acc + (input[key] as number);
+            const sumNonVolatile = OXIDE_KEYS.reduce((acc: number, key) => {
+                const val = input[key];
+                if (key !== 'pf' && val != null) {
+                    return acc + Number(val);
                 }
                 return acc;
             }, 0);
@@ -163,9 +164,10 @@ const useClinkerCalculations = (
 
         // --- Normalization Step for SO3 and PF ---
         const clinkerWithAsh: OxideAnalysis = {};
-        const sumPreNormalization = OXIDE_KEYS.reduce((acc, key) => {
+        const sumPreNormalization = OXIDE_KEYS.reduce((acc: number, key) => {
             if (key !== 'so3' && key !== 'pf') {
-                return acc + (clinkerWithAsh_preNormalization[key] ?? 0);
+                const val = clinkerWithAsh_preNormalization[key];
+                return acc + (val != null ? Number(val) : 0);
             }
             return acc;
         }, 0);
