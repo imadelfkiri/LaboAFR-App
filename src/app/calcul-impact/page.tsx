@@ -1,0 +1,666 @@
+
+
+// app/calcul-impact/page.tsx
+"use client"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Flame, Beaker, Gauge, Save, Trash2, FileDown, Wind, Zap, Upload, BrainCircuit, Activity } from "lucide-react"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger, DialogClose } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { getLatestMixtureSession, getAverageAshAnalysisForFuels, getFuelData, type MixtureSession, type AshAnalysis, type FuelData, getRawMealPresets, saveRawMealPreset, deleteRawMealPreset, type RawMealPreset, saveImpactAnalysis, ImpactAnalysis } from '@/lib/data';
+import ImpactTableHorizontal from "@/components/impact-table-horizontal";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LabelList, Cell } from 'recharts';
+import* as XLSX from 'xlsx';
+import { Label } from "@/components/ui/label"
+import { handleInterpretImpact } from "@/lib/actions"
+import type { ImpactInterpreterInput, ImpactInterpreterOutput } from "@/ai/flows/impact-interpreter-flow"
+import { useAuth } from "@/context/auth-provider";
+
+
+// --- Type Definitions ---
+export type OxideAnalysis = {
+    [key: string]: number | undefined | null;
+    pf?: number | null; sio2?: number | null; al2o3?: number | null; fe2o3?: number | null;
+    cao?: number | null; mgo?: number | null; so3?: number | null; k2o?: number | null;
+    tio2?: number | null; mno?: number | null; p2o5?: number | null;
+};
+export const OXIDE_KEYS: (keyof OxideAnalysis)[] = ['pf', 'sio2', 'al2o3', 'fe2o3', 'cao', 'mgo', 'so3', 'k2o', 'tio2', 'mno', 'p2o5'];
+export const OXIDE_LABELS: Record<keyof OxideAnalysis, string> = {
+    pf: 'PF', sio2: 'SiO2', al2o3: 'Al2O3', fe2o3: 'Fe2O3',
+    cao: 'CaO', mgo: 'MgO', so3: 'SO3', k2o: 'K2O',
+    tio2: 'TiO2', mno: 'MnO', p2o5: 'P2O5'
+};
+const initialOxideState: OxideAnalysis = { pf: 34.5, sio2: 13.5, al2o3: 3.5, fe2o3: 2.2, cao: 42.5, mgo: 1.5, so3: 0.5, k2o: 0.8, tio2: 0.2, mno: 0.1, p2o5: 0.1 };
+const initialRealClinkerState: OxideAnalysis = OXIDE_KEYS.reduce((acc, key) => ({...acc, [key]: 0}), {});
+
+// --- LocalStorage Hook ---
+function usePersistentState<T>(key: string, defaultValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
+    const [state, setState] = useState<T>(() => {
+        try {
+            if (typeof window === 'undefined') {
+                return defaultValue;
+            }
+            const storedValue = localStorage.getItem(key);
+            return storedValue ? JSON.parse(storedValue) : defaultValue;
+        } catch {
+            return defaultValue;
+        }
+    });
+
+    useEffect(() => {
+        try {
+            if (typeof window !== 'undefined') {
+                localStorage.setItem(key, JSON.stringify(state));
+            }
+        } catch (error) {
+            console.error("Could not save to localStorage", error);
+        }
+    }, [key, state]);
+
+    return [state, setState];
+}
+
+
+// --- Hooks and Logic ---
+const calculateModules = (analysis: OxideAnalysis) => {
+    const s = analysis.sio2 || 0, a = analysis.al2o3 || 0, f = analysis.fe2o3 || 0, c = analysis.cao || 0;
+    const ms_denom = a + f, af_denom = f, lsf_denom = (2.8 * s) + (1.18 * a) + (0.65 * f);
+    return {
+        ms: ms_denom > 0 ? s / ms_denom : 0,
+        af: af_denom > 0 ? a / af_denom : 0,
+        lsf: lsf_denom > 0 ? (100 * c) / lsf_denom : 0,
+    };
+};
+
+const calculateC3S = (analysis: OxideAnalysis, freeLime: number, targetSo3?: number) => {
+  const s = analysis.sio2 || 0;
+  const a = analysis.al2o3 || 0;
+  const f = analysis.fe2o3 || 0;
+  const c = analysis.cao || 0;
+  const pf = analysis.pf || 0;
+  const so3 = targetSo3 ?? (analysis.so3 || 0);
+
+  // Formule de Bogue corrigée selon la capture d'écran
+  // (4,07*(%CaO-(0,7*%SO3)-(1,27*%PF/2)-%CaO libre))-((7,6*%SiO2)+(6,72*%Al2O3)+(1,43*%Fe2o3))
+  const term1 = 4.07 * (c - (0.7 * so3) - (1.27 * pf / 2) - freeLime);
+  const term2 = (7.6 * s) + (6.72 * a) + (1.43 * f);
+  const c3s = term1 - term2;
+  
+  return Math.max(0, c3s);
+};
+
+
+const useClinkerCalculations = (
+    rawMealFlow: number, rawMealAnalysis: OxideAnalysis, afFlow: number, afAshAnalysis: OxideAnalysis, grignonsFlow: number, grignonsAshAnalysis: OxideAnalysis, petCokePrecaFlow: number, petCokePrecaAsh: OxideAnalysis, petCokeTuyereFlow: number, petCokeTuyereAsh: OxideAnalysis, fuelDataMap: Record<string, FuelData>, so3Target: number, pfClinkerTarget: number, freeLime: number
+) => {
+    return useMemo(() => {
+        const clinkerize = (input: OxideAnalysis, targetPf: number) => {
+            const sumNonVolatile = OXIDE_KEYS.reduce((acc, key) => {
+                if (key !== 'pf' && input[key] != null) {
+                    return acc + (input[key] as number);
+                }
+                return acc;
+            }, 0);
+            
+            const factor = sumNonVolatile > 0 ? (100 - targetPf) / sumNonVolatile : 0;
+
+            const clinkerized: OxideAnalysis = { pf: targetPf };
+             OXIDE_KEYS.forEach(key => {
+                if (key !== 'pf' && input[key] != null) {
+                    clinkerized[key] = (input[key] as number) * factor;
+                }
+            });
+            return clinkerized;
+        };
+
+        const clinkerWithoutAsh = clinkerize(rawMealAnalysis, pfClinkerTarget);
+        const modulesFarine = calculateModules(clinkerize(rawMealAnalysis, 0));
+
+        const resolveAshPercent = (name: string, analysis: OxideAnalysis) => Number((analysis as any)?.pourcentage_cendres ?? fuelDataMap[name]?.taux_cendres ?? 0);
+
+        const fuelSources = [
+          { name: "AF", flow: afFlow, analysis: afAshAnalysis },
+          { name: "Grignons", flow: grignonsFlow, analysis: grignonsAshAnalysis },
+          // { name: "Pet-Coke Preca", flow: petCokePrecaFlow, analysis: petCokePrecaAsh },
+          // { name: "Pet-Coke Tuyere", flow: petCokeTuyereFlow, analysis: petCokeTuyereAsh },
+        ].filter(s => s.flow > 0 && s.analysis && Object.keys(s.analysis).length > 0);
+
+        const totalAshFlow = fuelSources.reduce((sum, s) => sum + (s.flow * (resolveAshPercent(s.name, s.analysis) / 100)), 0);
+
+        const averageAshAnalysis: OxideAnalysis = {};
+        if (totalAshFlow > 0) {
+            OXIDE_KEYS.forEach(key => {
+                const totalOxideInAsh = fuelSources.reduce((sum, s) => {
+                    const ashPercent = resolveAshPercent(s.name, s.analysis) / 100;
+                    const oxidePercentInAsh = (s.analysis[key] ?? 0) / 100;
+                    return sum + (s.flow * ashPercent * oxidePercentInAsh);
+                }, 0);
+                averageAshAnalysis[key] = (totalOxideInAsh / totalAshFlow) * 100;
+            });
+        }
+        
+        const rawMealNonVolatileFlow = rawMealFlow * (100 - (rawMealAnalysis.pf ?? 0)) / 100;
+        const clinkerProduction = rawMealNonVolatileFlow;
+        const totalClinkerWithAshFlow = clinkerProduction + totalAshFlow;
+
+        const clinkerWithAsh_preNormalization: OxideAnalysis = {};
+        OXIDE_KEYS.forEach(key => {
+             const rawMealOxideFlow = rawMealNonVolatileFlow * ((clinkerize(rawMealAnalysis, 0)[key] ?? 0) / 100);
+             const ashOxideFlow = totalAshFlow * ((averageAshAnalysis[key] ?? 0) / 100);
+             const totalOxideFlow = rawMealOxideFlow + ashOxideFlow;
+
+             if (totalClinkerWithAshFlow > 0) {
+                clinkerWithAsh_preNormalization[key] = (totalOxideFlow / totalClinkerWithAshFlow) * 100;
+             } else {
+                clinkerWithAsh_preNormalization[key] = 0;
+             }
+        });
+
+        // --- Normalization Step for SO3 and PF ---
+        const clinkerWithAsh: OxideAnalysis = {};
+        const sumPreNormalization = OXIDE_KEYS.reduce((acc, key) => {
+            if (key !== 'so3' && key !== 'pf') {
+                return acc + (clinkerWithAsh_preNormalization[key] ?? 0);
+            }
+            return acc;
+        }, 0);
+        
+        const dilutionFactor = sumPreNormalization > 0 
+            ? (100 - so3Target - pfClinkerTarget) / sumPreNormalization
+            : 0;
+
+        OXIDE_KEYS.forEach(key => {
+            if (key === 'so3') {
+                clinkerWithAsh[key] = so3Target;
+            } else if (key === 'pf') {
+                 clinkerWithAsh[key] = pfClinkerTarget;
+            } else {
+                 clinkerWithAsh[key] = (clinkerWithAsh_preNormalization[key] ?? 0) * dilutionFactor;
+            }
+        });
+        
+        const modulesSans = calculateModules(clinkerWithoutAsh);
+        const c3sSans = calculateC3S(clinkerWithoutAsh, freeLime, clinkerWithoutAsh.so3);
+        const modulesAvec = calculateModules(clinkerWithAsh);
+        const c3sAvec = calculateC3S(clinkerWithAsh, freeLime, so3Target);
+        const modulesCendres = calculateModules(averageAshAnalysis);
+
+
+        return { clinkerWithoutAsh, clinkerWithAsh, averageAshAnalysis, modulesFarine, modulesSans, modulesAvec, modulesCendres, c3sSans, c3sAvec };
+    }, [rawMealFlow, rawMealAnalysis, afFlow, afAshAnalysis, grignonsFlow, grignonsAshAnalysis, petCokePrecaFlow, petCokePrecaAsh, petCokeTuyereFlow, petCokeTuyereAsh, fuelDataMap, so3Target, pfClinkerTarget, freeLime]);
+};
+
+// --- Page Component ---
+export default function CalculImpactPage() {
+    const { userProfile } = useAuth();
+    const isReadOnly = userProfile?.role === 'viewer';
+    const { toast } = useToast();
+    const [loading, setLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
+    const [fuelDataMap, setFuelDataMap] = useState<Record<string, FuelData>>({});
+
+    const [rawMealFlow, setRawMealFlow] = usePersistentState<number>('calculImpact_rawMealFlow', 180);
+    const [rawMealAnalysis, setRawMealAnalysis] = usePersistentState<OxideAnalysis>('calculImpact_rawMealAnalysis', initialOxideState);
+    const [clinkerFactor, setClinkerFactor] = usePersistentState<number>('calculImpact_clinkerFactor', 0.6);
+    const [freeLime, setFreeLime] = usePersistentState<number>('calculImpact_freeLime', 1.5);
+    const [so3Target, setSo3Target] = usePersistentState<number>('calculImpact_so3Target', 1.4);
+    const [pfClinkerTarget, setPfClinkerTarget] = usePersistentState<number>('calculImpact_pfClinker', 0.5);
+
+    const [realClinkerAnalysis, setRealClinkerAnalysis] = usePersistentState<OxideAnalysis>('calculImpact_realClinkerAnalysis', initialRealClinkerState);
+    const [realFreeLime, setRealFreeLime] = usePersistentState<number>('calculImpact_realFreeLime', 1.5);
+
+    const [latestSession, setLatestSession] = useState<MixtureSession | null>(null);
+    const [afAshAnalysis, setAfAshAnalysis] = useState<OxideAnalysis>({});
+    const [grignonsAshAnalysis, setGrignonsAshAnalysis] = useState<OxideAnalysis>({});
+    const [petCokePrecaAsh, setPetCokePrecaAsh] = useState<OxideAnalysis>({});
+    const [petCokeTuyereAsh, setPetCokeTuyereAsh] = useState<OxideAnalysis>({});
+    
+    const [presets, setPresets] = useState<RawMealPreset[]>([]);
+    const analysisFileInputRef = useRef<HTMLInputElement>(null);
+
+    const [isInterpreting, setIsInterpreting] = useState(false);
+    const [interpretation, setInterpretation] = useState<string | null>(null);
+
+    const fetchPresets = useCallback(async () => {
+        const fetchedPresets = await getRawMealPresets();
+        setPresets(fetchedPresets);
+    }, []);
+
+    useEffect(() => {
+        const fetchInitialPresets = async () => {
+            const fetchedPresets = await getRawMealPresets();
+            setPresets(fetchedPresets);
+            // Only set from preset if localStorage is empty
+            const savedAnalysis = localStorage.getItem('calculImpact_rawMealAnalysis');
+            if (!savedAnalysis && fetchedPresets.length > 0) {
+                 setRawMealAnalysis(fetchedPresets[0].analysis);
+            }
+        };
+        fetchInitialPresets();
+    }, [setRawMealAnalysis]);
+
+
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const [session, allFuelData, mealPresets] = await Promise.all([ getLatestMixtureSession(), getFuelData(), getRawMealPresets() ]);
+            
+            const fuelDataMap = allFuelData.reduce((acc, fd) => ({ ...acc, [fd.nom_combustible]: fd }), {} as Record<string, FuelData>);
+            setFuelDataMap(fuelDataMap);
+            setPresets(mealPresets);
+
+            const savedAnalysis = localStorage.getItem('calculImpact_rawMealAnalysis');
+            if (mealPresets.length > 0 && !savedAnalysis) {
+                 setRawMealAnalysis(mealPresets[0].analysis);
+            }
+
+            if (!session) {
+                toast({ variant: "destructive", title: "Aucune session de mélange trouvée" });
+                setLoading(false);
+                return;
+            }
+            setLatestSession(session);
+
+            const allAfFuelsInSession = Object.entries(session.hallAF?.fuels || {}).concat(Object.entries(session.ats?.fuels || {}))
+                .filter(([name]) => name.toLowerCase() !== 'grignons')
+                .reduce((acc, [name, data]) => {
+                    const weight = (data.buckets || 0) * (fuelDataMap[name]?.poids_godet || 1.5);
+                    acc[name] = (acc[name] || 0) + weight;
+                    return acc;
+                }, {} as Record<string, number>);
+
+            const afFuelNames = Object.keys(allAfFuelsInSession);
+            const afFuelWeights = Object.values(allAfFuelsInSession);
+
+            const petCokeKeys = Object.keys(fuelDataMap).filter(k => /pet.?coke/i.test(k.replace(/\s|_/g, '')));
+            
+            const [avgAfAsh, avgGrignonsAsh, avgPetCokeAsh] = await Promise.all([
+                getAverageAshAnalysisForFuels(afFuelNames, afFuelWeights),
+                getAverageAshAnalysisForFuels(['Grignons']),
+                getAverageAshAnalysisForFuels(petCokeKeys),
+            ]);
+
+            setAfAshAnalysis(avgAfAsh || {});
+            setGrignonsAshAnalysis(avgGrignonsAsh || {});
+            
+            const petCokeAnalysis = avgPetCokeAsh || {};
+            setPetCokePrecaAsh(petCokeAnalysis);
+            setPetCokeTuyereAsh(petCokeAnalysis);
+
+        } catch (error) {
+            console.error(error);
+            toast({ variant: "destructive", title: "Erreur", description: "Impossible de charger les données initiales." });
+        } finally {
+            setLoading(false);
+        }
+    }, [toast, setRawMealAnalysis]);
+
+    useEffect(() => { fetchData(); }, [fetchData]);
+
+    const afFlow = useMemo(() => (latestSession?.hallAF?.flowRate || 0) + (latestSession?.ats?.flowRate || 0), [latestSession]);
+    const grignonsFlow = useMemo(() => (latestSession?.directInputs?.['Grignons GO1']?.flowRate || 0) + (latestSession?.directInputs?.['Grignons GO2']?.flowRate || 0), [latestSession]);
+    const petCokePrecaFlow = useMemo(() => latestSession?.directInputs?.['Pet-Coke Preca']?.flowRate || 0, [latestSession]);
+    const petCokeTuyereFlow = useMemo(() => latestSession?.directInputs?.['Pet-Coke Tuyere']?.flowRate || 0, [latestSession]);
+    
+    const { clinkerWithoutAsh, clinkerWithAsh, averageAshAnalysis, modulesFarine, modulesSans, modulesAvec, modulesCendres, c3sSans, c3sAvec } = useClinkerCalculations(
+        rawMealFlow, rawMealAnalysis, afFlow, afAshAnalysis, grignonsFlow, grignonsAshAnalysis, petCokePrecaFlow, petCokePrecaAsh, petCokeTuyereFlow, petCokeTuyereAsh, fuelDataMap, so3Target, pfClinkerTarget, freeLime
+    );
+
+    const modulesReel = useMemo(() => calculateModules(realClinkerAnalysis), [realClinkerAnalysis]);
+    const c3sReel = useMemo(() => calculateC3S(realClinkerAnalysis, realFreeLime, realClinkerAnalysis.so3), [realClinkerAnalysis, realFreeLime]);
+
+    const debitClinker = useMemo(() => {
+        const debit = rawMealFlow * clinkerFactor;
+        // Always save to localStorage on calculation
+        if (typeof window !== 'undefined') {
+            try {
+                localStorage.setItem('debitClinker', JSON.stringify(debit));
+            } catch (e) {
+                console.error("Failed to save debitClinker to localStorage", e);
+            }
+        }
+        return debit;
+    }, [rawMealFlow, clinkerFactor]);
+
+
+    const handleSave = async () => {
+        if (isReadOnly) return;
+        setIsSaving(true);
+        try {
+            const analysisToSave: Omit<ImpactAnalysis, 'id' | 'createdAt'> = {
+                parameters: {
+                    rawMealFlow, clinkerFactor, freeLime, so3Target, pfClinkerTarget, realFreeLime,
+                    afFlow, grignonsFlow, petCokePrecaFlow, petCokeTuyereFlow
+                },
+                inputs: {
+                    rawMealAnalysis, realClinkerAnalysis, averageAshAnalysis
+                },
+                results: {
+                    clinkerWithoutAsh, clinkerWithAsh, modulesFarine, modulesCendres, modulesSans, modulesAvec, modulesReel, c3sSans: c3sSans || 0, c3sAvec: c3sAvec || 0, c3sReel: c3sReel || 0,
+                }
+            };
+            await saveImpactAnalysis(analysisToSave);
+            toast({ title: "Analyse sauvegardée", description: "L'instantané du calcul a été enregistré dans l'historique." });
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
+            toast({ variant: "destructive", title: "Erreur de sauvegarde", description: errorMessage });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+
+    const handleDeletePreset = async (id: string) => {
+        if (isReadOnly) return;
+        await deleteRawMealPreset(id);
+        toast({ title: "Preset supprimé." });
+        fetchPresets();
+    };
+
+    const handleCombinedImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+        if (isReadOnly) return;
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = new Uint8Array(e.target?.result as ArrayBuffer);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                let notifications: string[] = [];
+
+                // --- 1. Import Raw Meal ---
+                if (jsonData.length >= 24) {
+                    const rawMealRow: any[] = jsonData[23]; // Line 24
+                    const newRawMealAnalysis: OxideAnalysis = {};
+                    const values = rawMealRow.slice(1, 12); // B to L
+                    OXIDE_KEYS.forEach((key, index) => {
+                        const value = values[index];
+                        if (typeof value === 'number' && !isNaN(value)) newRawMealAnalysis[key] = value;
+                        else if (typeof value === 'string') newRawMealAnalysis[key] = parseFloat(value.replace(',', '.')) || 0;
+                        else newRawMealAnalysis[key] = 0;
+                    });
+                    setRawMealAnalysis(newRawMealAnalysis);
+                    notifications.push("Analyse de la farine mise à jour.");
+                } else {
+                    throw new Error("L'analyse de la farine n'a pas pu être importée (ligne 24 manquante).");
+                }
+                
+                // --- 2. Import Real Clinker ---
+                if (jsonData.length >= 37) {
+                    const realClinkerRow: any[] = jsonData[36]; // Line 37
+                    const newRealClinkerAnalysis: OxideAnalysis = {};
+                    const oxideValues = [ realClinkerRow[1], ...realClinkerRow.slice(3, 13) ]; // B, D to M
+                    OXIDE_KEYS.forEach((key, index) => {
+                        const value = oxideValues[index];
+                        if (typeof value === 'number' && !isNaN(value)) newRealClinkerAnalysis[key] = value;
+                        else if (typeof value === 'string') newRealClinkerAnalysis[key] = parseFloat(value.replace(',', '.')) || 0;
+                        else newRealClinkerAnalysis[key] = 0;
+                    });
+                    setRealClinkerAnalysis(newRealClinkerAnalysis);
+
+                    const freeLimeValue = realClinkerRow[2]; // Column C
+                    let parsedFreeLime = 0;
+                    if (typeof freeLimeValue === 'number' && !isNaN(freeLimeValue)) parsedFreeLime = freeLimeValue;
+                    else if (typeof freeLimeValue === 'string') parsedFreeLime = parseFloat(freeLimeValue.replace(',', '.')) || 0;
+                    setRealFreeLime(parsedFreeLime);
+                    notifications.push("Analyse du clinker réel et chaux libre mis à jour.");
+                } else {
+                    throw new Error("L'analyse du clinker réel n'a pas pu être importée (ligne 37 manquante).");
+                }
+
+                // --- 3. Import Hot Meal Chlorine ---
+                const chlorineCellAddress = 'X24';
+                const chlorineCellValue = worksheet[chlorineCellAddress]?.v;
+                if (chlorineCellValue !== undefined) {
+                    const parsedChlorine = parseFloat(String(chlorineCellValue).replace(',', '.'));
+                    if (!isNaN(parsedChlorine) && typeof window !== 'undefined') {
+                        localStorage.setItem('importedHotMealChlorine', JSON.stringify(parsedChlorine));
+                        notifications.push("Taux de chlore importé pour le suivi.");
+                    }
+                }
+                
+                toast({ title: "Importation réussie", description: notifications.join(' ') });
+
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
+                toast({ variant: "destructive", title: "Erreur d'importation", description: errorMessage });
+            } finally {
+                if (analysisFileInputRef.current) {
+                    analysisFileInputRef.current.value = "";
+                }
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    };
+
+    const deltaChartData = useMemo(() => {
+        const delta = (a?: number | null, b?: number | null) => (a ?? 0) - (b ?? 0);
+        return [
+            { name: 'Fe2O3', value: delta(clinkerWithAsh.fe2o3, clinkerWithoutAsh.fe2o3) },
+            { name: 'CaO', value: delta(clinkerWithAsh.cao, clinkerWithoutAsh.cao) },
+            { name: 'LSF', value: delta(modulesAvec.lsf, modulesSans.lsf) },
+            { name: 'C3S', value: delta(c3sAvec, c3sSans) },
+            { name: 'MS', value: delta(modulesAvec.ms, modulesSans.ms) },
+            { name: 'AF', value: delta(modulesAvec.af, modulesSans.af) }
+        ];
+    }, [clinkerWithAsh, clinkerWithoutAsh, modulesAvec, modulesSans, c3sAvec, c3sSans]);
+
+    const chartColors = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F'];
+
+    const onInterpret = async () => {
+        if (isReadOnly) return;
+        setIsInterpreting(true);
+        setInterpretation(null);
+        try {
+            const input: ImpactInterpreterInput = {
+                clinkerWithoutAsh: clinkerWithoutAsh,
+                clinkerWithAsh: clinkerWithAsh,
+                modulesSans: modulesSans,
+                modulesAvec: modulesAvec,
+                c3sSans: c3sSans,
+                c3sAvec: c3sAvec,
+            };
+            const result = await handleInterpretImpact(input);
+            if (result) {
+                setInterpretation(result.interpretation);
+            } else {
+                 throw new Error("L'assistant n'a pas retourné de réponse.");
+            }
+        } catch (error) {
+             const errorMessage = error instanceof Error ? error.message : "Une erreur inconnue est survenue.";
+            toast({ variant: "destructive", title: "Erreur d'interprétation", description: errorMessage });
+        } finally {
+            setIsInterpreting(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="mx-auto w-full max-w-7xl px-4 py-6 space-y-6">
+                <Skeleton className="h-12 w-1/3" />
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Skeleton className="h-28"/><Skeleton className="h-28"/><Skeleton className="h-28"/><Skeleton className="h-28"/></div>
+                <div className="space-y-3 pt-6"><Skeleton className="h-8 w-1/4" /><Skeleton className="h-64 w-full" /></div>
+            </div>
+        );
+    }
+  
+  return (
+    <div className="mx-auto w-full max-w-[90rem] px-4 py-6 space-y-6">
+      <div className="mb-8">
+          <h1 className="text-3xl font-bold tracking-tight text-primary flex items-center gap-3">
+              <Activity className="h-8 w-8"/>
+              Calcul d'Impact sur le Clinker
+          </h1>
+          <p className="text-muted-foreground mt-1">Simulez l'effet des cendres de combustibles sur la composition et la qualité du clinker.</p>
+      </div>
+       <input
+        type="file"
+        ref={analysisFileInputRef}
+        onChange={handleCombinedImport}
+        className="hidden"
+        accept=".xlsx, .xls"
+        disabled={isReadOnly}
+      />
+      <section>
+          <Card>
+            <CardHeader>
+                <div className="flex justify-between items-center">
+                    <CardTitle>Paramètres du Four</CardTitle>
+                    {!isReadOnly && (
+                        <Button onClick={handleSave} disabled={isSaving}>
+                            <Save className="mr-2 h-4 w-4" />
+                            {isSaving ? "Sauvegarde..." : "Sauvegarder l'Analyse"}
+                        </Button>
+                    )}
+                </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+                
+                <div className="space-y-2">
+                  <Label htmlFor="debit-farine" className="flex items-center gap-2 text-sm text-muted-foreground"><Beaker className="h-4 w-4" />Débit Farine (t/h)</Label>
+                  <Input id="debit-farine" type="number" value={rawMealFlow} onChange={e => setRawMealFlow(parseFloat(e.target.value) || 0)} className="h-10 text-lg" readOnly={isReadOnly} />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="facteur-clinkerisation" className="flex items-center gap-2 text-sm text-muted-foreground"><Gauge className="h-4 w-4" />Facteur Clinkérisation</Label>
+                  <Input id="facteur-clinkerisation" type="number" step="0.01" value={clinkerFactor} onChange={e => setClinkerFactor(parseFloat(e.target.value) || 0)} className="h-10 text-lg" readOnly={isReadOnly}/>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="debit-clinker" className="flex items-center gap-2 text-sm text-muted-foreground"><Flame className="h-4 w-4" />Débit Clinker (t/h)</Label>
+                   <Input id="debit-clinker" type="text" value={debitClinker.toFixed(2)} readOnly disabled className="h-10 text-lg font-bold text-brand-accent bg-brand-muted border-brand-line/50" />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="chaux-libre" className="flex items-center gap-2 text-sm text-muted-foreground"><Zap className="h-4 w-4" />Chaux Libre (calcul C₃S)</Label>
+                  <Input id="chaux-libre" type="number" step="0.1" value={freeLime} onChange={e => setFreeLime(parseFloat(e.target.value) || 0)} className="h-10 text-lg" readOnly={isReadOnly}/>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="cible-so3" className="flex items-center gap-2 text-sm text-muted-foreground"><Wind className="h-4 w-4" />Cible SO₃ Clinker (%)</Label>
+                  <Input id="cible-so3" type="number" step="0.1" value={so3Target} onChange={e => setSo3Target(parseFloat(e.target.value) || 0)} className="h-10 text-lg" readOnly={isReadOnly}/>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="pf-clinker" className="flex items-center gap-2 text-sm text-muted-foreground"><Zap className="h-4 w-4" />PF Clinker (%)</Label>
+                  <Input id="pf-clinker" type="number" step="0.1" value={pfClinkerTarget} onChange={e => setPfClinkerTarget(parseFloat(e.target.value) || 0)} className="h-10 text-lg" readOnly={isReadOnly}/>
+                </div>
+
+              </div>
+            </CardContent>
+          </Card>
+      </section>
+      
+      <div className="space-y-6">
+        <div>
+            <ImpactTableHorizontal
+                rawMealAnalysis={rawMealAnalysis}
+                onRawMealChange={setRawMealAnalysis}
+                presets={presets}
+                onPresetLoad={(id) => { const p = presets.find(p => p.id === id); if(p) setRawMealAnalysis(p.analysis); }}
+                onPresetSave={fetchPresets}
+                onPresetDelete={handleDeletePreset}
+                onImport={() => analysisFileInputRef.current?.click()}
+                cendresMelange={averageAshAnalysis}
+                clinkerSans={clinkerWithoutAsh}
+                clinkerAvec={clinkerWithAsh}
+                realClinkerAnalysis={realClinkerAnalysis}
+                modulesFarine={modulesFarine}
+                modulesCendres={modulesCendres}
+                modulesSans={modulesSans}
+                modulesAvec={modulesAvec}
+                modulesReel={modulesReel}
+                c3sSans={c3sSans}
+                c3sAvec={c3sAvec}
+                c3sReel={c3sReel}
+                showDelta={true}
+                isReadOnly={isReadOnly}
+            />
+        </div>
+        <Card>
+            <CardHeader>
+                <div className="flex justify-between items-center">
+                    <div>
+                        <CardTitle>Impact sur les Indicateurs Clés</CardTitle>
+                        <CardDescription>Variation absolue (Avec Cendres - Sans Cendres)</CardDescription>
+                    </div>
+                    {!isReadOnly && (
+                        <Button onClick={onInterpret} disabled={isInterpreting}>
+                            <BrainCircuit className="mr-2 h-4 w-4" />
+                            {isInterpreting ? "Analyse en cours..." : "Interpréter l'Impact"}
+                        </Button>
+                    )}
+                </div>
+            </CardHeader>
+            <CardContent>
+                 <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={deltaChartData} margin={{ top: 20, right: 20, left: -10, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                        <Tooltip
+                            contentStyle={{
+                                background: "hsl(var(--background))",
+                                border: "1px solid hsl(var(--border))",
+                                color: "hsl(var(--foreground))"
+                            }}
+                            cursor={{ fill: 'hsl(var(--muted))' }}
+                        />
+                        <Bar dataKey="value" name="Variation" radius={[4, 4, 0, 0]}>
+                            {deltaChartData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
+                            ))}
+                            <LabelList 
+                                dataKey="value" 
+                                position="top" 
+                                formatter={(value: number) => value.toFixed(2)}
+                                fill="hsl(var(--foreground))"
+                                fontSize={12}
+                            />
+                        </Bar>
+                    </BarChart>
+                </ResponsiveContainer>
+            </CardContent>
+        </Card>
+
+        {isInterpreting && (
+            <Card>
+                <CardContent className="p-6">
+                     <div className="flex items-center space-x-4">
+                        <Skeleton className="h-12 w-12 rounded-full" />
+                        <div className="space-y-2">
+                            <Skeleton className="h-4 w-[250px]" />
+                            <Skeleton className="h-4 w-[200px]" />
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+        )}
+
+        {interpretation && (
+            <Card>
+                <CardHeader>
+                    <CardTitle>Interprétation de l'IA</CardTitle>
+                </CardHeader>
+                <CardContent className="prose prose-sm prose-invert max-w-none">
+                    {interpretation.split('\n').map((line, index) => (
+                        <p key={index}>{line}</p>
+                    ))}
+                </CardContent>
+            </Card>
+        )}
+      </div>
+
+    </div>
+  )
+}
